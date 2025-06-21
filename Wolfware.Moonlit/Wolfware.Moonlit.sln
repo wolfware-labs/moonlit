@@ -1,0 +1,53 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Cli", "Wolfware.Moonlit.Cli\Wolfware.Moonlit.Cli.csproj", "{3792579D-8B59-41CD-8CA6-2A761B1A9151}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Core", "Wolfware.Moonlit.Core\Wolfware.Moonlit.Core.csproj", "{D6893E10-2DAB-4A05-BFF3-EB56A9A6E392}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins", "Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj", "{03C8CAFD-54B9-4446-8E27-6E1899142501}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Github", "Wolfware.Moonlit.Plugins.Github\Wolfware.Moonlit.Plugins.Github.csproj", "{636662C7-56E3-4600-9E4C-211B9550C422}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.ConventionalCommits", "Wolfware.Moonlit.Plugins.ConventionalCommits\Wolfware.Moonlit.Plugins.ConventionalCommits.csproj", "{0D6A376A-6A88-4936-9508-317FDC260A46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Slack", "Wolfware.Moonlit.Plugins.Slack\Wolfware.Moonlit.Plugins.Slack.csproj", "{159DF930-A111-409F-8A11-59184DCF253F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_SolutionItems", "_SolutionItems", "{13C386E2-A161-4A86-8789-7E6DF6AA258F}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+		global.json = global.json
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3792579D-8B59-41CD-8CA6-2A761B1A9151}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3792579D-8B59-41CD-8CA6-2A761B1A9151}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3792579D-8B59-41CD-8CA6-2A761B1A9151}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3792579D-8B59-41CD-8CA6-2A761B1A9151}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6893E10-2DAB-4A05-BFF3-EB56A9A6E392}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6893E10-2DAB-4A05-BFF3-EB56A9A6E392}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6893E10-2DAB-4A05-BFF3-EB56A9A6E392}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6893E10-2DAB-4A05-BFF3-EB56A9A6E392}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03C8CAFD-54B9-4446-8E27-6E1899142501}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03C8CAFD-54B9-4446-8E27-6E1899142501}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03C8CAFD-54B9-4446-8E27-6E1899142501}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03C8CAFD-54B9-4446-8E27-6E1899142501}.Release|Any CPU.Build.0 = Release|Any CPU
+		{636662C7-56E3-4600-9E4C-211B9550C422}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{636662C7-56E3-4600-9E4C-211B9550C422}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{636662C7-56E3-4600-9E4C-211B9550C422}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{636662C7-56E3-4600-9E4C-211B9550C422}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D6A376A-6A88-4936-9508-317FDC260A46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D6A376A-6A88-4936-9508-317FDC260A46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D6A376A-6A88-4936-9508-317FDC260A46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D6A376A-6A88-4936-9508-317FDC260A46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{159DF930-A111-409F-8A11-59184DCF253F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{159DF930-A111-409F-8A11-59184DCF253F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{159DF930-A111-409F-8A11-59184DCF253F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{159DF930-A111-409F-8A11-59184DCF253F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
