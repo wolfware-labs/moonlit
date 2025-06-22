@@ -1,5 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="McMaster.NETCore.Plugins"/>
     <PackageReference Include="YamlDotNet"/>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
 </Project>

@@ -1,0 +1,101 @@
+﻿using Spectre.Console;
+using Spectre.Console.Cli;
+using Wolfware.Moonlit.Cli.Logging;
+using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Plugins.Pipeline;
+
+namespace Wolfware.Moonlit.Cli.Commands;
+
+public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
+{
+  private readonly IReleaseConfigurationParser _configurationParser;
+  private readonly IReleasePipelineFactory _pipelineFactory;
+
+  public const string Name = "release";
+  public const string Description = "Executes a release pipeline";
+
+  public sealed class Settings : CommandSettings
+  {
+    [CommandOption("-w|--working-directory <workingDirectory>")]
+    public string WorkingDirectory { get; set; } = Environment.CurrentDirectory;
+
+    [CommandOption("-f|--file <fileName>")]
+    public string FileName { get; set; } = "release.yml";
+
+    [CommandOption("-v|--verbose")]
+    public bool Verbose { get; set; } = false;
+
+    public string ConfigurationFilePath => Path.Combine(WorkingDirectory, FileName);
+
+    public override ValidationResult Validate()
+    {
+      if (string.IsNullOrEmpty(WorkingDirectory) || !Directory.Exists(WorkingDirectory))
+      {
+        return ValidationResult.Error("The specified working directory does not exist.");
+      }
+
+      if (string.IsNullOrEmpty(FileName))
+      {
+        return ValidationResult.Error("The configuration file name cannot be empty.");
+      }
+
+      if (!FileName.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) &&
+          !FileName.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
+      {
+        return ValidationResult.Error("The configuration file must be a YAML file (ending with .yml or .yaml).");
+      }
+
+      if (!File.Exists(this.ConfigurationFilePath))
+      {
+        return ValidationResult.Error(
+          $"The configuration file '{FileName}' does not exist in the specified working directory.");
+      }
+
+      return ValidationResult.Success();
+    }
+  }
+
+  public ReleaseCommand(IReleaseConfigurationParser configurationParser, IReleasePipelineFactory pipelineFactory)
+  {
+    _configurationParser = configurationParser;
+    _pipelineFactory = pipelineFactory;
+  }
+
+  public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+  {
+    var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath);
+    var configuration = await _configurationParser.Parse(configurationContent);
+
+    AnsiConsole.MarkupLineInterpolated($"[green]Executing release pipeline: {configuration.Name}[/]");
+    AnsiConsole.MarkupLineInterpolated($"[blue]Working Directory: {settings.WorkingDirectory}[/]");
+    AnsiConsole.MarkupLineInterpolated($"[blue]Configuration File: {settings.FileName}[/]");
+
+    if (settings.Verbose)
+    {
+      AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content: {configuration}[/]");
+    }
+
+    var pipeline = _pipelineFactory.Create(configuration);
+
+    var response = await AnsiConsole.Status()
+      .Spinner(Spinner.Known.Dots)
+      .StartAsync(
+        "Executing Release...",
+        _ => pipeline.ExecuteAsync(new PipelineContext
+        {
+          WorkingDirectory = settings.WorkingDirectory,
+          Logger = new ConsoleLogger(settings.Verbose),
+          CancellationToken = CancellationToken.None // TODO: Handle cancellation token properly
+        })
+      );
+
+    if (response.IsSuccessful)
+    {
+      AnsiConsole.MarkupLine(":check_mark_button: [green]Release completed[/]");
+      return 0;
+    }
+
+    AnsiConsole.MarkupLineInterpolated($"\n[red]Release failed:[/] {response.ErrorMessage}");
+    return 1;
+  }
+}

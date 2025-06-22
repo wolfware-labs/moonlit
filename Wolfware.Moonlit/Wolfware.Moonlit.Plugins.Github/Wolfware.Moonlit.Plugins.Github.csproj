@@ -2,4 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="src\" />
+  </ItemGroup>
 </Project>
