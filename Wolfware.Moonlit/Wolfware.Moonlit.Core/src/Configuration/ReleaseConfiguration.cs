@@ -4,11 +4,11 @@ public sealed class ReleaseConfiguration
 {
   public string Name { get; init; } = string.Empty;
 
-  public IReadOnlyDictionary<string, string> Arguments { get; init; } = new Dictionary<string, string>();
+  public Dictionary<string, string> Arguments { get; init; } = [];
 
-  public IReadOnlyDictionary<string, string> Variables { get; init; } = new Dictionary<string, string>();
+  public Dictionary<string, string> Variables { get; init; } = [];
 
   public PluginConfiguration[] Plugins { get; init; } = [];
 
-  public StageConfiguration[] Stages { get; init; } = [];
+  public Dictionary<string, MiddlewareConfiguration[]> Stages { get; init; } = [];
 }

@@ -1,0 +1,47 @@
+name: "Test Release"
+
+variables:
+  GIT_REPOSITORY: $env.GIT_REPOSITORY
+  GIT_TOKEN: $env.GIT_TOKEN
+
+plugins:
+  - name: "git"
+    url: "file:Wolfware.Moonlit.Git"
+    config:
+      repository: $env.GIT_REPOSITORY
+      token: $env.GIT_TOKEN
+  - name: "conventional-commits"
+    url: "file:Wolfware.Moonlit.ConventionalCommits"
+  - name: "github"
+    url: "file:Wolfware.Moonlit.Github"
+    config:
+      repository: $env.GIT_REPOSITORY
+      token: $env.GIT_TOKEN
+
+stages:
+  analyze:
+    - name: "conventional-commits.calculate-version"
+      config:
+        context: "test"
+
+  release:
+    - name: "git.tag"
+      config:
+        context: "test"
+    - name: "github.create-release"
+      config:
+        context: "test"
+        tag: "@{analyze.version}"
+        title: "Release @{{analyze.version}}"
+        body: "@{analyze.changelog}"
+        draft: false
+        prerelease: false
+
+  notify:
+    - name: "github.create-issue"
+      config:
+        context: "test"
+        title: "Release @{{analyze.version}}"
+        body: "A new release has been created with version @{{analyze.version}}.\n\nChangelog:\n@{analyze.changelog}"
+        labels: [ "release", "notification" ]
+        assignees: [ "@{GIT_REPOSITORY}" ]

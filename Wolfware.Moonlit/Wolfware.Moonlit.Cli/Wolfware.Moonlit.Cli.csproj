@@ -15,4 +15,10 @@
     <PackageReference Include="Spectre.Console.Cli"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="release.yml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

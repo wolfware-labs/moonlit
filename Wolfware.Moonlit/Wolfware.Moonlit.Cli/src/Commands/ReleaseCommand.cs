@@ -22,6 +22,9 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
     [CommandOption("-f|--file <fileName>")]
     public string FileName { get; set; } = "release.yml";
 
+    [CommandOption("-s|--stages <stages>")]
+    public string[] Stages { get; set; } = [];
+
     [CommandOption("-v|--verbose")]
     public bool Verbose { get; set; } = false;
 
@@ -63,39 +66,80 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
   {
-    var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath);
-    var configuration = await _configurationParser.Parse(configurationContent);
-
-    AnsiConsole.MarkupLineInterpolated($"[green]Executing release pipeline: {configuration.Name}[/]");
-    AnsiConsole.MarkupLineInterpolated($"[blue]Working Directory: {settings.WorkingDirectory}[/]");
-    AnsiConsole.MarkupLineInterpolated($"[blue]Configuration File: {settings.FileName}[/]");
-
-    if (settings.Verbose)
+    try
     {
-      AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content: {configuration}[/]");
-    }
+      var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath);
+      var configuration = await _configurationParser.Parse(configurationContent);
 
-    var pipeline = _pipelineFactory.Create(configuration);
+      if (configuration.Stages.Count == 0)
+      {
+        AnsiConsole.MarkupLine("[red]No stages found in the release configuration.[/]");
+        return 1;
+      }
 
-    var response = await AnsiConsole.Status()
-      .Spinner(Spinner.Known.Dots)
-      .StartAsync(
-        "Executing Release...",
-        _ => pipeline.ExecuteAsync(new PipelineContext
+      if (settings.Stages.Length > 0)
+      {
+        var configuredStages = configuration.Stages.Keys.ToArray();
+        foreach (var configuredStage in configuredStages)
         {
-          WorkingDirectory = settings.WorkingDirectory,
-          Logger = new ConsoleLogger(settings.Verbose),
-          CancellationToken = CancellationToken.None // TODO: Handle cancellation token properly
-        })
-      );
+          if (!settings.Stages.Contains(configuredStage, StringComparer.OrdinalIgnoreCase))
+          {
+            configuration.Stages.Remove(configuredStage);
+          }
+        }
 
-    if (response.IsSuccessful)
-    {
-      AnsiConsole.MarkupLine(":check_mark_button: [green]Release completed[/]");
-      return 0;
+        if (configuration.Stages.Count == 0)
+        {
+          AnsiConsole.MarkupLine("[red]No matching stages found in the release configuration.[/]");
+          return 1;
+        }
+      }
+
+
+      AnsiConsole.MarkupLineInterpolated($"[green]Executing release pipeline: {configuration.Name}[/]");
+      AnsiConsole.MarkupLineInterpolated($"[blue]Working Directory: {settings.WorkingDirectory}[/]");
+      AnsiConsole.MarkupLineInterpolated($"[blue]Configuration File: {settings.FileName}[/]");
+
+      if (settings.Verbose)
+      {
+        AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content: {configuration}[/]");
+      }
+
+      var pipeline = _pipelineFactory.Create(configuration);
+
+      var response = await AnsiConsole.Status()
+        .Spinner(Spinner.Known.Dots)
+        .StartAsync(
+          "Executing Release...",
+          _ => pipeline.ExecuteAsync(new PipelineContext
+          {
+            WorkingDirectory = settings.WorkingDirectory,
+            Logger = new ConsoleLogger(settings.Verbose),
+            CancellationToken = CancellationToken.None // TODO: Handle cancellation token properly
+          })
+        );
+
+      if (response.IsSuccessful)
+      {
+        AnsiConsole.MarkupLine(":check_mark_button: [green]Release completed[/]");
+        return 0;
+      }
+
+      AnsiConsole.MarkupLineInterpolated($"\n[red]Release failed:[/] {response.ErrorMessage}");
+      return 1;
     }
+    catch (Exception e)
+    {
+      if (settings.Verbose)
+      {
+        AnsiConsole.WriteException(e, ExceptionFormats.ShortenEverything);
+      }
+      else
+      {
+        AnsiConsole.MarkupLineInterpolated($"[red]An error occurred while executing release command: [/] {e.Message}");
+      }
 
-    AnsiConsole.MarkupLineInterpolated($"\n[red]Release failed:[/] {response.ErrorMessage}");
-    return 1;
+      return 1;
+    }
   }
 }

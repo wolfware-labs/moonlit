@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Spectre.Console.Cli;
 using Wolfware.Moonlit.Cli.Commands;
 using Wolfware.Moonlit.Cli.Injection;
+using Wolfware.Moonlit.Core.Extensions;
 
 var configuration = new ConfigurationBuilder()
   .AddEnvironmentVariables()
@@ -13,6 +14,7 @@ var configuration = new ConfigurationBuilder()
 var services = new ServiceCollection();
 services.AddSingleton<IConfiguration>(configuration);
 services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Debug));
+services.AddMoonlitCore();
 
 Console.OutputEncoding = Encoding.UTF8;
 
