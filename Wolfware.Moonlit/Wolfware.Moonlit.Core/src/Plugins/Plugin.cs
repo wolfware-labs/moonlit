@@ -21,7 +21,11 @@ public sealed class Plugin : IPlugin
     ArgumentNullException.ThrowIfNull(services, nameof(services));
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
 
-    var loader = PluginLoader.CreateFromAssemblyFile(assemblyPath);
+    var loader = PluginLoader.CreateFromAssemblyFile(
+      assemblyPath,
+      sharedTypes: [typeof(IPluginStartup), typeof(IPipelineMiddleware)],
+      isUnloadable: true
+    );
     var defaultPluginAssembly = loader.LoadDefaultAssembly();
     var startupType = defaultPluginAssembly.GetTypes()
       .FirstOrDefault(t => typeof(IPluginStartup).IsAssignableFrom(t) && !t.IsAbstract);

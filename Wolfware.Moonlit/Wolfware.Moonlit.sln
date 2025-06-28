@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_SolutionItems", "_Solution
 		global.json = global.json
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Git", "Wolfware.Moonlit.Plugins.Git\Wolfware.Moonlit.Plugins.Git.csproj", "{AC3D94ED-84A9-4F39-8399-30B11C042226}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,5 +51,9 @@ Global
 		{159DF930-A111-409F-8A11-59184DCF253F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{159DF930-A111-409F-8A11-59184DCF253F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{159DF930-A111-409F-8A11-59184DCF253F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
