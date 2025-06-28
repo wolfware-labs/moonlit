@@ -6,14 +6,14 @@ variables:
 
 plugins:
   - name: "git"
-    url: "file:Wolfware.Moonlit.Git"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Git.dll"
     config:
       repository: $env.GIT_REPOSITORY
       token: $env.GIT_TOKEN
   - name: "conventional-commits"
-    url: "file:Wolfware.Moonlit.ConventionalCommits"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.ConventionalCommits/bin/Debug/net9.0/Wolfware.Moonlit.ConventionalCommits.dll"
   - name: "github"
-    url: "file:Wolfware.Moonlit.Github"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Github.dll"
     config:
       repository: $env.GIT_REPOSITORY
       token: $env.GIT_TOKEN

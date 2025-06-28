@@ -36,7 +36,7 @@ public sealed class PluginRegistry : IDisposable
 
       if (!File.Exists(configuration.Url.LocalPath))
       {
-        throw new FileNotFoundException($"Assembly file not found at path: {configuration.Url.LocalPath}");
+        throw new FileNotFoundException($"Plugin assembly not found at path: {configuration.Url.LocalPath}");
       }
 
       return configuration.Url.LocalPath;
