@@ -2,7 +2,7 @@
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Core.Pipeline;
+namespace Wolfware.Moonlit.Core.Pipelines;
 
 public sealed class ReleasePipeline
 {
@@ -15,6 +15,8 @@ public sealed class ReleasePipeline
 
   public async Task<PipelineResult> ExecuteAsync(PipelineContext context)
   {
+    ArgumentNullException.ThrowIfNull(context, nameof(context));
+
     var result = PipelineResult.Warning("No middlewares registered in the pipeline.");
 
     if (this._middlewares.Count == 0)

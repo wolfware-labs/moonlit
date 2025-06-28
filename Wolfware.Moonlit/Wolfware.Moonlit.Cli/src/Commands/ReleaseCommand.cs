@@ -2,6 +2,8 @@
 using Spectre.Console.Cli;
 using Wolfware.Moonlit.Cli.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Pipelines;
+using Wolfware.Moonlit.Core.Plugins;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Cli.Commands;
@@ -9,7 +11,6 @@ namespace Wolfware.Moonlit.Cli.Commands;
 public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
 {
   private readonly IReleaseConfigurationParser _configurationParser;
-  private readonly IReleasePipelineFactory _pipelineFactory;
 
   public const string Name = "release";
   public const string Description = "Executes a release pipeline";
@@ -58,10 +59,9 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
     }
   }
 
-  public ReleaseCommand(IReleaseConfigurationParser configurationParser, IReleasePipelineFactory pipelineFactory)
+  public ReleaseCommand(IReleaseConfigurationParser configurationParser)
   {
     _configurationParser = configurationParser;
-    _pipelineFactory = pipelineFactory;
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
@@ -96,16 +96,20 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
       }
 
 
-      AnsiConsole.MarkupLineInterpolated($"[green]Executing release pipeline: {configuration.Name}[/]");
-      AnsiConsole.MarkupLineInterpolated($"[blue]Working Directory: {settings.WorkingDirectory}[/]");
-      AnsiConsole.MarkupLineInterpolated($"[blue]Configuration File: {settings.FileName}[/]");
+      AnsiConsole.MarkupLineInterpolated($":rocket: [green]Executing release pipeline:[/] {configuration.Name}");
+      AnsiConsole.MarkupLineInterpolated($":file_folder: [blue]Working Directory:[/] {settings.WorkingDirectory}");
+      AnsiConsole.MarkupLineInterpolated($":gear: [blue]Configuration File:[/] {settings.FileName}");
 
       if (settings.Verbose)
       {
-        AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content: {configuration}[/]");
+        AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content:[/] {configuration}");
       }
 
-      var pipeline = _pipelineFactory.Create(configuration);
+      await using var pluginsContext = await PluginsContext.CreateNew(configuration.Plugins);
+      var pipeline = ReleasePipelineFactory.Create(
+        pluginsContext,
+        configuration.Stages.SelectMany(x => x.Value).ToArray()
+      );
 
       var response = await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)
