@@ -19,39 +19,38 @@ public sealed class PluginRegistry : IDisposable
   public async Task RegisterPlugin(PluginConfiguration configuration, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(configuration);
-    var assemblyPath = await GetAssemblyPath(configuration, cancellationToken);
+    var assemblyPath = await GetAssemblyPath(configuration.Url, cancellationToken);
     var pluginConfiguration = PluginRegistry.GetConfiguration(configuration);
     this._pluginLoaders.Add(Plugin.Load(assemblyPath, this._services, pluginConfiguration));
   }
 
-  private async ValueTask<string> GetAssemblyPath(PluginConfiguration configuration,
-    CancellationToken cancellationToken)
+  private async ValueTask<string> GetAssemblyPath(Uri pluginUrl, CancellationToken cancellationToken)
   {
-    if (configuration.Url.Scheme == "file")
+    if (pluginUrl.Scheme == "file")
     {
-      if (string.IsNullOrEmpty(configuration.Url.LocalPath))
+      if (string.IsNullOrEmpty(pluginUrl.LocalPath))
       {
-        throw new ArgumentException("Local path cannot be null or empty for file scheme.", nameof(configuration));
+        throw new ArgumentException("Local path cannot be null or empty for file scheme.", nameof(pluginUrl));
       }
 
-      if (!File.Exists(configuration.Url.LocalPath))
+      if (!File.Exists(pluginUrl.LocalPath))
       {
-        throw new FileNotFoundException($"Plugin assembly not found at path: {configuration.Url.LocalPath}");
+        throw new FileNotFoundException($"Plugin assembly not found at path: {pluginUrl.LocalPath}");
       }
 
-      return configuration.Url.LocalPath;
+      return pluginUrl.LocalPath;
     }
 
-    if (configuration.Url.Scheme is "http" or "https")
+    if (pluginUrl.Scheme is "http" or "https")
     {
       var tempPath = Path.GetTempFileName();
       using var client = new HttpClient();
-      var assemblyContent = await client.GetByteArrayAsync(configuration.Url, cancellationToken);
+      var assemblyContent = await client.GetByteArrayAsync(pluginUrl, cancellationToken);
       await File.WriteAllBytesAsync(tempPath, assemblyContent, cancellationToken);
       return tempPath;
     }
 
-    throw new NotSupportedException($"Unsupported URL scheme: {configuration.Url.Scheme}");
+    throw new NotSupportedException($"Unsupported URL scheme: {pluginUrl.Scheme}");
   }
 
   private static IConfiguration GetConfiguration(PluginConfiguration configuration)
