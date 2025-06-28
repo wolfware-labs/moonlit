@@ -7,15 +7,16 @@ namespace Wolfware.Moonlit.Core.Plugins;
 public class PluginsContext : IAsyncDisposable
 {
   private readonly PluginRegistry _pluginRegistry;
-  private readonly ServiceProvider _serviceProvider;
+  private readonly PluginProvider _pluginProvider;
 
-  private PluginsContext(PluginRegistry pluginRegistry, ServiceProvider serviceProvider)
+  private PluginsContext(PluginRegistry pluginRegistry, PluginProvider pluginProvider)
   {
-    _pluginRegistry = pluginRegistry;
-    _serviceProvider = serviceProvider;
+    this._pluginRegistry = pluginRegistry;
+    this._pluginProvider = pluginProvider;
+    this.PluginProvider = pluginProvider;
   }
 
-  public IPluginProvider PluginProvider => _serviceProvider.GetRequiredService<IPluginProvider>();
+  public IPluginProvider PluginProvider { get; }
 
   public static async Task<PluginsContext> CreateNew(PluginConfiguration[] plugins,
     CancellationToken cancellationToken = default)
@@ -26,21 +27,24 @@ public class PluginsContext : IAsyncDisposable
       throw new ArgumentException("At least one plugin configuration must be provided.", nameof(plugins));
     }
 
-    var services = new ServiceCollection();
-    var registry = new PluginRegistry(services);
+
+    var registry = new PluginRegistry();
+    var serviceProviders = new Dictionary<string, IServiceProvider>();
 
     foreach (var pluginConfiguration in plugins)
     {
-      await registry.RegisterPlugin(pluginConfiguration, cancellationToken);
+      var services = new ServiceCollection();
+      await registry.RegisterPlugin(services, pluginConfiguration, cancellationToken);
+      serviceProviders[pluginConfiguration.Name] = services.BuildServiceProvider();
     }
 
-    var serviceProvider = services.BuildServiceProvider();
-    return new PluginsContext(registry, serviceProvider);
+    var pluginProvider = new PluginProvider(serviceProviders);
+    return new PluginsContext(registry, pluginProvider);
   }
 
   public async ValueTask DisposeAsync()
   {
-    _pluginRegistry.Dispose();
-    await _serviceProvider.DisposeAsync();
+    this._pluginRegistry.Dispose();
+    await this._pluginProvider.DisposeAsync();
   }
 }

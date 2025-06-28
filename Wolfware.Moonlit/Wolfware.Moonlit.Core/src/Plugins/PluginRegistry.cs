@@ -8,20 +8,16 @@ namespace Wolfware.Moonlit.Core.Plugins;
 
 public sealed class PluginRegistry : IDisposable
 {
-  private readonly IServiceCollection _services;
   private readonly List<PluginLoader> _pluginLoaders = [];
 
-  public PluginRegistry(IServiceCollection services)
-  {
-    _services = services;
-  }
-
-  public async Task RegisterPlugin(PluginConfiguration configuration, CancellationToken cancellationToken = default)
+  public async Task RegisterPlugin(IServiceCollection services, PluginConfiguration configuration,
+    CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(configuration);
     var assemblyPath = await GetAssemblyPath(configuration.Url, cancellationToken);
     var pluginConfiguration = PluginRegistry.GetConfiguration(configuration);
-    this._pluginLoaders.Add(Plugin.Load(assemblyPath, this._services, pluginConfiguration));
+    this._pluginLoaders.Add(Plugin.Load(assemblyPath, services, pluginConfiguration));
+    services.AddKeyedSingleton<IPlugin, Plugin>(configuration.Name);
   }
 
   private async ValueTask<string> GetAssemblyPath(Uri pluginUrl, CancellationToken cancellationToken)
