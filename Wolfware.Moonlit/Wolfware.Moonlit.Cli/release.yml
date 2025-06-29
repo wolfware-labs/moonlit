@@ -34,9 +34,9 @@ stages:
     - name: "github.create-release"
       config:
         context: "test"
-        tag: "@{analyze.version}"
-        title: "Release @{{analyze.version}}"
-        body: "@{analyze.changelog}"
+        tag: $stages.analyze.version
+        title: "Release $stages.analyze.version"
+        body: $stages.analyze.changelog
         draft: false
         prerelease: false
 
