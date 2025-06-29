@@ -25,7 +25,7 @@ public sealed class PluginsContextFactory : IPluginsContextFactory
     var plugins = new Dictionary<string, IPlugin>();
     foreach (var pluginConfiguration in pluginConfigurations)
     {
-      var plugin = await _pluginFactory.CreatePlugin(pluginConfiguration, cancellationToken);
+      var plugin = await _pluginFactory.CreatePlugin(pluginConfiguration, cancellationToken).ConfigureAwait(false);
       plugins.Add(pluginConfiguration.Name, plugin);
     }
 

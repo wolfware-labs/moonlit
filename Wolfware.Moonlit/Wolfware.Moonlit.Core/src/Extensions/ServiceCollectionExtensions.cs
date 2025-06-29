@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Core.Pipelines;
 using Wolfware.Moonlit.Core.Plugins;
 using Wolfware.Moonlit.Core.Plugins.Resolvers;
 
@@ -14,6 +15,7 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<IConfigurationFactory, ConfigurationFactory>();
     services.AddSingleton<IPluginsContextFactory, PluginsContextFactory>();
     services.AddSingleton<IPluginFactory, PluginFactory>();
+    services.AddSingleton<IReleasePipelineFactory, ReleasePipelineFactory>();
     services.AddSingleton<IPluginPathResolver, PluginPathResolver>();
     services.AddKeyedSingleton<IAssemblyPathResolver, FilePathResolver>("file");
     services.AddKeyedSingleton<IAssemblyPathResolver, HttpPathResolver>("http");

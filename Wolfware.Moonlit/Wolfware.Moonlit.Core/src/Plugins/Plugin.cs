@@ -22,9 +22,9 @@ public sealed class Plugin : IPlugin
            ?? throw new KeyNotFoundException($"Middleware with name '{name}' not found.");
   }
 
-  public async ValueTask DisposeAsync()
+  public ValueTask DisposeAsync()
   {
     _pluginLoader.Dispose();
-    await _serviceProvider.DisposeAsync();
+    return _serviceProvider.DisposeAsync();
   }
 }

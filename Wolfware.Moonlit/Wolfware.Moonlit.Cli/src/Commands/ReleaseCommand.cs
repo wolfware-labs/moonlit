@@ -70,8 +70,8 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
   {
     try
     {
-      var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath);
-      var configuration = await _configurationParser.Parse(configurationContent);
+      var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath).ConfigureAwait(false);
+      var configuration = await _configurationParser.Parse(configurationContent).ConfigureAwait(false);
 
       if (configuration.Stages.Count == 0)
       {
@@ -119,7 +119,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
             Logger = new ConsoleLogger(settings.Verbose),
             CancellationToken = CancellationToken.None // TODO: Handle cancellation token properly
           })
-        );
+        ).ConfigureAwait(false);
 
       if (response.IsSuccessful)
       {

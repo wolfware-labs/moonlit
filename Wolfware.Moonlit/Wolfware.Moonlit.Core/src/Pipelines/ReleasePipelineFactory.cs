@@ -9,7 +9,8 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
   private readonly IPluginsContextFactory _pluginsContextFactory;
   private readonly IConfigurationFactory _configurationFactory;
 
-  public ReleasePipelineFactory(IPluginsContextFactory pluginsContextFactory, IConfigurationFactory configurationFactory)
+  public ReleasePipelineFactory(IPluginsContextFactory pluginsContextFactory,
+    IConfigurationFactory configurationFactory)
   {
     _pluginsContextFactory = pluginsContextFactory;
     _configurationFactory = configurationFactory;
@@ -19,7 +20,7 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
   {
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
 
-    var pluginsContext = await this._pluginsContextFactory.CreateContext(configuration.Plugins);
+    var pluginsContext = await this._pluginsContextFactory.CreateContext(configuration.Plugins).ConfigureAwait(false);
     var middlewares = configuration.Stages.SelectMany(x => x.Value)
       .Select(x => new MiddlewareContext
       {

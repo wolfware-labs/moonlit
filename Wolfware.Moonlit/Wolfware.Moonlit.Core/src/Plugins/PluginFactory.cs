@@ -23,7 +23,7 @@ public class PluginFactory : IPluginFactory
   {
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
 
-    var loader = await GetPluginLoader(configuration, cancellationToken);
+    var loader = await GetPluginLoader(configuration, cancellationToken).ConfigureAwait(false);
     var defaultPluginAssembly = loader.LoadDefaultAssembly();
     var startupInstance = PluginFactory.CreateStartupInstance(defaultPluginAssembly);
     var services = new ServiceCollection();
@@ -36,7 +36,8 @@ public class PluginFactory : IPluginFactory
   private async Task<PluginLoader> GetPluginLoader(PluginConfiguration configuration,
     CancellationToken cancellationToken = default)
   {
-    var pluginPath = await this._pluginPathResolver.GetPluginPath(configuration.Url, cancellationToken);
+    var pluginPath = await this._pluginPathResolver.GetPluginPath(configuration.Url, cancellationToken)
+      .ConfigureAwait(false);
     return PluginLoader.CreateFromAssemblyFile(
       pluginPath,
       sharedTypes: [typeof(IPluginStartup), typeof(IReleaseMiddleware)],

@@ -69,8 +69,8 @@ public sealed class ReleasePipeline : IAsyncDisposable
     return result;
   }
 
-  public async ValueTask DisposeAsync()
+  public ValueTask DisposeAsync()
   {
-    await _pluginsContext.DisposeAsync();
+    return _pluginsContext.DisposeAsync();
   }
 }
