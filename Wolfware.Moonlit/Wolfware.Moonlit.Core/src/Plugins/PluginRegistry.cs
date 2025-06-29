@@ -1,5 +1,4 @@
 ﻿using McMaster.NETCore.Plugins;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
@@ -8,52 +7,35 @@ namespace Wolfware.Moonlit.Core.Plugins;
 
 public sealed class PluginRegistry : IDisposable
 {
+  private readonly IConfigurationFactory _configurationFactory;
+  private readonly IServiceProvider _serviceProvider;
   private readonly List<PluginLoader> _pluginLoaders = [];
+
+  public PluginRegistry(IConfigurationFactory configurationFactory, IServiceProvider serviceProvider)
+  {
+    _configurationFactory = configurationFactory;
+    _serviceProvider = serviceProvider;
+  }
 
   public async Task RegisterPlugin(IServiceCollection services, PluginConfiguration configuration,
     CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(configuration);
     var assemblyPath = await GetAssemblyPath(configuration.Url, cancellationToken);
-    var pluginConfiguration = PluginRegistry.GetConfiguration(configuration);
+    var pluginConfiguration = this._configurationFactory.Create(configuration.Configuration);
     this._pluginLoaders.Add(Plugin.Load(assemblyPath, services, pluginConfiguration));
     services.AddKeyedSingleton<IPlugin, Plugin>(configuration.Name);
   }
 
-  private async ValueTask<string> GetAssemblyPath(Uri pluginUrl, CancellationToken cancellationToken)
+  private ValueTask<string> GetAssemblyPath(Uri pluginUrl, CancellationToken cancellationToken)
   {
-    if (pluginUrl.Scheme == "file")
+    var resolver = this._serviceProvider.GetRequiredKeyedService<IAssemblyPathResolver>(pluginUrl.Scheme);
+    if (resolver == null)
     {
-      if (string.IsNullOrEmpty(pluginUrl.LocalPath))
-      {
-        throw new ArgumentException("Local path cannot be null or empty for file scheme.", nameof(pluginUrl));
-      }
-
-      if (!File.Exists(pluginUrl.LocalPath))
-      {
-        throw new FileNotFoundException($"Plugin assembly not found at path: {pluginUrl.LocalPath}");
-      }
-
-      return pluginUrl.LocalPath;
+      throw new NotSupportedException($"Unsupported URL scheme: {pluginUrl.Scheme}");
     }
 
-    if (pluginUrl.Scheme is "http" or "https")
-    {
-      var tempPath = Path.GetTempFileName();
-      using var client = new HttpClient();
-      var assemblyContent = await client.GetByteArrayAsync(pluginUrl, cancellationToken);
-      await File.WriteAllBytesAsync(tempPath, assemblyContent, cancellationToken);
-      return tempPath;
-    }
-
-    throw new NotSupportedException($"Unsupported URL scheme: {pluginUrl.Scheme}");
-  }
-
-  private static IConfiguration GetConfiguration(PluginConfiguration configuration)
-  {
-    return new ConfigurationBuilder()
-      .AddInMemoryCollection(configuration.Configuration)
-      .Build();
+    return resolver.ResolvePath(pluginUrl, cancellationToken);
   }
 
   public void Dispose()
