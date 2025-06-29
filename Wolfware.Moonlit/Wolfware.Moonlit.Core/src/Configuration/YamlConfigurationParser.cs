@@ -15,6 +15,7 @@ public class YamlConfigurationParser : IReleaseConfigurationParser
       .WithNamingConvention(CamelCaseNamingConvention.Instance)
       .IgnoreUnmatchedProperties()
       .WithTypeConverter(new MiddlewareConfigurationConverter())
+      .WithTypeConverter(new PluginConfigurationConverter())
       .Build();
     var releaseConfiguration = deserializer.Deserialize<ReleaseConfiguration>(configuration);
     if (releaseConfiguration == null)
