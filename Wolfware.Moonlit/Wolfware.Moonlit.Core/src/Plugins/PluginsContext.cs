@@ -1,50 +1,36 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Core.Abstractions;
-using Wolfware.Moonlit.Core.Configuration;
+﻿using Wolfware.Moonlit.Core.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Plugins;
 
-public class PluginsContext : IAsyncDisposable
+public sealed class PluginsContext : IPluginsContext
 {
-  private readonly PluginRegistry _pluginRegistry;
-  private readonly PluginProvider _pluginProvider;
+  private readonly IReadOnlyDictionary<string, IPlugin> _plugins;
 
-  private PluginsContext(PluginRegistry pluginRegistry, PluginProvider pluginProvider)
+  public PluginsContext(IReadOnlyDictionary<string, IPlugin> plugins)
   {
-    this._pluginRegistry = pluginRegistry;
-    this._pluginProvider = pluginProvider;
-    this.PluginProvider = pluginProvider;
+    _plugins = plugins;
   }
 
-  public IPluginProvider PluginProvider { get; }
-
-  public static async Task<PluginsContext> CreateNew(PluginConfiguration[] plugins,
-    CancellationToken cancellationToken = default)
+  public IPlugin GetPlugin(string name)
   {
-    ArgumentNullException.ThrowIfNull(plugins, nameof(plugins));
-    if (plugins.Length == 0)
+    if (string.IsNullOrWhiteSpace(name))
     {
-      throw new ArgumentException("At least one plugin configuration must be provided.", nameof(plugins));
+      throw new ArgumentException("Plugin name cannot be null or empty.", nameof(name));
     }
 
-
-    var registry = new PluginRegistry();
-    var serviceProviders = new Dictionary<string, IServiceProvider>();
-
-    foreach (var pluginConfiguration in plugins)
+    if (!_plugins.TryGetValue(name, out var plugin))
     {
-      var services = new ServiceCollection();
-      await registry.RegisterPlugin(services, pluginConfiguration, cancellationToken);
-      serviceProviders[pluginConfiguration.Name] = services.BuildServiceProvider();
+      throw new KeyNotFoundException($"Plugin '{name}' not found.");
     }
 
-    var pluginProvider = new PluginProvider(serviceProviders);
-    return new PluginsContext(registry, pluginProvider);
+    return plugin;
   }
 
   public async ValueTask DisposeAsync()
   {
-    this._pluginRegistry.Dispose();
-    await this._pluginProvider.DisposeAsync();
+    foreach (var plugin in _plugins.Values)
+    {
+      await plugin.DisposeAsync();
+    }
   }
 }

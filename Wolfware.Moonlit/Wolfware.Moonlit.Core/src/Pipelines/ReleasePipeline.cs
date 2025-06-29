@@ -1,16 +1,19 @@
 ﻿using Microsoft.Extensions.Logging;
+using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
 
-public sealed class ReleasePipeline
+public sealed class ReleasePipeline : IAsyncDisposable
 {
+  private readonly IPluginsContext _pluginsContext;
   private readonly IReadOnlyList<IReleaseMiddleware> _middlewares;
 
-  public ReleasePipeline(IReadOnlyList<IReleaseMiddleware> middlewares)
+  public ReleasePipeline(IPluginsContext pluginsContext, IReadOnlyList<IReleaseMiddleware> middlewares)
   {
-    _middlewares = middlewares ?? throw new ArgumentNullException(nameof(middlewares));
+    _pluginsContext = pluginsContext;
+    _middlewares = middlewares;
   }
 
   public async Task<PipelineResult> ExecuteAsync(PipelineContext context)
@@ -63,5 +66,10 @@ public sealed class ReleasePipeline
     }
 
     return result;
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    await _pluginsContext.DisposeAsync();
   }
 }

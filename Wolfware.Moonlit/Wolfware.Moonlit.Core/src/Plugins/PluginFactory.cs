@@ -1,0 +1,67 @@
+﻿using System.Reflection;
+using McMaster.NETCore.Plugins;
+using Microsoft.Extensions.DependencyInjection;
+using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Plugins.Abstractions;
+
+namespace Wolfware.Moonlit.Core.Plugins;
+
+public class PluginFactory : IPluginFactory
+{
+  private readonly IPluginPathResolver _pluginPathResolver;
+  private readonly IConfigurationFactory _configurationFactory;
+
+  public PluginFactory(IPluginPathResolver pluginPathResolver, IConfigurationFactory configurationFactory)
+  {
+    _pluginPathResolver = pluginPathResolver;
+    _configurationFactory = configurationFactory;
+  }
+
+  public async Task<IPlugin> CreatePlugin(PluginConfiguration configuration,
+    CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
+
+    var loader = await GetPluginLoader(configuration, cancellationToken);
+    var defaultPluginAssembly = loader.LoadDefaultAssembly();
+    var startupInstance = PluginFactory.CreateStartupInstance(defaultPluginAssembly);
+    var services = new ServiceCollection();
+    var config = this._configurationFactory.Create(configuration.Configuration);
+    startupInstance.Configure(services, config);
+    var provider = services.BuildServiceProvider();
+    return new Plugin(loader, provider);
+  }
+
+  private async Task<PluginLoader> GetPluginLoader(PluginConfiguration configuration,
+    CancellationToken cancellationToken = default)
+  {
+    var pluginPath = await this._pluginPathResolver.GetPluginPath(configuration.Url, cancellationToken);
+    return PluginLoader.CreateFromAssemblyFile(
+      pluginPath,
+      sharedTypes: [typeof(IPluginStartup), typeof(IReleaseMiddleware)],
+      isUnloadable: true
+    );
+  }
+
+  private static IPluginStartup CreateStartupInstance(Assembly pluginAssembly)
+  {
+    var startupType = pluginAssembly.GetTypes()
+      .FirstOrDefault(t => typeof(IPluginStartup).IsAssignableFrom(t) && !t.IsAbstract);
+
+    if (startupType == null)
+    {
+      throw new InvalidOperationException("No valid startup type found.");
+    }
+
+    var startupInstance = (IPluginStartup?)Activator.CreateInstance(startupType)
+                          ?? throw new InvalidOperationException(
+                            $"Failed to create instance of startup type '{startupType.FullName}'.");
+    if (startupInstance == null)
+    {
+      throw new InvalidOperationException($"Startup instance of type '{startupType.FullName}' is null.");
+    }
+
+    return startupInstance;
+  }
+}

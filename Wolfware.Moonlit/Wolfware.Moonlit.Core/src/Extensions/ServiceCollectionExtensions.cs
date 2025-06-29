@@ -11,8 +11,10 @@ public static class ServiceCollectionExtensions
   public static IServiceCollection AddMoonlitCore(this IServiceCollection services)
   {
     services.AddSingleton<IReleaseConfigurationParser, YamlConfigurationParser>();
-    services.AddSingleton<IPluginProvider, PluginProvider>();
     services.AddSingleton<IConfigurationFactory, ConfigurationFactory>();
+    services.AddSingleton<IPluginsContextFactory, PluginsContextFactory>();
+    services.AddSingleton<IPluginFactory, PluginFactory>();
+    services.AddSingleton<IPluginPathResolver, PluginPathResolver>();
     services.AddKeyedSingleton<IAssemblyPathResolver, FilePathResolver>("file");
     services.AddKeyedSingleton<IAssemblyPathResolver, HttpPathResolver>("http");
     services.AddKeyedSingleton<IAssemblyPathResolver>("https",

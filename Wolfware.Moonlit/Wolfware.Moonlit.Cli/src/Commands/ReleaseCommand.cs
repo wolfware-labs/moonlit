@@ -11,6 +11,7 @@ namespace Wolfware.Moonlit.Cli.Commands;
 public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
 {
   private readonly IReleaseConfigurationParser _configurationParser;
+  private readonly IReleasePipelineFactory _releasePipelineFactory;
 
   public const string Name = "release";
   public const string Description = "Executes a release pipeline";
@@ -59,9 +60,10 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
     }
   }
 
-  public ReleaseCommand(IReleaseConfigurationParser configurationParser)
+  public ReleaseCommand(IReleaseConfigurationParser configurationParser, IReleasePipelineFactory releasePipelineFactory)
   {
     _configurationParser = configurationParser;
+    _releasePipelineFactory = releasePipelineFactory;
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
@@ -105,11 +107,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
         AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content:[/] {configuration}");
       }
 
-      await using var pluginsContext = await PluginsContext.CreateNew(configuration.Plugins);
-      var pipeline = ReleasePipelineFactory.Create(
-        pluginsContext,
-        configuration.Stages.SelectMany(x => x.Value).ToArray()
-      );
+      await using var pipeline = await this._releasePipelineFactory.Create(configuration);
 
       var response = await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)

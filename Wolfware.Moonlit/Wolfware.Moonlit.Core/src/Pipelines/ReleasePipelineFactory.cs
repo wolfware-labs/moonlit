@@ -1,21 +1,25 @@
-﻿using Wolfware.Moonlit.Core.Configuration;
-using Wolfware.Moonlit.Core.Plugins;
+﻿using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Configuration;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
 
-public sealed class ReleasePipelineFactory
+public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 {
-  public static ReleasePipeline Create(
-    PluginsContext pluginsContext,
-    MiddlewareConfiguration[] middlewareConfigurations
-  )
-  {
-    ArgumentNullException.ThrowIfNull(pluginsContext, nameof(pluginsContext));
-    ArgumentNullException.ThrowIfNull(middlewareConfigurations, nameof(middlewareConfigurations));
+  private readonly IPluginsContextFactory _pluginsContextFactory;
 
-    var middlewares = middlewareConfigurations
-      .Select(x => pluginsContext.PluginProvider.GetPlugin(x.Plugin).GetMiddleware(x.Name))
+  public ReleasePipelineFactory(IPluginsContextFactory pluginsContextFactory)
+  {
+    _pluginsContextFactory = pluginsContextFactory;
+  }
+
+  public async Task<ReleasePipeline> Create(ReleaseConfiguration configuration)
+  {
+    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
+
+    var pluginsContext = await this._pluginsContextFactory.CreateContext(configuration.Plugins);
+    var middlewares = configuration.Stages.SelectMany(x => x.Value)
+      .Select(x => pluginsContext.GetPlugin(x.Plugin).GetMiddleware(x.Name))
       .ToList();
-    return new ReleasePipeline(middlewares);
+    return new ReleasePipeline(pluginsContext, middlewares);
   }
 }
