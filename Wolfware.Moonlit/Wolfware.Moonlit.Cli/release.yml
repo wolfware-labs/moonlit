@@ -38,11 +38,11 @@ stages:
         draft: false
         prerelease: false
 
-  notify:
-    - name: "github.create-issue"
-      config:
-        context: "test"
-        title: "Release @{{analyze.version}}"
-        body: "A new release has been created with version @{{analyze.version}}.\n\nChangelog:\n@{analyze.changelog}"
-        labels: [ "release", "notification" ]
-        assignees: [ "@{GIT_REPOSITORY}" ]
+#  notify:
+#    - name: "github.create-issue"
+#      config:
+#        context: "test"
+#        title: "Release @{{analyze.version}}"
+#        body: "A new release has been created with version @{{analyze.version}}.\n\nChangelog:\n@{analyze.changelog}"
+#        labels: [ "release", "notification" ]
+#        assignees: [ "@{GIT_REPOSITORY}" ]
