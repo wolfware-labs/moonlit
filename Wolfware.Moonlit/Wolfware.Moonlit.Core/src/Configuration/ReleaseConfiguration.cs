@@ -10,5 +10,5 @@ public sealed class ReleaseConfiguration
 
   public PluginConfiguration[] Plugins { get; init; } = [];
 
-  public Dictionary<string, MiddlewareConfiguration[]> Stages { get; init; } = [];
+  public Dictionary<string, StepConfiguration[]> Stages { get; init; } = [];
 }

@@ -20,23 +20,28 @@ plugins:
 
 stages:
   analyze:
-    - name: "git.collect-commit-history"
+    gitHistory:
+      run: git.collect-commit-history
       config:
-        RepositoryPath: "This is a test"
-    - name: "conventional-commits.calculate-version"
+        repositoryPath: "This is a test"
+    calculateVersion:
+      run: conventional-commits.calculate-version
       config:
-        context: "test"
+        commits: $output.gitHistory.history
 
   release:
-    - name: "git.tag"
+    gatTag:
+      run: git.tag
+      config:
+        format: "v{tagValue}"
+        value: $output.calculateVersion.version
+    createRelease:
+      run: github.create-release
       config:
         context: "test"
-    - name: "github.create-release"
-      config:
-        context: "test"
-        tag: $stages.analyze.version
-        title: "Release $stages.analyze.version"
-        body: $stages.analyze.changelog
+        tag: $output.calculateVersion.version
+        title: "Release $output.calculateVersion.version"
+        body: $output.createChangelogs.changelog
         draft: false
         prerelease: false
 
