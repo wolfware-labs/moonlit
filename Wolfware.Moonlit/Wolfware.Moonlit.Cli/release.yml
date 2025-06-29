@@ -21,6 +21,8 @@ plugins:
 stages:
   analyze:
     - name: "git.collect-commit-history"
+      config:
+        RepositoryPath: "This is a test"
     - name: "conventional-commits.calculate-version"
       config:
         context: "test"
