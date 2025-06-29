@@ -20,6 +20,7 @@ plugins:
 
 stages:
   analyze:
+    - name: "git.collect-commit-history"
     - name: "conventional-commits.calculate-version"
       config:
         context: "test"

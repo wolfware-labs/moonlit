@@ -1,4 +1,5 @@
 ﻿using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Configuration.Converters;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
@@ -13,6 +14,7 @@ public class YamlConfigurationParser : IReleaseConfigurationParser
     var deserializer = new DeserializerBuilder()
       .WithNamingConvention(CamelCaseNamingConvention.Instance)
       .IgnoreUnmatchedProperties()
+      .WithTypeConverter(new MiddlewareConfigurationConverter())
       .Build();
     var releaseConfiguration = deserializer.Deserialize<ReleaseConfiguration>(configuration);
     if (releaseConfiguration == null)

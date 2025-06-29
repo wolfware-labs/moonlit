@@ -23,7 +23,7 @@ public sealed class Plugin : IPlugin
 
     var loader = PluginLoader.CreateFromAssemblyFile(
       assemblyPath,
-      sharedTypes: [typeof(IPluginStartup), typeof(IPipelineMiddleware)],
+      sharedTypes: [typeof(IPluginStartup), typeof(IReleaseMiddleware)],
       isUnloadable: true
     );
     var defaultPluginAssembly = loader.LoadDefaultAssembly();
@@ -47,9 +47,9 @@ public sealed class Plugin : IPlugin
     return loader;
   }
 
-  public IPipelineMiddleware GetMiddleware(string name)
+  public IReleaseMiddleware GetMiddleware(string name)
   {
-    return _serviceProvider.GetKeyedService<IPipelineMiddleware>(name)
+    return _serviceProvider.GetKeyedService<IReleaseMiddleware>(name)
            ?? throw new KeyNotFoundException($"Middleware with name '{name}' not found.");
   }
 }

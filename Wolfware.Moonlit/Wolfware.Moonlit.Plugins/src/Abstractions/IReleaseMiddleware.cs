@@ -11,7 +11,7 @@ namespace Wolfware.Moonlit.Plugins.Abstractions;
 /// They can also delegate execution to the next component in the chain.
 /// </remarks>
 [PublicAPI]
-public interface IPipelineMiddleware
+public interface IReleaseMiddleware
 {
   /// <summary>
   /// Executes a pipeline middleware operation with the provided pipeline context.

@@ -4,5 +4,5 @@ namespace Wolfware.Moonlit.Core.Abstractions;
 
 public interface IPlugin
 {
-  IPipelineMiddleware GetMiddleware(string name);
+  IReleaseMiddleware GetMiddleware(string name);
 }

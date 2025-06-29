@@ -6,9 +6,9 @@ namespace Wolfware.Moonlit.Core.Pipelines;
 
 public sealed class ReleasePipeline
 {
-  private readonly IReadOnlyList<IPipelineMiddleware> _middlewares;
+  private readonly IReadOnlyList<IReleaseMiddleware> _middlewares;
 
-  public ReleasePipeline(IReadOnlyList<IPipelineMiddleware> middlewares)
+  public ReleasePipeline(IReadOnlyList<IReleaseMiddleware> middlewares)
   {
     _middlewares = middlewares ?? throw new ArgumentNullException(nameof(middlewares));
   }

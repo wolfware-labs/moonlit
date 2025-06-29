@@ -2,4 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="LibGit2Sharp" />
+  </ItemGroup>
 </Project>
