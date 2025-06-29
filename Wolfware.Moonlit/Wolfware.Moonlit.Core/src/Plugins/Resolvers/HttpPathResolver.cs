@@ -2,7 +2,7 @@
 
 namespace Wolfware.Moonlit.Core.Plugins.Resolvers;
 
-public sealed class HttpPathResolver : IAssemblyPathResolver
+public sealed class HttpPathResolver : IFilePathResolver
 {
   public async ValueTask<string> ResolvePath(Uri assemblyUri, CancellationToken cancellationToken = default)
   {

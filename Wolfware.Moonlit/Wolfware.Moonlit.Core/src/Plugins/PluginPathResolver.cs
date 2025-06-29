@@ -14,7 +14,7 @@ public sealed class PluginPathResolver : IPluginPathResolver
 
   public ValueTask<string> GetPluginPath(Uri pluginUrl, CancellationToken cancellationToken)
   {
-    var resolver = this._serviceProvider.GetRequiredKeyedService<IAssemblyPathResolver>(pluginUrl.Scheme);
+    var resolver = this._serviceProvider.GetRequiredKeyedService<IFilePathResolver>(pluginUrl.Scheme);
     if (resolver == null)
     {
       throw new NotSupportedException($"Unsupported URL scheme: {pluginUrl.Scheme}");

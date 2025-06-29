@@ -7,6 +7,10 @@ using Wolfware.Moonlit.Plugins.Git.Middlewares;
 
 namespace Wolfware.Moonlit.Plugins.Git;
 
+/// <summary>
+/// Provides the startup implementation for a plugin within the Wolfware.Moonlit.Plugins.Git namespace.
+/// Configures required services and middlewares for plugin functionality.
+/// </summary>
 public sealed class PluginStartup : IPluginStartup
 {
   public void Configure(IServiceCollection services, IConfiguration configuration)

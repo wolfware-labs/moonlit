@@ -2,6 +2,12 @@
 
 namespace Wolfware.Moonlit.Core.Plugins;
 
+/// <summary>
+/// Provides a sealed implementation of <see cref="IPluginsContext"/> for managing plugins and ensuring proper asynchronous disposal of resources.
+/// </summary>
+/// <remarks>
+/// The <see cref="PluginsContext"/> class manages a collection of plugins, allowing retrieval by name and supports asynchronous cleanup of allocated resources.
+/// </remarks>
 public sealed class PluginsContext : IPluginsContext
 {
   private readonly IReadOnlyDictionary<string, IPlugin> _plugins;

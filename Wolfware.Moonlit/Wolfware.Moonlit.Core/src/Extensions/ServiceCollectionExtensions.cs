@@ -17,10 +17,10 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<IPluginFactory, PluginFactory>();
     services.AddSingleton<IReleasePipelineFactory, ReleasePipelineFactory>();
     services.AddSingleton<IPluginPathResolver, PluginPathResolver>();
-    services.AddKeyedSingleton<IAssemblyPathResolver, FilePathResolver>("file");
-    services.AddKeyedSingleton<IAssemblyPathResolver, HttpPathResolver>("http");
-    services.AddKeyedSingleton<IAssemblyPathResolver>("https",
-      (svc, _) => svc.GetRequiredKeyedService<IAssemblyPathResolver>("http"));
+    services.AddKeyedSingleton<IFilePathResolver, FilePathResolver>("file");
+    services.AddKeyedSingleton<IFilePathResolver, HttpPathResolver>("http");
+    services.AddKeyedSingleton<IFilePathResolver>("https",
+      (svc, _) => svc.GetRequiredKeyedService<IFilePathResolver>("http"));
     return services;
   }
 }

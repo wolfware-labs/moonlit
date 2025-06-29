@@ -7,7 +7,16 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace Wolfware.Moonlit.Core.Configuration;
 
-public class YamlConfigurationParser : IReleaseConfigurationParser
+/// <summary>
+/// Provides functionality to parse YAML formatted release configurations into <see cref="ReleaseConfiguration"/> objects.
+/// </summary>
+/// <remarks>
+/// This class uses the <see cref="YamlDotNet"/> library for deserialization. It is configured to:
+/// - Use camel case naming convention.
+/// - Ignore unmatched properties.
+/// - Use specific type converters for handling step and plugin configurations.
+/// </remarks>
+public sealed class YamlConfigurationParser : IReleaseConfigurationParser
 {
   public Task<ReleaseConfiguration> Parse(string configuration, CancellationToken cancellationToken = default)
   {

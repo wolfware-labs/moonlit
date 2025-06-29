@@ -6,6 +6,11 @@ using Wolfware.Moonlit.Plugins.Slack.Middlewares;
 
 namespace Wolfware.Moonlit.Plugins.Slack;
 
+/// <summary>
+/// Represents the startup configuration for the plugin.
+/// Implements the <see cref="Wolfware.Moonlit.Plugins.Abstractions.IPluginStartup"/> interface
+/// to configure dependencies and middleware specific to the plugin.
+/// </summary>
 public sealed class PluginStartup : IPluginStartup
 {
   public void Configure(IServiceCollection services, IConfiguration configuration)

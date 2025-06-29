@@ -4,6 +4,14 @@ using YamlDotNet.Serialization;
 
 namespace Wolfware.Moonlit.Core.Configuration.Converters;
 
+/// <summary>
+/// A YAML type converter specifically for handling serialization and deserialization of <c>StepConfiguration</c> objects.
+/// </summary>
+/// <remarks>
+/// This converter is designed to integrate with the YamlDotNet library, enabling custom parsing
+/// and emitting of YAML for <c>StepConfiguration</c> instances. It can serialize objects to YAML
+/// and deserialize YAML into object instances.
+/// </remarks>
 public sealed class StepConfigurationConverter : IYamlTypeConverter
 {
   public bool Accepts(Type type)

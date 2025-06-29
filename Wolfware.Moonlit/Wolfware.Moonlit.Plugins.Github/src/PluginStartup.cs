@@ -6,6 +6,14 @@ using Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 namespace Wolfware.Moonlit.Plugins.Github;
 
+/// <summary>
+/// Responsible for configuring services and middleware required by the GitHub plugin.
+/// </summary>
+/// <remarks>
+/// This implementation of <see cref="IPluginStartup"/> registers specific middleware components
+/// to the service collection, enabling GitHub-related functionalities like issue annotations,
+/// pull request annotations, and release creation.
+/// </remarks>
 public sealed class PluginStartup : IPluginStartup
 {
   public void Configure(IServiceCollection services, IConfiguration configuration)

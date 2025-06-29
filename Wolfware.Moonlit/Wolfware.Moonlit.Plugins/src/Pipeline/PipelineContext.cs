@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using JetBrains.Annotations;
+using Microsoft.Extensions.Logging;
 
 namespace Wolfware.Moonlit.Plugins.Pipeline;
 
@@ -9,6 +10,7 @@ namespace Wolfware.Moonlit.Plugins.Pipeline;
 /// This class provides a mechanism for passing state and controlling the behavior of a pipeline.
 /// It includes shared data, cancellation support, logging, and the ability to specify a working directory.
 /// </remarks>
+[PublicAPI]
 public sealed record PipelineContext
 {
   /// <summary>

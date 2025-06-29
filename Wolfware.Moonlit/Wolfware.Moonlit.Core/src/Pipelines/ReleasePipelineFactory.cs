@@ -4,6 +4,14 @@ using Wolfware.Moonlit.Core.Configuration;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
 
+/// <summary>
+/// A factory for creating instances of <see cref="ReleasePipeline"/> based on the provided
+/// <see cref="ReleaseConfiguration"/>.
+/// </summary>
+/// <remarks>
+/// This factory uses an <see cref="IPluginsContextFactory"/> to create a plugins context
+/// and an <see cref="IConfigurationFactory"/> to configure middlewares for the release pipeline.
+/// </remarks>
 public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 {
   private readonly IPluginsContextFactory _pluginsContextFactory;

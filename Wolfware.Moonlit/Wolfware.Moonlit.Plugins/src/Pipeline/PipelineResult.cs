@@ -1,6 +1,9 @@
-﻿namespace Wolfware.Moonlit.Plugins.Pipeline;
+﻿using JetBrains.Annotations;
+
+namespace Wolfware.Moonlit.Plugins.Pipeline;
 
 /// Represents the outcome of a pipeline operation, encapsulating success, failure, and warning details.
+[PublicAPI]
 public sealed record PipelineResult
 {
   /// Indicates whether the pipeline operation completed successfully.

@@ -5,6 +5,10 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
 
+/// <summary>
+/// Represents a release pipeline responsible for executing a sequence of middleware components
+/// in the context of a release process.
+/// </summary>
 public sealed class ReleasePipeline : IAsyncDisposable
 {
   private readonly IPluginsContext _pluginsContext;
@@ -16,6 +20,11 @@ public sealed class ReleasePipeline : IAsyncDisposable
     _middlewareContexts = middlewareContexts;
   }
 
+  /// <summary>
+  /// Executes the pipeline asynchronously with the provided context.
+  /// </summary>
+  /// <param name="context">The context containing configuration, logger, working directory, and cancellation token for the pipeline execution.</param>
+  /// <returns>A task representing an asynchronous operation that returns the result of the pipeline execution, including success or failure state and any associated warnings or errors.</returns>
   public async Task<PipelineResult> ExecuteAsync(PipelineContext context)
   {
     ArgumentNullException.ThrowIfNull(context, nameof(context));
@@ -69,6 +78,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
     return result;
   }
 
+  /// <inheritdoc />
   public ValueTask DisposeAsync()
   {
     return _pluginsContext.DisposeAsync();
