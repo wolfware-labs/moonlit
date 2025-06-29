@@ -4,5 +4,6 @@ namespace Wolfware.Moonlit.Core.Abstractions;
 
 public interface IConfigurationFactory
 {
-  public IConfiguration Create(Dictionary<string, string?> configurationData);
+  public IConfiguration Create(Dictionary<string, string?> configurationData,
+    IConfiguration? parentConfiguration = null);
 }

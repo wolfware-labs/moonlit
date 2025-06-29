@@ -32,10 +32,11 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
     var middlewares = configuration.Stages.SelectMany(x => x.Value)
       .Select(x => new MiddlewareContext
       {
+        Name = x.MiddlewareName,
         Middleware = pluginsContext.GetPlugin(x.PluginName).GetMiddleware(x.MiddlewareName),
         Configuration = this._configurationFactory.Create(x.Configuration)
       })
       .ToList();
-    return new ReleasePipeline(pluginsContext, middlewares);
+    return new ReleasePipeline(pluginsContext, middlewares, this._configurationFactory);
   }
 }

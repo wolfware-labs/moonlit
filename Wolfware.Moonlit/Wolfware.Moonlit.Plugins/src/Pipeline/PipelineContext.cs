@@ -14,15 +14,6 @@ namespace Wolfware.Moonlit.Plugins.Pipeline;
 public sealed record PipelineContext
 {
   /// <summary>
-  /// Gets or sets a dictionary that stores shared data for the pipeline execution.
-  /// </summary>
-  /// <remarks>
-  /// This property allows adding, retrieving, and managing key-value pairs that are shared across pipeline stages.
-  /// It is intended to store contextual or intermediate data that is useful for pipeline operations.
-  /// </remarks>
-  public Dictionary<string, object> Data { get; init; } = new();
-
-  /// <summary>
   /// Gets or sets the <see cref="CancellationToken"/> that is used to monitor for cancellation requests during pipeline execution.
   /// </summary>
   /// <remarks>

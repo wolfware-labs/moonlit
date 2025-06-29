@@ -19,9 +19,9 @@ public sealed class SendNotification : IReleaseMiddleware
 
     context.Logger.LogInformation("Notification sent successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>
+    return Task.FromResult(PipelineResult.Success(output =>
     {
-      {"notification", "Slack notification sent successfully."} // Example notification
+      output.Add("notificationStatus", "Sent to Slack successfully"); // Example output
     }));
   }
 }

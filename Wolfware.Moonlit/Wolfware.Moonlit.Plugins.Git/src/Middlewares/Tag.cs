@@ -19,9 +19,9 @@ public sealed class Tag : IReleaseMiddleware
 
     context.Logger.LogInformation("Release tagged successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>
+    return Task.FromResult(PipelineResult.Success(output =>
     {
-      {"tag", "v1.0.0"} // Example tag
+      output.Add("tag", "v1.0.0"); // Example tag
     }));
   }
 }

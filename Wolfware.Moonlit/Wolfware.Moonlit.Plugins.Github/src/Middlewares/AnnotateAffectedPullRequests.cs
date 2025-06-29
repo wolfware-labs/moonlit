@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
@@ -19,9 +20,9 @@ public sealed class AnnotateAffectedPullRequests : IReleaseMiddleware
 
     context.Logger.LogInformation("Affected pull requests annotated successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>
+    return Task.FromResult(PipelineResult.Success(output =>
     {
-      {"affectedPullRequests", new List<string> {"PR-123", "PR-456"}} // Example affected PRs
+      output.Add("affectedPullRequests", new List<string> {"PR-123", "PR-456"}); // Example affected pull requests
     }));
   }
 }

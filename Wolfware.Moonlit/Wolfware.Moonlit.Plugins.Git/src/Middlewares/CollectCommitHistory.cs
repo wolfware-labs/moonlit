@@ -21,6 +21,6 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
 
     context.Logger.LogInformation("Git history collected successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>()));
+    return Task.FromResult(PipelineResult.Success());
   }
 }

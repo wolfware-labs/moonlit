@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
@@ -13,11 +14,14 @@ public sealed class ReleasePipeline : IAsyncDisposable
 {
   private readonly IPluginsContext _pluginsContext;
   private readonly IReadOnlyList<IMiddlewareContext> _middlewareContexts;
+  private readonly IConfigurationFactory _configurationFactory;
 
-  public ReleasePipeline(IPluginsContext pluginsContext, IReadOnlyList<IMiddlewareContext> middlewareContexts)
+  public ReleasePipeline(IPluginsContext pluginsContext, IReadOnlyList<IMiddlewareContext> middlewareContexts,
+    IConfigurationFactory configurationFactory)
   {
     _pluginsContext = pluginsContext;
     _middlewareContexts = middlewareContexts;
+    _configurationFactory = configurationFactory;
   }
 
   /// <summary>
@@ -36,6 +40,8 @@ public sealed class ReleasePipeline : IAsyncDisposable
       return result;
     }
 
+    IConfiguration configuration = new ConfigurationBuilder().AddEnvironmentVariables().Build();
+
     foreach (var middlewareContext in _middlewareContexts)
     {
       if (context.CancellationToken.IsCancellationRequested)
@@ -45,7 +51,11 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareContext.Configuration)
+        var middlewareConfiguration = new ConfigurationBuilder()
+          .AddConfiguration(configuration)
+          .AddConfiguration(middlewareContext.Configuration)
+          .Build();
+        result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
           .ConfigureAwait(false);
 
         if (result.Warnings.Count > 0)
@@ -60,6 +70,9 @@ public sealed class ReleasePipeline : IAsyncDisposable
         {
           return result;
         }
+
+        configuration =
+          this._configurationFactory.Create(result.Output.ToDictionary(middlewareContext.Name), configuration);
       }
       catch (OperationCanceledException)
       {

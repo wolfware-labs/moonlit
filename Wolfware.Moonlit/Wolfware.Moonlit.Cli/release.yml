@@ -1,22 +1,22 @@
 name: "Test Release"
 
 variables:
-  GIT_REPOSITORY: $env.GIT_REPOSITORY
-  GIT_TOKEN: $env.GIT_TOKEN
+  GIT_REPOSITORY: $(GIT:REPOSITORY)
+  GIT_TOKEN: $(GIT:TOKEN)
 
 plugins:
   - name: "git"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
     config:
-      repository: $env.GIT_REPOSITORY
-      token: $env.GIT_TOKEN
+      repository: $(GIT:REPOSITORY)
+      token: $(GIT:TOKEN)
   - name: "conventional-commits"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.ConventionalCommits/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.ConventionalCommits.dll"
   - name: "github"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
     config:
-      repository: $env.GIT_REPOSITORY
-      token: $env.GIT_TOKEN
+      repository: $(GIT:REPOSITORY)
+      token: $(GIT:TOKEN)
 
 stages:
   analyze:
@@ -27,21 +27,21 @@ stages:
     calculateVersion:
       run: conventional-commits.calculate-version
       config:
-        commits: $output.gitHistory.history
+        commits: $(output:gitHistory:history)
 
   release:
     gatTag:
       run: git.tag
       config:
         format: "v{tagValue}"
-        value: $output.calculateVersion.version
+        value: $(output:calculateVersion:version)
     createRelease:
       run: github.create-release
       config:
         context: "test"
-        tag: $output.calculateVersion.version
-        title: "Release $output.calculateVersion.version"
-        body: $output.createChangelogs.changelog
+        tag: $(output:calculateVersion:version)
+        title: "Release $(output:calculateVersion:version)"
+        body: $(output:createChangelogs:changelog)
         draft: false
         prerelease: false
 

@@ -1,37 +1,42 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Text.RegularExpressions;
+using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Configuration;
 
-/// <summary>
-/// Responsible for creating and configuring an instance of <see cref="IConfiguration"/>
-/// based on the provided dictionary of configuration data.
-/// </summary>
-/// <remarks>
-/// This class processes the configuration data dictionary by trimming values and resolving environment variable references.
-/// If a value starts with "@env.", it attempts to retrieve the corresponding environment variable.
-/// </remarks>
-public sealed class ConfigurationFactory : IConfigurationFactory
+public sealed partial class ConfigurationFactory : IConfigurationFactory
 {
   /// <inheritdoc />
-  public IConfiguration Create(Dictionary<string, string?> configurationData)
+  public IConfiguration Create(Dictionary<string, string?> configurationData,
+    IConfiguration? parentConfiguration = null)
   {
+    parentConfiguration ??= new ConfigurationBuilder().AddEnvironmentVariables().Build();
+
+    var regex = ConfigurationFactory.ConfigExpressionRegex();
     var processedConfiguration = configurationData
       .ToDictionary(kvp => kvp.Key, kvp =>
       {
-        if (kvp.Value is not { } strValue)
+        if (string.IsNullOrWhiteSpace(kvp.Value))
         {
-          return kvp.Value;
+          return null;
         }
 
-        var trimmedValue = strValue.Trim();
-        return trimmedValue.StartsWith("@env.")
-          ? Environment.GetEnvironmentVariable(trimmedValue[5..]) ?? string.Empty
-          : trimmedValue;
+        var value = kvp.Value.Trim();
+        var match = regex.Match(value);
+        if (match.Success && match.Groups.TryGetValue("config_expression", out var configExpression))
+        {
+          return parentConfiguration[configExpression.Value];
+        }
+
+        return value;
       });
 
     return new ConfigurationBuilder()
+      .AddConfiguration(parentConfiguration)
       .AddInMemoryCollection(processedConfiguration)
       .Build();
   }
+
+  [GeneratedRegex(@"\$\((?<config_expression>[^\)]+)\)")]
+  private static partial Regex ConfigExpressionRegex();
 }

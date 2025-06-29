@@ -13,6 +13,17 @@ namespace Wolfware.Moonlit.Core.Abstractions;
 public interface IMiddlewareContext
 {
   /// <summary>
+  /// Gets the name associated with the current middleware context.
+  /// </summary>
+  /// <remarks>
+  /// The <see cref="Name"/> property uniquely identifies the middleware context. It can be used
+  /// to reference or differentiate between multiple middleware components within a pipeline.
+  /// This property plays a critical role in configuration mapping and ensures proper execution
+  /// of associated middleware logic.
+  /// </remarks>
+  public string Name { get; }
+
+  /// <summary>
   /// Gets the middleware component associated with the current context.
   /// </summary>
   /// <remarks>

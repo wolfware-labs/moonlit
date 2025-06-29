@@ -19,9 +19,9 @@ public sealed class CreateRelease : IReleaseMiddleware
 
     context.Logger.LogInformation("Release created successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>
+    return Task.FromResult(PipelineResult.Success(output =>
     {
-      {"release", "v1.0.0"} // Example release
+      output.Add("releaseUrl", "https://example.com/release/v1.0.0"); // Example release URL
     }));
   }
 }

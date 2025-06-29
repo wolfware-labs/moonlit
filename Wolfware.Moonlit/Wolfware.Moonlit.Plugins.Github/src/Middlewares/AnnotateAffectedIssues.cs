@@ -19,9 +19,9 @@ public sealed class AnnotateAffectedIssues : IReleaseMiddleware
 
     context.Logger.LogInformation("Affected issues annotated successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>
+    return Task.FromResult(PipelineResult.Success(output =>
     {
-      {"annotatedIssues", "Example of annotated issues"} // Example annotation
+      output.Add("affectedIssues", "Issue-123, Issue-456"); // Example affected issues
     }));
   }
 }

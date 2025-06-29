@@ -15,6 +15,9 @@ namespace Wolfware.Moonlit.Core.Pipelines;
 public class MiddlewareContext : IMiddlewareContext
 {
   /// <inheritdoc />
+  public required string Name { get; init; }
+
+  /// <inheritdoc />
   public required IReleaseMiddleware Middleware { get; init; }
 
   /// <inheritdoc />

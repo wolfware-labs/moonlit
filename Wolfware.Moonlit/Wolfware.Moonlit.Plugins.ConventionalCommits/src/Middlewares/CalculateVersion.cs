@@ -19,9 +19,9 @@ public sealed class CalculateVersion : IReleaseMiddleware
 
     context.Logger.LogInformation("Version calculated successfully.");
 
-    return Task.FromResult(PipelineResult.Success(new Dictionary<string, object>
+    return Task.FromResult(PipelineResult.Success(output =>
     {
-      {"version", "1.0.0"} // Example version
+      output.Add("version", "1.0.0"); // Example version
     }));
   }
 }
