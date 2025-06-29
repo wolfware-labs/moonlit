@@ -6,5 +6,5 @@ public sealed class MiddlewareConfiguration
 
   public string Name { get; set; } = string.Empty;
 
-  public IReadOnlyDictionary<string, string> Configuration { get; set; } = new Dictionary<string, string>();
+  public Dictionary<string, string?> Configuration { get; set; } = new();
 }

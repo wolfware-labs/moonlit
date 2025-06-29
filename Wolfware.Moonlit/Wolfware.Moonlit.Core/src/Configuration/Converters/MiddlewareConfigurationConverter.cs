@@ -14,7 +14,7 @@ public sealed class MiddlewareConfigurationConverter : IYamlTypeConverter
   public object? ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer)
   {
     var middleware = new MiddlewareConfiguration();
-    var configDict = new Dictionary<string, string>();
+    var configDict = new Dictionary<string, string?>();
 
     // Check if we're looking at a mapping
     if (parser.Current is MappingStart)
@@ -171,6 +171,12 @@ public sealed class MiddlewareConfigurationConverter : IYamlTypeConverter
 
         foreach ((var configKey, var configValue) in middleware.Configuration)
         {
+          if (configValue == null)
+          {
+            // Skip null values in configuration
+            continue;
+          }
+
           emitter.Emit(new Scalar(null, null, configKey, ScalarStyle.Plain, true, false));
           emitter.Emit(new Scalar(null, null, configValue, ScalarStyle.Plain, true, false));
         }

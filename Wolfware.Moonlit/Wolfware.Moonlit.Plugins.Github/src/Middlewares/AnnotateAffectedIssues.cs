@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
@@ -6,7 +7,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 public sealed class AnnotateAffectedIssues : IReleaseMiddleware
 {
-  public Task<PipelineResult> ExecuteAsync(PipelineContext context)
+  public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for annotating affected issues.
     // In a real implementation, you would interact with the GitHub API to annotate issues.

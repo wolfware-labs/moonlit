@@ -1,4 +1,5 @@
-﻿using Wolfware.Moonlit.Core.Abstractions;
+﻿using Microsoft.Extensions.Configuration;
+using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
@@ -6,10 +7,12 @@ namespace Wolfware.Moonlit.Core.Pipelines;
 public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 {
   private readonly IPluginsContextFactory _pluginsContextFactory;
+  private readonly IConfigurationFactory _configurationFactory;
 
-  public ReleasePipelineFactory(IPluginsContextFactory pluginsContextFactory)
+  public ReleasePipelineFactory(IPluginsContextFactory pluginsContextFactory, IConfigurationFactory configurationFactory)
   {
     _pluginsContextFactory = pluginsContextFactory;
+    _configurationFactory = configurationFactory;
   }
 
   public async Task<ReleasePipeline> Create(ReleaseConfiguration configuration)
@@ -18,7 +21,11 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 
     var pluginsContext = await this._pluginsContextFactory.CreateContext(configuration.Plugins);
     var middlewares = configuration.Stages.SelectMany(x => x.Value)
-      .Select(x => pluginsContext.GetPlugin(x.Plugin).GetMiddleware(x.Name))
+      .Select(x => new MiddlewareContext
+      {
+        Middleware = pluginsContext.GetPlugin(x.Plugin).GetMiddleware(x.Name),
+        Configuration = this._configurationFactory.Create(x.Configuration)
+      })
       .ToList();
     return new ReleasePipeline(pluginsContext, middlewares);
   }

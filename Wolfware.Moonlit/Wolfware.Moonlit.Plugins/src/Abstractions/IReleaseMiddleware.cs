@@ -1,4 +1,5 @@
 ﻿using JetBrains.Annotations;
+using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Abstractions;
@@ -14,9 +15,10 @@ namespace Wolfware.Moonlit.Plugins.Abstractions;
 public interface IReleaseMiddleware
 {
   /// <summary>
-  /// Executes a pipeline middleware operation with the provided pipeline context.
+  /// Executes the middleware operation asynchronously.
   /// </summary>
-  /// <param name="context">The <see cref="PipelineContext"/> that contains the state and data for the current pipeline execution.</param>
-  /// <returns>A <see cref="Task{PipelineResult}"/> representing the asynchronous operation, including the result of the pipeline execution.</returns>
-  Task<PipelineResult> ExecuteAsync(PipelineContext context);
+  /// <param name="context">The pipeline context containing shared data, logging, and cancellation support.</param>
+  /// <param name="configuration">The configuration settings to be used during the middleware's operation.</param>
+  /// <returns>A <see cref="PipelineResult"/> object representing the outcome of the middleware operation.</returns>
+  Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration);
 }

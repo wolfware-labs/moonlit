@@ -8,12 +8,12 @@ namespace Wolfware.Moonlit.Core.Pipelines;
 public sealed class ReleasePipeline : IAsyncDisposable
 {
   private readonly IPluginsContext _pluginsContext;
-  private readonly IReadOnlyList<IReleaseMiddleware> _middlewares;
+  private readonly IReadOnlyList<IMiddlewareContext> _middlewareContexts;
 
-  public ReleasePipeline(IPluginsContext pluginsContext, IReadOnlyList<IReleaseMiddleware> middlewares)
+  public ReleasePipeline(IPluginsContext pluginsContext, IReadOnlyList<IMiddlewareContext> middlewareContexts)
   {
     _pluginsContext = pluginsContext;
-    _middlewares = middlewares;
+    _middlewareContexts = middlewareContexts;
   }
 
   public async Task<PipelineResult> ExecuteAsync(PipelineContext context)
@@ -22,12 +22,12 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
     var result = PipelineResult.Warning("No middlewares registered in the pipeline.");
 
-    if (this._middlewares.Count == 0)
+    if (this._middlewareContexts.Count == 0)
     {
       return result;
     }
 
-    foreach (var middleware in _middlewares)
+    foreach (var middlewareContext in _middlewareContexts)
     {
       if (context.CancellationToken.IsCancellationRequested)
       {
@@ -36,7 +36,8 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        result = await middleware.ExecuteAsync(context);
+        result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareContext.Configuration)
+          .ConfigureAwait(false);
 
         if (result.Warnings.Count > 0)
         {
@@ -59,9 +60,9 @@ public sealed class ReleasePipeline : IAsyncDisposable
       catch (Exception ex)
       {
         context.Logger.LogError(ex, "An error occurred while executing middleware {MiddlewareName}.",
-          middleware.GetType().Name);
+          middlewareContext.GetType().Name);
         return PipelineResult.Failure(
-          $"An error occurred while executing middleware {middleware.GetType().Name}: {ex.Message}");
+          $"An error occurred while executing middleware {middlewareContext.GetType().Name}: {ex.Message}");
       }
     }
 

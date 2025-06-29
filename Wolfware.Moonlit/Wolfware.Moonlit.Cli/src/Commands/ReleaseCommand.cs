@@ -107,7 +107,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
         AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content:[/] {configuration}");
       }
 
-      await using var pipeline = await this._releasePipelineFactory.Create(configuration);
+      await using var pipeline = await this._releasePipelineFactory.Create(configuration).ConfigureAwait(false);
 
       var response = await AnsiConsole.Status()
         .Spinner(Spinner.Known.Dots)

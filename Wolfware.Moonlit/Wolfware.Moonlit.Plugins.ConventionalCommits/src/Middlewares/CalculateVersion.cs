@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
@@ -6,7 +7,7 @@ namespace Wolfware.Moonlit.Plugins.ConventionalCommits.Middlewares;
 
 public sealed class CalculateVersion : IReleaseMiddleware
 {
-  public Task<PipelineResult> ExecuteAsync(PipelineContext context)
+  public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for calculating the version based on commit messages.
     // In a real implementation, you would analyze the commit messages to determine the version.
