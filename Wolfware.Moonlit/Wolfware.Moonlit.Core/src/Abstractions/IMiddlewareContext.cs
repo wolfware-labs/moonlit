@@ -35,12 +35,13 @@ public interface IMiddlewareContext
   public IReleaseMiddleware Middleware { get; }
 
   /// <summary>
-  /// Gets the configuration settings associated with the middleware context.
+  /// Gets the configuration settings specific to the middleware context.
   /// </summary>
   /// <remarks>
-  /// The <see cref="Configuration"/> property provides access to the application configuration settings
-  /// required by the middleware during pipeline execution. It allows middleware components to retrieve
-  /// and utilize environment-specific or application-specific configurations for their processing logic.
+  /// The <see cref="Configuration"/> property provides a dictionary of key-value pairs representing
+  /// configuration settings for the middleware. These settings can be used to customize the behavior
+  /// of the middleware during its execution within the pipeline. The property supports dynamic
+  /// configuration and can be extended or modified as per the requirements of the pipeline flow.
   /// </remarks>
-  public IConfiguration Configuration { get; }
+  public Dictionary<string, string?> Configuration { get; }
 }

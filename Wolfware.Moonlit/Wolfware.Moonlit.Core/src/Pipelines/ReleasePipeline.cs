@@ -51,10 +51,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        var middlewareConfiguration = new ConfigurationBuilder()
-          .AddConfiguration(configuration)
-          .AddConfiguration(middlewareContext.Configuration)
-          .Build();
+        var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
         result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
           .ConfigureAwait(false);
 

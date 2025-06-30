@@ -34,7 +34,7 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
       {
         Name = x.StepName,
         Middleware = pluginsContext.GetPlugin(x.PluginName).GetMiddleware(x.MiddlewareName),
-        Configuration = this._configurationFactory.Create(x.Configuration)
+        Configuration = x.Configuration
       })
       .ToList();
     return new ReleasePipeline(pluginsContext, middlewares, this._configurationFactory);
