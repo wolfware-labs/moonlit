@@ -42,7 +42,7 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
         var match = regex.Match(value);
         if (match.Success && match.Groups.TryGetValue("config_expression", out var configExpression))
         {
-          return parentConfiguration[configExpression.Value];
+          return parentConfiguration[configExpression.Value] ?? kvp.Value;
         }
 
         return value;
