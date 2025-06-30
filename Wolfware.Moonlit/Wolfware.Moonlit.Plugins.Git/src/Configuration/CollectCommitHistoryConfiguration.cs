@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Git.Configuration;
 
-public sealed class CollectCommitHistoryConfiguration
+public class CollectCommitHistoryConfiguration
 {
-  public string RepositoryPath { get; set; } = string.Empty;
+  public string TagRegex { get; set; } = string.Empty;
 }
