@@ -1,16 +1,33 @@
 ﻿using System.Text.RegularExpressions;
+using Configuration.Extensions.EnvironmentFile;
 using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Configuration;
 
+/// <summary>
+/// Factory class responsible for creating instances of <see cref="IConfiguration"/> objects.
+/// </summary>
+/// <remarks>
+/// Provides methods to create base configurations and build configurations using in-memory data
+/// with optional support for parent configurations and dynamic replacement of configuration expressions.
+/// </remarks>
 public sealed partial class ConfigurationFactory : IConfigurationFactory
 {
+  /// <inheritdoc />
+  public IConfiguration CreateBaseConfiguration()
+  {
+    return new ConfigurationBuilder()
+      .AddEnvironmentFile()
+      .AddEnvironmentVariables("MOONLIT_")
+      .Build();
+  }
+
   /// <inheritdoc />
   public IConfiguration Create(Dictionary<string, string?> configurationData,
     IConfiguration? parentConfiguration = null)
   {
-    parentConfiguration ??= new ConfigurationBuilder().AddEnvironmentVariables().Build();
+    parentConfiguration ??= this.CreateBaseConfiguration();
 
     var regex = ConfigurationFactory.ConfigExpressionRegex();
     var processedConfiguration = configurationData

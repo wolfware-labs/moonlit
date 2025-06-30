@@ -43,6 +43,18 @@ public sealed class StepConfigurationConverter : IYamlTypeConverter
 
       switch (key.ToLowerInvariant())
       {
+        case "name":
+          if (parser.Current is Scalar nameScalar)
+          {
+            stepConfig.StepName = nameScalar.Value;
+            parser.MoveNext();
+          }
+          else
+          {
+            throw new YamlException($"Expected scalar value for name but found {parser.Current}");
+          }
+
+          break;
         case "run":
           if (parser.Current is Scalar runScalar)
           {

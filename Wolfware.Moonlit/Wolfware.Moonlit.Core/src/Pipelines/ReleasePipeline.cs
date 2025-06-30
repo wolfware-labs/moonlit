@@ -40,7 +40,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
       return result;
     }
 
-    IConfiguration configuration = new ConfigurationBuilder().AddEnvironmentVariables().Build();
+    IConfiguration configuration = this._configurationFactory.CreateBaseConfiguration();
 
     foreach (var middlewareContext in _middlewareContexts)
     {
@@ -71,8 +71,11 @@ public sealed class ReleasePipeline : IAsyncDisposable
           return result;
         }
 
-        configuration =
-          this._configurationFactory.Create(result.Output.ToDictionary(middlewareContext.Name), configuration);
+        var resultOutput = result.Output.ToDictionary(middlewareContext.Name);
+        if (resultOutput.Count > 0)
+        {
+          configuration = this._configurationFactory.Create(resultOutput, configuration);
+        }
       }
       catch (OperationCanceledException)
       {
