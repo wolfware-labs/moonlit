@@ -1,4 +1,5 @@
-﻿using Wolfware.Moonlit.Core.Configuration;
+﻿using Microsoft.Extensions.Configuration;
+using Wolfware.Moonlit.Core.Configuration;
 
 namespace Wolfware.Moonlit.Core.Abstractions;
 
@@ -8,17 +9,20 @@ namespace Wolfware.Moonlit.Core.Abstractions;
 public interface IPluginsContextFactory
 {
   /// <summary>
-  /// Creates an instance of <see cref="IPluginsContext"/> using the provided plugin configurations.
+  /// Creates an instance of <see cref="IPluginsContext"/> based on the provided plugin configurations and release configuration.
   /// </summary>
   /// <param name="pluginConfigurations">
-  /// An array of <see cref="PluginConfiguration"/> objects representing the configurations for the plugins to be initialized.
+  /// An array of <see cref="PluginConfiguration"/> that defines the configurations for plugins.
+  /// </param>
+  /// <param name="releaseConfiguration">
+  /// The <see cref="IConfiguration"/> instance representing the release configuration.
   /// </param>
   /// <param name="cancellationToken">
-  /// A <see cref="CancellationToken"/> to observe while waiting for the operation to complete, default is optional.
+  /// An optional <see cref="CancellationToken"/> to observe while waiting for the task to complete.
   /// </param>
   /// <returns>
-  /// A task that represents the asynchronous operation. The task result contains the created <see cref="IPluginsContext"/> instance.
+  /// A task representing the asynchronous operation. The task result contains the instantiated <see cref="IPluginsContext"/>.
   /// </returns>
-  Task<IPluginsContext> CreateContext(PluginConfiguration[] pluginConfigurations,
+  Task<IPluginsContext> CreateContext(PluginConfiguration[] pluginConfigurations, IConfiguration releaseConfiguration,
     CancellationToken cancellationToken = default);
 }

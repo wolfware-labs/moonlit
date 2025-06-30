@@ -30,6 +30,9 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
     [CommandOption("-v|--verbose")]
     public bool Verbose { get; set; } = false;
 
+    [CommandOption("-a|--arg <argument>")]
+    public string[] Arguments { get; set; } = [];
+
     public string ConfigurationFilePath => Path.Combine(WorkingDirectory, FileName);
 
     public override ValidationResult Validate()
@@ -94,6 +97,23 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
         {
           AnsiConsole.MarkupLine("[red]No matching stages found in the release configuration.[/]");
           return 1;
+        }
+      }
+
+      if (settings.Arguments.Length > 0)
+      {
+        foreach (var argument in settings.Arguments)
+        {
+          var parts = argument.Split('=', 2);
+          if (parts.Length == 2)
+          {
+            configuration.Arguments[parts[0].Trim()] = parts[1].Trim();
+          }
+          else
+          {
+            AnsiConsole.MarkupLineInterpolated($"[red]Invalid argument format: {argument}[/]");
+            return 1;
+          }
         }
       }
 

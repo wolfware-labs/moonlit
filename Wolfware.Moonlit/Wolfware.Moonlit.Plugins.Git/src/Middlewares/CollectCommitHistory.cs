@@ -8,6 +8,10 @@ namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
 public sealed class CollectCommitHistory : IReleaseMiddleware
 {
+  public CollectCommitHistory(IConfiguration configuration)
+  {
+  }
+
   public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     var middlewareConfiguration = configuration.Get<CollectCommitHistoryConfiguration>();

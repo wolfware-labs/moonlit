@@ -1,4 +1,5 @@
-﻿using Wolfware.Moonlit.Core.Configuration;
+﻿using Microsoft.Extensions.Configuration;
+using Wolfware.Moonlit.Core.Configuration;
 
 namespace Wolfware.Moonlit.Core.Abstractions;
 
@@ -8,16 +9,20 @@ namespace Wolfware.Moonlit.Core.Abstractions;
 public interface IPluginFactory
 {
   /// <summary>
-  /// Asynchronously creates an instance of a plugin based on the provided configuration.
+  /// Asynchronously creates a plugin instance using the provided plugin configuration and global configuration settings.
   /// </summary>
   /// <param name="configuration">
-  /// The configuration details required to create the plugin, including name, URL, and specific settings.
+  /// The <see cref="PluginConfiguration"/> containing the settings and metadata required to initialize the plugin.
+  /// </param>
+  /// <param name="releaseConfiguration">
+  /// The global <see cref="IConfiguration"/> instance containing release-wide configuration settings.
   /// </param>
   /// <param name="cancellationToken">
-  /// A cancellation token that can be used to cancel the operation.
+  /// A <see cref="CancellationToken"/> to observe while waiting for the task to complete, allowing the operation to be cancelled.
   /// </param>
   /// <returns>
-  /// A task that represents the asynchronous operation. The task result contains the created plugin instance.
+  /// A task representing the asynchronous operation. The task result is an instance of <see cref="IPlugin"/> representing the created plugin.
   /// </returns>
-  Task<IPlugin> CreatePlugin(PluginConfiguration configuration, CancellationToken cancellationToken = default);
+  Task<IPlugin> CreatePlugin(PluginConfiguration configuration, IConfiguration releaseConfiguration,
+    CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,5 @@
-﻿using Wolfware.Moonlit.Core.Abstractions;
+﻿using Microsoft.Extensions.Configuration;
+using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
 
 namespace Wolfware.Moonlit.Core.Plugins;
@@ -26,8 +27,12 @@ public sealed class PluginsContextFactory : IPluginsContextFactory
     _pluginFactory = pluginFactory;
   }
 
-  public async Task<IPluginsContext> CreateContext(PluginConfiguration[] pluginConfigurations,
-    CancellationToken cancellationToken = default)
+  /// <inheritdoc />
+  public async Task<IPluginsContext> CreateContext(
+    PluginConfiguration[] pluginConfigurations,
+    IConfiguration releaseConfiguration,
+    CancellationToken cancellationToken = default
+  )
   {
     ArgumentNullException.ThrowIfNull(pluginConfigurations, nameof(pluginConfigurations));
     if (pluginConfigurations.Length == 0)
@@ -39,7 +44,8 @@ public sealed class PluginsContextFactory : IPluginsContextFactory
     var plugins = new Dictionary<string, IPlugin>();
     foreach (var pluginConfiguration in pluginConfigurations)
     {
-      var plugin = await _pluginFactory.CreatePlugin(pluginConfiguration, cancellationToken).ConfigureAwait(false);
+      var plugin = await _pluginFactory.CreatePlugin(pluginConfiguration, releaseConfiguration, cancellationToken)
+        .ConfigureAwait(false);
       plugins.Add(pluginConfiguration.Name, plugin);
     }
 

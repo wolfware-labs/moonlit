@@ -27,8 +27,9 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
   public async Task<ReleasePipeline> Create(ReleaseConfiguration configuration)
   {
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
-
-    var pluginsContext = await this._pluginsContextFactory.CreateContext(configuration.Plugins).ConfigureAwait(false);
+    var releaseConfiguration = this.GetReleaseConfiguration(configuration);
+    var pluginsContext = await this._pluginsContextFactory.CreateContext(configuration.Plugins, releaseConfiguration)
+      .ConfigureAwait(false);
     var middlewares = configuration.Stages.SelectMany(x => x.Value)
       .Select(x => new MiddlewareContext
       {
@@ -38,5 +39,22 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
       })
       .ToList();
     return new ReleasePipeline(pluginsContext, middlewares, this._configurationFactory);
+  }
+
+  private IConfiguration GetReleaseConfiguration(ReleaseConfiguration configuration)
+  {
+    var releaseConfiguration = new Dictionary<string, string?>();
+    foreach (var variable in configuration.Variables)
+    {
+      releaseConfiguration[$"vars:{variable.Key}"] = variable.Value;
+    }
+
+    foreach (var argument in configuration.Arguments)
+    {
+      releaseConfiguration[$"args:{argument.Key}"] = argument.Value;
+    }
+
+    var baseConfiguration = this._configurationFactory.CreateBaseConfiguration();
+    return this._configurationFactory.Create(releaseConfiguration, baseConfiguration);
   }
 }

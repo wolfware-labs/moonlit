@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using McMaster.NETCore.Plugins;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
@@ -21,7 +22,7 @@ public class PluginFactory : IPluginFactory
     _configurationFactory = configurationFactory;
   }
 
-  public async Task<IPlugin> CreatePlugin(PluginConfiguration configuration,
+  public async Task<IPlugin> CreatePlugin(PluginConfiguration configuration, IConfiguration releaseConfiguration,
     CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
@@ -30,7 +31,8 @@ public class PluginFactory : IPluginFactory
     var defaultPluginAssembly = loader.LoadDefaultAssembly();
     var startupInstance = PluginFactory.CreateStartupInstance(defaultPluginAssembly);
     var services = new ServiceCollection();
-    var config = this._configurationFactory.Create(configuration.Configuration);
+    var config = this._configurationFactory.Create(configuration.Configuration, releaseConfiguration);
+    services.AddSingleton(config);
     startupInstance.Configure(services, config);
     var provider = services.BuildServiceProvider();
     return new Plugin(loader, provider);
