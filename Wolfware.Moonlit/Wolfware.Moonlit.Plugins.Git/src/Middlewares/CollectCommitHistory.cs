@@ -32,80 +32,32 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
     var tagRegex = new Regex(config.TagRegex, RegexOptions.Compiled | RegexOptions.IgnoreCase);
     using var gitRepo = new Repository(gitFolderPath);
 
-    var tags = gitRepo.Tags.Where(tag => tagRegex.IsMatch(tag.FriendlyName)).ToList();
-    if (!tags.Any())
+    var latestTaggedCommit = gitRepo.Tags
+      .Where(tag => tagRegex.IsMatch(tag.FriendlyName))
+      .Select(tag => tag.Target as Commit)
+      .Where(commit => commit != null)
+      .OrderByDescending(commit => commit?.Author.When ?? DateTimeOffset.MinValue)
+      .FirstOrDefault();
+
+    string[] commits;
+
+    if (latestTaggedCommit == null)
     {
-      var commits = gitRepo.Commits
+      commits = gitRepo.Commits
         .QueryBy(new CommitFilter {SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time})
         .Select(commit => commit.Message.Trim())
         .ToArray();
-      return Task.FromResult(MiddlewareResult.Success(output => output.Add("commits", commits)));
+    }
+    else
+    {
+      commits = gitRepo.Commits
+        .QueryBy(new CommitFilter {IncludeReachableFrom = gitRepo.Head.Tip, ExcludeReachableFrom = latestTaggedCommit})
+        .Select(commit => commit.Message.Trim())
+        .ToArray();
     }
 
-    return Task.FromResult(MiddlewareResult.Success());
-    // context.Logger.LogInformation("Collecting commit history from repository at {RepoPath}", repoPath);
-    //
-    // var commitMessages = new List<string>();
-    //
-    // try
-    // {
-    //   using var repo = new Repository(repoPath);
-    //
-    //   // Get all tags that match the regex
-    //   var matchingTags = repo.Tags
-    //     .Where(tag => tagRegex.IsMatch(tag.FriendlyName))
-    //     .ToList();
-    //
-    //   if (!matchingTags.Any())
-    //   {
-    //     context.Logger.LogWarning("No tags matching pattern '{TagPattern}' were found", config.TagRegex);
-    //     return Task.FromResult(MiddlewareResult.Continue());
-    //   }
-    //
-    //   // Sort tags to find the most recent one (if multiple match)
-    //   var targetTag = matchingTags
-    //     .OrderByDescending(tag => (tag.Target as Commit)?.Author.When ?? DateTimeOffset.MinValue)
-    //     .First();
-    //
-    //   context.Logger.LogInformation("Found matching tag: {TagName}", targetTag.FriendlyName);
-    //
-    //   var tagCommit = targetTag.Target as Commit;
-    //   if (tagCommit == null)
-    //   {
-    //     context.Logger.LogWarning("Tag {TagName} does not point to a commit", targetTag.FriendlyName);
-    //     return Task.FromResult(MiddlewareResult.Continue());
-    //   }
-    //
-    //   // Walk the commit history from HEAD to the tag
-    //   var filter = new CommitFilter {IncludeReachableFrom = repo.Head.Tip, ExcludeReachableFrom = tagCommit};
-    //
-    //   foreach (var commit in repo.Commits.QueryBy(filter))
-    //   {
-    //     if (!string.IsNullOrWhiteSpace(commit.Message))
-    //     {
-    //       commitMessages.Add(commit.Message.Trim());
-    //     }
-    //   }
-    //
-    //   context.Logger.LogInformation("Collected {Count} commit messages since tag {TagName}",
-    //     commitMessages.Count, targetTag.FriendlyName);
-    //
-    //   // Store the results in the context data for downstream middleware
-    //   return Task.FromResult(MiddlewareResult.Continue(new Dictionary<string, object>
-    //   {
-    //     ["CommitMessages"] = commitMessages, ["MatchingTag"] = targetTag.FriendlyName
-    //   }));
-    // }
-    // catch (RepositoryNotFoundException)
-    // {
-    //   context.Logger.LogError("No Git repository found at {RepoPath}", repoPath);
-    //   return Task.FromResult(MiddlewareResult.Failed("No Git repository found"));
-    // }
-    // catch (Exception ex)
-    // {
-    //   context.Logger.LogError(ex, "Error while collecting commit history");
-    //   return Task.FromResult(MiddlewareResult.Failed(ex.Message));
-    // }
+
+    return Task.FromResult(MiddlewareResult.Success(output => output.Add("commits", commits)));
   }
 
   private string? GetGitFolderPath(string path)
