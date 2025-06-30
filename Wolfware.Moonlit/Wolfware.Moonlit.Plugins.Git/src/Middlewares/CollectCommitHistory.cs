@@ -31,9 +31,16 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
 
     var tagRegex = new Regex(config.TagRegex, RegexOptions.Compiled | RegexOptions.IgnoreCase);
     using var gitRepo = new Repository(gitFolderPath);
-    var commits = gitRepo.Commits
-      .QueryBy(new CommitFilter {SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time})
-      .ToList(); // Force loading commits to ensure the repository is valid
+
+    var tags = gitRepo.Tags.Where(tag => tagRegex.IsMatch(tag.FriendlyName)).ToList();
+    if (!tags.Any())
+    {
+      var commits = gitRepo.Commits
+        .QueryBy(new CommitFilter {SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time})
+        .Select(commit => commit.Message.Trim())
+        .ToArray();
+      return Task.FromResult(MiddlewareResult.Success(output => output.Add("commits", commits)));
+    }
 
     return Task.FromResult(MiddlewareResult.Success());
     // context.Logger.LogInformation("Collecting commit history from repository at {RepoPath}", repoPath);
