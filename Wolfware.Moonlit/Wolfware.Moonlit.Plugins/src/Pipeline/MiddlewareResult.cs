@@ -4,7 +4,7 @@ namespace Wolfware.Moonlit.Plugins.Pipeline;
 
 /// Represents the outcome of a pipeline operation, encapsulating success, failure, and warning details.
 [PublicAPI]
-public sealed record PipelineResult
+public sealed record MiddlewareResult
 {
   /// Indicates whether the pipeline operation completed successfully.
   /// A value of `true` signifies that the operation succeeded without errors,
@@ -32,9 +32,9 @@ public sealed record PipelineResult
   /// <returns>
   /// A new instance of PipelineResult indicating a successful operation.
   /// </returns>
-  public static PipelineResult Success(Action<MiddlewareOutput>? setOutput = null)
+  public static MiddlewareResult Success(Action<MiddlewareOutput>? setOutput = null)
   {
-    var result = new PipelineResult {IsSuccessful = true};
+    var result = new MiddlewareResult {IsSuccessful = true};
     setOutput?.Invoke(result.Output);
     return result;
   }
@@ -46,7 +46,7 @@ public sealed record PipelineResult
   /// <returns>
   /// A new instance of PipelineResult indicating a failed operation with the provided error message.
   /// </returns>
-  public static PipelineResult Failure(string errorMessage) =>
+  public static MiddlewareResult Failure(string errorMessage) =>
     new() {IsSuccessful = false, ErrorMessage = errorMessage};
 
   /// Creates a pipeline result with a warning and allows customization of the output.
@@ -55,9 +55,9 @@ public sealed record PipelineResult
   /// <returns>
   /// A new instance of PipelineResult indicating a successful operation with the provided warning message.
   /// </returns>
-  public static PipelineResult Warning(string warning, Action<MiddlewareOutput>? setOutput = null)
+  public static MiddlewareResult Warning(string warning, Action<MiddlewareOutput>? setOutput = null)
   {
-    var result = new PipelineResult {IsSuccessful = true, Warnings = [warning]};
+    var result = new MiddlewareResult {IsSuccessful = true, Warnings = [warning]};
     setOutput?.Invoke(result.Output);
     return result;
   }

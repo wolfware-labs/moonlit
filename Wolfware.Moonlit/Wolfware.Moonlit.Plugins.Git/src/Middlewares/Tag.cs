@@ -7,7 +7,7 @@ namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
 public sealed class Tag : IReleaseMiddleware
 {
-  public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for tagging the release.
     // In a real implementation, you would interact with the git repository to create a tag.
@@ -19,7 +19,7 @@ public sealed class Tag : IReleaseMiddleware
 
     context.Logger.LogInformation("Release tagged successfully.");
 
-    return Task.FromResult(PipelineResult.Success(output =>
+    return Task.FromResult(MiddlewareResult.Success(output =>
     {
       output.Add("tag", "v1.0.0"); // Example tag
     }));

@@ -7,7 +7,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 public sealed class CreateRelease : IReleaseMiddleware
 {
-  public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for creating a release on GitHub.
     // In a real implementation, you would interact with the GitHub API to create a release.
@@ -19,7 +19,7 @@ public sealed class CreateRelease : IReleaseMiddleware
 
     context.Logger.LogInformation("Release created successfully.");
 
-    return Task.FromResult(PipelineResult.Success(output =>
+    return Task.FromResult(MiddlewareResult.Success(output =>
     {
       output.Add("releaseUrl", "https://example.com/release/v1.0.0"); // Example release URL
     }));

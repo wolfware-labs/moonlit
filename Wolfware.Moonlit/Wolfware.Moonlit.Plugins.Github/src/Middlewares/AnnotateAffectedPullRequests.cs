@@ -8,7 +8,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 public sealed class AnnotateAffectedPullRequests : IReleaseMiddleware
 {
-  public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for annotating affected pull requests.
     // In a real implementation, you would interact with the GitHub API to annotate pull requests.
@@ -20,7 +20,7 @@ public sealed class AnnotateAffectedPullRequests : IReleaseMiddleware
 
     context.Logger.LogInformation("Affected pull requests annotated successfully.");
 
-    return Task.FromResult(PipelineResult.Success(output =>
+    return Task.FromResult(MiddlewareResult.Success(output =>
     {
       output.Add("affectedPullRequests", new List<string> {"PR-123", "PR-456"}); // Example affected pull requests
     }));

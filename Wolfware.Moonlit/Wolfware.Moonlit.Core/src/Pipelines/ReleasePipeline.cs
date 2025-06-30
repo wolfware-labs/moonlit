@@ -29,11 +29,11 @@ public sealed class ReleasePipeline : IAsyncDisposable
   /// </summary>
   /// <param name="context">The context containing configuration, logger, working directory, and cancellation token for the pipeline execution.</param>
   /// <returns>A task representing an asynchronous operation that returns the result of the pipeline execution, including success or failure state and any associated warnings or errors.</returns>
-  public async Task<PipelineResult> ExecuteAsync(PipelineContext context)
+  public async Task<MiddlewareResult> ExecuteAsync(PipelineContext context)
   {
     ArgumentNullException.ThrowIfNull(context, nameof(context));
 
-    var result = PipelineResult.Warning("No middlewares registered in the pipeline.");
+    var result = MiddlewareResult.Warning("No middlewares registered in the pipeline.");
 
     if (this._middlewareContexts.Count == 0)
     {
@@ -46,7 +46,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
     {
       if (context.CancellationToken.IsCancellationRequested)
       {
-        return PipelineResult.Failure("Pipeline execution was cancelled.");
+        return MiddlewareResult.Failure("Pipeline execution was cancelled.");
       }
 
       try
@@ -77,14 +77,14 @@ public sealed class ReleasePipeline : IAsyncDisposable
       catch (OperationCanceledException)
       {
         context.Logger.LogInformation("Pipeline execution was cancelled by the user.");
-        return PipelineResult.Failure("Pipeline execution was cancelled by the user.");
+        return MiddlewareResult.Failure("Pipeline execution was cancelled by the user.");
       }
       catch (Exception ex)
       {
         context.Logger.LogError(ex, "An error occurred while executing middleware {MiddlewareName}.",
-          middlewareContext.GetType().Name);
-        return PipelineResult.Failure(
-          $"An error occurred while executing middleware {middlewareContext.GetType().Name}: {ex.Message}");
+          middlewareContext.Name);
+        return MiddlewareResult.Failure(
+          $"An error occurred while executing middleware {middlewareContext.Name}: {ex.Message}");
       }
     }
 

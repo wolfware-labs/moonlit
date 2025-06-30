@@ -7,7 +7,7 @@ namespace Wolfware.Moonlit.Plugins.Slack.Middlewares;
 
 public sealed class SendNotification : IReleaseMiddleware
 {
-  public Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for sending a notification to Slack.
     // In a real implementation, you would interact with the Slack API to send a message.
@@ -19,7 +19,7 @@ public sealed class SendNotification : IReleaseMiddleware
 
     context.Logger.LogInformation("Notification sent successfully.");
 
-    return Task.FromResult(PipelineResult.Success(output =>
+    return Task.FromResult(MiddlewareResult.Success(output =>
     {
       output.Add("notificationStatus", "Sent to Slack successfully"); // Example output
     }));

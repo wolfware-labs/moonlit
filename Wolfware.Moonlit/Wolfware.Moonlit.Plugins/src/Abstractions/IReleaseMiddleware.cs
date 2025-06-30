@@ -19,6 +19,6 @@ public interface IReleaseMiddleware
   /// </summary>
   /// <param name="context">The pipeline context containing shared data, logging, and cancellation support.</param>
   /// <param name="configuration">The configuration settings to be used during the middleware's operation.</param>
-  /// <returns>A <see cref="PipelineResult"/> object representing the outcome of the middleware operation.</returns>
-  Task<PipelineResult> ExecuteAsync(PipelineContext context, IConfiguration configuration);
+  /// <returns>A <see cref="MiddlewareResult"/> object representing the outcome of the middleware operation.</returns>
+  Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration);
 }
