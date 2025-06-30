@@ -127,10 +127,13 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
         AnsiConsole.MarkupLineInterpolated($"[blue]Configuration Content:[/] {configuration}");
       }
 
+      AnsiConsole.WriteLine();
+
       await using var pipeline = await this._releasePipelineFactory.Create(configuration).ConfigureAwait(false);
 
       var response = await AnsiConsole.Status()
-        .Spinner(Spinner.Known.Dots)
+        .Spinner(Spinner.Known.Moon)
+        .SpinnerStyle(Style.Parse("khaki3 bold"))
         .StartAsync(
           "Executing Release...",
           _ => pipeline.ExecuteAsync(new PipelineContext
@@ -140,6 +143,8 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
             CancellationToken = CancellationToken.None // TODO: Handle cancellation token properly
           })
         ).ConfigureAwait(false);
+
+      AnsiConsole.WriteLine();
 
       if (response.IsSuccessful)
       {

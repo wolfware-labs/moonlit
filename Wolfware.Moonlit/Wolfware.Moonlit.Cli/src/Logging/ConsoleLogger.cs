@@ -47,7 +47,7 @@ public sealed class ConsoleLogger : ILogger
     };
 
     AnsiConsole.MarkupLine(
-      $"[blue][[[/][orange3]{DateTime.Now:HH:mm:ss}[/][blue]]][/] {levelLabel} {Markup.Escape(message)}");
+      $"[steelblue][[[/][khaki3]{DateTime.Now:HH:mm:ss}[/][steelblue]]][/] {levelLabel} {Markup.Escape(message)}");
 
     if (exception != null)
     {
