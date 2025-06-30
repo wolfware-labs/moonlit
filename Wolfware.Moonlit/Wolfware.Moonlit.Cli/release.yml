@@ -23,7 +23,7 @@ stages:
     - name: gitHistory
       run: git.collect-commit-history
       config:
-        repositoryPath: "This is a test"
+        tagPrefix: "v"
     - name: calculateVersion
       run: conventional-commits.calculate-version
       config:

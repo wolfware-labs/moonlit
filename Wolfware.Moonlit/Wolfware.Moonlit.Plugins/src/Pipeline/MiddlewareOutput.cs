@@ -22,7 +22,6 @@ public sealed class MiddlewareOutput
   public void Add<T>(string key, T value)
   {
     ArgumentNullException.ThrowIfNull(key, nameof(key));
-    ArgumentNullException.ThrowIfNull(value, nameof(value));
 
     if (this._data.ContainsKey(key))
     {
