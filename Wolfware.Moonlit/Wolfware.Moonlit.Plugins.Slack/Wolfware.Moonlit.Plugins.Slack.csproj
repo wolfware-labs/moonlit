@@ -1,5 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj" />
+    <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
 </Project>

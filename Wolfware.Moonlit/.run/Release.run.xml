@@ -21,9 +21,9 @@
     <method v="2">
       <option name="Build" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Git" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Git/Wolfware.Moonlit.Plugins.Git.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.ConventionalCommits" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.ConventionalCommits/Wolfware.Moonlit.Plugins.ConventionalCommits.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Github" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Github/Wolfware.Moonlit.Plugins.Github.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Slack" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Slack/Wolfware.Moonlit.Plugins.Slack.csproj" />
+      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.SemanticRelease" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.SemanticRelease/Wolfware.Moonlit.Plugins.SemanticRelease.csproj" />
     </method>
   </configuration>
 </component>

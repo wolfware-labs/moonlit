@@ -6,8 +6,8 @@ plugins:
     config:
       username: $(env:GIT_USERNAME)
       password: $(env:GIT_PAT)
-  - name: "conventional-commits"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.ConventionalCommits/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.ConventionalCommits.dll"
+  - name: "semantic-release"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
   - name: "github"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
 
@@ -23,7 +23,7 @@ stages:
         commits: $(output:gitHistory:history)
 
   release:
-    - name: gatTag
+    - name: gitTag
       run: git.tag
       config:
         format: "v{tagValue}"

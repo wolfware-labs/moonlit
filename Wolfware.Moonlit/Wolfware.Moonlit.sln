@@ -8,8 +8,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Github", "Wolfware.Moonlit.Plugins.Github\Wolfware.Moonlit.Plugins.Github.csproj", "{636662C7-56E3-4600-9E4C-211B9550C422}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.ConventionalCommits", "Wolfware.Moonlit.Plugins.ConventionalCommits\Wolfware.Moonlit.Plugins.ConventionalCommits.csproj", "{0D6A376A-6A88-4936-9508-317FDC260A46}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Slack", "Wolfware.Moonlit.Plugins.Slack\Wolfware.Moonlit.Plugins.Slack.csproj", "{159DF930-A111-409F-8A11-59184DCF253F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_SolutionItems", "_SolutionItems", "{13C386E2-A161-4A86-8789-7E6DF6AA258F}"
@@ -20,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_SolutionItems", "_Solution
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Git", "Wolfware.Moonlit.Plugins.Git\Wolfware.Moonlit.Plugins.Git.csproj", "{AC3D94ED-84A9-4F39-8399-30B11C042226}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.SemanticRelease", "Wolfware.Moonlit.Plugins.SemanticRelease\Wolfware.Moonlit.Plugins.SemanticRelease.csproj", "{68B47003-1231-499F-A543-F3FA87AD8E00}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,10 +43,6 @@ Global
 		{636662C7-56E3-4600-9E4C-211B9550C422}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{636662C7-56E3-4600-9E4C-211B9550C422}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{636662C7-56E3-4600-9E4C-211B9550C422}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0D6A376A-6A88-4936-9508-317FDC260A46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0D6A376A-6A88-4936-9508-317FDC260A46}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0D6A376A-6A88-4936-9508-317FDC260A46}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0D6A376A-6A88-4936-9508-317FDC260A46}.Release|Any CPU.Build.0 = Release|Any CPU
 		{159DF930-A111-409F-8A11-59184DCF253F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{159DF930-A111-409F-8A11-59184DCF253F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{159DF930-A111-409F-8A11-59184DCF253F}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -55,5 +51,9 @@ Global
 		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC3D94ED-84A9-4F39-8399-30B11C042226}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68B47003-1231-499F-A543-F3FA87AD8E00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68B47003-1231-499F-A543-F3FA87AD8E00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68B47003-1231-499F-A543-F3FA87AD8E00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68B47003-1231-499F-A543-F3FA87AD8E00}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

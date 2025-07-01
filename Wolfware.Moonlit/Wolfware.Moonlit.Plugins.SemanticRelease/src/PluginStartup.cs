@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Abstractions;
-using Wolfware.Moonlit.Plugins.ConventionalCommits.Middlewares;
 using Wolfware.Moonlit.Plugins.Extensions;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
-namespace Wolfware.Moonlit.Plugins.ConventionalCommits;
+namespace Wolfware.Moonlit.Plugins.SemanticRelease;
 
 /// <summary>
 /// Configures services and settings specifically for the plugin's startup process.
@@ -14,5 +14,6 @@ public class PluginStartup : IPluginStartup
   public void Configure(IServiceCollection services, IConfiguration configuration)
   {
     services.AddMiddleware<CalculateVersion>("calculate-version");
+    services.AddMiddleware<GenerateChangelogs>("changelogs");
   }
 }
