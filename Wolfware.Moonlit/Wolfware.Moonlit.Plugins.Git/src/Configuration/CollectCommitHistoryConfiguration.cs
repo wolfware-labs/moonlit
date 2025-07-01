@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Wolfware.Moonlit.Plugins.Git.Configuration;
 
-public class CollectCommitHistoryConfiguration
+public sealed class CollectCommitHistoryConfiguration
 {
   public string? TagRegex { get; set; }
 

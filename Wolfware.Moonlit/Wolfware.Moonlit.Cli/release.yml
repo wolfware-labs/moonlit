@@ -1,22 +1,15 @@
 name: "Test Release"
 
-variables:
-  GIT_REPOSITORY: my-awesome-repo
-  GIT_TOKEN: super-secret-token
-
 plugins:
   - name: "git"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
     config:
-      repository: $(vars:GIT_REPOSITORY)
-      token: $(vars:GIT_TOKEN)
+      username: $(env:GIT_USERNAME)
+      password: $(env:GIT_PAT)
   - name: "conventional-commits"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.ConventionalCommits/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.ConventionalCommits.dll"
   - name: "github"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
-    config:
-      repository: $(GIT:REPOSITORY)
-      token: $(GIT:TOKEN)
 
 stages:
   analyze:

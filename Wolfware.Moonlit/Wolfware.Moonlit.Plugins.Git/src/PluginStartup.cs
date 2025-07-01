@@ -15,6 +15,6 @@ public sealed class PluginStartup : IPluginStartup
   public void Configure(IServiceCollection services, IConfiguration configuration)
   {
     services.AddMiddleware<CollectCommitHistory>("collect-commit-history");
-    services.AddMiddleware<Tag>("tag");
+    services.AddMiddleware<CreateTag>("tag");
   }
 }

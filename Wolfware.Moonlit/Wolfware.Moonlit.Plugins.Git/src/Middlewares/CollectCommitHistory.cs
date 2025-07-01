@@ -2,7 +2,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
+using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Git.Configuration;
+using Wolfware.Moonlit.Plugins.Git.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
@@ -14,19 +16,8 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
     ArgumentNullException.ThrowIfNull(context, nameof(context));
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
 
-    var config = configuration.Get<CollectCommitHistoryConfiguration>();
-    if (config == null)
-    {
-      throw new InvalidOperationException("Configuration for CollectCommitHistory is not set.");
-    }
-
-    var gitFolderPath = this.GetGitFolderPath(context.WorkingDirectory);
-    if (string.IsNullOrEmpty(gitFolderPath))
-    {
-      context.Logger.LogError("No Git repository found in the working directory: {WorkingDirectory}",
-        context.WorkingDirectory);
-      return Task.FromResult(MiddlewareResult.Failure("No Git repository found"));
-    }
+    var config = configuration.GetRequired<CollectCommitHistoryConfiguration>();
+    var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
 
     using var gitRepo = new Repository(gitFolderPath);
 
@@ -60,24 +51,5 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
       output.Add("latestTag", latestTag?.Tag.FriendlyName);
       output.Add("commits", commits);
     }));
-  }
-
-  private string? GetGitFolderPath(string path)
-  {
-    while (true)
-    {
-      if (Directory.Exists(Path.Combine(path, ".git")))
-      {
-        return Path.Combine(path, ".git");
-      }
-
-      var parentDirectory = Directory.GetParent(path);
-      if (parentDirectory == null)
-      {
-        return null;
-      }
-
-      path = parentDirectory.FullName;
-    }
   }
 }
