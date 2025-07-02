@@ -43,7 +43,15 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
         var match = regex.Match(value);
         if (match.Success && match.Groups.TryGetValue("config_expression", out var configExpression))
         {
-          return parentConfiguration[configExpression.Value] ?? kvp.Value;
+          var configSection = parentConfiguration.GetSection(configExpression.Value);
+          if (!configSection.Exists())
+          {
+            return kvp.Value;
+          }
+
+          return configSection.Value != null
+            ? configSection.Get<object>()
+            : configSection.Get<Dictionary<string, object>>();
         }
 
         return value;
