@@ -2,5 +2,7 @@
 
 public sealed class CreateTagConfiguration
 {
-  public string TagName { get; set; } = string.Empty;
+  public string Format { get; set; } = "{0}";
+
+  public string Value { get; set; } = string.Empty;
 }

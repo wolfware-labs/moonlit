@@ -24,6 +24,9 @@ public sealed class CalculateVersion : IReleaseMiddleware
 
     var calculator = new SemanticVersionCalculator(config.Release);
     var nextVersion = calculator.CalculateNextVersion(SemVersion.Parse(config.BaseVersion), config.Commits);
-    return Task.FromResult(MiddlewareResult.Success());
+    return Task.FromResult(MiddlewareResult.Success(output =>
+    {
+      output.Add("NextVersion", nextVersion.ToString());
+    }));
   }
 }

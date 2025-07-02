@@ -26,8 +26,8 @@ stages:
     - name: gitTag
       run: git.tag
       config:
-        format: "v{tagValue}"
-        value: $(output:calculateVersion:version)
+        format: "v{0}"
+        value: $(output:calculateVersion:nextVersion)
     - name: createRelease
       run: github.create-release
       config:

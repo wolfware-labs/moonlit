@@ -27,7 +27,7 @@ public sealed class CreateTag : IReleaseMiddleware
     var config = configuration.GetRequired<CreateTagConfiguration>();
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
     using var gitRepo = new Repository(gitFolderPath);
-    var tagName = config.TagName;
+    var tagName = string.Format(config.Format, config.Value);
     if (string.IsNullOrWhiteSpace(tagName))
     {
       return Task.FromResult(MiddlewareResult.Failure("Tag name cannot be null or empty."));
