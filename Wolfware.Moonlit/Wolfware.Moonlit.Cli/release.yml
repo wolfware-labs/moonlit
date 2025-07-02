@@ -18,9 +18,9 @@ stages:
       config:
         tagPrefix: "v"
     - name: calculateVersion
-      run: conventional-commits.calculate-version
+      run: semantic-release.calculate-version
       config:
-        commits: $(output:gitHistory:history)
+        commits: $(output:gitHistory:commits)
 
   release:
     - name: gitTag
