@@ -1,22 +1,15 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
-using JetBrains.Annotations;
+﻿using JetBrains.Annotations;
 
 namespace Wolfware.Moonlit.Plugins.Pipeline;
 
 [PublicAPI]
 public sealed class MiddlewareOutput
 {
-  private static readonly JsonSerializerOptions _serializerOptions = new()
-  {
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-  };
+  private readonly Dictionary<string, object?> _data;
 
-  private readonly Dictionary<string, string?> _data;
-
-  public MiddlewareOutput(IReadOnlyDictionary<string, string?>? initialData = null)
+  public MiddlewareOutput(IReadOnlyDictionary<string, object?>? initialData = null)
   {
-    this._data = new Dictionary<string, string?>(initialData ?? new Dictionary<string, string?>());
+    this._data = new Dictionary<string, object?>(initialData ?? new Dictionary<string, object?>());
   }
 
   public void Add<T>(string key, T value)
@@ -35,10 +28,10 @@ public sealed class MiddlewareOutput
       return;
     }
 
-    this._data[key] = JsonSerializer.Serialize(value, MiddlewareOutput._serializerOptions);
+    this._data[key] = value;
   }
 
-  public Dictionary<string, string?> ToDictionary(string scope)
+  public Dictionary<string, object?> ToDictionary(string scope)
   {
     return this._data.ToDictionary(
       kvp => $"output:{scope}:{kvp.Key}",

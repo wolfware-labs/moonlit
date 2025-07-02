@@ -43,7 +43,7 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 
   private IConfiguration GetReleaseConfiguration(ReleaseConfiguration configuration)
   {
-    var releaseConfiguration = new Dictionary<string, string?>();
+    var releaseConfiguration = new Dictionary<string, object?>();
     foreach (var variable in configuration.Variables)
     {
       releaseConfiguration[$"vars:{variable.Key}"] = variable.Value;

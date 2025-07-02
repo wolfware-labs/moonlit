@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 using Configuration.Extensions.EnvironmentFile;
 using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Abstractions;
@@ -24,7 +25,7 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
   }
 
   /// <inheritdoc />
-  public IConfiguration Create(Dictionary<string, string?> configurationData,
+  public IConfiguration Create(Dictionary<string, object?> configurationData,
     IConfiguration? parentConfiguration = null)
   {
     parentConfiguration ??= this.CreateBaseConfiguration();
@@ -33,12 +34,12 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
     var processedConfiguration = configurationData
       .ToDictionary(kvp => kvp.Key, kvp =>
       {
-        if (string.IsNullOrWhiteSpace(kvp.Value))
+        if (kvp.Value is not string valueString || string.IsNullOrWhiteSpace(valueString))
         {
-          return null;
+          return kvp.Value;
         }
 
-        var value = kvp.Value.Trim();
+        var value = valueString.Trim();
         var match = regex.Match(value);
         if (match.Success && match.Groups.TryGetValue("config_expression", out var configExpression))
         {
@@ -48,9 +49,11 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
         return value;
       });
 
+    var jsonStream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(processedConfiguration));
+
     return new ConfigurationBuilder()
       .AddConfiguration(parentConfiguration)
-      .AddInMemoryCollection(processedConfiguration)
+      .AddJsonStream(jsonStream)
       .Build();
   }
 

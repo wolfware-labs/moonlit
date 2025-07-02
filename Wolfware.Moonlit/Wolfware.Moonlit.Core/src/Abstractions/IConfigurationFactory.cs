@@ -26,6 +26,6 @@ public interface IConfigurationFactory
   /// <param name="configurationData">A dictionary of key-value pairs representing configuration settings.</param>
   /// <param name="parentConfiguration">An optional parent configuration to merge with the provided configuration data.</param>
   /// <returns>A new instance of <see cref="IConfiguration"/> representing the combined configuration.</returns>
-  public IConfiguration Create(Dictionary<string, string?> configurationData,
+  public IConfiguration Create(Dictionary<string, object?> configurationData,
     IConfiguration? parentConfiguration = null);
 }

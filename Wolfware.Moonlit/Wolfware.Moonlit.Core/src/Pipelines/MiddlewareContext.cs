@@ -21,5 +21,5 @@ public class MiddlewareContext : IMiddlewareContext
   public required IReleaseMiddleware Middleware { get; init; }
 
   /// <inheritdoc />
-  public required Dictionary<string, string?> Configuration { get; init; }
+  public required Dictionary<string, object?> Configuration { get; init; }
 }

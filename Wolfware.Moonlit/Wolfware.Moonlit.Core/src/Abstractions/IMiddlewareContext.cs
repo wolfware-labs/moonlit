@@ -43,5 +43,5 @@ public interface IMiddlewareContext
   /// of the middleware during its execution within the pipeline. The property supports dynamic
   /// configuration and can be extended or modified as per the requirements of the pipeline flow.
   /// </remarks>
-  public Dictionary<string, string?> Configuration { get; }
+  public Dictionary<string, object?> Configuration { get; }
 }

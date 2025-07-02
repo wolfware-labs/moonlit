@@ -31,5 +31,5 @@ public sealed class StepConfiguration
   /// This dictionary stores additional customizable settings or parameters
   /// required for the step's execution.
   /// </summary>
-  public Dictionary<string, string?> Configuration { get; set; } = new();
+  public Dictionary<string, object?> Configuration { get; set; } = new();
 }

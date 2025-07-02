@@ -41,5 +41,5 @@ public sealed class PluginConfiguration
   /// and their respective values can be defined as nullable strings.
   /// These settings enable flexible adjustment of plugin attributes during initialization or runtime.
   /// </remarks>
-  public Dictionary<string, string?> Configuration { get; set; } = [];
+  public Dictionary<string, object?> Configuration { get; set; } = [];
 }

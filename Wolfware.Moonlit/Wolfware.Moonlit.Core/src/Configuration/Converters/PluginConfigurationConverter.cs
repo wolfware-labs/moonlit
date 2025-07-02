@@ -25,7 +25,7 @@ public class PluginConfigurationConverter : IYamlTypeConverter
     parser.MoveNext();
 
     var pluginConfig = new PluginConfiguration();
-    var configDict = new Dictionary<string, string?>();
+    var configDict = new Dictionary<string, object?>();
 
     while (parser.Current is not MappingEnd)
     {
@@ -137,49 +137,6 @@ public class PluginConfigurationConverter : IYamlTypeConverter
 
   public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)
   {
-    if (value is not PluginConfiguration pluginConfig)
-    {
-      throw new YamlException($"Expected PluginConfiguration object but found {value?.GetType().Name ?? "null"}");
-    }
-
-    emitter.Emit(new MappingStart());
-
-    // Emit name
-    emitter.Emit(new Scalar(null, null, "name", ScalarStyle.DoubleQuoted, true, false));
-    emitter.Emit(new Scalar(null, null, pluginConfig.Name, ScalarStyle.DoubleQuoted, true, false));
-
-    // Emit url
-    emitter.Emit(new Scalar(null, null, "url", ScalarStyle.Plain, true, false));
-    emitter.Emit(new Scalar(null, null, pluginConfig.Url.ToString(), ScalarStyle.DoubleQuoted, true, false));
-
-    // Emit configuration if present
-    if (pluginConfig.Configuration.Count > 0)
-    {
-      emitter.Emit(new Scalar(null, null, "config", ScalarStyle.Plain, true, false));
-      emitter.Emit(new MappingStart());
-
-      foreach (var (configKey, configValue) in pluginConfig.Configuration)
-      {
-        emitter.Emit(new Scalar(null, null, configKey, ScalarStyle.Plain, true, false));
-
-        if (configValue is null)
-        {
-          // Emit null value
-          emitter.Emit(new Scalar(null, null, string.Empty, ScalarStyle.Plain, false, false));
-        }
-        else
-        {
-          // For environment variables or other values that might need to be preserved as-is
-          bool needsQuoting = configValue.Contains('$') || configValue.Contains(' ') ||
-                              string.IsNullOrEmpty(configValue);
-          var style = needsQuoting ? ScalarStyle.DoubleQuoted : ScalarStyle.Plain;
-          emitter.Emit(new Scalar(null, null, configValue, style, true, false));
-        }
-      }
-
-      emitter.Emit(new MappingEnd());
-    }
-
-    emitter.Emit(new MappingEnd());
+    throw new NotSupportedException("Writing YAML for PluginConfiguration is not supported.");
   }
 }
