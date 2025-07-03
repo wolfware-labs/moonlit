@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Configuration.Extensions.EnvironmentFile;
 using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Extensions;
 
 namespace Wolfware.Moonlit.Core.Configuration;
 
@@ -52,9 +53,7 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
           return kvp.Value;
         }
 
-        return configSection.Value != null
-          ? configSection.Get<object>()
-          : configSection.Get<Dictionary<string, object>>();
+        return configSection.AsObject() ?? kvp.Value;
       });
 
     var jsonStream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(processedConfiguration));
