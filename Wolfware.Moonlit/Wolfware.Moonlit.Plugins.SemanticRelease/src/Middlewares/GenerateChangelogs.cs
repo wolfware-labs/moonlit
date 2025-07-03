@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
-using Semver;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
@@ -27,18 +27,21 @@ public sealed class GenerateChangelogs : IReleaseMiddleware
 
     context.Logger.LogInformation("Generating changelogs for {CommitCount} commits.", config.Commits.Length);
 
+    var jsonCommits = string.Join(",\n", config.Commits.Select(commit => JsonSerializer.Serialize(commit)));
+    var prompt = $"""
+                  You are a helpful assistant that writes changelogs from Git commit data.
+                  Given the following list of commit objects in JSON format, generate a concise changelog grouped by feature, bugfix, etc. Ignore irrelevant or internal commits.
+                  
+                  JSON:
+                  {jsonCommits}
+                  """;
+
     var completion = await client.CompleteChatAsync(
       new SystemChatMessage("You are a helpful assistant that generates changelogs based on commit messages."),
       new SystemChatMessage(
-        "The changelog should be in markdown format and include the type of change (e.g., feature, fix, chore) and a brief description for each commit."),
-      new SystemChatMessage(
-        "You will be provided with a list of commits. Please generate a changelog in markdown format that summarizes these commits."
-      ),
-      new SystemChatMessage(
         "Include emojis to enhance the readability of the changelog. Use appropriate emojis for each type of change."
       ),
-      new UserChatMessage(
-        $"Generate a changelog for the following commits:\n{string.Join("\n", config.Commits.ToString())}")
+      new UserChatMessage(prompt)
     );
 
     if (completion.Value.Content.Count == 0)
