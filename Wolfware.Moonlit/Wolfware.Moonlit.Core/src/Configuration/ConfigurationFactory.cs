@@ -41,20 +41,20 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
 
         var value = valueString.Trim();
         var match = regex.Match(value);
-        if (match.Success && match.Groups.TryGetValue("config_expression", out var configExpression))
+        if (!match.Success || !match.Groups.TryGetValue("config_expression", out var configExpression))
         {
-          var configSection = parentConfiguration.GetSection(configExpression.Value);
-          if (!configSection.Exists())
-          {
-            return kvp.Value;
-          }
-
-          return configSection.Value != null
-            ? configSection.Get<object>()
-            : configSection.Get<Dictionary<string, object>>();
+          return value;
         }
 
-        return value;
+        var configSection = parentConfiguration.GetSection(configExpression.Value);
+        if (!configSection.Exists())
+        {
+          return kvp.Value;
+        }
+
+        return configSection.Value != null
+          ? configSection.Get<object>()
+          : configSection.Get<Dictionary<string, object>>();
       });
 
     var jsonStream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(processedConfiguration));

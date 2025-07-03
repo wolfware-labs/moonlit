@@ -2,7 +2,7 @@
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 
-public class ReleaseConfiguration
+public sealed class ReleaseConfiguration
 {
   public List<ReleaseRule> Rules { get; set; } = [];
 

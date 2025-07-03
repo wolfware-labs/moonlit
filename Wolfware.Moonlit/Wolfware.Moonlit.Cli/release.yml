@@ -21,6 +21,11 @@ stages:
       run: semantic-release.calculate-version
       config:
         commits: $(output:gitHistory:commits)
+    - name: generateChangelogs
+      run: semantic-release.changelogs
+      config:
+        commits: $(output:gitHistory:commits)
+        openAiKey: $(OPENAI_API_KEY)
 
   release:
     - name: gitTag
