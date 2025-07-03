@@ -1,10 +1,10 @@
 ﻿using LibGit2Sharp;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Git.Configuration;
 using Wolfware.Moonlit.Plugins.Git.Extensions;
+using Wolfware.Moonlit.Plugins.Git.Models;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
@@ -28,20 +28,20 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
       .OrderByDescending(tag => tag.Commit?.Author.When ?? DateTimeOffset.MinValue)
       .FirstOrDefault();
 
-    string[] commits;
+    CommitMessage[] commits;
 
     if (latestTag == null)
     {
       commits = gitRepo.Commits
         .QueryBy(new CommitFilter {SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time})
-        .Select(commit => commit.Message.Trim())
+        .Select(CreateCommitMessage)
         .ToArray();
     }
     else
     {
       commits = gitRepo.Commits
         .QueryBy(new CommitFilter {IncludeReachableFrom = gitRepo.Head.Tip, ExcludeReachableFrom = latestTag.Commit})
-        .Select(commit => commit.Message.Trim())
+        .Select(CreateCommitMessage)
         .ToArray();
     }
 
@@ -51,5 +51,17 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
       output.Add("latestTag", latestTag?.Tag.FriendlyName);
       output.Add("commits", commits);
     }));
+  }
+
+  private CommitMessage CreateCommitMessage(Commit commit)
+  {
+    return new CommitMessage
+    {
+      Sha = commit.Sha,
+      Author = commit.Author.Name,
+      Email = commit.Author.Email,
+      Date = commit.Author.When,
+      Message = commit.Message.Trim()
+    };
   }
 }

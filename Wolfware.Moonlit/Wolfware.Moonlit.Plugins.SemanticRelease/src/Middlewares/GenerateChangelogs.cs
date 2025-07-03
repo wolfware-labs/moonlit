@@ -38,7 +38,7 @@ public sealed class GenerateChangelogs : IReleaseMiddleware
         "Include emojis to enhance the readability of the changelog. Use appropriate emojis for each type of change."
       ),
       new UserChatMessage(
-        $"Generate a changelog in markdown format for the following commits:\n{string.Join("\n", config.Commits)}")
+        $"Generate a changelog for the following commits:\n{string.Join("\n", config.Commits.ToString())}")
     );
 
     if (completion.Value.Content.Count == 0)
