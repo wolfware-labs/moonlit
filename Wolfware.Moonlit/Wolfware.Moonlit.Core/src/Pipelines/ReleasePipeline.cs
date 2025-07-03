@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Diagnostics;
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Abstractions;
@@ -16,8 +18,11 @@ public sealed class ReleasePipeline : IAsyncDisposable
   private readonly IReadOnlyList<IMiddlewareContext> _middlewareContexts;
   private readonly IConfigurationFactory _configurationFactory;
 
-  public ReleasePipeline(IPluginsContext pluginsContext, IReadOnlyList<IMiddlewareContext> middlewareContexts,
-    IConfigurationFactory configurationFactory)
+  public ReleasePipeline(
+    IPluginsContext pluginsContext,
+    IReadOnlyList<IMiddlewareContext> middlewareContexts,
+    IConfigurationFactory configurationFactory
+  )
   {
     _pluginsContext = pluginsContext;
     _middlewareContexts = middlewareContexts;
@@ -51,9 +56,20 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
+        context.Logger.LogInformation("=== Start Step: {MiddlewareName} ===", middlewareContext.Name);
+        if (context.Logger.IsEnabled(LogLevel.Debug))
+        {
+          context.Logger.LogDebug("Middleware configuration: {Configuration}",
+            JsonSerializer.Serialize(middlewareContext.Configuration, JsonSerializerOptions.Default));
+        }
+
         var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
+        var stopwatch = Stopwatch.StartNew();
         result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
           .ConfigureAwait(false);
+        stopwatch.Stop();
+        context.Logger.LogInformation("=== End Step: {MiddlewareName} [{ElapsedMilliseconds} ms] ===",
+          middlewareContext.Name, stopwatch.ElapsedMilliseconds);
 
         if (result.Warnings.Count > 0)
         {

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
@@ -6,6 +7,7 @@ using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
@@ -29,18 +31,23 @@ public sealed class GenerateChangelogs : IReleaseMiddleware
 
     var jsonCommits = string.Join(",\n", config.Commits.Select(commit => JsonSerializer.Serialize(commit)));
     var prompt = $"""
-                  You are a helpful assistant that writes changelogs from Git commit data.
-                  Given the following list of commit objects in JSON format, generate a concise changelog grouped by feature, bugfix, etc. Ignore irrelevant or internal commits.
-                  
-                  JSON:
+                  Given the following list of Git commits in JSON format, generate a structured changelog in JSON format. 
+                  Group entries under keys like 'features', 'bugfixes', 'documentation', and 'breakingChanges'. 
+                  Each entry must include a 'sha' and a concise, well-written 'description'. 
+                  Only include relevant user-facing or breaking changes (in conventional commit format). 
+                  Skip internal, refactoring, or trivial commits unless marked as breaking.
+                  Make sure to use the correct commit SHA for each entry.
+
+                  Commits:
                   {jsonCommits}
                   """;
 
+    var stopWatch = Stopwatch.StartNew();
     var completion = await client.CompleteChatAsync(
-      new SystemChatMessage("You are a helpful assistant that generates changelogs based on commit messages."),
+      new SystemChatMessage("You are a changelog generator that returns structured JSON output based on Git commits."),
       new SystemChatMessage(
-        "Include emojis to enhance the readability of the changelog. Use appropriate emojis for each type of change."
-      ),
+        "Respond ONLY with the JSON object. Do not include any explanations, formatting, markdown or wrapping around the JSON."),
+      new SystemChatMessage("JSON output should not contain any invalid characters."),
       new UserChatMessage(prompt)
     );
 
@@ -51,10 +58,31 @@ public sealed class GenerateChangelogs : IReleaseMiddleware
     }
 
     context.Logger.LogInformation("Changelogs generated successfully.");
+    context.Logger.LogInformation("Changelogs generation took {ElapsedMilliseconds} ms.",
+      stopWatch.ElapsedMilliseconds);
 
-    return MiddlewareResult.Success(output =>
+    var changelogs = JsonSerializer.Deserialize<Dictionary<string, ChangelogEntry[]>>(completion.Value.Content[0].Text,
+      JsonSerializerOptions.Web);
+    if (changelogs == null)
     {
-      output.Add("Changelogs", completion.Value.Content[0].Text.Trim());
-    });
+      return MiddlewareResult.Failure("Failed to generate changelogs JSON.");
+    }
+
+    var hallucinationCheck = changelogs.Values
+      .SelectMany(entries => entries)
+      .Any(entry => string.IsNullOrWhiteSpace(entry.Description) || string.IsNullOrWhiteSpace(entry.Sha) ||
+                    config.Commits.All(c => c.Sha != entry.Sha));
+
+    if (!hallucinationCheck)
+    {
+      return MiddlewareResult.Success(output =>
+      {
+        output.Add("Changelogs",
+          JsonSerializer.Deserialize<Dictionary<string, object>>(completion.Value.Content[0].Text));
+      });
+    }
+
+    context.Logger.LogWarning("Generated changelogs may contain hallucinations or invalid entries.");
+    return MiddlewareResult.Failure("Generated changelogs may contain hallucinations or invalid entries.");
   }
 }

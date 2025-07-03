@@ -17,8 +17,10 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
   private readonly IPluginsContextFactory _pluginsContextFactory;
   private readonly IConfigurationFactory _configurationFactory;
 
-  public ReleasePipelineFactory(IPluginsContextFactory pluginsContextFactory,
-    IConfigurationFactory configurationFactory)
+  public ReleasePipelineFactory(
+    IPluginsContextFactory pluginsContextFactory,
+    IConfigurationFactory configurationFactory
+  )
   {
     _pluginsContextFactory = pluginsContextFactory;
     _configurationFactory = configurationFactory;

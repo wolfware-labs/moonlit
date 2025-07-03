@@ -1,5 +1,6 @@
 ﻿using LibGit2Sharp;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Git.Configuration;
@@ -21,12 +22,15 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
 
     using var gitRepo = new Repository(gitFolderPath);
 
+    context.Logger.LogInformation("Collecting commit history from Git repository at {GitFolderPath}", gitFolderPath);
     var tagRegex = config.GetTagRegex();
     var latestTag = gitRepo.Tags
       .Where(tag => tagRegex.IsMatch(tag.FriendlyName) && tag.Target is Commit)
       .Select(tag => new {Tag = tag, Commit = (Commit)tag.Target})
       .OrderByDescending(tag => tag.Commit?.Author.When ?? DateTimeOffset.MinValue)
       .FirstOrDefault();
+
+    context.Logger.LogInformation("Latest tag found: {LatestTag}", latestTag?.Tag.FriendlyName ?? "None");
 
     CommitMessage[] commits;
 
@@ -45,6 +49,7 @@ public sealed class CollectCommitHistory : IReleaseMiddleware
         .ToArray();
     }
 
+    context.Logger.LogInformation("Collected {CommitCount} commits since last tag.", commits.Length);
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
