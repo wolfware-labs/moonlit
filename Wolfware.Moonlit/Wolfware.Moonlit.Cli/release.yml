@@ -12,22 +12,18 @@ stages:
   analyze:
     - name: repo
       run: gh.info
-    - name: commitHistory
-      run: gh.commits
-      config:
-        tagPrefix: "v"
-    - name: calculateVersion
+    - name: version
       run: sr.calculate-version
       config:
         branch: $(output:repo:branch)
-        baseVersion: $(output:commitHistory:latestTag)
-        commits: $(output:commitHistory:commits)
+        baseVersion: $(output:repo:latestTag)
+        commits: $(output:repo:commits)
         prereleaseMappings:
           main: next
-    - name: generateChangelog
+    - name: changelog
       run: sr.generate-changelog
       config:
-        commits: $(output:commitHistory:commits)
+        commits: $(output:repo:commits)
         openAiKey: $(OPENAI_API_KEY)
 
   release:
@@ -35,8 +31,8 @@ stages:
       run: gh.create-release
       config:
         name: "Release $(output:calculateVersion:nextVersion)"
-        tag: $(output:calculateVersion:nextVersion)
-        body: $(output:generateChangelog:markdown)
+        tag: $(output:version:nextVersion)
+        changelog: $(output:changelog:entries)
         draft: true
         prerelease: $(output:calculateVersion:isPrerelease)
 

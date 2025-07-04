@@ -17,6 +17,10 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Co
     public bool CollectTags { get; set; }
 
     public bool CollectCommits { get; set; }
+
+    public bool CollectPullRequests { get; set; }
+
+    public bool CollectIssues { get; set; }
   }
 
   public GetGitInformation(IGitHubContextProvider gitHubContextProvider)
@@ -54,6 +58,28 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Co
       context.Logger.LogInformation("Found {CommitCount} commits.", commits.Count);
     }
 
+    IReadOnlyList<PullRequest> pullRequests = [];
+    if (configuration.CollectPullRequests)
+    {
+      context.Logger.LogInformation("Collecting pull requests...");
+      pullRequests = await githubContext.GetPullRequests(new PullRequestRequest
+      {
+        State = ItemStateFilter.All, Base = githubContext.CurrentBranch
+      });
+      context.Logger.LogInformation("Found {PullRequestCount} pull requests.", pullRequests.Count);
+    }
+
+    IReadOnlyList<Issue> issues = [];
+    if (configuration.CollectIssues)
+    {
+      context.Logger.LogInformation("Collecting issues...");
+      issues = await githubContext.GetIssues(new RepositoryIssueRequest
+      {
+        State = ItemStateFilter.All, SortProperty = IssueSort.Created, Filter = IssueFilter.All
+      });
+      context.Logger.LogInformation("Found {IssueCount} issues.", issues.Count);
+    }
+
     context.Logger.LogInformation("Git information collection completed.");
     return MiddlewareResult.Success(output =>
     {
@@ -72,6 +98,16 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Co
       if (commits is {Count: > 0})
       {
         output.Add("Commits", commits);
+      }
+
+      if (pullRequests is {Count: > 0})
+      {
+        output.Add("PullRequests", pullRequests);
+      }
+
+      if (issues is {Count: > 0})
+      {
+        output.Add("Issues", issues);
       }
     });
   }
