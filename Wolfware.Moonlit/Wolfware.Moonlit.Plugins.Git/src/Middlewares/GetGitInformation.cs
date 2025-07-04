@@ -10,14 +10,19 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
-public sealed class GetGitInformation : IReleaseMiddleware
+public sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Configuration>
 {
-  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public sealed class Configuration
   {
-    ArgumentNullException.ThrowIfNull(context, nameof(context));
-    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
+    public bool CollectBranches { get; set; }
 
-    var config = configuration.GetRequired<CollectGitInformationConfiguration>();
+    public bool CollectTags { get; set; }
+
+    public bool CollectCommits { get; set; }
+  }
+
+  public override Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  {
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
 
     using var gitRepo = new Repository(gitFolderPath);
@@ -27,7 +32,7 @@ public sealed class GetGitInformation : IReleaseMiddleware
     string currentBranch = gitRepo.Head.FriendlyName;
 
     string[]? branches = null;
-    if (config.CollectBranches)
+    if (configuration.CollectBranches)
     {
       context.Logger.LogInformation("Collecting branches...");
       branches = gitRepo.Branches.Select(b => b.FriendlyName).ToArray();
@@ -35,7 +40,7 @@ public sealed class GetGitInformation : IReleaseMiddleware
     }
 
     string[]? tags = null;
-    if (config.CollectTags)
+    if (configuration.CollectTags)
     {
       context.Logger.LogInformation("Collecting tags...");
       tags = gitRepo.Tags.Select(t => t.FriendlyName).ToArray();
@@ -43,7 +48,7 @@ public sealed class GetGitInformation : IReleaseMiddleware
     }
 
     CommitMessage[]? commits = null;
-    if (config.CollectCommits)
+    if (configuration.CollectCommits)
     {
       context.Logger.LogInformation("Collecting commits...");
       commits = gitRepo.Commits.OrderByDescending(x => x.Author.When).Select(c => new CommitMessage

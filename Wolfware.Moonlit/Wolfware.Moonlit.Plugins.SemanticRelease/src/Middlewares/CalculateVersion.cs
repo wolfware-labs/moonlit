@@ -1,31 +1,41 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Semver;
-using Wolfware.Moonlit.Plugins.Abstractions;
-using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
-public sealed class CalculateVersion : IReleaseMiddleware
+public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Configuration>
 {
-  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public sealed class Configuration
   {
-    ArgumentNullException.ThrowIfNull(context);
-    ArgumentNullException.ThrowIfNull(configuration);
+    public string InitialVersion { get; set; } = "1.0.0";
 
-    var config = configuration.GetRequired<CalculateVersionConfiguration>();
-    if (config.Commits.Length == 0)
+    public string? BaseVersion { get; set; }
+
+    public string Branch { get; set; } = string.Empty;
+
+    public CommitMessage[] Commits { get; set; } = [];
+
+    public CommitsAnalyzerConfiguration CommitRules = CommitsAnalyzerConfiguration.CreateDefault();
+
+    public Dictionary<string, string> PrereleaseMappings { get; set; } = new();
+  }
+
+  public override Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  {
+    if (configuration.Commits.Length == 0)
     {
       context.Logger.LogWarning("No commits provided for version calculation.");
       return Task.FromResult(MiddlewareResult.Success());
     }
 
-    context.Logger.LogInformation("Calculating next version based on {CommitCount} commits.", config.Commits.Length);
+    context.Logger.LogInformation("Calculating next version based on {CommitCount} commits.",
+      configuration.Commits.Length);
 
-    var nextVersion = GetNextVersion(config, context.Logger);
+    var nextVersion = GetNextVersion(configuration, context.Logger);
 
     context.Logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
 
@@ -36,7 +46,7 @@ public sealed class CalculateVersion : IReleaseMiddleware
     }));
   }
 
-  private SemVersion GetNextVersion(CalculateVersionConfiguration configuration, ILogger logger)
+  private SemVersion GetNextVersion(Configuration configuration, ILogger logger)
   {
     var prereleaseSuffix = GetPrereleaseSuffix(configuration, logger);
     if (string.IsNullOrWhiteSpace(configuration.BaseVersion))
@@ -51,7 +61,7 @@ public sealed class CalculateVersion : IReleaseMiddleware
     return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix);
   }
 
-  private string? GetPrereleaseSuffix(CalculateVersionConfiguration configuration, ILogger logger)
+  private string? GetPrereleaseSuffix(Configuration configuration, ILogger logger)
   {
     if (!configuration.PrereleaseMappings.TryGetValue(configuration.Branch, out var prerelease))
     {

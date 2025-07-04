@@ -10,24 +10,27 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
-public sealed class CreateTag : IReleaseMiddleware
+public sealed class CreateTag : ReleaseMiddleware<CreateTag.Configuration>
 {
   private GitConfiguration _gitConfiguration;
+
+  public sealed class Configuration
+  {
+    public string Format { get; set; } = "{0}";
+
+    public string Value { get; set; } = string.Empty;
+  }
 
   public CreateTag(IOptions<GitConfiguration> gitOptions)
   {
     this._gitConfiguration = gitOptions.Value;
   }
 
-  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public override Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
   {
-    ArgumentNullException.ThrowIfNull(context, nameof(context));
-    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
-
-    var config = configuration.GetRequired<CreateTagConfiguration>();
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
     using var gitRepo = new Repository(gitFolderPath);
-    var tagName = string.Format(config.Format, config.Value);
+    var tagName = string.Format(configuration.Format, configuration.Value);
     if (string.IsNullOrWhiteSpace(tagName))
     {
       return Task.FromResult(MiddlewareResult.Failure("Tag name cannot be null or empty."));
@@ -58,8 +61,8 @@ public sealed class CreateTag : IReleaseMiddleware
     context.Logger.LogInformation("Created tag '{TagName}' at commit {CommitId}.", tag.FriendlyName, commit.Sha);
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
-      output.Add("tagName", tag.FriendlyName);
-      output.Add("commitId", commit.Sha);
+      output.Add("TagName", tag.FriendlyName);
+      output.Add("CommitId", commit.Sha);
     }));
   }
 }

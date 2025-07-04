@@ -31,8 +31,8 @@ stages:
         commits: $(output:commitHistory:commits)
         prereleaseMappings:
           main: next
-    - name: generateChangelogs
-      run: semantic-release.changelogs
+    - name: generateChangelog
+      run: semantic-release.generate-changelog
       config:
         commits: $(output:commitHistory:commits)
         openAiKey: $(OPENAI_API_KEY)
@@ -43,7 +43,7 @@ stages:
       config:
         name: "Release $(output:calculateVersion:nextVersion)"
         tag: $(output:calculateVersion:nextVersion)
-        body: $(output:generateChangelogs:changelog)
+        body: $(output:generateChangelog:markdown)
         draft: true
         prerelease: $(output:calculateVersion:isPrerelease)
 

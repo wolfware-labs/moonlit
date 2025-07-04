@@ -11,25 +11,28 @@ using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
-public sealed class GenerateChangelogs : IReleaseMiddleware
+public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Configuration>
 {
-  public async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public sealed class Configuration
   {
-    ArgumentNullException.ThrowIfNull(context);
-    ArgumentNullException.ThrowIfNull(configuration);
+    public CommitMessage[] Commits { get; set; } = [];
 
-    var config = configuration.GetRequired<GenerateChangelogsConfiguration>();
-    if (config.Commits.Length == 0)
+    public string OpenAiKey { get; set; } = string.Empty;
+  }
+
+  public override async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  {
+    if (configuration.Commits.Length == 0)
     {
       context.Logger.LogWarning("No commits provided for changelogs generation.");
       return MiddlewareResult.Success();
     }
 
-    var client = new ChatClient(model: "gpt-4o", apiKey: config.OpenAiKey);
+    var client = new ChatClient(model: "gpt-4o", apiKey: configuration.OpenAiKey);
 
-    context.Logger.LogInformation("Generating changelogs for {CommitCount} commits.", config.Commits.Length);
+    context.Logger.LogInformation("Generating changelogs for {CommitCount} commits.", configuration.Commits.Length);
 
-    var jsonCommits = string.Join(",\n", config.Commits.Select(commit => JsonSerializer.Serialize(commit)));
+    var jsonCommits = string.Join(",\n", configuration.Commits.Select(commit => JsonSerializer.Serialize(commit)));
     var prompt = $"""
                   Given the following list of Git commits in JSON format, generate a structured changelog in JSON format. 
                   Group entries under keys like 'features', 'bugfixes', 'documentation', and 'breakingChanges'. 
@@ -61,24 +64,23 @@ public sealed class GenerateChangelogs : IReleaseMiddleware
     context.Logger.LogInformation("Changelogs generation took {ElapsedMilliseconds} ms.",
       stopWatch.ElapsedMilliseconds);
 
-    var changelogs = JsonSerializer.Deserialize<Dictionary<string, ChangelogEntry[]>>(completion.Value.Content[0].Text,
+    var changelog = JsonSerializer.Deserialize<Dictionary<string, ChangelogEntry[]>>(completion.Value.Content[0].Text,
       JsonSerializerOptions.Web);
-    if (changelogs == null)
+    if (changelog == null)
     {
       return MiddlewareResult.Failure("Failed to generate changelogs JSON.");
     }
 
-    var hallucinationCheck = changelogs.Values
+    var hallucinationCheck = changelog.Values
       .SelectMany(entries => entries)
       .Any(entry => string.IsNullOrWhiteSpace(entry.Description) || string.IsNullOrWhiteSpace(entry.Sha) ||
-                    config.Commits.All(c => c.Sha != entry.Sha));
+                    configuration.Commits.All(c => c.Sha != entry.Sha));
 
     if (!hallucinationCheck)
     {
       return MiddlewareResult.Success(output =>
       {
-        output.Add("Changelog",
-          JsonSerializer.Deserialize<Dictionary<string, object>>(completion.Value.Content[0].Text));
+        output.Add("Changelog", changelog);
       });
     }
 

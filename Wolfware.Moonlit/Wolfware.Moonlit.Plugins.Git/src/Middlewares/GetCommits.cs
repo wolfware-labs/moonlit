@@ -1,4 +1,6 @@
-﻿using LibGit2Sharp;
+﻿using System.Text;
+using System.Text.RegularExpressions;
+using LibGit2Sharp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
@@ -10,20 +12,48 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
-public sealed class GetCommits : IReleaseMiddleware
+public sealed class GetCommits : ReleaseMiddleware<GetCommits.Configuration>
 {
-  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public sealed class Configuration
   {
-    ArgumentNullException.ThrowIfNull(context, nameof(context));
-    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
+    public string? TagRegex { get; set; }
 
-    var config = configuration.GetRequired<FilterCommitsConfiguration>();
+    public string? TagPrefix { get; set; }
+
+    public string? TagSuffix { get; set; }
+
+    public Regex GetTagRegex()
+    {
+      if (this.TagRegex != null)
+      {
+        return new Regex(this.TagRegex, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+      }
+
+      var regexStringBuilder = new StringBuilder();
+      if (!string.IsNullOrEmpty(this.TagPrefix))
+      {
+        regexStringBuilder.Append(Regex.Escape(this.TagPrefix));
+      }
+
+      regexStringBuilder.Append("[0-9]+.[0-9]+.[0-9]+");
+
+      if (!string.IsNullOrEmpty(this.TagSuffix))
+      {
+        regexStringBuilder.Append(Regex.Escape(this.TagSuffix));
+      }
+
+      return new Regex(regexStringBuilder.ToString(), RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    }
+  }
+
+  public override Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  {
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
 
     using var gitRepo = new Repository(gitFolderPath);
 
     context.Logger.LogInformation("Collecting commit history from Git repository at {GitFolderPath}", gitFolderPath);
-    var tagRegex = config.GetTagRegex();
+    var tagRegex = configuration.GetTagRegex();
     var latestTag = gitRepo.Tags
       .Where(tag => tagRegex.IsMatch(tag.FriendlyName) && tag.Target is Commit)
       .Select(tag => new {Tag = tag, Commit = (Commit)tag.Target})

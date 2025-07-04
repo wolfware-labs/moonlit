@@ -15,6 +15,6 @@ public class PluginStartup : IPluginStartup
   public void Configure(IServiceCollection services, IConfiguration configuration)
   {
     services.AddMiddleware<CalculateVersion>("calculate-version");
-    services.AddMiddleware<GenerateChangelogs>("changelogs");
+    services.AddMiddleware<GenerateChangelog>("generate-changelog");
   }
 }

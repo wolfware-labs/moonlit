@@ -1,18 +1,31 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Octokit;
-using Wolfware.Moonlit.Plugins.Abstractions;
-using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Github.Configuration;
+using Wolfware.Moonlit.Plugins.Github.Models;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
-public sealed class CreateRelease : IReleaseMiddleware
+public sealed class CreateRelease : ReleaseMiddleware<CreateRelease.Configuration>
 {
   private readonly GitHubConfiguration _gitHubConfiguration;
   private readonly IGitHubClient _gitHubClient;
+
+  public sealed class Configuration
+  {
+    public string Name { get; set; } = string.Empty;
+
+    public string Tag { get; set; } = string.Empty;
+
+    public string? Body { get; set; }
+
+    public Dictionary<string, ChangelogEntry[]>? Changelog { get; set; }
+
+    public bool Draft { get; set; } = false;
+
+    public bool PreRelease { get; set; } = false;
+  }
 
   public CreateRelease(IOptions<GitHubConfiguration> gitHubConfiguration, IGitHubClient gitHubClient)
   {
@@ -20,28 +33,28 @@ public sealed class CreateRelease : IReleaseMiddleware
     _gitHubClient = gitHubClient;
   }
 
-  public async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public override async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
   {
-    ArgumentNullException.ThrowIfNull(context, nameof(context));
-    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
-
-    var config = configuration.GetRequired<CreateReleaseConfiguration>();
-
-    if (string.IsNullOrWhiteSpace(config.Name) || string.IsNullOrWhiteSpace(config.Tag))
+    if (string.IsNullOrWhiteSpace(configuration.Name) || string.IsNullOrWhiteSpace(configuration.Tag))
     {
       return MiddlewareResult.Failure("Release name or tag is not specified.");
     }
 
-    if (string.IsNullOrWhiteSpace(config.Body))
+    if (string.IsNullOrWhiteSpace(configuration.Body) &&
+        (configuration.Changelog == null || configuration.Changelog.Count == 0))
     {
-      return MiddlewareResult.Failure("Release body is not specified.");
+      return MiddlewareResult.Failure("Release body is not specified and no changelog entries are provided.");
     }
 
-    context.Logger.LogInformation("Creating release '{ReleaseName}' with tag '{TagName}'.", config.Name, config.Tag);
+    context.Logger.LogInformation("Creating release '{ReleaseName}' with tag '{TagName}'.", configuration.Name,
+      configuration.Tag);
 
-    var release = new NewRelease(config.Tag)
+    var release = new NewRelease(configuration.Tag)
     {
-      Name = config.Name, Body = config.Body, Draft = config.Draft, Prerelease = config.PreRelease
+      Name = configuration.Name,
+      Body = configuration.Body ?? CreateMarkdown(configuration.Changelog!),
+      Draft = configuration.Draft,
+      Prerelease = configuration.PreRelease
     };
 
     try
@@ -61,5 +74,24 @@ public sealed class CreateRelease : IReleaseMiddleware
     {
       return MiddlewareResult.Failure("Failed to create release.");
     }
+  }
+
+  private string CreateMarkdown(Dictionary<string, ChangelogEntry[]> changelog)
+  {
+    var markdown = new System.Text.StringBuilder();
+
+    foreach (var entry in changelog)
+    {
+      markdown.AppendLine($"## {entry.Key}");
+      foreach (var item in entry.Value)
+      {
+        markdown.AppendLine(
+          $"- {item.Description} ([{item.Sha[..7]}]({string.Empty}/commit/{item.Sha})");
+      }
+
+      markdown.AppendLine();
+    }
+
+    return markdown.ToString();
   }
 }
