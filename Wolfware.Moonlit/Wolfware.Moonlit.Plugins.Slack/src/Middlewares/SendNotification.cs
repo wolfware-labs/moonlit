@@ -1,27 +1,52 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SlackNet;
+using SlackNet.WebApi;
 using Wolfware.Moonlit.Plugins.Abstractions;
+using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Slack.Configuration;
 
 namespace Wolfware.Moonlit.Plugins.Slack.Middlewares;
 
 public sealed class SendNotification : IReleaseMiddleware
 {
-  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  private readonly ISlackApiClient _slackApiClient;
+
+  public SendNotification(ISlackApiClient slackApiClient)
   {
-    // This middleware is a placeholder for sending a notification to Slack.
-    // In a real implementation, you would interact with the Slack API to send a message.
+    _slackApiClient = slackApiClient;
+  }
 
-    context.Logger.LogInformation("Sending notification to Slack...");
+  public async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  {
+    ArgumentNullException.ThrowIfNull(context);
+    ArgumentNullException.ThrowIfNull(configuration);
 
-    // Simulate some processing
-    Task.Delay(1000, context.CancellationToken).Wait(context.CancellationToken);
-
-    context.Logger.LogInformation("Notification sent successfully.");
-
-    return Task.FromResult(MiddlewareResult.Success(output =>
+    var config = configuration.GetRequired<SendNotificationConfiguration>();
+    if (string.IsNullOrWhiteSpace(config.Channel))
     {
-      output.Add("notificationStatus", "Sent to Slack successfully"); // Example output
-    }));
+      return MiddlewareResult.Failure("No Slack channel provided for notification.");
+    }
+
+    var messageTemplate = config.Message;
+    if (string.IsNullOrWhiteSpace(messageTemplate))
+    {
+      return MiddlewareResult.Failure("No message provided for Slack notification.");
+    }
+
+    // TODO: Replace with actual data from the pipeline context if needed
+
+    try
+    {
+      await _slackApiClient.Chat.PostMessage(new Message {Channel = config.Channel, Text = config.Message});
+
+      context.Logger.LogInformation("Notification sent to Slack channel {ChannelId}.", config.Channel);
+      return MiddlewareResult.Success();
+    }
+    catch (Exception ex)
+    {
+      return MiddlewareResult.Failure(ex.Message);
+    }
   }
 }

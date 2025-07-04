@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
-namespace Wolfware.Moonlit.Plugins.SemanticRelease;
+namespace Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 public partial class ConventionalCommitParser
 {

@@ -5,6 +5,7 @@ using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 

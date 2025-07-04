@@ -6,4 +6,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SlackNet.Extensions.DependencyInjection" />
+  </ItemGroup>
 </Project>
