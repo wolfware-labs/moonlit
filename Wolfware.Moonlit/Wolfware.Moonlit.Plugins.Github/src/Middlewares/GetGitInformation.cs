@@ -1,13 +1,15 @@
-﻿using LibGit2Sharp;
-using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Plugins.Git.Extensions;
+﻿using Microsoft.Extensions.Logging;
+using Octokit;
 using Wolfware.Moonlit.Plugins.Git.Models;
+using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Configuration>
 {
+  private readonly IGitHubContextProvider _gitHubContextProvider;
+
   public sealed class Configuration
   {
     public bool CollectBranches { get; set; }
@@ -17,66 +19,60 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Co
     public bool CollectCommits { get; set; }
   }
 
-  public override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  public GetGitInformation(IGitHubContextProvider gitHubContextProvider)
   {
-    var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
+    _gitHubContextProvider = gitHubContextProvider;
+  }
 
-    using var gitRepo = new Repository(gitFolderPath);
+  public override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  {
+    context.Logger.LogInformation("Collecting Git information from repository");
 
-    context.Logger.LogInformation("Collecting Git information from repository at {GitFolderPath}", gitFolderPath);
+    var githubContext = await _gitHubContextProvider.GetCurrentContext(context);
 
-    string currentBranch = gitRepo.Head.FriendlyName;
-
-    string[]? branches = null;
+    IReadOnlyList<Branch> branches = [];
     if (configuration.CollectBranches)
     {
       context.Logger.LogInformation("Collecting branches...");
-      branches = gitRepo.Branches.Select(b => b.FriendlyName).ToArray();
-      context.Logger.LogInformation("Found {BranchCount} branches.", branches.Length);
+      branches = await githubContext.GetBranches(new ApiOptions());
+      context.Logger.LogInformation("Found {BranchCount} branches.", branches.Count);
     }
 
-    string[]? tags = null;
+    IReadOnlyList<RepositoryTag> tags = [];
     if (configuration.CollectTags)
     {
       context.Logger.LogInformation("Collecting tags...");
-      tags = gitRepo.Tags.Select(t => t.FriendlyName).ToArray();
-      context.Logger.LogInformation("Found {TagCount} tags.", tags.Length);
+      tags = await githubContext.GetTags(new ApiOptions());
+      context.Logger.LogInformation("Found {TagCount} tags.", tags.Count);
     }
 
-    CommitMessage[]? commits = null;
+    IReadOnlyList<GitHubCommit> commits = [];
     if (configuration.CollectCommits)
     {
       context.Logger.LogInformation("Collecting commits...");
-      commits = gitRepo.Commits.OrderByDescending(x => x.Author.When).Select(c => new CommitMessage
-      {
-        Sha = c.Sha,
-        Author = c.Author.Name,
-        Email = c.Author.Email,
-        Date = c.Author.When,
-        Message = c.Message
-      }).ToArray();
-      context.Logger.LogInformation("Found {CommitCount} commits.", commits.Length);
+      commits = await githubContext.GetCommits(new CommitRequest {Sha = githubContext.CurrentBranch,});
+      context.Logger.LogInformation("Found {CommitCount} commits.", commits.Count);
     }
 
     context.Logger.LogInformation("Git information collection completed.");
-    return Task.FromResult(MiddlewareResult.Success(output =>
+    return MiddlewareResult.Success(output =>
     {
-      output.Add("Branch", currentBranch);
+      output.Add("Branch", githubContext.CurrentBranch);
 
-      if (branches != null)
+      if (branches is {Count: > 0})
       {
         output.Add("Branches", branches);
       }
 
-      if (tags != null)
+      if (tags is {Count: > 0})
       {
         output.Add("Tags", tags);
       }
 
-      if (commits != null)
+      if (commits is {Count: > 0})
       {
         output.Add("Commits", commits);
       }
-    }));
+    });
   }
 }

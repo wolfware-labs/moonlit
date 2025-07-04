@@ -2,6 +2,7 @@
 using Octokit;
 using Wolfware.Moonlit.Plugins.Git.Extensions;
 using Wolfware.Moonlit.Plugins.Github.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Models;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using GitRepository = LibGit2Sharp.Repository;
 
@@ -41,12 +42,12 @@ public sealed partial class GitHubContextFactory : IGitHubContextProvider
 
   private async Task<IGitHubContext> CreateContextAsync(string gitFolderPath)
   {
-    (var repositoryOwner, var repositoryName) = GitHubContextFactory.GetRepositoryDetails(gitFolderPath);
-    var repository = await _gitHubClient.Repository.Get(repositoryOwner, repositoryName);
-    return new GitHubContext(_gitHubClient, repository);
+    var details = GitHubContextFactory.GetRepositoryDetails(gitFolderPath);
+    var repository = await _gitHubClient.Repository.Get(details.Owner, details.Name);
+    return new GitHubContext(_gitHubClient, details.CurrentBranch, repository);
   }
 
-  private static (string RepositoryOwner, string RepositoryName) GetRepositoryDetails(string gitFolderPath)
+  private static RepositoryDetails GetRepositoryDetails(string gitFolderPath)
   {
     using var repo = new GitRepository(gitFolderPath);
     var origin = repo.Network.Remotes["origin"];
@@ -57,7 +58,10 @@ public sealed partial class GitHubContextFactory : IGitHubContextProvider
       throw new InvalidOperationException("Not a valid GitHub URL.");
     }
 
-    return (match.Groups["owner"].Value, match.Groups["repo"].Value);
+    return new RepositoryDetails
+    {
+      Owner = match.Groups["owner"].Value, Name = match.Groups["repo"].Value, CurrentBranch = repo.Head.FriendlyName
+    };
   }
 
   [GeneratedRegex(@"github\.com[/:](?<owner>[^/]+?)/(?<repo>[^/.]+)(\.git)?$")]
