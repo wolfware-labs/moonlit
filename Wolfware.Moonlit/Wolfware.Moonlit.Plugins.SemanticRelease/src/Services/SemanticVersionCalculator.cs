@@ -21,20 +21,66 @@ public sealed class SemanticVersionCalculator
       throw new ArgumentException("At least one commit is required to calculate the next version.", nameof(commits));
     }
 
-    var highestBump = this._commitsAnalyzer.Analyze(commits);
-    var calculatedVersion = highestBump switch
-    {
-      VersionBumpType.Major => baseVersion.WithMajor(baseVersion.Major + 1).WithMinor(0).WithPatch(0),
-      VersionBumpType.Minor => baseVersion.WithMinor(baseVersion.Minor + 1).WithPatch(0),
-      VersionBumpType.Patch => baseVersion.WithPatch(baseVersion.Patch + 1),
-      _ => baseVersion
-    };
+    var bumpType = _commitsAnalyzer.Analyze(commits);
 
-    if (!string.IsNullOrEmpty(suffix))
+    if (string.IsNullOrWhiteSpace(suffix))
     {
-      calculatedVersion = calculatedVersion.WithPrerelease(suffix, "1");
+      return string.IsNullOrEmpty(baseVersion.Prerelease)
+        ? SemanticVersionCalculator.GetBumpedVersion(baseVersion, bumpType)
+        : baseVersion.WithoutPrerelease();
     }
 
-    return calculatedVersion;
+    (var currentLabel, var currentIteration) = SemanticVersionCalculator.GetPreReleaseInfo(baseVersion);
+    var currentVersionLevel = SemanticVersionCalculator.GetVersionLevel(baseVersion);
+
+    if (currentLabel == suffix && bumpType <= currentVersionLevel)
+    {
+      return new SemVersion(
+        baseVersion.Major,
+        baseVersion.Minor,
+        baseVersion.Patch
+      ).WithPrerelease(
+        currentLabel,
+        (currentIteration + 1).ToString()
+      );
+    }
+
+    return SemanticVersionCalculator.GetBumpedVersion(baseVersion, bumpType).WithPrerelease(suffix, "1");
+  }
+
+  private static SemVersion GetBumpedVersion(SemVersion version, VersionBumpType bumpType)
+  {
+    return bumpType switch
+    {
+      VersionBumpType.Major => new SemVersion(version.Major + 1, 0, 0),
+      VersionBumpType.Minor => new SemVersion(version.Major, version.Minor + 1, 0),
+      VersionBumpType.Patch => new SemVersion(version.Major, version.Minor, version.Patch + 1),
+      _ => throw new ArgumentOutOfRangeException(nameof(bumpType))
+    };
+  }
+
+  private static VersionBumpType GetVersionLevel(SemVersion version)
+  {
+    if (version.Major > 0 && version.Minor == 0 && version.Patch == 0)
+    {
+      return VersionBumpType.Major;
+    }
+
+    if (version.Minor > 0 && version.Patch == 0)
+    {
+      return VersionBumpType.Minor;
+    }
+
+    return VersionBumpType.Patch;
+  }
+
+  private static (string Label, int Iteration) GetPreReleaseInfo(SemVersion version)
+  {
+    if (string.IsNullOrEmpty(version.Prerelease) || version.PrereleaseIdentifiers.Count < 2)
+    {
+      return (string.Empty, 0);
+    }
+
+    return (version.PrereleaseIdentifiers[0], int.Parse(version.PrereleaseIdentifiers[1]));
   }
 }
