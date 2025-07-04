@@ -10,14 +10,14 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
-public sealed class CollectCommitHistory : IReleaseMiddleware
+public sealed class GetCommits : IReleaseMiddleware
 {
   public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
   {
     ArgumentNullException.ThrowIfNull(context, nameof(context));
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
 
-    var config = configuration.GetRequired<CollectCommitHistoryConfiguration>();
+    var config = configuration.GetRequired<FilterCommitsConfiguration>();
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
 
     using var gitRepo = new Repository(gitFolderPath);

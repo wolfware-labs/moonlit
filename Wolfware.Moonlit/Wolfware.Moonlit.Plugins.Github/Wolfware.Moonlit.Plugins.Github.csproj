@@ -5,4 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Octokit" />
+  </ItemGroup>
 </Project>

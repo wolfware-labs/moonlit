@@ -22,11 +22,17 @@ public sealed class CalculateVersion : IReleaseMiddleware
       return Task.FromResult(MiddlewareResult.Success());
     }
 
+    if(config.PrereleaseMappings.TryGetValue(config.Branch, out var prerelease))
+    {
+      context.Logger.LogInformation("Using branch-specific prerelease mapping: {Prerelease}", prerelease);
+    }
+
     context.Logger.LogInformation("Calculating next version based on {CommitCount} commits.", config.Commits.Length);
     var calculator = new SemanticVersionCalculator(config.Release);
     var nextVersion = calculator.CalculateNextVersion(
       SemVersion.Parse(config.BaseVersion),
-      config.Commits.Select(c => c.Message).ToArray()
+      config.Commits.Select(c => c.Message).ToArray(),
+      prerelease
     );
 
     context.Logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
@@ -34,6 +40,7 @@ public sealed class CalculateVersion : IReleaseMiddleware
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
       output.Add("NextVersion", nextVersion.ToString());
+      output.Add("IsPrerelease", nextVersion.IsPrerelease);
     }));
   }
 }

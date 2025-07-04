@@ -10,38 +10,39 @@ plugins:
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
   - name: "github"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
+    config:
+      token: $(env:GITHUB_TOKEN)
 
 stages:
   analyze:
-    - name: gitHistory
-      run: git.collect-commit-history
+    - name: gitInfo
+      run: git.info
+    - name: commitHistory
+      run: git.commits
       config:
         tagPrefix: "v"
     - name: calculateVersion
       run: semantic-release.calculate-version
       config:
-        commits: $(output:gitHistory:commits)
+        branch: $(output:gitInfo:branch)
+        commits: $(output:commitHistory:commits)
+        prereleaseMappings:
+          main: next
     - name: generateChangelogs
       run: semantic-release.changelogs
       config:
-        commits: $(output:gitHistory:commits)
+        commits: $(output:commitHistory:commits)
         openAiKey: $(OPENAI_API_KEY)
 
   release:
-    - name: gitTag
-      run: git.tag
-      config:
-        format: "v{0}"
-        value: $(output:calculateVersion:nextVersion)
     - name: createRelease
       run: github.create-release
       config:
-        context: "test"
-        tag: $(output:calculateVersion:version)
-        title: "Release $(output:calculateVersion:version)"
+        name: "Release $(output:calculateVersion:version)"
+        tag: $(output:calculateVersion:nextVersion)
         body: $(output:createChangelogs:changelog)
-        draft: false
-        prerelease: false
+        draft: true
+        prerelease: $(output:calculateVersion:isPrerelease)
 
 #  notify:
 #    - name: "github.create-issue"

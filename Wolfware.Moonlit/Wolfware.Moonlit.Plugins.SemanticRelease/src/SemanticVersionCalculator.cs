@@ -13,18 +13,26 @@ public class SemanticVersionCalculator
     _configuration = configuration ?? ReleaseConfiguration.CreateDefault();
   }
 
-  public SemVersion CalculateNextVersion(SemVersion baseVersion, IEnumerable<string> commitMessages)
+  public SemVersion CalculateNextVersion(SemVersion baseVersion, IEnumerable<string> commitMessages,
+    string? suffix = null)
   {
     var commits = commitMessages.Select(ConventionalCommitParser.Parse).ToList();
     var highestBump = DetermineHighestBump(commits);
 
-    return highestBump switch
+    var calculatedVersion = highestBump switch
     {
       VersionBumpType.Major => new SemVersion(baseVersion.Major + 1, 0, 0),
       VersionBumpType.Minor => new SemVersion(baseVersion.Major, baseVersion.Minor + 1, 0),
       VersionBumpType.Patch => new SemVersion(baseVersion.Major, baseVersion.Minor, baseVersion.Patch + 1),
       _ => baseVersion
     };
+
+    if (!string.IsNullOrEmpty(suffix))
+    {
+      calculatedVersion = calculatedVersion.WithPrerelease(suffix, "1");
+    }
+
+    return calculatedVersion;
   }
 
   public VersionBumpInfo AnalyzeCommits(SemVersion baseVersion, IEnumerable<string> commitMessages)
