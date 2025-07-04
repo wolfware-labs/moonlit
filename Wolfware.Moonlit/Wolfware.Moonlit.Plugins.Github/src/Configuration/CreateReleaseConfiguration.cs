@@ -2,10 +2,6 @@
 
 public sealed class CreateReleaseConfiguration
 {
-  public string Owner { get; set; } = string.Empty;
-
-  public string Repository { get; set; } = string.Empty;
-
   public string Name { get; set; } = string.Empty;
 
   public string Tag { get; set; } = string.Empty;

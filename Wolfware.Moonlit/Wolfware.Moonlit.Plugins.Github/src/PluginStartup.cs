@@ -21,15 +21,32 @@ public sealed class PluginStartup : IPluginStartup
 {
   public void Configure(IServiceCollection services, IConfiguration configuration)
   {
-    services.Configure<GithubConfiguration>(configuration);
+    var githubConfig = configuration.GetRequired<GitHubConfiguration>();
+    if (string.IsNullOrWhiteSpace(githubConfig.Owner))
+    {
+      throw new InvalidOperationException("GitHub owner is not configured.");
+    }
+
+    if (string.IsNullOrWhiteSpace(githubConfig.Repository))
+    {
+      throw new InvalidOperationException("GitHub repository is not configured.");
+    }
+
+    if (string.IsNullOrWhiteSpace(githubConfig.Token))
+    {
+      throw new InvalidOperationException("GitHub token is not configured.");
+    }
+
+    services.Configure<GitHubConfiguration>(config =>
+    {
+      config.Repository = githubConfig.Repository;
+      config.Owner = githubConfig.Owner;
+      config.Token = githubConfig.Token;
+    });
+
     services.AddSingleton<IGitHubClient>(svc =>
     {
-      var githubConfig = svc.GetRequiredService<IOptions<GithubConfiguration>>().Value;
-      if (string.IsNullOrWhiteSpace(githubConfig.Token))
-      {
-        throw new InvalidOperationException("GitHub token is not configured.");
-      }
-
+      var githubConfig = svc.GetRequiredService<IOptions<GitHubConfiguration>>().Value;
       return new GitHubClient(new ProductHeaderValue("Wolfware.Moonlit.Plugins.Github"))
       {
         Credentials = new Credentials(githubConfig.Token)

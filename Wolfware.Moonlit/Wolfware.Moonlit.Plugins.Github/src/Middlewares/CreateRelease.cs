@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Octokit;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
@@ -10,10 +11,12 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 public sealed class CreateRelease : IReleaseMiddleware
 {
+  private readonly GitHubConfiguration _gitHubConfiguration;
   private readonly IGitHubClient _gitHubClient;
 
-  public CreateRelease(IGitHubClient gitHubClient)
+  public CreateRelease(IOptions<GitHubConfiguration> gitHubConfiguration, IGitHubClient gitHubClient)
   {
+    _gitHubConfiguration = gitHubConfiguration.Value;
     _gitHubClient = gitHubClient;
   }
 
@@ -23,11 +26,6 @@ public sealed class CreateRelease : IReleaseMiddleware
     ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
 
     var config = configuration.GetRequired<CreateReleaseConfiguration>();
-
-    if (string.IsNullOrWhiteSpace(config.Owner) || string.IsNullOrWhiteSpace(config.Repository))
-    {
-      return MiddlewareResult.Failure("Repository owner or name is not specified.");
-    }
 
     if (string.IsNullOrWhiteSpace(config.Name) || string.IsNullOrWhiteSpace(config.Tag))
     {
@@ -48,8 +46,11 @@ public sealed class CreateRelease : IReleaseMiddleware
 
     try
     {
-      var createdRelease =
-        await _gitHubClient.Repository.Release.Create(config.Owner, config.Name, release);
+      var createdRelease = await _gitHubClient.Repository.Release.Create(
+        this._gitHubConfiguration.Owner,
+        this._gitHubConfiguration.Repository,
+        release
+      );
       context.Logger.LogInformation("Release created successfully: {ReleaseUrl}", createdRelease.HtmlUrl);
       return MiddlewareResult.Success(output =>
       {

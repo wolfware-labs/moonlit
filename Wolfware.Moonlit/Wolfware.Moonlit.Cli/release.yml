@@ -11,6 +11,8 @@ plugins:
   - name: "github"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
     config:
+      repository: $(GIT_REPOSITORY)
+      owner: $(GITHUB_OWNER)
       token: $(GITHUB_TOKEN)
 
 stages:
