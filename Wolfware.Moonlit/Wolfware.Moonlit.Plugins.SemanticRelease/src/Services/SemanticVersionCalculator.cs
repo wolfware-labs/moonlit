@@ -1,24 +1,27 @@
 ﻿using Semver;
-using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
-public class SemanticVersionCalculator
+public sealed class SemanticVersionCalculator
 {
-  private readonly ReleaseConfiguration _configuration;
+  private readonly CommitsAnalyzer _commitsAnalyzer;
 
-  public SemanticVersionCalculator(ReleaseConfiguration? configuration = null)
+  public SemanticVersionCalculator(CommitsAnalyzer commitsAnalyzer)
   {
-    _configuration = configuration ?? ReleaseConfiguration.CreateDefault();
+    _commitsAnalyzer = commitsAnalyzer;
   }
 
-  public SemVersion CalculateNextVersion(SemVersion baseVersion, IEnumerable<string> commitMessages,
-    string? suffix = null)
+  public SemVersion CalculateNextVersion(SemVersion baseVersion, ConventionalCommit[] commits, string? suffix = null)
   {
-    var commits = commitMessages.Select(ConventionalCommitParser.Parse).ToList();
-    var highestBump = DetermineHighestBump(commits);
+    ArgumentNullException.ThrowIfNull(baseVersion, nameof(baseVersion));
+    ArgumentNullException.ThrowIfNull(commits, nameof(commits));
+    if (commits.Length == 0)
+    {
+      throw new ArgumentException("At least one commit is required to calculate the next version.", nameof(commits));
+    }
 
+    var highestBump = this._commitsAnalyzer.Analyze(commits);
     var calculatedVersion = highestBump switch
     {
       VersionBumpType.Major => baseVersion.WithMajor(baseVersion.Major + 1).WithMinor(0).WithPatch(0),
@@ -33,37 +36,5 @@ public class SemanticVersionCalculator
     }
 
     return calculatedVersion;
-  }
-
-  private VersionBumpType DetermineHighestBump(List<ConventionalCommit> commits)
-  {
-    var highestBump = VersionBumpType.None;
-
-    foreach (var commit in commits)
-    {
-      var bumpType = DetermineBumpType(commit);
-      if ((int)bumpType > (int)highestBump)
-      {
-        highestBump = bumpType;
-      }
-    }
-
-    return highestBump;
-  }
-
-  private VersionBumpType DetermineBumpType(ConventionalCommit commit)
-  {
-    if (_configuration.BreakingChangesAlwaysMajor && commit.IsBreakingChange)
-    {
-      return VersionBumpType.Major;
-    }
-
-    var matchingRule = FindMatchingRule(commit);
-    return matchingRule?.Release ?? VersionBumpType.None;
-  }
-
-  private ReleaseRule? FindMatchingRule(ConventionalCommit commit)
-  {
-    return _configuration.Rules.FirstOrDefault(rule => rule.Matches(commit));
   }
 }

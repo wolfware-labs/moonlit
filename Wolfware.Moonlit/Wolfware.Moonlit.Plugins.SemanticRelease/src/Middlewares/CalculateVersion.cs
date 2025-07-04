@@ -23,18 +23,9 @@ public sealed class CalculateVersion : IReleaseMiddleware
       return Task.FromResult(MiddlewareResult.Success());
     }
 
-    if(config.PrereleaseMappings.TryGetValue(config.Branch, out var prerelease))
-    {
-      context.Logger.LogInformation("Using branch-specific prerelease mapping: {Prerelease}", prerelease);
-    }
-
     context.Logger.LogInformation("Calculating next version based on {CommitCount} commits.", config.Commits.Length);
-    var calculator = new SemanticVersionCalculator(config.Release);
-    var nextVersion = calculator.CalculateNextVersion(
-      SemVersion.Parse(config.BaseVersion),
-      config.Commits.Select(c => c.Message).ToArray(),
-      prerelease
-    );
+
+    var nextVersion = GetNextVersion(config, context.Logger);
 
     context.Logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
 
@@ -43,5 +34,48 @@ public sealed class CalculateVersion : IReleaseMiddleware
       output.Add("NextVersion", nextVersion.ToString());
       output.Add("IsPrerelease", nextVersion.IsPrerelease);
     }));
+  }
+
+  private SemVersion GetNextVersion(CalculateVersionConfiguration configuration, ILogger logger)
+  {
+    var prereleaseSuffix = GetPrereleaseSuffix(configuration, logger);
+    if (string.IsNullOrWhiteSpace(configuration.BaseVersion))
+    {
+      return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix);
+    }
+
+    var analyzer = new CommitsAnalyzer(configuration.CommitRules);
+    var calculator = new SemanticVersionCalculator(analyzer);
+    var baseVersion = SemVersion.Parse(configuration.BaseVersion);
+    var commits = ConventionalCommitParser.Parse(configuration.Commits.Select(c => c.Message).ToArray());
+    return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix);
+  }
+
+  private string? GetPrereleaseSuffix(CalculateVersionConfiguration configuration, ILogger logger)
+  {
+    if (!configuration.PrereleaseMappings.TryGetValue(configuration.Branch, out var prerelease))
+    {
+      return prerelease;
+    }
+
+    if (string.IsNullOrEmpty(prerelease))
+    {
+      return null;
+    }
+
+    logger.LogInformation("Using branch-specific prerelease mapping: {Prerelease}", prerelease);
+    return prerelease;
+  }
+
+  private static SemVersion ParseInitialVersion(string initialVersion, string? suffix)
+  {
+    var parsedVersion = SemVersion.Parse(initialVersion);
+
+    if (!string.IsNullOrEmpty(suffix))
+    {
+      parsedVersion = parsedVersion.WithPrerelease(suffix, "1");
+    }
+
+    return parsedVersion;
   }
 }

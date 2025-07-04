@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease;
 

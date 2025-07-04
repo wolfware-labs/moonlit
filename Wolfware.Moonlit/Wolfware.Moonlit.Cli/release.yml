@@ -4,14 +4,14 @@ plugins:
   - name: "git"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
     config:
-      username: $(env:GIT_USERNAME)
-      password: $(env:GIT_PAT)
+      username: $(GIT_USERNAME)
+      password: $(GIT_PAT)
   - name: "semantic-release"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
   - name: "github"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
     config:
-      token: $(env:GITHUB_TOKEN)
+      token: $(GITHUB_TOKEN)
 
 stages:
   analyze:
@@ -25,6 +25,7 @@ stages:
       run: semantic-release.calculate-version
       config:
         branch: $(output:gitInfo:branch)
+        baseVersion: $(output:commitHistory:latestTag)
         commits: $(output:commitHistory:commits)
         prereleaseMappings:
           main: next

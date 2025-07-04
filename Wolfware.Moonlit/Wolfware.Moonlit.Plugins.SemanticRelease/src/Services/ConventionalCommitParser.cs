@@ -7,7 +7,12 @@ public partial class ConventionalCommitParser
 {
   private static readonly Regex _commitRegex = ConventionalCommitParser.GetCommitRegex();
 
-  public static ConventionalCommit Parse(string commitMessage)
+  public static ConventionalCommit[] Parse(params string[] commitMessages)
+  {
+    return commitMessages.Select(ConventionalCommitParser.ParseCommit).ToArray();
+  }
+
+  private static ConventionalCommit ParseCommit(string commitMessage)
   {
     var match = ConventionalCommitParser._commitRegex.Match(commitMessage.Split('\n')[0].Trim());
 
