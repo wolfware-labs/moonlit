@@ -1,44 +1,38 @@
 name: "Test Release"
 
 plugins:
-  - name: "git"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
-    config:
-      username: $(GIT_USERNAME)
-      password: $(GIT_PAT)
-  - name: "semantic-release"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
-  - name: "github"
+  - name: "gh"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
     config:
-      repository: wolfware/moonlit
       token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
 
 stages:
   analyze:
-    - name: gitInfo
-      run: git.info
+    - name: repo
+      run: gh.info
     - name: commitHistory
-      run: git.commits
+      run: gh.commits
       config:
         tagPrefix: "v"
     - name: calculateVersion
-      run: semantic-release.calculate-version
+      run: sr.calculate-version
       config:
-        branch: $(output:gitInfo:branch)
+        branch: $(output:repo:branch)
         baseVersion: $(output:commitHistory:latestTag)
         commits: $(output:commitHistory:commits)
         prereleaseMappings:
           main: next
     - name: generateChangelog
-      run: semantic-release.generate-changelog
+      run: sr.generate-changelog
       config:
         commits: $(output:commitHistory:commits)
         openAiKey: $(OPENAI_API_KEY)
 
   release:
     - name: createRelease
-      run: github.create-release
+      run: gh.create-release
       config:
         name: "Release $(output:calculateVersion:nextVersion)"
         tag: $(output:calculateVersion:nextVersion)

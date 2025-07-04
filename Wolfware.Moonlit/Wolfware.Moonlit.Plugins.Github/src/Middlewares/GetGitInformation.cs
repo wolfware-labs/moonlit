@@ -1,14 +1,10 @@
 ﻿using LibGit2Sharp;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Plugins.Abstractions;
-using Wolfware.Moonlit.Plugins.Extensions;
-using Wolfware.Moonlit.Plugins.Git.Configuration;
 using Wolfware.Moonlit.Plugins.Git.Extensions;
 using Wolfware.Moonlit.Plugins.Git.Models;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
+namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Configuration>
 {

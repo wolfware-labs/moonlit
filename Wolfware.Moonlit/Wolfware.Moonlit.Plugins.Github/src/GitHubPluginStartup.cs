@@ -43,6 +43,8 @@ public sealed class GitHubPluginStartup : PluginStartup
 
   public override void AddMiddlewares(IServiceCollection services)
   {
+    services.AddMiddleware<GetGitInformation>("info");
+    services.AddMiddleware<GetCommits>("commits");
     services.AddMiddleware<AnnotateAffectedIssues>("annotate-issues");
     services.AddMiddleware<AnnotateAffectedPullRequests>("annotate-pr");
     services.AddMiddleware<CreateRelease>("create-release");
