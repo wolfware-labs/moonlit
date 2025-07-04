@@ -41,9 +41,9 @@ stages:
     - name: createRelease
       run: github.create-release
       config:
-        name: "Release $(output:calculateVersion:version)"
+        name: "Release $(output:calculateVersion:nextVersion)"
         tag: $(output:calculateVersion:nextVersion)
-        body: $(output:createChangelogs:changelog)
+        body: $(output:generateChangelogs:changelog)
         draft: true
         prerelease: $(output:calculateVersion:isPrerelease)
 

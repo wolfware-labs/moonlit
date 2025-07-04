@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<IPluginFactory, PluginFactory>();
     services.AddSingleton<IReleasePipelineFactory, ReleasePipelineFactory>();
     services.AddSingleton<IPluginPathResolver, PluginPathResolver>();
+    services.AddSingleton<IConfigurationExpressionParser, ConfigurationExpressionParser>();
 
     services.AddFilePathResolver<NugetPackageResolver>("nuget");
     services.AddFilePathResolver<FilePathResolver>("file");

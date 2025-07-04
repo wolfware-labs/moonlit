@@ -14,8 +14,15 @@ namespace Wolfware.Moonlit.Core.Configuration;
 /// Provides methods to create base configurations and build configurations using in-memory data
 /// with optional support for parent configurations and dynamic replacement of configuration expressions.
 /// </remarks>
-public sealed partial class ConfigurationFactory : IConfigurationFactory
+public sealed class ConfigurationFactory : IConfigurationFactory
 {
+  private readonly IConfigurationExpressionParser _expressionParser;
+
+  public ConfigurationFactory(IConfigurationExpressionParser expressionParser)
+  {
+    _expressionParser = expressionParser;
+  }
+
   /// <inheritdoc />
   public IConfiguration CreateBaseConfiguration()
   {
@@ -31,29 +38,15 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
   {
     parentConfiguration ??= this.CreateBaseConfiguration();
 
-    var regex = ConfigurationFactory.ConfigExpressionRegex();
     var processedConfiguration = configurationData
       .ToDictionary(kvp => kvp.Key, kvp =>
       {
-        if (kvp.Value is not string valueString || string.IsNullOrWhiteSpace(valueString))
+        if (kvp.Value is not string value || string.IsNullOrWhiteSpace(value))
         {
           return kvp.Value;
         }
 
-        var value = valueString.Trim();
-        var match = regex.Match(value);
-        if (!match.Success || !match.Groups.TryGetValue("config_expression", out var configExpression))
-        {
-          return value;
-        }
-
-        var configSection = parentConfiguration.GetSection(configExpression.Value);
-        if (!configSection.Exists())
-        {
-          return kvp.Value;
-        }
-
-        return configSection.AsObject() ?? kvp.Value;
+        return this._expressionParser.ParseExpression(value, parentConfiguration) ?? kvp.Value;
       });
 
     var jsonStream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(processedConfiguration));
@@ -63,7 +56,4 @@ public sealed partial class ConfigurationFactory : IConfigurationFactory
       .AddJsonStream(jsonStream)
       .Build();
   }
-
-  [GeneratedRegex(@"\$\((?<config_expression>[^\)]+)\)")]
-  private static partial Regex ConfigExpressionRegex();
 }

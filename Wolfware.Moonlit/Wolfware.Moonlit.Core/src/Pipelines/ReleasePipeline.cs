@@ -56,7 +56,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        context.Logger.LogInformation("=== Start Step: {MiddlewareName} ===", middlewareContext.Name);
+        context.Logger.LogInformation(">>> Start Step: {MiddlewareName} <<<", middlewareContext.Name);
         if (context.Logger.IsEnabled(LogLevel.Debug))
         {
           context.Logger.LogDebug("Middleware configuration: {Configuration}",
@@ -68,7 +68,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
         result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
           .ConfigureAwait(false);
         stopwatch.Stop();
-        context.Logger.LogInformation("=== End Step: {MiddlewareName} [{ElapsedMilliseconds} ms] ===",
+        context.Logger.LogInformation("<<< End Step: {MiddlewareName} [{ElapsedMilliseconds} ms] >>>",
           middlewareContext.Name, stopwatch.ElapsedMilliseconds);
 
         if (result.Warnings.Count > 0)

@@ -77,7 +77,7 @@ public sealed class GenerateChangelogs : IReleaseMiddleware
     {
       return MiddlewareResult.Success(output =>
       {
-        output.Add("Changelogs",
+        output.Add("Changelog",
           JsonSerializer.Deserialize<Dictionary<string, object>>(completion.Value.Content[0].Text));
       });
     }
