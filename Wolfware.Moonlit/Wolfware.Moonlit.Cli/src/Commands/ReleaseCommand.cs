@@ -136,7 +136,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
         .SpinnerStyle(Style.Parse("khaki3 bold"))
         .StartAsync(
           "Executing Release...",
-          _ => pipeline.ExecuteAsync(new PipelineContext
+          _ => pipeline.ExecuteAsync(new ReleaseContext
           {
             WorkingDirectory = settings.WorkingDirectory,
             Logger = new ConsoleLogger(settings.Verbose),

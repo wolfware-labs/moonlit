@@ -18,7 +18,7 @@ public sealed class SendNotification : IReleaseMiddleware
     _slackApiClient = slackApiClient;
   }
 
-  public async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
   {
     ArgumentNullException.ThrowIfNull(context);
     ArgumentNullException.ThrowIfNull(configuration);

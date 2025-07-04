@@ -34,7 +34,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
   /// </summary>
   /// <param name="context">The context containing configuration, logger, working directory, and cancellation token for the pipeline execution.</param>
   /// <returns>A task representing an asynchronous operation that returns the result of the pipeline execution, including success or failure state and any associated warnings or errors.</returns>
-  public async Task<MiddlewareResult> ExecuteAsync(PipelineContext context)
+  public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context)
   {
     ArgumentNullException.ThrowIfNull(context, nameof(context));
 

@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Git.Extensions;
 
-internal static class StringExtensions
+public static class StringExtensions
 {
   public static string GetGitFolderPath(this string workingDirectory)
   {

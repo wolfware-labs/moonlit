@@ -7,7 +7,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 public sealed class AnnotateAffectedIssues : IReleaseMiddleware
 {
-  public Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration)
+  public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
   {
     // This middleware is a placeholder for annotating affected issues.
     // In a real implementation, you would interact with the GitHub API to annotate issues.

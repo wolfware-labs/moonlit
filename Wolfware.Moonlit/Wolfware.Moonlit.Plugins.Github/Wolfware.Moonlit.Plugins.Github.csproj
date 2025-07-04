@@ -3,9 +3,9 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
+    <ProjectReference Include="..\Wolfware.Moonlit.Plugins.Git\Wolfware.Moonlit.Plugins.Git.csproj"/>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Octokit" />
+    <PackageReference Include="Octokit"/>
   </ItemGroup>
 </Project>

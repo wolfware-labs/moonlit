@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Octokit;
-using Wolfware.Moonlit.Plugins.Github.Configuration;
+using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Models;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
@@ -9,8 +8,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
 public sealed class CreateRelease : ReleaseMiddleware<CreateRelease.Configuration>
 {
-  private readonly GitHubConfiguration _gitHubConfiguration;
-  private readonly IGitHubClient _gitHubClient;
+  private readonly IGitHubContextProvider _gitHubContextProvider;
 
   public sealed class Configuration
   {
@@ -27,13 +25,12 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateRelease.Configuratio
     public bool PreRelease { get; set; } = false;
   }
 
-  public CreateRelease(IOptions<GitHubConfiguration> gitHubConfiguration, IGitHubClient gitHubClient)
+  public CreateRelease(IGitHubContextProvider gitHubContextProvider)
   {
-    _gitHubConfiguration = gitHubConfiguration.Value;
-    _gitHubClient = gitHubClient;
+    this._gitHubContextProvider = gitHubContextProvider;
   }
 
-  public override async Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  public override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
   {
     if (string.IsNullOrWhiteSpace(configuration.Name) || string.IsNullOrWhiteSpace(configuration.Tag))
     {
@@ -59,11 +56,8 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateRelease.Configuratio
 
     try
     {
-      var createdRelease = await _gitHubClient.Repository.Release.Create(
-        this._gitHubConfiguration.Owner,
-        this._gitHubConfiguration.Repository,
-        release
-      );
+      var gitHubContext = await this._gitHubContextProvider.GetCurrentContext(context);
+      var createdRelease = await gitHubContext.CreateRelease(release);
       context.Logger.LogInformation("Release created successfully: {ReleaseUrl}", createdRelease.HtmlUrl);
       return MiddlewareResult.Success(output =>
       {

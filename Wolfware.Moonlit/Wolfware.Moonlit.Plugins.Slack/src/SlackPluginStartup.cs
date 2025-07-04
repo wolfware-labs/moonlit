@@ -1,20 +1,23 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SlackNet.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
+using Wolfware.Moonlit.Plugins.Pipeline;
 using Wolfware.Moonlit.Plugins.Slack.Middlewares;
 
 namespace Wolfware.Moonlit.Plugins.Slack;
 
 /// <summary>
-/// Represents the startup configuration for the plugin.
-/// Implements the <see cref="Wolfware.Moonlit.Plugins.Abstractions.IPluginStartup"/> interface
-/// to configure dependencies and middleware specific to the plugin.
+/// Initializes and configures the Slack plugin for the release pipeline.
 /// </summary>
-public sealed class PluginStartup : IPluginStartup
+/// <remarks>
+/// This class extends the <see cref="PluginStartup"/> base class, providing the necessary logic
+/// to integrate Slack-related functionality into the release pipeline's dependency injection container.
+/// It configures the Slack API client and registers middleware for sending notifications.
+/// </remarks>
+public sealed class SlackPluginStartup : PluginStartup
 {
-  public void Configure(IServiceCollection services, IConfiguration configuration)
+  public override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
     var slackApiToken = configuration.GetValue<string>("ApiToken");
     if (string.IsNullOrWhiteSpace(slackApiToken))
@@ -23,6 +26,10 @@ public sealed class PluginStartup : IPluginStartup
     }
 
     services.AddSlackNet(cfg => cfg.UseApiToken(slackApiToken));
+  }
+
+  public override void AddMiddlewares(IServiceCollection services)
+  {
     services.AddMiddleware<SendNotification>("send-notification");
   }
 }

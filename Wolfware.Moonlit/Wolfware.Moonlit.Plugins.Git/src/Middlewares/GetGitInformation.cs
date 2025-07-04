@@ -10,7 +10,7 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
-public sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Configuration>
+internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Configuration>
 {
   public sealed class Configuration
   {
@@ -21,7 +21,7 @@ public sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Conf
     public bool CollectCommits { get; set; }
   }
 
-  public override Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  public override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
   {
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
 

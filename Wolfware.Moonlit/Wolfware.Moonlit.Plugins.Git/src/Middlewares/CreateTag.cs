@@ -10,7 +10,7 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
-public sealed class CreateTag : ReleaseMiddleware<CreateTag.Configuration>
+internal sealed class CreateTag : ReleaseMiddleware<CreateTag.Configuration>
 {
   private GitConfiguration _gitConfiguration;
 
@@ -26,7 +26,7 @@ public sealed class CreateTag : ReleaseMiddleware<CreateTag.Configuration>
     this._gitConfiguration = gitOptions.Value;
   }
 
-  public override Task<MiddlewareResult> ExecuteAsync(PipelineContext context, Configuration configuration)
+  public override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
   {
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
     using var gitRepo = new Repository(gitFolderPath);

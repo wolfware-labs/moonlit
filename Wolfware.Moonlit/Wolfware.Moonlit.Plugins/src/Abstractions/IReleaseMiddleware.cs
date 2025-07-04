@@ -5,20 +5,18 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 namespace Wolfware.Moonlit.Plugins.Abstractions;
 
 /// <summary>
-/// Represents the contract for a middleware component in a pipeline.
+/// Represents a middleware component responsible for handling specific tasks within
+/// the release pipeline process. Implementations of this interface define middleware
+/// behaviors that operate on the release context and configuration provided during execution.
 /// </summary>
-/// <remarks>
-/// Middleware components in a pipeline are responsible for performing specific operations or processing on the pipeline context.
-/// They can also delegate execution to the next component in the chain.
-/// </remarks>
 [PublicAPI]
 public interface IReleaseMiddleware
 {
   /// <summary>
-  /// Executes the middleware operation asynchronously.
+  /// Executes the middleware logic within the release pipeline using the provided context and configuration.
   /// </summary>
-  /// <param name="context">The pipeline context containing shared data, logging, and cancellation support.</param>
-  /// <param name="configuration">The configuration settings to be used during the middleware's operation.</param>
-  /// <returns>A <see cref="MiddlewareResult"/> object representing the outcome of the middleware operation.</returns>
-  Task<MiddlewareResult> ExecuteAsync(PipelineContext context, IConfiguration configuration);
+  /// <param name="context">The <see cref="ReleaseContext"/> representing the release pipeline's execution context.</param>
+  /// <param name="configuration">The <see cref="IConfiguration"/> containing configuration settings specific to the middleware.</param>
+  /// <returns>A <see cref="MiddlewareResult"/> indicating the result of the middleware execution, including success status, error message (if any), and any output data.</returns>
+  Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration);
 }
