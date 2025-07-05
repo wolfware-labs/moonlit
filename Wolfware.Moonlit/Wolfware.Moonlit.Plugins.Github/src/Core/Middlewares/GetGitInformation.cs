@@ -1,34 +1,22 @@
 ﻿using Microsoft.Extensions.Logging;
 using Octokit;
-using Wolfware.Moonlit.Plugins.Git.Models;
-using Wolfware.Moonlit.Plugins.Github.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Core.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
+namespace Wolfware.Moonlit.Plugins.Github.Core.Middlewares;
 
-internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Configuration>
+internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformationConfiguration>
 {
   private readonly IGitHubContextProvider _gitHubContextProvider;
-
-  public sealed class Configuration
-  {
-    public bool CollectBranches { get; set; }
-
-    public bool CollectTags { get; set; }
-
-    public bool CollectCommits { get; set; }
-
-    public bool CollectPullRequests { get; set; }
-
-    public bool CollectIssues { get; set; }
-  }
 
   public GetGitInformation(IGitHubContextProvider gitHubContextProvider)
   {
     _gitHubContextProvider = gitHubContextProvider;
   }
 
-  public override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  public override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
+    GetGitInformationConfiguration configuration)
   {
     context.Logger.LogInformation("Collecting Git information from repository");
 
@@ -84,6 +72,7 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformation.Co
     return MiddlewareResult.Success(output =>
     {
       output.Add("Branch", githubContext.CurrentBranch);
+      output.Add("LatestTag")
 
       if (branches is {Count: > 0})
       {

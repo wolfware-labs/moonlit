@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.Github.Models;
+﻿namespace Wolfware.Moonlit.Plugins.Github.Core.Models;
 
 public sealed class RepositoryDetails
 {

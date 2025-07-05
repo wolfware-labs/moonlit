@@ -1,7 +1,7 @@
 ﻿using Octokit;
-using Wolfware.Moonlit.Plugins.Github.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
 
-namespace Wolfware.Moonlit.Plugins.Github.Services;
+namespace Wolfware.Moonlit.Plugins.Github.Core.Services;
 
 public sealed class GitHubContext : IGitHubContext
 {

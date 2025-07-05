@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.Github.Configuration;
+﻿namespace Wolfware.Moonlit.Plugins.Github.Core.Configuration;
 
 public sealed class GitHubConfiguration
 {

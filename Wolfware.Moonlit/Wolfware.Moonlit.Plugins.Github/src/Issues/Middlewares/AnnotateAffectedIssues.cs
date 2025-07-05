@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
+namespace Wolfware.Moonlit.Plugins.Github.Issues.Middlewares;
 
 public sealed class AnnotateAffectedIssues : IReleaseMiddleware
 {

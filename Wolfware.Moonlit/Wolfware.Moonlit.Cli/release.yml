@@ -12,6 +12,15 @@ stages:
   analyze:
     - name: repo
       run: gh.info
+      config:
+        tags:
+          - strategy: latest
+        commits:
+          - strategy: fromLatestTag
+        pullRequest:
+          - strategy: fromAvailableCommits
+        issues:
+          - strategy: fromAvailableCommits
     - name: version
       run: sr.calculate-version
       config:

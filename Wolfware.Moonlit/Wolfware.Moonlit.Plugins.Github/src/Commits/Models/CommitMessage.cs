@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.Git.Models;
+﻿namespace Wolfware.Moonlit.Plugins.Github.Commits.Models;
 
 public sealed class CommitMessage
 {

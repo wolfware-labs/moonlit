@@ -4,11 +4,14 @@ using Microsoft.Extensions.Options;
 using Octokit;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
-using Wolfware.Moonlit.Plugins.Github.Abstractions;
-using Wolfware.Moonlit.Plugins.Github.Configuration;
-using Wolfware.Moonlit.Plugins.Github.Middlewares;
-using Wolfware.Moonlit.Plugins.Github.Services;
+using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Core.Configuration;
+using Wolfware.Moonlit.Plugins.Github.Core.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.Issues.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.PullRequests.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.Releases.Middlewares;
 using Wolfware.Moonlit.Plugins.Pipeline;
+using GitHubContextFactory = Wolfware.Moonlit.Plugins.Github.Core.Services.GitHubContextFactory;
 
 namespace Wolfware.Moonlit.Plugins.Github;
 
@@ -44,10 +47,8 @@ public sealed class GitHubPluginStartup : PluginStartup
   public override void AddMiddlewares(IServiceCollection services)
   {
     services.AddMiddleware<GetGitInformation>("info");
-    services.AddMiddleware<GetCommits>("commits");
+    services.AddMiddleware<CreateRelease>("create-release");
     services.AddMiddleware<AnnotateAffectedIssues>("annotate-issues");
     services.AddMiddleware<AnnotateAffectedPullRequests>("annotate-pr");
-    services.AddMiddleware<CreateRelease>("create-release");
-    services.AddMiddleware<CollectAssociatedItems>("collect-associated-items");
   }
 }

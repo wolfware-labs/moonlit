@@ -1,10 +1,9 @@
-﻿using System.Text.Json;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
+namespace Wolfware.Moonlit.Plugins.Github.PullRequests.Middlewares;
 
 public sealed class AnnotateAffectedPullRequests : IReleaseMiddleware
 {
