@@ -4,12 +4,22 @@ using Microsoft.Extensions.Options;
 using Octokit;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
+using Wolfware.Moonlit.Plugins.Github.Branches.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Branches.Services;
+using Wolfware.Moonlit.Plugins.Github.Commits.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Commits.Services;
 using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Core.Configuration;
 using Wolfware.Moonlit.Plugins.Github.Core.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.Issues.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Issues.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.Issues.Services;
+using Wolfware.Moonlit.Plugins.Github.PullRequests.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.PullRequests.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.PullRequests.Services;
 using Wolfware.Moonlit.Plugins.Github.Releases.Middlewares;
+using Wolfware.Moonlit.Plugins.Github.Tags.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Tags.Services;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using GitHubContextFactory = Wolfware.Moonlit.Plugins.Github.Core.Services.GitHubContextFactory;
 
@@ -42,6 +52,11 @@ public sealed class GitHubPluginStartup : PluginStartup
       };
     });
     services.AddSingleton<IGitHubContextProvider, GitHubContextFactory>();
+    services.AddSingleton<IBranchesInformationProvider, BranchesInformationProvider>();
+    services.AddSingleton<ITagsInformationProvider, TagsInformationProvider>();
+    services.AddSingleton<ICommitsInformationProvider, CommitsInformationProvider>();
+    services.AddSingleton<IPullRequestsInformationProvider, PullRequestsInformationProvider>();
+    services.AddSingleton<IIssuesInformationProvider, IssuesInformationProvider>();
   }
 
   protected override void AddMiddlewares(IServiceCollection services)
