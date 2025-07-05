@@ -8,8 +8,7 @@ public sealed class CommitsInformationProvider : ICommitsInformationProvider
 {
   public Task<IReadOnlyDictionary<string, object>> GetInfo(
     ReleaseContext context,
-    CommitsInformationFetchConfiguration fetchConfiguration,
-    CancellationToken cancellationToken = default
+    CommitsInformationFetchConfiguration fetchConfiguration
   )
   {
     throw new NotImplementedException();

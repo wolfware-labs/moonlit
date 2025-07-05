@@ -4,9 +4,5 @@ namespace Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
 
 public interface IItemsInformationProvider<in TItemFetchConfiguration>
 {
-  Task<IReadOnlyDictionary<string, object>> GetInfo(
-    ReleaseContext context,
-    TItemFetchConfiguration fetchConfiguration,
-    CancellationToken cancellationToken = default
-  );
+  Task<IReadOnlyDictionary<string, object>> GetInfo(ReleaseContext context, TItemFetchConfiguration fetchConfiguration);
 }

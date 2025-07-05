@@ -8,8 +8,7 @@ public sealed class PullRequestsInformationProvider : IPullRequestsInformationPr
 {
   public Task<IReadOnlyDictionary<string, object>> GetInfo(
     ReleaseContext context,
-    PullRequestsInformationFetchConfiguration fetchConfiguration,
-    CancellationToken cancellationToken = default
+    PullRequestsInformationFetchConfiguration fetchConfiguration
   )
   {
     throw new NotImplementedException();

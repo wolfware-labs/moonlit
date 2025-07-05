@@ -8,8 +8,7 @@ public sealed class IssuesInformationProvider : IIssuesInformationProvider
 {
   public Task<IReadOnlyDictionary<string, object>> GetInfo(
     ReleaseContext context,
-    IssuesInformationFetchConfiguration fetchConfiguration,
-    CancellationToken cancellationToken = default
+    IssuesInformationFetchConfiguration fetchConfiguration
   )
   {
     throw new NotImplementedException();

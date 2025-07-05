@@ -39,36 +39,11 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformationCon
     context.Logger.LogInformation("Collecting Git information from repository");
 
     var output = new Dictionary<string, object?>();
-
-    output.AddRange(await this._branchesInformationProvider.GetInfo(
-      context,
-      configuration.Branches,
-      context.CancellationToken
-    ));
-
-    output.AddRange(await this._tagsInformationProvider.GetInfo(
-      context,
-      configuration.Tags,
-      context.CancellationToken
-    ));
-
-    output.AddRange(await this._commitsInformationProvider.GetInfo(
-      context,
-      configuration.Commits,
-      context.CancellationToken
-    ));
-
-    output.AddRange(await this._pullRequestsInformationProvider.GetInfo(
-      context,
-      configuration.PullRequests,
-      context.CancellationToken
-    ));
-
-    output.AddRange(await this._issuesInformationProvider.GetInfo(
-      context,
-      configuration.Issues,
-      context.CancellationToken
-    ));
+    output.AddRange(await this._branchesInformationProvider.GetInfo(context, configuration.Branches));
+    output.AddRange(await this._tagsInformationProvider.GetInfo(context, configuration.Tags));
+    output.AddRange(await this._commitsInformationProvider.GetInfo(context, configuration.Commits));
+    output.AddRange(await this._pullRequestsInformationProvider.GetInfo(context, configuration.PullRequests));
+    output.AddRange(await this._issuesInformationProvider.GetInfo(context, configuration.Issues));
 
     context.Logger.LogInformation("Git information collection completed.");
     return MiddlewareResult.Success(output);

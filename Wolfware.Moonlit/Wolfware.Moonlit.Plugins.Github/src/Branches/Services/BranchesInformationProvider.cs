@@ -7,9 +7,10 @@ namespace Wolfware.Moonlit.Plugins.Github.Branches.Services;
 
 public sealed class BranchesInformationProvider : IBranchesInformationProvider
 {
-  public Task<IReadOnlyDictionary<string, object>> GetInfo(ReleaseContext context,
-    BranchesInformationFetchConfiguration fetchConfiguration,
-    CancellationToken cancellationToken = default)
+  public Task<IReadOnlyDictionary<string, object>> GetInfo(
+    ReleaseContext context,
+    BranchesInformationFetchConfiguration fetchConfiguration
+  )
   {
     throw new NotImplementedException();
   }
