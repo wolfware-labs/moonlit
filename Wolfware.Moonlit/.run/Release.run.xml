@@ -23,6 +23,7 @@
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Github" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Github/Wolfware.Moonlit.Plugins.Github.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Slack" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Slack/Wolfware.Moonlit.Plugins.Slack.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.SemanticRelease" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.SemanticRelease/Wolfware.Moonlit.Plugins.SemanticRelease.csproj" />
+      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Git" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Git/Wolfware.Moonlit.Plugins.Git.csproj" />
     </method>
   </configuration>
 </component>
