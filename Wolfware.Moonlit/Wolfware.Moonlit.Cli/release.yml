@@ -11,19 +11,27 @@ plugins:
 stages:
   analyze:
     - name: repo
-      run: gh.info
+      run: gh.repo-context
+    - name: tag
+      run: gh.latest-tag
+      config:
+        tag: "v[0-9]+.[0-9]+.[0-9]+"
+    - name: items
+      run: gh.items-since-tag
+      config:
+        tag: $(output:tag:name)
     - name: version
       run: sr.calculate-version
       config:
         branch: $(output:repo:branch)
-        baseVersion: $(output:repo:latestTag)
-        commits: $(output:repo:commits)
+        baseVersion: $(output:tag:name)
+        commits: $(output:items:commits)
         prereleaseMappings:
           main: next
     - name: changelog
       run: sr.generate-changelog
       config:
-        commits: $(output:repo:commits)
+        commits: $(output:items:commits)
         openAiKey: $(OPENAI_API_KEY)
 
   release:
