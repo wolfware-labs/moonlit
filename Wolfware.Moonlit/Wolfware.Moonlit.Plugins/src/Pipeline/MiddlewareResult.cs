@@ -39,6 +39,18 @@ public sealed record MiddlewareResult
     return result;
   }
 
+  /// <summary>
+  /// Creates a successful pipeline result with the specified output dictionary.
+  /// </summary>
+  /// <param name="output">A dictionary containing key-value pairs to initialize the pipeline output.</param>
+  /// <returns>
+  /// A new instance of MiddlewareResult indicating a successful operation with the provided output data.
+  /// </returns>
+  public static MiddlewareResult Success(IReadOnlyDictionary<string, object?> output)
+  {
+    return new MiddlewareResult {IsSuccessful = true, Output = new MiddlewareOutput(output)};
+  }
+
   /// Creates a failed pipeline result with the specified error message.
   /// <param name="errorMessage">
   /// A string representing the error message for the failed operation.

@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.Git.Extensions;
+﻿namespace Wolfware.Moonlit.Plugins.Github.Extensions;
 
 public static class StringExtensions
 {

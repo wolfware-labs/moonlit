@@ -1,16 +1,20 @@
-﻿using Wolfware.Moonlit.Plugins.Github.Core.Models;
+﻿using Wolfware.Moonlit.Plugins.Github.Branches.Configuration;
+using Wolfware.Moonlit.Plugins.Github.Commits.Configuration;
+using Wolfware.Moonlit.Plugins.Github.Issues.Configuration;
+using Wolfware.Moonlit.Plugins.Github.PullRequests.Configuration;
+using Wolfware.Moonlit.Plugins.Github.Tags.Configuration;
 
 namespace Wolfware.Moonlit.Plugins.Github.Core.Configuration;
 
 public class GetGitInformationConfiguration
 {
-  public FetchConfiguration? Branches { get; set; }
+  public BranchesInformationFetchConfiguration? Branches { get; set; }
 
-  public FetchConfiguration? Tags { get; set; }
+  public TagsInformationFetchConfiguration? Tags { get; set; }
 
-  public FetchConfiguration? Commits { get; set; }
+  public CommitsInformationFetchConfiguration? Commits { get; set; }
 
-  public FetchConfiguration? PullRequests { get; set; }
+  public PullRequestsInformationFetchConfiguration? PullRequests { get; set; }
 
-  public FetchConfiguration? Issues { get; set; }
+  public IssuesInformationFetchConfiguration? Issues { get; set; }
 }

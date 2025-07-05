@@ -1,8 +1,8 @@
 ﻿using System.Text.RegularExpressions;
 using Octokit;
-using Wolfware.Moonlit.Plugins.Git.Extensions;
 using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Core.Models;
+using Wolfware.Moonlit.Plugins.Github.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using GitRepository = LibGit2Sharp.Repository;
 
