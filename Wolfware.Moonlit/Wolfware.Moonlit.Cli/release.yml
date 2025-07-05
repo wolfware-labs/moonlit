@@ -1,6 +1,8 @@
 name: "Test Release"
 
 plugins:
+  - name: "git"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
   - name: "gh"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
     config:
@@ -11,11 +13,11 @@ plugins:
 stages:
   analyze:
     - name: repo
-      run: gh.repo-context
+      run: git.repo-context
     - name: tag
       run: gh.latest-tag
       config:
-        tag: "v[0-9]+.[0-9]+.[0-9]+"
+        prefix: "v"
     - name: items
       run: gh.items-since-tag
       config:
@@ -43,6 +45,8 @@ stages:
         changelog: $(output:changelog:entries)
         draft: true
         prerelease: $(output:calculateVersion:isPrerelease)
+        pullRequests: $(output:items:pullRequests)
+        issues: $(output:items:issues)
 
 #  notify:
 #    - name: "github.create-issue"

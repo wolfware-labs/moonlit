@@ -7,6 +7,7 @@
     <PackageReference Include="Octokit"/>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Wolfware.Moonlit.Plugins.Git\Wolfware.Moonlit.Plugins.Git.csproj" />
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj" />
   </ItemGroup>
 </Project>

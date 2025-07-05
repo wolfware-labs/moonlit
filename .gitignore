@@ -54,5 +54,3 @@ TestResult.xml
 nunit-*.xml
 
 .idea
-
-!Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Github/src/Releases
