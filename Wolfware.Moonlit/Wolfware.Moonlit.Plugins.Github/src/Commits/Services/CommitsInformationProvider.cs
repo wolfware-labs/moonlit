@@ -21,12 +21,12 @@ public sealed class CommitsInformationProvider : ICommitsInformationProvider
     CommitsInformationFetchConfiguration fetchConfiguration,
     FetchContext fetchContext)
   {
-    var gitHubContext = await _gitHubContextProvider.GetCurrentContext(releaseContext);
     if (fetchConfiguration.Strategy == CommitsFetchStrategy.None)
     {
       return;
     }
 
+    var gitHubContext = await _gitHubContextProvider.GetCurrentContext(releaseContext);
     var commitsContext = new CommitsFetchContext();
     if (fetchConfiguration.Strategy == CommitsFetchStrategy.All)
     {

@@ -26,12 +26,12 @@ public sealed class TagsInformationProvider : ITagsInformationProvider
     FetchContext fetchContext
   )
   {
-    var gitHubContext = await this._gitHubContextProvider.GetCurrentContext(releaseContext);
     if (fetchConfiguration.Strategy == TagsFetchStrategy.None)
     {
       return;
     }
 
+    var gitHubContext = await this._gitHubContextProvider.GetCurrentContext(releaseContext);
     var tagsContext = new TagsFetchContext();
     var tags = await gitHubContext.GetTags(new ApiOptions());
     var filteredTags = tags;

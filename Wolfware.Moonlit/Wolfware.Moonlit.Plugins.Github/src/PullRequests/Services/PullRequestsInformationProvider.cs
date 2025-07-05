@@ -1,7 +1,9 @@
-﻿using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
+﻿using Wolfware.Moonlit.Plugins.Github.Commits.Models;
+using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Core.Models;
 using Wolfware.Moonlit.Plugins.Github.PullRequests.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.PullRequests.Configuration;
+using Wolfware.Moonlit.Plugins.Github.PullRequests.Models;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Github.PullRequests.Services;
@@ -21,6 +23,12 @@ public sealed class PullRequestsInformationProvider : IPullRequestsInformationPr
     FetchContext fetchContext
   )
   {
+    if (fetchConfiguration.Strategy == PullRequestsFetchStrategy.None)
+    {
+      return;
+    }
+
     var gitHubContext = await _gitHubContextProvider.GetCurrentContext(releaseContext);
+    var pullRequestsContext = new PullRequestsFetchContext();
   }
 }
