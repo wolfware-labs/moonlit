@@ -23,7 +23,7 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformationCon
     var githubContext = await _gitHubContextProvider.GetCurrentContext(context);
 
     IReadOnlyList<Branch> branches = [];
-    if (configuration.CollectBranches)
+    if (configuration.Branches)
     {
       context.Logger.LogInformation("Collecting branches...");
       branches = await githubContext.GetBranches(new ApiOptions());
