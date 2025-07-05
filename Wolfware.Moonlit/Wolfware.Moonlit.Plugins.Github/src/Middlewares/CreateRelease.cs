@@ -19,7 +19,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
     CreateReleaseConfiguration configuration)
   {
-    var validationResult = ValidateConfiguration(configuration);
+    var validationResult = CreateRelease.ValidateConfiguration(configuration);
     if (validationResult != null)
     {
       return validationResult;
@@ -42,7 +42,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     });
   }
 
-  private MiddlewareResult? ValidateConfiguration(CreateReleaseConfiguration configuration)
+  private static MiddlewareResult? ValidateConfiguration(CreateReleaseConfiguration configuration)
   {
     if (string.IsNullOrWhiteSpace(configuration.Name) || string.IsNullOrWhiteSpace(configuration.Tag))
     {
