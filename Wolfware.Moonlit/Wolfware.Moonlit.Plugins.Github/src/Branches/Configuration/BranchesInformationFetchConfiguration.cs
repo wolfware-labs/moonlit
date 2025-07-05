@@ -3,4 +3,6 @@
 public sealed class BranchesInformationFetchConfiguration
 {
   public bool IncludeCurrentBranch { get; set; } = true;
+
+  public bool IncludeRemoteBranches { get; set; } = true;
 }

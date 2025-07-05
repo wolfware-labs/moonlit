@@ -1,4 +1,5 @@
 ﻿using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
+using Wolfware.Moonlit.Plugins.Github.Core.Models;
 using Wolfware.Moonlit.Plugins.Github.Issues.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Issues.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
@@ -14,12 +15,12 @@ public sealed class IssuesInformationProvider : IIssuesInformationProvider
     _gitHubContextProvider = gitHubContextProvider;
   }
 
-  public async Task<IReadOnlyDictionary<string, object>> GetInfo(
-    ReleaseContext context,
-    IssuesInformationFetchConfiguration fetchConfiguration
+  public async Task PopulateFetchContext(
+    ReleaseContext releaseContext,
+    IssuesInformationFetchConfiguration fetchConfiguration,
+    FetchContext fetchContext
   )
   {
-    var gitHubContext = await _gitHubContextProvider.GetCurrentContext(context);
-    return new Dictionary<string, object>();
+    var gitHubContext = await _gitHubContextProvider.GetCurrentContext(releaseContext);
   }
 }

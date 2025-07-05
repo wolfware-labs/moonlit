@@ -2,7 +2,7 @@
 using Wolfware.Moonlit.Plugins.Github.Branches.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Commits.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Core.Configuration;
-using Wolfware.Moonlit.Plugins.Github.Extensions;
+using Wolfware.Moonlit.Plugins.Github.Core.Models;
 using Wolfware.Moonlit.Plugins.Github.Issues.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.PullRequests.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Tags.Abstractions;
@@ -38,14 +38,40 @@ internal sealed class GetGitInformation : ReleaseMiddleware<GetGitInformationCon
   {
     context.Logger.LogInformation("Collecting Git information from repository");
 
-    var output = new Dictionary<string, object?>();
-    output.AddRange(await this._branchesInformationProvider.GetInfo(context, configuration.Branches));
-    output.AddRange(await this._tagsInformationProvider.GetInfo(context, configuration.Tags));
-    output.AddRange(await this._commitsInformationProvider.GetInfo(context, configuration.Commits));
-    output.AddRange(await this._pullRequestsInformationProvider.GetInfo(context, configuration.PullRequests));
-    output.AddRange(await this._issuesInformationProvider.GetInfo(context, configuration.Issues));
+    var fetchContext = new FetchContext();
+    await this._branchesInformationProvider.PopulateFetchContext(context, configuration.Branches, fetchContext);
+    await this._tagsInformationProvider.PopulateFetchContext(context, configuration.Tags, fetchContext);
+    await this._commitsInformationProvider.PopulateFetchContext(context, configuration.Commits, fetchContext);
+    await this._pullRequestsInformationProvider.PopulateFetchContext(context, configuration.PullRequests, fetchContext);
+    await this._issuesInformationProvider.PopulateFetchContext(context, configuration.Issues, fetchContext);
 
     context.Logger.LogInformation("Git information collection completed.");
-    return MiddlewareResult.Success(output);
+    return MiddlewareResult.Success(output =>
+    {
+      if (fetchContext.Branches != null)
+      {
+        output.Add("Branches", fetchContext.Branches);
+      }
+
+      if (fetchContext.Tags != null)
+      {
+        output.Add("Tags", fetchContext.Tags);
+      }
+
+      if (fetchContext.Commits != null)
+      {
+        output.Add("Commits", fetchContext.Commits);
+      }
+
+      if (fetchContext.PullRequests != null)
+      {
+        output.Add("PullRequests", fetchContext.PullRequests);
+      }
+
+      if (fetchContext.Issues != null)
+      {
+        output.Add("Issues", fetchContext.Issues);
+      }
+    });
   }
 }

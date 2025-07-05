@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Github.Commits.Models;
 
-public sealed class GitHubCommit
+public sealed class GitCommit
 {
   public string Sha { get; set; } = string.Empty;
 
