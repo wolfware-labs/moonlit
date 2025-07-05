@@ -2,4 +2,5 @@
 
 public sealed class IssuesFetchContext
 {
+  public IssueInformation[] Issues { get; set; } = [];
 }

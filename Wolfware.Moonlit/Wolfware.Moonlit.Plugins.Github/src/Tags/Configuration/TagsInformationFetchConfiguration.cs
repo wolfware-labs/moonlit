@@ -4,7 +4,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Tags.Configuration;
 
 public sealed class TagsInformationFetchConfiguration
 {
-  public TagsFetchStrategy Strategy { get; set; } = TagsFetchStrategy.None;
+  public TagsFetchStrategy Strategy { get; set; } = TagsFetchStrategy.Latest;
 
   public string? FilterPattern { get; set; }
 }

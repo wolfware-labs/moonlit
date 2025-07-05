@@ -4,5 +4,5 @@ namespace Wolfware.Moonlit.Plugins.Github.PullRequests.Configuration;
 
 public class PullRequestsInformationFetchConfiguration
 {
-  public PullRequestsFetchStrategy Strategy { get; set; } = PullRequestsFetchStrategy.None;
+  public PullRequestsFetchStrategy Strategy { get; set; } = PullRequestsFetchStrategy.FromAvailableCommits;
 }

@@ -1,4 +1,4 @@
-﻿using Wolfware.Moonlit.Plugins.Github.Commits.Models;
+﻿using Octokit;
 using Wolfware.Moonlit.Plugins.Github.Core.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Core.Models;
 using Wolfware.Moonlit.Plugins.Github.PullRequests.Abstractions;
@@ -29,6 +29,36 @@ public sealed class PullRequestsInformationProvider : IPullRequestsInformationPr
     }
 
     var gitHubContext = await _gitHubContextProvider.GetCurrentContext(releaseContext);
-    var pullRequestsContext = new PullRequestsFetchContext();
+    fetchContext.PullRequests = new PullRequestsFetchContext();
+    if (fetchConfiguration.Strategy == PullRequestsFetchStrategy.FromAvailableCommits)
+    {
+      if (fetchContext.Commits is not {Commits.Length: > 0})
+      {
+        throw new InvalidOperationException(
+          "Pull requests fetch strategy 'FromAvailableCommits' requires commits to be available in the fetch context."
+        );
+      }
+
+      var prs = await gitHubContext.GetPullRequests(new PullRequestRequest {State = ItemStateFilter.All});
+      if (prs.Count == 0)
+      {
+        return;
+      }
+
+      fetchContext.PullRequests.PullRequests = prs
+        .Where(pr => pr.MergeCommitSha != null && fetchContext.Commits.Commits.Any(c => c.Sha == pr.MergeCommitSha))
+        .Select(pr => new PullRequestInformation
+        {
+          Number = pr.Number,
+          Title = pr.Title,
+          Body = pr.Body,
+          State = pr.State.Value,
+          CreatedAt = pr.CreatedAt,
+          UpdatedAt = pr.UpdatedAt,
+          MergedAt = pr.MergedAt,
+          MergeCommitSha = pr.MergeCommitSha
+        })
+        .ToArray();
+    }
   }
 }

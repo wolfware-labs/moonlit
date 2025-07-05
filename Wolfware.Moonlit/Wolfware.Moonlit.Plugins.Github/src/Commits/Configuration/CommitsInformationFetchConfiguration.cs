@@ -4,5 +4,5 @@ namespace Wolfware.Moonlit.Plugins.Github.Commits.Configuration;
 
 public class CommitsInformationFetchConfiguration
 {
-  public CommitsFetchStrategy Strategy { get; set; } = CommitsFetchStrategy.None;
+  public CommitsFetchStrategy Strategy { get; set; } = CommitsFetchStrategy.FromLatestTag;
 }

@@ -3,5 +3,5 @@
 public enum IssuesFetchStrategy
 {
   None,
-  FromAvailableCommits
+  FromAvailablePullRequests
 }
