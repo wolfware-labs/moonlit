@@ -24,7 +24,7 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     public Dictionary<string, string> PrereleaseMappings { get; set; } = new();
   }
 
-  public override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
   {
     if (configuration.Commits.Length == 0)
     {

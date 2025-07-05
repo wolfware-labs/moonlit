@@ -25,7 +25,7 @@ namespace Wolfware.Moonlit.Plugins.Github;
 /// </remarks>
 public sealed class GitHubPluginStartup : PluginStartup
 {
-  public override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
+  protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
     services.Configure<GitHubConfiguration>(configuration);
     services.AddSingleton<IGitHubClient>(svc =>
@@ -44,7 +44,7 @@ public sealed class GitHubPluginStartup : PluginStartup
     services.AddSingleton<IGitHubContextProvider, GitHubContextFactory>();
   }
 
-  public override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IServiceCollection services)
   {
     services.AddMiddleware<GetGitInformation>("info");
     services.AddMiddleware<CreateRelease>("create-release");

@@ -16,7 +16,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     this._gitHubContextProvider = gitHubContextProvider;
   }
 
-  public override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
+  protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
     CreateReleaseConfiguration configuration)
   {
     if (string.IsNullOrWhiteSpace(configuration.Name) || string.IsNullOrWhiteSpace(configuration.Tag))

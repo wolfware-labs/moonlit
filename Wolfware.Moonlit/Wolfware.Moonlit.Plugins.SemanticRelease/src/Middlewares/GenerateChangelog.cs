@@ -20,7 +20,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
     public string OpenAiKey { get; set; } = string.Empty;
   }
 
-  public override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
   {
     if (configuration.Commits.Length == 0)
     {

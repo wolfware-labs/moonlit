@@ -8,13 +8,13 @@ namespace Wolfware.Moonlit.Plugins.Github.Core.Configuration;
 
 public class GetGitInformationConfiguration
 {
-  public BranchesInformationFetchConfiguration? Branches { get; set; }
+  public BranchesInformationFetchConfiguration Branches { get; set; } = new();
 
-  public TagsInformationFetchConfiguration? Tags { get; set; }
+  public TagsInformationFetchConfiguration Tags { get; set; } = new();
 
-  public CommitsInformationFetchConfiguration? Commits { get; set; }
+  public CommitsInformationFetchConfiguration Commits { get; set; } = new();
 
-  public PullRequestsInformationFetchConfiguration? PullRequests { get; set; }
+  public PullRequestsInformationFetchConfiguration PullRequests { get; set; } = new();
 
-  public IssuesInformationFetchConfiguration? Issues { get; set; }
+  public IssuesInformationFetchConfiguration Issues { get; set; } = new();
 }

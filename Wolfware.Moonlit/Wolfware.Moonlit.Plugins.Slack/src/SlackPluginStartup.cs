@@ -17,7 +17,7 @@ namespace Wolfware.Moonlit.Plugins.Slack;
 /// </remarks>
 public sealed class SlackPluginStartup : PluginStartup
 {
-  public override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
+  protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
     var slackApiToken = configuration.GetValue<string>("ApiToken");
     if (string.IsNullOrWhiteSpace(slackApiToken))
@@ -28,7 +28,7 @@ public sealed class SlackPluginStartup : PluginStartup
     services.AddSlackNet(cfg => cfg.UseApiToken(slackApiToken));
   }
 
-  public override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IServiceCollection services)
   {
     services.AddMiddleware<SendNotification>("send-notification");
   }

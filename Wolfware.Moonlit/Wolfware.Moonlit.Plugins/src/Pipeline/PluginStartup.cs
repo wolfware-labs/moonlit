@@ -31,11 +31,11 @@ public abstract class PluginStartup : IPluginStartup
   /// </summary>
   /// <param name="services">The service collection used for registering the plugin's services and dependencies.</param>
   /// <param name="configuration">The configuration instance providing settings for the plugin initialization.</param>
-  public virtual void ConfigurePlugin(IServiceCollection services, IConfiguration configuration) { }
+  protected virtual void ConfigurePlugin(IServiceCollection services, IConfiguration configuration) { }
 
   /// <summary>
   /// Adds the required middleware components for the plugin.
   /// </summary>
   /// <param name="services">The service collection to which middleware components are registered.</param>
-  public abstract void AddMiddlewares(IServiceCollection services);
+  protected abstract void AddMiddlewares(IServiceCollection services);
 }

@@ -2,4 +2,5 @@
 
 public sealed class BranchesInformationFetchConfiguration
 {
+  public bool IncludeCurrentBranch { get; set; } = true;
 }

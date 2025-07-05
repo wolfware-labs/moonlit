@@ -10,7 +10,7 @@ namespace Wolfware.Moonlit.Plugins.SemanticRelease;
 /// </summary>
 public class SemanticReleasePluginStartup : PluginStartup
 {
-  public override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IServiceCollection services)
   {
     services.AddMiddleware<CalculateVersion>("calculate-version");
     services.AddMiddleware<GenerateChangelog>("generate-changelog");

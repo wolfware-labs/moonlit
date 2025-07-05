@@ -33,5 +33,5 @@ public abstract class ReleaseMiddleware<TConfiguration> : IReleaseMiddleware
   /// <param name="context">The release context that provides necessary information for executing the middleware.</param>
   /// <param name="configuration">The middleware-specific configuration required for execution.</param>
   /// <returns>A task representing the asynchronous operation, containing the result of middleware execution.</returns>
-  public abstract Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, TConfiguration configuration);
+  protected abstract Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, TConfiguration configuration);
 }
