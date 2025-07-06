@@ -9,7 +9,7 @@ using Wolfware.Moonlit.Plugins.Slack.Configuration;
 
 namespace Wolfware.Moonlit.Plugins.Slack.Middlewares;
 
-public sealed class SendNotification : IReleaseMiddleware
+public sealed class SendNotification : ReleaseMiddleware<SendNotificationConfiguration>
 {
   private readonly ISlackApiClient _slackApiClient;
 
@@ -18,30 +18,26 @@ public sealed class SendNotification : IReleaseMiddleware
     _slackApiClient = slackApiClient;
   }
 
-  public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
+  protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
+    SendNotificationConfiguration configuration)
   {
-    ArgumentNullException.ThrowIfNull(context);
-    ArgumentNullException.ThrowIfNull(configuration);
-
-    var config = configuration.GetRequired<SendNotificationConfiguration>();
-    if (string.IsNullOrWhiteSpace(config.Channel))
+    if (string.IsNullOrWhiteSpace(configuration.Channel))
     {
       return MiddlewareResult.Failure("No Slack channel provided for notification.");
     }
 
-    var messageTemplate = config.Message;
+    var messageTemplate = configuration.Message;
     if (string.IsNullOrWhiteSpace(messageTemplate))
     {
       return MiddlewareResult.Failure("No message provided for Slack notification.");
     }
 
-    // TODO: Replace with actual data from the pipeline context if needed
-
     try
     {
-      await _slackApiClient.Chat.PostMessage(new Message {Channel = config.Channel, Text = config.Message});
+      await _slackApiClient.Chat.PostMessage(
+        new Message {Channel = configuration.Channel, Text = configuration.Message});
 
-      context.Logger.LogInformation("Notification sent to Slack channel {ChannelId}.", config.Channel);
+      context.Logger.LogInformation("Notification sent to Slack channel {ChannelId}.", configuration.Channel);
       return MiddlewareResult.Success();
     }
     catch (Exception ex)

@@ -43,14 +43,16 @@ public partial class ConfigurationExpressionParser : IConfigurationExpressionPar
       return (false, [configExpression.Value]);
     }
 
-    match = ConfigurationExpressionParser._embeddedConfigExpressionRegex.Match(expression);
-    if (!match.Success)
+    var matches = ConfigurationExpressionParser._embeddedConfigExpressionRegex.Matches(expression);
+    if (!matches.Any(x => x.Success))
     {
       return null;
     }
 
-    var expressions = match.Groups["config_expression"].Captures
-      .Select(c => c.Value)
+    var expressions = matches
+      .Where(x => x.Groups.TryGetValue("config_expression", out _))
+      .Select(x => x.Groups["config_expression"].Value)
+      .Distinct()
       .ToArray();
     return expressions.Length > 0 ? (true, expressions) : null;
   }
@@ -69,12 +71,12 @@ public partial class ConfigurationExpressionParser : IConfigurationExpressionPar
       var configSection = context.GetSection(configExpression);
       if (!configSection.Exists())
       {
-        template = template.Replace($"$({configExpression})", string.Empty);
+        expression = expression.Replace($"$({configExpression})", string.Empty);
         continue;
       }
 
       var configValue = configSection.AsObject();
-      template = template.Replace($"$({configExpression})", configValue?.ToString() ?? string.Empty);
+      expression = expression.Replace($"$({configExpression})", configValue?.ToString() ?? string.Empty);
     }
 
     return expression;

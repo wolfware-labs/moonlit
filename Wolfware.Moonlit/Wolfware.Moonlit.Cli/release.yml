@@ -56,4 +56,4 @@ stages:
       run: "slack.send-notification"
       config:
         channel: "#moonlit"
-        message: "Released version [$(output:createRelease:name)]($(output:createRelease:url)) :tada:"
+        message: ":rocket: New Release: <$(output:createRelease:url)|$(output:createRelease:name)> :tada:"
