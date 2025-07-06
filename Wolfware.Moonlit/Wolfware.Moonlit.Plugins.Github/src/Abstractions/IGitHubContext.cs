@@ -17,4 +17,8 @@ public interface IGitHubContext
   Task<IReadOnlyList<Branch>> GetBranches(ApiOptions request);
 
   Task<IReadOnlyList<RepositoryTag>> GetTags(ApiOptions request);
+
+  Task CommentOnPullRequest(int pullRequestNumber, string comment);
+
+  Task CommentOnIssue(int issueNumber, string comment);
 }

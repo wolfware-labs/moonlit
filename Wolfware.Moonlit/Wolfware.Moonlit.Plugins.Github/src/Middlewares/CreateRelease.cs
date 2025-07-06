@@ -10,6 +10,7 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration>
 {
   private readonly IGitHubContextProvider _gitHubContextProvider;
+  private IGitHubContext? _gitHubContext;
 
   public CreateRelease(IGitHubContextProvider gitHubContextProvider)
   {
@@ -25,6 +26,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
       return validationResult;
     }
 
+    this._gitHubContext = await this._gitHubContextProvider.GetCurrentContext(context);
     var release = await CreateGitHubRelease(context, configuration).ConfigureAwait(false);
     if (configuration.PullRequests is {Length: > 0})
     {
@@ -71,8 +73,8 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
       Prerelease = configuration.PreRelease
     };
 
-    var gitHubContext = await this._gitHubContextProvider.GetCurrentContext(context);
-    var createdRelease = await gitHubContext.CreateRelease(release);
+
+    var createdRelease = await this._gitHubContext!.CreateRelease(release);
     context.Logger.LogInformation("Release created successfully: {ReleaseUrl}", createdRelease.HtmlUrl);
     return createdRelease;
   }
@@ -96,13 +98,25 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return markdown.ToString();
   }
 
-  private Task AnnotatePullRequests(ReleaseContext context, Release release, PullRequestDetails[] pullRequests)
+  private async Task AnnotatePullRequests(ReleaseContext context, Release release, PullRequestDetails[] pullRequests)
   {
-    throw new NotImplementedException();
+    foreach (var pr in pullRequests)
+    {
+      context.Logger.LogInformation("Annotating pull request #{PullRequestNumber} with release {ReleaseName}.",
+        pr.Number, release.Name);
+      var comment = $"This pull request is included in the release [{release.Name}]({release.HtmlUrl}).";
+      await this._gitHubContext!.CommentOnPullRequest(pr.Number, comment);
+    }
   }
 
-  private Task AnnotateIssues(ReleaseContext context, Release release, IssueDetails[] issues)
+  private async Task AnnotateIssues(ReleaseContext context, Release release, IssueDetails[] issues)
   {
-    throw new NotImplementedException();
+    foreach (var issue in issues)
+    {
+      context.Logger.LogInformation("Annotating issue #{IssueNumber} with release {ReleaseName}.",
+        issue.Number, release.Name);
+      var comment = $"This issue is included in the release [{release.Name}]({release.HtmlUrl}).";
+      await this._gitHubContext!.CommentOnIssue(issue.Number, comment);
+    }
   }
 }

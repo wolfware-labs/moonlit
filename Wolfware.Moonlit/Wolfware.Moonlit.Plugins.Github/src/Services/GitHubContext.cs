@@ -50,4 +50,16 @@ public sealed class GitHubContext : IGitHubContext
     ArgumentNullException.ThrowIfNull(request, nameof(request));
     return _gitHubClient.Repository.GetAllTags(Repository.Id, request);
   }
+
+  public Task CommentOnPullRequest(int pullRequestNumber, string comment)
+  {
+    ArgumentNullException.ThrowIfNull(comment, nameof(comment));
+    return _gitHubClient.Issue.Comment.Create(Repository.Id, pullRequestNumber, comment);
+  }
+
+  public Task CommentOnIssue(int issueNumber, string comment)
+  {
+    ArgumentNullException.ThrowIfNull(comment, nameof(comment));
+    return _gitHubClient.Issue.Comment.Create(Repository.Id, issueNumber, comment);
+  }
 }
