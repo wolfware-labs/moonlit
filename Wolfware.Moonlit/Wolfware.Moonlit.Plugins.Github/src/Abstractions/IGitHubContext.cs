@@ -10,6 +10,8 @@ public interface IGitHubContext
 
   Task<IReadOnlyList<Issue>> GetIssues(RepositoryIssueRequest request);
 
+  Task<GitTag> CreateTag(string tag, string sha, string message);
+
   Task<Release> CreateRelease(NewRelease release);
 
   Task<IReadOnlyList<GitHubCommit>> GetCommits(CommitRequest request);

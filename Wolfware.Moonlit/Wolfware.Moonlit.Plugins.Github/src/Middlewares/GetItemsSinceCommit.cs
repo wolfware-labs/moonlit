@@ -79,7 +79,7 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
         Author = c.Author?.Login ?? c.Commit.Author.Name,
         Date = c.Commit.Author.Date
       }
-    ).ToArray();
+    ).OrderByDescending(x => x.Date).ToArray();
   }
 
   private async Task<PullRequestDetails[]> GetPullRequestsFromCommits(string[] commits)
@@ -103,6 +103,7 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
         MergedAt = pr.MergedAt,
         MergeCommitSha = pr.MergeCommitSha
       })
+      .OrderByDescending(pr => pr.CreatedAt)
       .ToArray();
   }
 
@@ -127,6 +128,7 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
         ClosedAt = issue.ClosedAt,
         PullRequestNumber = issue.PullRequest?.Number ?? 0
       })
+      .OrderByDescending(issue => issue.CreatedAt)
       .ToArray();
   }
 }

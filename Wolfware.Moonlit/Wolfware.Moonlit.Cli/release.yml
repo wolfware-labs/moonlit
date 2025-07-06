@@ -41,6 +41,7 @@ stages:
       run: gh.create-release
       config:
         name: "Release $(output:version:nextVersion)"
+        commit: $(output:items:commits:0:sha)
         tag: $(output:version:nextVersion)
         changelog: $(output:changelog:entries)
         draft: true

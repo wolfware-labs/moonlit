@@ -27,6 +27,9 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     }
 
     this._gitHubContext = await this._gitHubContextProvider.GetCurrentContext(context);
+
+    var tag = await CreateGitHubTag(context, configuration).ConfigureAwait(false);
+
     var release = await CreateGitHubRelease(context, configuration).ConfigureAwait(false);
     if (configuration.PullRequests is {Length: > 0})
     {
@@ -47,9 +50,11 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
 
   private static MiddlewareResult? ValidateConfiguration(CreateReleaseConfiguration configuration)
   {
-    if (string.IsNullOrWhiteSpace(configuration.Name) || string.IsNullOrWhiteSpace(configuration.Tag))
+    if (string.IsNullOrWhiteSpace(configuration.Name) ||
+        string.IsNullOrWhiteSpace(configuration.Commit) ||
+        string.IsNullOrWhiteSpace(configuration.Tag))
     {
-      return MiddlewareResult.Failure("Release name or tag is not specified.");
+      return MiddlewareResult.Failure("Release name, commit (SHA), and tag must be specified.");
     }
 
     if (string.IsNullOrWhiteSpace(configuration.Body) &&
@@ -59,6 +64,17 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     }
 
     return null;
+  }
+
+  private async Task<GitTag> CreateGitHubTag(ReleaseContext context, CreateReleaseConfiguration configuration)
+  {
+    context.Logger.LogInformation("Creating tag '{TagName}' for commit '{CommitSha}'.", configuration.Tag,
+      configuration.Commit);
+
+    var tag = await this._gitHubContext!.CreateTag(configuration.Tag, configuration.Commit, configuration.Name);
+
+    context.Logger.LogInformation("Tag created successfully: {TagUrl}", tag.Url);
+    return tag;
   }
 
   private async Task<Release> CreateGitHubRelease(ReleaseContext context, CreateReleaseConfiguration configuration)

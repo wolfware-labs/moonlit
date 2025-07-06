@@ -27,6 +27,23 @@ public sealed class GitHubContext : IGitHubContext
     return _gitHubClient.Issue.GetAllForRepository(Repository.Id, request);
   }
 
+  public Task<GitTag> CreateTag(string tag, string sha, string message)
+  {
+    ArgumentNullException.ThrowIfNull(tag, nameof(tag));
+    ArgumentNullException.ThrowIfNull(sha, nameof(sha));
+    ArgumentNullException.ThrowIfNull(message, nameof(message));
+
+    var newTag = new NewTag
+    {
+      Tag = tag,
+      Message = message,
+      Object = sha,
+      Type = TaggedType.Commit
+    };
+
+    return _gitHubClient.Git.Tag.Create(Repository.Id, newTag);
+  }
+
   public Task<Release> CreateRelease(NewRelease release)
   {
     ArgumentNullException.ThrowIfNull(release, nameof(release));
