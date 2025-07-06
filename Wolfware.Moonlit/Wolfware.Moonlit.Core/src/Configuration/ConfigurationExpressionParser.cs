@@ -28,37 +28,56 @@ public partial class ConfigurationExpressionParser : IConfigurationExpressionPar
       return expression;
     }
 
-    (var embedded, var configExpression) = extractionResult.Value;
-    var configSection = context.GetSection(configExpression);
-    if (!configSection.Exists())
-    {
-      return embedded ? ConfigurationExpressionParser.Replace(expression, string.Empty) : null;
-    }
+    (var embedded, var configExpressions) = extractionResult.Value;
 
-    var configValue = configSection.AsObject();
-    return embedded ? ConfigurationExpressionParser.Replace(expression, configValue?.ToString()) : configValue;
+    return embedded
+      ? ConfigurationExpressionParser.ParseTemplateExpression(expression, context, configExpressions)
+      : ConfigurationExpressionParser.ParseConfigExpression(context, configExpressions[0]);
   }
 
-  private static (bool Embedded, string configExpression)? ExtractExpression(string expression)
+  private static (bool Embedded, string[] configExpressions)? ExtractExpression(string expression)
   {
-    var match = _configExpressionRegex.Match(expression);
+    var match = ConfigurationExpressionParser._configExpressionRegex.Match(expression);
     if (match.Success && match.Groups.TryGetValue("config_expression", out var configExpression))
     {
-      return (false, configExpression.Value);
+      return (false, [configExpression.Value]);
     }
 
-    match = _embeddedConfigExpressionRegex.Match(expression);
-    if (match.Success && match.Groups.TryGetValue("config_expression", out configExpression))
+    match = ConfigurationExpressionParser._embeddedConfigExpressionRegex.Match(expression);
+    if (!match.Success)
     {
-      return (true, configExpression.Value);
+      return null;
     }
 
-    return null;
+    var expressions = match.Groups["config_expression"].Captures
+      .Select(c => c.Value)
+      .ToArray();
+    return expressions.Length > 0 ? (true, expressions) : null;
   }
 
-  private static string Replace(string expression, string? value)
+  private static object? ParseConfigExpression(IConfiguration context, string configExpression)
   {
-    return ConfigurationExpressionParser._embeddedConfigExpressionRegex.Replace(expression, value ?? string.Empty);
+    var configSection = context.GetSection(configExpression);
+    return !configSection.Exists() ? null : configSection.AsObject();
+  }
+
+  private static string ParseTemplateExpression(string template, IConfiguration context, string[] configExpressions)
+  {
+    var expression = template;
+    foreach (var configExpression in configExpressions)
+    {
+      var configSection = context.GetSection(configExpression);
+      if (!configSection.Exists())
+      {
+        template = template.Replace($"$({configExpression})", string.Empty);
+        continue;
+      }
+
+      var configValue = configSection.AsObject();
+      template = template.Replace($"$({configExpression})", configValue?.ToString() ?? string.Empty);
+    }
+
+    return expression;
   }
 
   [GeneratedRegex(@"\$\((?<config_expression>[^\)]+)\)")]
