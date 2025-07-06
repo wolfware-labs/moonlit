@@ -1,4 +1,5 @@
-﻿using Octokit;
+﻿using Microsoft.Extensions.Logging;
+using Octokit;
 using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Configuration;
 using Wolfware.Moonlit.Plugins.Github.Models;
@@ -21,31 +22,32 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
     GetItemsSinceCommitConfiguration configuration
   )
   {
-    if (string.IsNullOrWhiteSpace(configuration.Commit))
-    {
-      return MiddlewareResult.Failure("Commit cannot be null or empty.");
-    }
-
     this._githubContext = await _contextProvider.GetCurrentContext(context);
 
     CommitDetails[]? commits = null;
     if (configuration.IncludeCommits || configuration.IncludePullRequests || configuration.IncludeIssues)
     {
-      commits = await this.GetCommitsSinceCommit(configuration.Commit).ConfigureAwait(false);
+      context.Logger.LogInformation("Fetching commits since {Sha}", configuration.Sha ?? "the beginning");
+      commits = await this.GetCommitsSinceCommit(configuration.Sha).ConfigureAwait(false);
+      context.Logger.LogInformation("Found {Count} commits", commits.Length);
     }
 
     PullRequestDetails[]? pullRequests = null;
     if (configuration.IncludePullRequests || configuration.IncludeIssues)
     {
+      context.Logger.LogInformation("Fetching pull requests from commits");
       var commitShas = commits?.Select(c => c.Sha).ToArray() ?? [];
       pullRequests = await this.GetPullRequestsFromCommits(commitShas).ConfigureAwait(false);
+      context.Logger.LogInformation("Found {Count} pull requests", pullRequests.Length);
     }
 
     IssueDetails[]? issues = null;
     if (configuration.IncludeIssues && pullRequests is {Length: > 0})
     {
+      context.Logger.LogInformation("Fetching issues from pull requests");
       var pullRequestNumbers = pullRequests.Select(pr => pr.Number).ToArray();
       issues = await this.GetIssuesFromPullRequests(pullRequestNumbers).ConfigureAwait(false);
+      context.Logger.LogInformation("Found {Count} issues", issues.Length);
     }
 
     return MiddlewareResult.Success(output =>
@@ -67,9 +69,9 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
     });
   }
 
-  private async Task<CommitDetails[]> GetCommitsSinceCommit(string commit)
+  private async Task<CommitDetails[]> GetCommitsSinceCommit(string? commitSha)
   {
-    var commits = await this._githubContext!.GetCommits(new CommitRequest {Sha = commit});
+    var commits = await this._githubContext!.GetCommits(new CommitRequest {Sha = commitSha});
     return commits.Select(c => new CommitDetails
       {
         Sha = c.Sha,

@@ -1,5 +1,6 @@
 ﻿using LibGit2Sharp;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Git.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
@@ -14,6 +15,9 @@ public sealed class GetRepositoryContext : IReleaseMiddleware
     using var repo = new Repository(gitFolderPath);
     var currentBranch = repo.Head.FriendlyName;
     var remoteUrl = repo.Network.Remotes["origin"].Url;
+
+    context.Logger.LogInformation("Current branch: {Branch}", currentBranch);
+    context.Logger.LogInformation("Remote URL: {RemoteUrl}", remoteUrl);
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {

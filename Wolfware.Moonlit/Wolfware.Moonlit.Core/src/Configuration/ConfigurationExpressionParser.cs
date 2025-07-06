@@ -32,7 +32,7 @@ public partial class ConfigurationExpressionParser : IConfigurationExpressionPar
     var configSection = context.GetSection(configExpression);
     if (!configSection.Exists())
     {
-      return expression;
+      return null;
     }
 
     var configValue = configSection.AsObject();
@@ -58,9 +58,7 @@ public partial class ConfigurationExpressionParser : IConfigurationExpressionPar
 
   private static string Replace(string expression, string? value)
   {
-    return string.IsNullOrWhiteSpace(value)
-      ? expression
-      : ConfigurationExpressionParser._embeddedConfigExpressionRegex.Replace(expression, value);
+    return ConfigurationExpressionParser._embeddedConfigExpressionRegex.Replace(expression, value ?? string.Empty);
   }
 
   [GeneratedRegex(@"\$\((?<config_expression>[^\)]+)\)")]

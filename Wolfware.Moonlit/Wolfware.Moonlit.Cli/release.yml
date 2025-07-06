@@ -19,9 +19,9 @@ stages:
       config:
         prefix: "v"
     - name: items
-      run: gh.items-since-tag
+      run: gh.items-since-commit
       config:
-        tag: $(output:tag:name)
+        tag: $(output:tag:commitSha)
     - name: version
       run: sr.calculate-version
       config:

@@ -44,7 +44,7 @@ public sealed class GitHubPluginStartup : PluginStartup
   protected override void AddMiddlewares(IServiceCollection services)
   {
     services.AddMiddleware<GetLatestTag>("latest-tag");
-    services.AddMiddleware<GetItemsSinceCommit>("items-since-tag");
+    services.AddMiddleware<GetItemsSinceCommit>("items-since-commit");
     services.AddMiddleware<CreateRelease>("create-release");
     services.AddMiddleware<WriteVariables>("write-variables");
   }

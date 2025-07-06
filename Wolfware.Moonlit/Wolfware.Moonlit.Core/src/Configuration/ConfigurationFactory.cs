@@ -38,16 +38,23 @@ public sealed class ConfigurationFactory : IConfigurationFactory
   {
     parentConfiguration ??= this.CreateBaseConfiguration();
 
-    var processedConfiguration = configurationData
-      .ToDictionary(kvp => kvp.Key, kvp =>
+    var processedConfiguration = new Dictionary<string, object?>();
+    foreach ((var key, var value) in configurationData)
+    {
+      if (value is not string stringValue || string.IsNullOrWhiteSpace(stringValue))
       {
-        if (kvp.Value is not string value || string.IsNullOrWhiteSpace(value))
-        {
-          return kvp.Value;
-        }
+        processedConfiguration[key] = value;
+        continue;
+      }
 
-        return this._expressionParser.ParseExpression(value, parentConfiguration) ?? kvp.Value;
-      });
+      var parsedValue = this._expressionParser.ParseExpression(stringValue, parentConfiguration);
+      if (parsedValue is null)
+      {
+        continue;
+      }
+
+      processedConfiguration[key] = parsedValue;
+    }
 
     var jsonStream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(processedConfiguration));
 

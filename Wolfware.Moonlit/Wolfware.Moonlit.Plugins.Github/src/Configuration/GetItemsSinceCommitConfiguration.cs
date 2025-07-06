@@ -2,7 +2,7 @@
 
 public sealed class GetItemsSinceCommitConfiguration
 {
-  public string Commit { get; set; } = string.Empty;
+  public string? Sha { get; set; }
 
   public bool IncludePullRequests { get; set; } = true;
 
