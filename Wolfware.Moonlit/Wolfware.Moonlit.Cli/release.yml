@@ -2,15 +2,15 @@ name: "Test Release"
 
 plugins:
   - name: "git"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
   - name: "gh"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.GitHub/1.0.0"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
   - name: "slack"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Slack/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Slack.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.Slack/1.0.0"
     config:
       token: $(SLACK_TOKEN)
 
