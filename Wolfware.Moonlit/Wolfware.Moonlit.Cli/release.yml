@@ -9,6 +9,10 @@ plugins:
       token: $(GITHUB_TOKEN)
   - name: "sr"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+  - name: "slack"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Slack/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Slack.dll"
+    config:
+      token: $(SLACK_TOKEN)
 
 stages:
   analyze:
@@ -47,11 +51,9 @@ stages:
         pullRequests: $(output:items:pullRequests)
         issues: $(output:items:issues)
 
-#  notify:
-#    - name: "github.create-issue"
-#      config:
-#        context: "test"
-#        title: "Release @{{analyze.version}}"
-#        body: "A new release has been created with version @{{analyze.version}}.\n\nChangelog:\n@{analyze.changelog}"
-#        labels: [ "release", "notification" ]
-#        assignees: [ "@{GIT_REPOSITORY}" ]
+  notify:
+    - name: notifySlackChannel
+      run: "slack.send-notification"
+      config:
+        channel: "#moonlit"
+        message: "Released version [$(output:createRelease:name)]($(output:createRelease:url)) :tada:"

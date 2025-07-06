@@ -19,7 +19,7 @@ public sealed class SlackPluginStartup : PluginStartup
 {
   protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
-    var slackApiToken = configuration.GetValue<string>("ApiToken");
+    var slackApiToken = configuration.GetValue<string>("Token");
     if (string.IsNullOrWhiteSpace(slackApiToken))
     {
       throw new ArgumentException("Slack API token is required.", nameof(slackApiToken));
