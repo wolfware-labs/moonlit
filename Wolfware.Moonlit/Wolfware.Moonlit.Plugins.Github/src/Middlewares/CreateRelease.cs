@@ -40,6 +40,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
 
     return MiddlewareResult.Success(output =>
     {
+      output.Add("ReleaseName", release.Name);
       output.Add("ReleaseUrl", release.HtmlUrl);
     });
   }
@@ -126,11 +127,10 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
 
   private static string GetReleaseComment(string releaseName, string releaseUrl) =>
     $"""
-     🚀 **New Release Published!**
+     :rocket: **New Release Published!**
 
-     🎉 A new version of the project has just been released!
+     :tada: A new version of the project has just been released!
 
-     **🔖 Release Name:** [`{releaseName}`]({releaseUrl})  
-     **📦 Available Now:** [View on GitHub]({releaseUrl})
+     **:bookmark: Link:** [`{releaseName}`]({releaseUrl})
      """;
 }
