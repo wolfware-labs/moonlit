@@ -40,11 +40,11 @@ stages:
     - name: createRelease
       run: gh.create-release
       config:
-        name: "Release $(output:calculateVersion:nextVersion)"
+        name: "Release $(output:version:nextVersion)"
         tag: $(output:version:nextVersion)
         changelog: $(output:changelog:entries)
         draft: true
-        prerelease: $(output:calculateVersion:isPrerelease)
+        prerelease: $(output:version:isPrerelease)
         pullRequests: $(output:items:pullRequests)
         issues: $(output:items:issues)
 

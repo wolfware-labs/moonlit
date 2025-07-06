@@ -68,7 +68,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     var release = new NewRelease(configuration.Tag)
     {
       Name = configuration.Name,
-      Body = configuration.Body ?? CreateMarkdown(configuration.Changelog!),
+      Body = configuration.Body ?? CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog!),
       Draft = configuration.Draft,
       Prerelease = configuration.PreRelease
     };
@@ -79,7 +79,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return createdRelease;
   }
 
-  private string CreateMarkdown(Dictionary<string, ChangelogEntry[]> changelog)
+  private string CreateMarkdown(string repositoryUrl, Dictionary<string, ChangelogEntry[]> changelog)
   {
     var markdown = new System.Text.StringBuilder();
 
@@ -89,7 +89,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
       foreach (var item in entry.Value)
       {
         markdown.AppendLine(
-          $"- {item.Description} ([{item.Sha[..7]}]({string.Empty}/commit/{item.Sha})");
+          $"- {item.Description} ([{item.Sha[..7]}]({repositoryUrl}/commit/{item.Sha}))");
       }
 
       markdown.AppendLine();
@@ -104,8 +104,10 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     {
       context.Logger.LogInformation("Annotating pull request #{PullRequestNumber} with release {ReleaseName}.",
         pr.Number, release.Name);
-      var comment = $"This pull request is included in the release [{release.Name}]({release.HtmlUrl}).";
-      await this._gitHubContext!.CommentOnPullRequest(pr.Number, comment);
+      await this._gitHubContext!.CommentOnPullRequest(
+        pr.Number,
+        CreateRelease.GetReleaseComment(release.Name, release.HtmlUrl)
+      );
     }
   }
 
@@ -115,8 +117,20 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     {
       context.Logger.LogInformation("Annotating issue #{IssueNumber} with release {ReleaseName}.",
         issue.Number, release.Name);
-      var comment = $"This issue is included in the release [{release.Name}]({release.HtmlUrl}).";
-      await this._gitHubContext!.CommentOnIssue(issue.Number, comment);
+      await this._gitHubContext!.CommentOnIssue(
+        issue.Number,
+        CreateRelease.GetReleaseComment(release.Name, release.HtmlUrl)
+      );
     }
   }
+
+  private static string GetReleaseComment(string releaseName, string releaseUrl) =>
+    $"""
+     🚀 **New Release Published!**
+
+     🎉 A new version of the project has just been released!
+
+     **🔖 Release Name:** [`{releaseName}`]({releaseUrl})  
+     **📦 Available Now:** [View on GitHub]({releaseUrl})
+     """;
 }

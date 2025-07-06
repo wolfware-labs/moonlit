@@ -32,7 +32,7 @@ public partial class ConfigurationExpressionParser : IConfigurationExpressionPar
     var configSection = context.GetSection(configExpression);
     if (!configSection.Exists())
     {
-      return null;
+      return embedded ? ConfigurationExpressionParser.Replace(expression, string.Empty) : null;
     }
 
     var configValue = configSection.AsObject();

@@ -64,14 +64,14 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
     context.Logger.LogInformation("Changelogs generation took {ElapsedMilliseconds} ms.",
       stopWatch.ElapsedMilliseconds);
 
-    var changelog = JsonSerializer.Deserialize<Dictionary<string, ChangelogEntry[]>>(completion.Value.Content[0].Text,
+    var entries = JsonSerializer.Deserialize<Dictionary<string, ChangelogEntry[]>>(completion.Value.Content[0].Text,
       JsonSerializerOptions.Web);
-    if (changelog == null)
+    if (entries == null)
     {
       return MiddlewareResult.Failure("Failed to generate changelogs JSON.");
     }
 
-    var hallucinationCheck = changelog.Values
+    var hallucinationCheck = entries.Values
       .SelectMany(entries => entries)
       .Any(entry => string.IsNullOrWhiteSpace(entry.Description) || string.IsNullOrWhiteSpace(entry.Sha) ||
                     configuration.Commits.All(c => c.Sha != entry.Sha));
@@ -80,7 +80,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
     {
       return MiddlewareResult.Success(output =>
       {
-        output.Add("Changelog", changelog);
+        output.Add("Entries", entries);
       });
     }
 
