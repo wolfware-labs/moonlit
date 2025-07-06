@@ -21,4 +21,8 @@ public interface IGitHubContext
   Task CommentOnPullRequest(int pullRequestNumber, string comment);
 
   Task CommentOnIssue(int issueNumber, string comment);
+
+  void SetOutput(string name, string value);
+
+  void SetEnvironmentVariable(string name, string value);
 }

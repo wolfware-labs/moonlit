@@ -62,4 +62,27 @@ public sealed class GitHubContext : IGitHubContext
     ArgumentNullException.ThrowIfNull(comment, nameof(comment));
     return _gitHubClient.Issue.Comment.Create(Repository.Id, issueNumber, comment);
   }
+
+  public void SetOutput(string name, string value)
+  {
+    var output = Environment.GetEnvironmentVariable("GITHUB_OUTPUT");
+    if (string.IsNullOrEmpty(output))
+    {
+      throw new InvalidOperationException("GITHUB_OUTPUT environment variable is not set.");
+    }
+
+    File.AppendAllText(output, $"{name}={value}{Environment.NewLine}");
+
+  }
+
+  public void SetEnvironmentVariable(string name, string value)
+  {
+    var env = Environment.GetEnvironmentVariable("GITHUB_ENV");
+    if (string.IsNullOrEmpty(env))
+    {
+      throw new InvalidOperationException("GITHUB_ENV environment variable is not set.");
+    }
+
+    File.AppendAllText(env, $"{name}={value}{Environment.NewLine}");
+  }
 }

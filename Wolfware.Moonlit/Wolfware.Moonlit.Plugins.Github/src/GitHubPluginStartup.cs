@@ -46,5 +46,6 @@ public sealed class GitHubPluginStartup : PluginStartup
     services.AddMiddleware<GetLatestTag>("latest-tag");
     services.AddMiddleware<GetItemsSinceCommit>("items-since-tag");
     services.AddMiddleware<CreateRelease>("create-release");
+    services.AddMiddleware<WriteVariables>("write-variables");
   }
 }
