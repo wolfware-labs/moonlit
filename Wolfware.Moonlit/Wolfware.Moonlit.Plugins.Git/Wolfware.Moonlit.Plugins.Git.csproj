@@ -3,10 +3,10 @@
     <PackageId>Wolfware.Moonlit.Plugins.Git</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description></Description>
+    <Description>Git plugin for Moonlit - providing Git repository integration and version control capabilities.</Description>
     <Title>Moonlit Git Plugin</Title>
-    <Summary></Summary>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <Summary>Git integration plugin for Moonlit providing repository management and version control features</Summary>
+    <PackageReleaseNotes>Initial Release</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>

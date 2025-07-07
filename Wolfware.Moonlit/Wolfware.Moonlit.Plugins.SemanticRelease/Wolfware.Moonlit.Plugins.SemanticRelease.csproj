@@ -3,9 +3,9 @@
     <PackageId>Wolfware.Moonlit.Plugins.SemanticRelease</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description></Description>
+    <Description>A plugin for Moonlit that adds semantic release capabilities</Description>
     <Title>Moonlit Semantic Release Plugin</Title>
-    <Summary></Summary>
+    <Summary>A semantic release plugin for Moonlit enabling automatic versioning and changelog generation</Summary>
     <PackageReleaseNotes></PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>

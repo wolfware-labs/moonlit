@@ -3,9 +3,9 @@
     <PackageId>Wolfware.Moonlit.Plugins.GitHub</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description></Description>
+    <Description>Plugin for managing GitHub interactions in Moonlit release automation system</Description>
     <Title>Moonlit GitHub Plugin</Title>
-    <Summary></Summary>
+    <Summary>Moonlit GitHub plugin for managing GitHub operations in release automation</Summary>
     <PackageReleaseNotes></PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>

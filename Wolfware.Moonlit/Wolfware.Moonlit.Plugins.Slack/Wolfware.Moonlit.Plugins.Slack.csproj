@@ -3,9 +3,9 @@
     <PackageId>Wolfware.Moonlit.Plugins.Slack</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description></Description>
+    <Description>Moonlit plugin for Slack integration, providing notification capabilities for release events and other workflow operations.</Description>
     <Title>Moonlit Slack Plugin</Title>
-    <Summary></Summary>
+    <Summary>Plugin for Slack integration in Moonlit workflow automation system</Summary>
     <PackageReleaseNotes></PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>
