@@ -1,4 +1,29 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Wolfware.Moonlit.Plugins</PackageId>
+    <Authors>Wolfware Team</Authors>
+    <Company>Wolfware LLC</Company>
+    <Description></Description>
+    <Title>Moonlit Plugins</Title>
+    <Summary></Summary>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageIcon>icon.png</PackageIcon>
+    <Copyright>© 2025 Wolfware LLC</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
+    <!--    <RepositoryType>git</RepositoryType>-->
+    <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
+    <PackageTags>Wolfware;Moonlit;Plugins</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\"/>
+    <None Include="LICENSE.txt" Pack="true" PackagePath="\"/>
+    <None Include="icon.png" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />

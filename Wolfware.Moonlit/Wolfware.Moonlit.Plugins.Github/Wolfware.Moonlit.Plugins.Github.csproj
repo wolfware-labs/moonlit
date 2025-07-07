@@ -10,4 +10,14 @@
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins.Git\Wolfware.Moonlit.Plugins.Git.csproj" />
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="LICENSE.txt">
+      <Pack>true</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="README.md">
+      <Pack>true</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 </Project>
