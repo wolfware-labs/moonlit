@@ -16,6 +16,7 @@
     <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
     <PackageTags>Wolfware;Moonlit;Plugins</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>

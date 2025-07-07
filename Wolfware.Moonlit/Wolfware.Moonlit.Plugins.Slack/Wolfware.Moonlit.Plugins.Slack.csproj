@@ -1,6 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <PackageId>Wolfware.Moonlit.Plugins.Slack</PackageId>
+    <Authors>Wolfware Team</Authors>
+    <Company>Wolfware LLC</Company>
+    <Description></Description>
+    <Title>Moonlit Slack Plugin</Title>
+    <Summary></Summary>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageIcon>icon.png</PackageIcon>
+    <Copyright>© 2025 Wolfware LLC</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
+    <!--    <RepositoryType>git</RepositoryType>-->
+    <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
+    <PackageTags>Wolfware;Moonlit;Plugins;Slack</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
