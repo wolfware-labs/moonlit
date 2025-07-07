@@ -26,12 +26,29 @@ public class NugetPackageExtractor : INugetPackageExtractor
     this._repositories = [sourceRepository];
   }
 
-  public async Task<bool> ExtractPackageContentAsync(
+  public Task<bool> ExtractPackageContent(
     string packageId,
     string version,
     string destinationFolder,
     CancellationToken cancellationToken = default)
   {
+    var downloadedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    return ExtractPackageContent(packageId, version, destinationFolder, downloadedPackages, cancellationToken);
+  }
+
+  private async Task<bool> ExtractPackageContent(
+    string packageId,
+    string version,
+    string destinationFolder,
+    HashSet<string> downloadedPackages,
+    CancellationToken cancellationToken
+  )
+  {
+    if (downloadedPackages.Contains($"{packageId}.{version}"))
+    {
+      return true;
+    }
+
     try
     {
       var packageIdentity = new PackageIdentity(packageId, NuGetVersion.Parse(version));
@@ -52,16 +69,20 @@ public class NugetPackageExtractor : INugetPackageExtractor
 
       using var packageReader = downloadResult.PackageReader;
       await NugetPackageExtractor.ExtractCompatibleContentAsync(packageReader, destinationFolder);
+      downloadedPackages.Add($"{packageId}.{version}");
       var deps = await packageReader.GetPackageDependenciesAsync(cancellationToken);
-      foreach (var dep in NugetRuntime.GetMostCompatibleGroup(deps.ToArray())?.Packages ?? [])
-      {
-        await ExtractPackageContentAsync(
-          dep.Id,
-          dep.VersionRange.MinVersion!.ToString(),
-          destinationFolder,
-          cancellationToken
-        );
-      }
+      await Parallel.ForEachAsync(NugetRuntime.GetMostCompatibleGroup(deps.ToArray())?.Packages ?? [],
+        cancellationToken, async (dep, ct) =>
+        {
+          await ExtractPackageContent(
+            dep.Id,
+            dep.VersionRange.MinVersion!.ToString(),
+            destinationFolder,
+            downloadedPackages,
+            ct
+          );
+        }
+      );
 
       return true;
     }

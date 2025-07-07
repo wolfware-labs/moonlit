@@ -46,7 +46,7 @@ public sealed class NugetPackageResolver : IFilePathResolver
     if (!Directory.EnumerateFileSystemEntries(packagePath).Any())
     {
       this._logger.LogInformation("Installing Plugin {PackageId} version {Version}", packageId, version);
-      await this._packageExtractor.ExtractPackageContentAsync(packageId, version, packagePath, cancellationToken)
+      await this._packageExtractor.ExtractPackageContent(packageId, version, packagePath, cancellationToken)
         .ConfigureAwait(false);
       this._logger.LogInformation("Plugin installed successfully");
     }
