@@ -2,15 +2,15 @@ name: "Test Release"
 
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
+    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0-next.1"
   - name: "gh"
-    url: "nuget://Wolfware.Moonlit.Plugins.GitHub/1.0.0"
+    url: "nuget://Wolfware.Moonlit.Plugins.GitHub/1.0.0-next.1"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
+    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.1"
   - name: "slack"
-    url: "nuget://Wolfware.Moonlit.Plugins.Slack/1.0.0"
+    url: "nuget://Wolfware.Moonlit.Plugins.Slack/1.0.0-next.1"
     config:
       token: $(SLACK_TOKEN)
 
