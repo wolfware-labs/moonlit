@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Core.Nuget;
 using Wolfware.Moonlit.Core.Pipelines;
 using Wolfware.Moonlit.Core.Plugins;
 using Wolfware.Moonlit.Core.Plugins.Resolvers;
@@ -18,6 +19,7 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<IReleasePipelineFactory, ReleasePipelineFactory>();
     services.AddSingleton<IPluginPathResolver, PluginPathResolver>();
     services.AddSingleton<IConfigurationExpressionParser, ConfigurationExpressionParser>();
+    services.AddSingleton<INugetPackageExtractor, NugetPackageExtractor>();
 
     services.AddFilePathResolver<NugetPackageResolver>("nuget");
     services.AddFilePathResolver<FilePathResolver>("file");

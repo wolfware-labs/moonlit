@@ -1,10 +1,20 @@
-﻿using Wolfware.Moonlit.Core.Abstractions;
+﻿using Microsoft.Extensions.Logging;
+using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Nuget;
 
 namespace Wolfware.Moonlit.Core.Plugins.Resolvers;
 
 public sealed class NugetPackageResolver : IFilePathResolver
 {
+  private readonly INugetPackageExtractor _packageExtractor;
+  private readonly ILogger<NugetPackageResolver> _logger;
+
+  public NugetPackageResolver(INugetPackageExtractor packageExtractor, ILogger<NugetPackageResolver> logger)
+  {
+    _packageExtractor = packageExtractor;
+    _logger = logger;
+  }
+
   public async ValueTask<string> ResolvePath(Uri assemblyUri, CancellationToken cancellationToken = default)
   {
     var packageId = assemblyUri.Host;
@@ -35,8 +45,10 @@ public sealed class NugetPackageResolver : IFilePathResolver
 
     if (!Directory.EnumerateFileSystemEntries(packagePath).Any())
     {
-      var downloader = new NugetDownloader();
-      await downloader.DownloadPackageAndDependencies(packageId, version, packagePath);
+      this._logger.LogInformation("Installing Plugin {PackageId} version {Version}", packageId, version);
+      await this._packageExtractor.ExtractPackageContentAsync(packageId, version, packagePath, cancellationToken)
+        .ConfigureAwait(false);
+      this._logger.LogInformation("Plugin installed successfully");
     }
 
     var pluginPath = Path.Combine(packagePath, $"{packageId}.dll");
