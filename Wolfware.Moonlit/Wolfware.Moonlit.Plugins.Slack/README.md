@@ -4,7 +4,9 @@
 
 ## Overview
 
-The Moonlit Slack Plugin provides Slack integration capabilities for the Moonlit release automation framework. This plugin allows your Moonlit applications to send notifications to Slack channels, keeping your team informed about release events and workflow operations.
+The Moonlit Slack Plugin provides Slack integration capabilities for the Moonlit release automation framework. This
+plugin allows your Moonlit applications to send notifications to Slack channels, keeping your team informed about
+release events and workflow operations.
 
 ## Features
 
@@ -20,7 +22,7 @@ Install the Moonlit Slack Plugin using the NuGet Package Manager:
 
 ```
 Install-Package Wolfware.Moonlit.Plugins.Slack
-```
+```~~~~
 
 Or via the .NET CLI:
 

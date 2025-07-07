@@ -4,7 +4,9 @@
 
 ## Overview
 
-The Moonlit Semantic Release Plugin adds automatic versioning and changelog generation capabilities to the Moonlit release automation framework. This plugin analyzes your commit history using conventional commit standards to determine the next semantic version and generate comprehensive changelogs.
+The Moonlit Semantic Release Plugin adds automatic versioning and changelog generation capabilities to the Moonlit
+release automation framework. This plugin analyzes your commit history using conventional commit standards to determine
+the next semantic version and generate comprehensive changelogs.
 
 ## Features
 
@@ -23,7 +25,7 @@ Install-Package Wolfware.Moonlit.Plugins.SemanticRelease
 ```
 
 Or via the .NET CLI:
-
+~~~~
 ```
 dotnet add package Wolfware.Moonlit.Plugins.SemanticRelease
 ```

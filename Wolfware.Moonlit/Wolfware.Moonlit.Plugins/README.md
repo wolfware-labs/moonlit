@@ -4,7 +4,9 @@
 
 ## Overview
 
-Moonlit Plugins is the core framework for building extensible plugins for the Moonlit release automation system. This package provides the foundation for creating custom plugins that integrate seamlessly with the Moonlit pipeline, offering a standardized approach to extending functionality.
+Moonlit Plugins is the core framework for building extensible plugins for the Moonlit release automation system. This
+package provides the foundation for creating custom plugins that integrate seamlessly with the Moonlit pipeline,
+offering a standardized approach to extending functionality.
 
 ## Features
 
@@ -13,7 +15,7 @@ Moonlit Plugins is the core framework for building extensible plugins for the Mo
 - Standardized context and result handling for plugin operations
 - Service registration patterns for dependency injection
 - Simplified configuration binding and management
-
+~~~~
 ## Installation
 
 Install the Moonlit Plugins package using the NuGet Package Manager:
@@ -79,7 +81,7 @@ plugins:
 middlewares:
   - name: "my-custom-action"
     configuration:
-      # Your middleware configuration
+    # Your middleware configuration
 ```
 
 ## Available Plugins

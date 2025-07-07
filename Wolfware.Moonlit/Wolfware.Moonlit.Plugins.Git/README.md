@@ -4,7 +4,9 @@
 
 ## Overview
 
-The Moonlit Git Plugin provides Git repository integration and version control capabilities for the Moonlit framework. This plugin allows your Moonlit applications to interact with Git repositories, retrieve repository information, and incorporate Git-based workflows into your release pipelines.
+The Moonlit Git Plugin provides Git repository integration and version control capabilities for the Moonlit framework.
+This plugin allows your Moonlit applications to interact with Git repositories, retrieve repository information, and
+incorporate Git-based workflows into your release pipelines.
 
 ## Features
 
@@ -39,7 +41,7 @@ plugins:
     url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
 ```
 
-## Requirements
+## Requirements~~~~
 
 - .NET 9.0 or higher
 - Moonlit Plugins framework

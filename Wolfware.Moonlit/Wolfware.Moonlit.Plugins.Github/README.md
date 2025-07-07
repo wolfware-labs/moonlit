@@ -4,7 +4,9 @@
 
 ## Overview
 
-The Moonlit GitHub Plugin provides GitHub integration capabilities for the Moonlit release automation framework. This plugin allows your Moonlit applications to interact with GitHub repositories, manage releases, track issues, and incorporate GitHub-based workflows into your release pipelines.
+The Moonlit GitHub Plugin provides GitHub integration capabilities for the Moonlit release automation framework. This
+plugin allows your Moonlit applications to interact with GitHub repositories, manage releases, track issues, and
+incorporate GitHub-based workflows into your release pipelines.
 
 ## Features
 
@@ -34,7 +36,7 @@ dotnet add package Wolfware.Moonlit.Plugins.GitHub
 
 Add the GitHub plugin to your Moonlit release pipeline configuration:
 
-```yaml
+```yaml~~~~
 plugins:
   - name: "github"
     url: "nuget://Wolfware.Moonlit.Plugins.GitHub/1.0.0"
