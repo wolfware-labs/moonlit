@@ -16,20 +16,6 @@ release events and workflow operations.
 - Simple configuration through your pipeline YAML
 - Built on top of SlackNet for reliable Slack API operations
 
-## Installation
-
-Install the Moonlit Slack Plugin using the NuGet Package Manager:
-
-```
-Install-Package Wolfware.Moonlit.Plugins.Slack
-```~~~~
-
-Or via the .NET CLI:
-
-```
-dotnet add package Wolfware.Moonlit.Plugins.Slack
-```
-
 ## Usage
 
 ### Basic Setup
@@ -40,7 +26,7 @@ Add the Slack plugin to your Moonlit release pipeline configuration:
 plugins:
   - name: "slack"
     url: "nuget://Wolfware.Moonlit.Plugins.Slack/1.0.0"
-    configuration:
+    config:
       token: "YOUR_SLACK_API_TOKEN"
 ```
 
@@ -56,8 +42,9 @@ Configure the send-notification middleware in your pipeline:
 
 ```yaml
 middlewares:
-  - name: "send-notification"
-    configuration:
+  - name: "sendNotification"
+    run: "slack.send-notification"
+    config:
       channel: "#releases"
       message: "🚀 New version ${NextVersion} has been released!"
 ```

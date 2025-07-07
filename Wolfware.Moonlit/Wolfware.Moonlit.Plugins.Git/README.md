@@ -41,7 +41,7 @@ plugins:
     url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
 ```
 
-## Requirements~~~~
+## Requirements
 
 - .NET 9.0 or higher
 - Moonlit Plugins framework

@@ -36,11 +36,11 @@ dotnet add package Wolfware.Moonlit.Plugins.GitHub
 
 Add the GitHub plugin to your Moonlit release pipeline configuration:
 
-```yaml~~~~
+```yaml
 plugins:
   - name: "github"
     url: "nuget://Wolfware.Moonlit.Plugins.GitHub/1.0.0"
-    configuration:
+    config:
       token: "YOUR_GITHUB_TOKEN"
 ```
 

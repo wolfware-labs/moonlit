@@ -15,7 +15,7 @@ offering a standardized approach to extending functionality.
 - Standardized context and result handling for plugin operations
 - Service registration patterns for dependency injection
 - Simplified configuration binding and management
-~~~~
+
 ## Installation
 
 Install the Moonlit Plugins package using the NuGet Package Manager:
@@ -79,19 +79,11 @@ plugins:
     url: "nuget://MyCompany.Moonlit.CustomPlugin/1.0.0"
 
 middlewares:
-  - name: "my-custom-action"
-    configuration:
+  - name: "thisIsARandomName"
+    run: "my-custom-plugin.my-custom-action"
+    config:
     # Your middleware configuration
 ```
-
-## Available Plugins
-
-The Moonlit ecosystem includes several official plugins built on this framework:
-
-- [Moonlit Git Plugin](https://www.nuget.org/packages/Wolfware.Moonlit.Plugins.Git/)
-- [Moonlit GitHub Plugin](https://www.nuget.org/packages/Wolfware.Moonlit.Plugins.GitHub/)
-- [Moonlit Slack Plugin](https://www.nuget.org/packages/Wolfware.Moonlit.Plugins.Slack/)
-- [Moonlit Semantic Release Plugin](https://www.nuget.org/packages/Wolfware.Moonlit.Plugins.SemanticRelease/)
 
 ## Requirements
 

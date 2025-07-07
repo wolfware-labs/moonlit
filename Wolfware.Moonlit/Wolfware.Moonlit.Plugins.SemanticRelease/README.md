@@ -25,7 +25,7 @@ Install-Package Wolfware.Moonlit.Plugins.SemanticRelease
 ```
 
 Or via the .NET CLI:
-~~~~
+
 ```
 dotnet add package Wolfware.Moonlit.Plugins.SemanticRelease
 ```
@@ -38,9 +38,9 @@ Add the Semantic Release plugin to your Moonlit release pipeline configuration:
 
 ```yaml
 plugins:
-  - name: "semantic-release"
+  - name: semantic-release
     url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-    configuration:
+    config:
       openAiKey: "YOUR_OPENAI_API_KEY"
 ```
 
@@ -57,8 +57,9 @@ Customize version calculation with these options:
 
 ```yaml
 middlewares:
-  - name: "calculate-version"
-    configuration:
+  - name: version
+    run: semantic-release.calculate-version
+    config:
       initialVersion: "1.0.0"
       baseVersion: "1.2.3"  # Optional, uses initialVersion if not specified
       prereleaseMappings:
@@ -73,8 +74,9 @@ Generate comprehensive changelogs with AI assistance:
 
 ```yaml
 middlewares:
-  - name: "generate-changelog"
-    configuration:
+  - name: changelog
+    run: semantic-release.generate-changelog
+    config:
       openAiKey: "YOUR_OPENAI_API_KEY"
 ```
 
