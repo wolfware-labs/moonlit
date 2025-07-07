@@ -17,6 +17,9 @@
     <PackageTags>Wolfware;Moonlit;Plugins</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0-next.1</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <InformationalVersion>1.0.0-next.1</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
