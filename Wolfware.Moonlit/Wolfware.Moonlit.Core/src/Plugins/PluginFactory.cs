@@ -56,7 +56,7 @@ public class PluginFactory : IPluginFactory
       .ConfigureAwait(false);
     return PluginLoader.CreateFromAssemblyFile(
       pluginPath,
-      sharedTypes: [typeof(IPluginStartup), typeof(IReleaseMiddleware)],
+      sharedTypes: [typeof(IPluginStartup), typeof(IReleaseMiddleware), typeof(ILogger<>)],
       isUnloadable: true
     );
   }
