@@ -10,11 +10,13 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitConfiguration>
 {
   private readonly IGitHubContextProvider _contextProvider;
+  private readonly ILogger<GetItemsSinceCommit> _logger;
   private IGitHubContext? _githubContext;
 
-  public GetItemsSinceCommit(IGitHubContextProvider contextProvider)
+  public GetItemsSinceCommit(IGitHubContextProvider contextProvider, ILogger<GetItemsSinceCommit> logger)
   {
     _contextProvider = contextProvider;
+    _logger = logger;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(
@@ -27,27 +29,27 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
     CommitDetails[]? commits = null;
     if (configuration.IncludeCommits || configuration.IncludePullRequests || configuration.IncludeIssues)
     {
-      context.Logger.LogInformation("Fetching commits since {Sha}", configuration.Sha ?? "the beginning");
+      this._logger.LogInformation("Fetching commits since {Sha}", configuration.Sha ?? "the beginning");
       commits = await this.GetCommitsSinceCommit(configuration.Sha).ConfigureAwait(false);
-      context.Logger.LogInformation("Found {Count} commits", commits.Length);
+      this._logger.LogInformation("Found {Count} commits", commits.Length);
     }
 
     PullRequestDetails[]? pullRequests = null;
     if (configuration.IncludePullRequests || configuration.IncludeIssues)
     {
-      context.Logger.LogInformation("Fetching pull requests from commits");
+      this._logger.LogInformation("Fetching pull requests from commits");
       var commitShas = commits?.Select(c => c.Sha).ToArray() ?? [];
       pullRequests = await this.GetPullRequestsFromCommits(commitShas).ConfigureAwait(false);
-      context.Logger.LogInformation("Found {Count} pull requests", pullRequests.Length);
+      this._logger.LogInformation("Found {Count} pull requests", pullRequests.Length);
     }
 
     IssueDetails[]? issues = null;
     if (configuration.IncludeIssues && pullRequests is {Length: > 0})
     {
-      context.Logger.LogInformation("Fetching issues from pull requests");
+      this._logger.LogInformation("Fetching issues from pull requests");
       var pullRequestNumbers = pullRequests.Select(pr => pr.Number).ToArray();
       issues = await this.GetIssuesFromPullRequests(pullRequestNumbers).ConfigureAwait(false);
-      context.Logger.LogInformation("Found {Count} issues", issues.Length);
+      this._logger.LogInformation("Found {Count} issues", issues.Length);
     }
 
     return MiddlewareResult.Success(output =>

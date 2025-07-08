@@ -2,6 +2,7 @@
 using McMaster.NETCore.Plugins;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
 using Wolfware.Moonlit.Plugins.Abstractions;
@@ -15,11 +16,14 @@ public class PluginFactory : IPluginFactory
 {
   private readonly IPluginPathResolver _pluginPathResolver;
   private readonly IConfigurationFactory _configurationFactory;
+  private readonly IEnumerable<ILoggerProvider> _loggerProviders;
 
-  public PluginFactory(IPluginPathResolver pluginPathResolver, IConfigurationFactory configurationFactory)
+  public PluginFactory(IPluginPathResolver pluginPathResolver, IConfigurationFactory configurationFactory,
+    IEnumerable<ILoggerProvider> loggerProviders)
   {
     _pluginPathResolver = pluginPathResolver;
     _configurationFactory = configurationFactory;
+    _loggerProviders = loggerProviders;
   }
 
   public async Task<IPlugin> CreatePlugin(PluginConfiguration configuration, IConfiguration releaseConfiguration,
@@ -33,6 +37,13 @@ public class PluginFactory : IPluginFactory
     var services = new ServiceCollection();
     var config = this._configurationFactory.Create(configuration.Configuration, releaseConfiguration);
     services.AddSingleton(config);
+    services.AddLogging(cfg =>
+    {
+      foreach (var provider in this._loggerProviders)
+      {
+        cfg.Services.AddSingleton(provider);
+      }
+    });
     startupInstance.Configure(services, config);
     var provider = services.BuildServiceProvider();
     return new Plugin(loader, provider);

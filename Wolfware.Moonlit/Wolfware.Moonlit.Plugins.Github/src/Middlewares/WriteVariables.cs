@@ -8,10 +8,12 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 public sealed class WriteVariables : ReleaseMiddleware<WriteVariablesConfiguration>
 {
   private readonly IGitHubContextProvider _gitHubContextProvider;
+  private readonly ILogger<WriteVariables> _logger;
 
-  public WriteVariables(IGitHubContextProvider gitHubContextProvider)
+  public WriteVariables(IGitHubContextProvider gitHubContextProvider, ILogger<WriteVariables> logger)
   {
     _gitHubContextProvider = gitHubContextProvider;
+    _logger = logger;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
@@ -20,13 +22,13 @@ public sealed class WriteVariables : ReleaseMiddleware<WriteVariablesConfigurati
     var gitHubContext = await _gitHubContextProvider.GetCurrentContext(context);
     foreach ((var key, var value) in configuration.Output)
     {
-      context.Logger.LogInformation("Setting output variable '{Key}' to '{Value}'", key, value);
+      this._logger.LogInformation("Setting output variable '{Key}' to '{Value}'", key, value);
       gitHubContext.SetOutput(key, value);
     }
 
     foreach ((var key, var value) in configuration.Environment)
     {
-      context.Logger.LogInformation("Setting environment variable '{Key}' to '{Value}'", key, value);
+      this._logger.LogInformation("Setting environment variable '{Key}' to '{Value}'", key, value);
       gitHubContext.SetEnvironmentVariable(key, value);
     }
 

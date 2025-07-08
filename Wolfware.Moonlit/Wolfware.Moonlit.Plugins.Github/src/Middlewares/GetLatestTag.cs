@@ -10,10 +10,12 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 public sealed class GetLatestTag : ReleaseMiddleware<GetLatestTagConfiguration>
 {
   private readonly IGitHubContextProvider _contextProvider;
+  private readonly ILogger<GetLatestTag> _logger;
 
-  public GetLatestTag(IGitHubContextProvider contextProvider)
+  public GetLatestTag(IGitHubContextProvider contextProvider, ILogger<GetLatestTag> logger)
   {
     _contextProvider = contextProvider;
+    _logger = logger;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
@@ -33,14 +35,14 @@ public sealed class GetLatestTag : ReleaseMiddleware<GetLatestTagConfiguration>
 
     if (latestTag == null)
     {
-      context.Logger.LogWarning(
+      this._logger.LogWarning(
         "No tags found matching the filter pattern: {FilterPattern}",
         filterPattern
       );
       return MiddlewareResult.Success();
     }
 
-    context.Logger.LogInformation(
+    this._logger.LogInformation(
       "Latest tag found: {TagName}",
       latestTag.Name ?? "None"
     );

@@ -17,16 +17,19 @@ public sealed class ReleasePipeline : IAsyncDisposable
   private readonly IPluginsContext _pluginsContext;
   private readonly IReadOnlyList<IMiddlewareContext> _middlewareContexts;
   private readonly IConfigurationFactory _configurationFactory;
+  private readonly ILogger _logger;
 
   public ReleasePipeline(
     IPluginsContext pluginsContext,
     IReadOnlyList<IMiddlewareContext> middlewareContexts,
-    IConfigurationFactory configurationFactory
+    IConfigurationFactory configurationFactory,
+    ILogger logger
   )
   {
     _pluginsContext = pluginsContext;
     _middlewareContexts = middlewareContexts;
     _configurationFactory = configurationFactory;
+    _logger = logger;
   }
 
   /// <summary>
@@ -56,10 +59,10 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        context.Logger.LogInformation(">>> Start Step: {MiddlewareName} <<<", middlewareContext.Name);
-        if (context.Logger.IsEnabled(LogLevel.Debug))
+        this._logger.LogInformation(">>> Start Step: {MiddlewareName} <<<", middlewareContext.Name);
+        if (this._logger.IsEnabled(LogLevel.Debug))
         {
-          context.Logger.LogDebug("Middleware configuration: {Configuration}",
+          this._logger.LogDebug("Middleware configuration: {Configuration}",
             JsonSerializer.Serialize(middlewareContext.Configuration, JsonSerializerOptions.Default));
         }
 
@@ -68,14 +71,14 @@ public sealed class ReleasePipeline : IAsyncDisposable
         result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
           .ConfigureAwait(false);
         stopwatch.Stop();
-        context.Logger.LogInformation("<<< End Step: {MiddlewareName} [{ElapsedMilliseconds} ms] >>>",
+        this._logger.LogInformation("<<< End Step: {MiddlewareName} [{ElapsedMilliseconds} ms] >>>",
           middlewareContext.Name, stopwatch.ElapsedMilliseconds);
 
         if (result.Warnings.Count > 0)
         {
           foreach (var warning in result.Warnings)
           {
-            context.Logger.LogWarning(warning);
+            this._logger.LogWarning(warning);
           }
         }
 
@@ -92,12 +95,12 @@ public sealed class ReleasePipeline : IAsyncDisposable
       }
       catch (OperationCanceledException)
       {
-        context.Logger.LogInformation("Pipeline execution was cancelled by the user.");
+        this._logger.LogInformation("Pipeline execution was cancelled by the user.");
         return MiddlewareResult.Failure("Pipeline execution was cancelled by the user.");
       }
       catch (Exception ex)
       {
-        context.Logger.LogError(ex, "An error occurred while executing middleware {MiddlewareName}.",
+        this._logger.LogError(ex, "An error occurred while executing middleware {MiddlewareName}.",
           middlewareContext.Name);
         return MiddlewareResult.Failure(
           $"An error occurred while executing middleware {middlewareContext.Name}: {ex.Message}");

@@ -1,4 +1,5 @@
-﻿using Spectre.Console;
+﻿using Microsoft.Extensions.Logging;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using Wolfware.Moonlit.Cli.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
@@ -12,6 +13,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
 {
   private readonly IReleaseConfigurationParser _configurationParser;
   private readonly IReleasePipelineFactory _releasePipelineFactory;
+  private readonly ILoggerProvider _loggerProvider;
 
   public const string Name = "release";
   public const string Description = "Executes a release pipeline";
@@ -63,10 +65,15 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
     }
   }
 
-  public ReleaseCommand(IReleaseConfigurationParser configurationParser, IReleasePipelineFactory releasePipelineFactory)
+  public ReleaseCommand(
+    IReleaseConfigurationParser configurationParser,
+    IReleasePipelineFactory releasePipelineFactory,
+    ILoggerProvider loggerProvider
+  )
   {
     _configurationParser = configurationParser;
     _releasePipelineFactory = releasePipelineFactory;
+    _loggerProvider = loggerProvider;
   }
 
   public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
@@ -139,7 +146,6 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
           _ => pipeline.ExecuteAsync(new ReleaseContext
           {
             WorkingDirectory = settings.WorkingDirectory,
-            Logger = new ConsoleLogger(settings.Verbose),
             CancellationToken = CancellationToken.None // TODO: Handle cancellation token properly
           })
         ).ConfigureAwait(false);

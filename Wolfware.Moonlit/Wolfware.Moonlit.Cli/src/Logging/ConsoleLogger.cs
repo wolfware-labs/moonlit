@@ -5,27 +5,34 @@ namespace Wolfware.Moonlit.Cli.Logging;
 
 public sealed class ConsoleLogger : ILogger
 {
-  private readonly bool _verbose;
+  private readonly string _categoryName;
+  private readonly Func<LoggerFilterOptions> _filterAccessor;
 
-  public ConsoleLogger(bool verbose = false)
+  public ConsoleLogger(string categoryName, Func<LoggerFilterOptions> getFilters)
   {
-    _verbose = verbose;
+    _categoryName = categoryName;
+    _filterAccessor = getFilters;
   }
 
   public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
   public bool IsEnabled(LogLevel logLevel)
   {
-    return logLevel switch
+    var filters = _filterAccessor().Rules;
+
+    // Find the first matching rule:
+    foreach (var rule in filters)
     {
-      LogLevel.Trace => _verbose,
-      LogLevel.Debug => _verbose,
-      LogLevel.Information => true,
-      LogLevel.Warning => true,
-      LogLevel.Error => true,
-      LogLevel.Critical => true,
-      _ => false
-    };
+      // rule.ProviderName == null means “any provider”
+      var providerMatches = rule.ProviderName is null or nameof(ConsoleLoggerProvider);
+      var categoryMatches = rule.CategoryName == null || _categoryName.StartsWith(rule.CategoryName);
+
+      if (providerMatches && categoryMatches)
+        return logLevel >= rule.LogLevel;
+    }
+
+    // No rule matched? apply default (true)
+    return true;
   }
 
   public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
@@ -47,7 +54,7 @@ public sealed class ConsoleLogger : ILogger
     };
 
     AnsiConsole.MarkupLine(
-      $"[steelblue][[[/][khaki3]{DateTime.Now:HH:mm:ss}[/][steelblue]]][/] {levelLabel} {Markup.Escape(message)}");
+      $"[steelblue][[[/][khaki3]{DateTime.Now:HH:mm:ss}[/][steelblue]]][/] [gray][[{_categoryName}]][/] {levelLabel} {Markup.Escape(message)}");
 
     if (exception != null)
     {

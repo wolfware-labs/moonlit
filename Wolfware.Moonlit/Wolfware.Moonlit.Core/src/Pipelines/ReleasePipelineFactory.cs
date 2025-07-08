@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
 
@@ -16,14 +17,17 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 {
   private readonly IPluginsContextFactory _pluginsContextFactory;
   private readonly IConfigurationFactory _configurationFactory;
+  private readonly ILoggerProvider _loggerProvider;
 
   public ReleasePipelineFactory(
     IPluginsContextFactory pluginsContextFactory,
-    IConfigurationFactory configurationFactory
+    IConfigurationFactory configurationFactory,
+    ILoggerProvider loggerProvider
   )
   {
     _pluginsContextFactory = pluginsContextFactory;
     _configurationFactory = configurationFactory;
+    _loggerProvider = loggerProvider;
   }
 
   public async Task<ReleasePipeline> Create(ReleaseConfiguration configuration)
@@ -40,7 +44,8 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
         Configuration = x.Configuration
       })
       .ToList();
-    return new ReleasePipeline(pluginsContext, middlewares, this._configurationFactory);
+    var logger = this._loggerProvider.CreateLogger("Wolfware.Moonlit.Release");
+    return new ReleasePipeline(pluginsContext, middlewares, this._configurationFactory, logger);
   }
 
   private IConfiguration GetReleaseConfiguration(ReleaseConfiguration configuration)

@@ -17,9 +17,9 @@
     <PackageTags>Wolfware;Moonlit;Plugins;GitHub</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>1.0.0-next.1</Version>
+    <Version>1.0.0-next.2</Version>
     <AssemblyVersion>1.0.0</AssemblyVersion>
-    <InformationalVersion>1.0.0-next.1</InformationalVersion>
+    <InformationalVersion>1.0.0-next.2</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="LibGit2Sharp" />

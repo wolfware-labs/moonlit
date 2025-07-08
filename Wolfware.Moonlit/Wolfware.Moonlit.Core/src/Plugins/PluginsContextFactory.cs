@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Collections.Concurrent;
+using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
 
@@ -41,13 +42,13 @@ public sealed class PluginsContextFactory : IPluginsContextFactory
     }
 
 
-    var plugins = new Dictionary<string, IPlugin>();
-    foreach (var pluginConfiguration in pluginConfigurations)
+    var plugins = new ConcurrentDictionary<string, IPlugin>();
+    await Parallel.ForEachAsync(pluginConfigurations, cancellationToken, async (pc, ct) =>
     {
-      var plugin = await _pluginFactory.CreatePlugin(pluginConfiguration, releaseConfiguration, cancellationToken)
+      var plugin = await _pluginFactory.CreatePlugin(pc, releaseConfiguration, ct)
         .ConfigureAwait(false);
-      plugins.Add(pluginConfiguration.Name, plugin);
-    }
+      plugins.TryAdd(pc.Name, plugin);
+    });
 
     return new PluginsContext(plugins);
   }

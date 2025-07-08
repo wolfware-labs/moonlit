@@ -9,6 +9,13 @@ namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 
 public sealed class GetRepositoryContext : IReleaseMiddleware
 {
+  private readonly ILogger<GetRepositoryContext> _logger;
+
+  public GetRepositoryContext(ILogger<GetRepositoryContext> logger)
+  {
+    _logger = logger;
+  }
+
   public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
   {
     var gitFolderPath = context.WorkingDirectory.GetGitFolderPath();
@@ -16,8 +23,8 @@ public sealed class GetRepositoryContext : IReleaseMiddleware
     var currentBranch = repo.Head.FriendlyName;
     var remoteUrl = repo.Network.Remotes["origin"].Url;
 
-    context.Logger.LogInformation("Current branch: {Branch}", currentBranch);
-    context.Logger.LogInformation("Remote URL: {RemoteUrl}", remoteUrl);
+    this._logger.LogInformation("Current branch: {Branch}", currentBranch);
+    this._logger.LogInformation("Remote URL: {RemoteUrl}", remoteUrl);
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {

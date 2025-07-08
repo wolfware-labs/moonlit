@@ -29,17 +29,6 @@ public sealed record ReleaseContext
   public CancellationToken CancellationToken { get; init; }
 
   /// <summary>
-  /// Gets or sets the logger instance used for logging operations during the release process.
-  /// </summary>
-  /// <remarks>
-  /// This property provides logging capabilities for various components in the release pipeline.
-  /// Typically, it is assigned an appropriate implementation of <see cref="ILogger"/>.
-  /// The logger instance is expected to handle logging messages at different levels such as
-  /// Information, Warning, Error, or Debug.
-  /// </remarks>
-  public ILogger Logger { get; init; } = null!;
-
-  /// <summary>
   /// Gets the working directory for the release operation.
   /// </summary>
   /// <remarks>

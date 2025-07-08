@@ -9,6 +9,8 @@ namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
 public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Configuration>
 {
+  private readonly ILogger<CalculateVersion> _logger;
+
   public sealed class Configuration
   {
     public string InitialVersion { get; set; } = "1.0.0";
@@ -24,20 +26,25 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     public Dictionary<string, string> PrereleaseMappings { get; set; } = new();
   }
 
+  public CalculateVersion(ILogger<CalculateVersion> logger)
+  {
+    _logger = logger;
+  }
+
   protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
   {
     if (configuration.Commits.Length == 0)
     {
-      context.Logger.LogWarning("No commits provided for version calculation.");
+      this._logger.LogWarning("No commits provided for version calculation.");
       return Task.FromResult(MiddlewareResult.Success());
     }
 
-    context.Logger.LogInformation("Calculating next version based on {CommitCount} commits.",
+    this._logger.LogInformation("Calculating next version based on {CommitCount} commits.",
       configuration.Commits.Length);
 
-    var nextVersion = GetNextVersion(configuration, context.Logger);
+    var nextVersion = GetNextVersion(configuration);
 
-    context.Logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
+    this._logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
@@ -46,9 +53,9 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     }));
   }
 
-  private SemVersion GetNextVersion(Configuration configuration, ILogger logger)
+  private SemVersion GetNextVersion(Configuration configuration)
   {
-    var prereleaseSuffix = GetPrereleaseSuffix(configuration, logger);
+    var prereleaseSuffix = GetPrereleaseSuffix(configuration);
     if (string.IsNullOrWhiteSpace(configuration.BaseVersion))
     {
       return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix);
@@ -61,7 +68,7 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix);
   }
 
-  private string? GetPrereleaseSuffix(Configuration configuration, ILogger logger)
+  private string? GetPrereleaseSuffix(Configuration configuration)
   {
     if (!configuration.PrereleaseMappings.TryGetValue(configuration.Branch, out var prerelease))
     {
@@ -73,7 +80,7 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
       return null;
     }
 
-    logger.LogInformation("Using branch-specific prerelease mapping: {Prerelease}", prerelease);
+    this._logger.LogInformation("Using branch-specific prerelease mapping: {Prerelease}", prerelease);
     return prerelease;
   }
 

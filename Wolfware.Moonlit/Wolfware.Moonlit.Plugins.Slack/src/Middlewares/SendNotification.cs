@@ -1,9 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using SlackNet;
 using SlackNet.WebApi;
-using Wolfware.Moonlit.Plugins.Abstractions;
-using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 using Wolfware.Moonlit.Plugins.Slack.Configuration;
 
@@ -12,10 +9,12 @@ namespace Wolfware.Moonlit.Plugins.Slack.Middlewares;
 public sealed class SendNotification : ReleaseMiddleware<SendNotificationConfiguration>
 {
   private readonly ISlackApiClient _slackApiClient;
+  private readonly ILogger<SendNotification> _logger;
 
-  public SendNotification(ISlackApiClient slackApiClient)
+  public SendNotification(ISlackApiClient slackApiClient, ILogger<SendNotification> logger)
   {
     _slackApiClient = slackApiClient;
+    _logger = logger;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
@@ -37,7 +36,7 @@ public sealed class SendNotification : ReleaseMiddleware<SendNotificationConfigu
       await _slackApiClient.Chat.PostMessage(
         new Message {Channel = configuration.Channel, Text = configuration.Message});
 
-      context.Logger.LogInformation("Notification sent to Slack channel {ChannelId}.", configuration.Channel);
+      this._logger.LogInformation("Notification sent to Slack channel {ChannelId}.", configuration.Channel);
       return MiddlewareResult.Success();
     }
     catch (Exception ex)

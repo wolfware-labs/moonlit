@@ -10,11 +10,13 @@ namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration>
 {
   private readonly IGitHubContextProvider _gitHubContextProvider;
+  private readonly ILogger<CreateRelease> _logger;
   private IGitHubContext? _gitHubContext;
 
-  public CreateRelease(IGitHubContextProvider gitHubContextProvider)
+  public CreateRelease(IGitHubContextProvider gitHubContextProvider, ILogger<CreateRelease> logger)
   {
     this._gitHubContextProvider = gitHubContextProvider;
+    _logger = logger;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
@@ -63,7 +65,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
 
   private async Task<Release> CreateGitHubRelease(ReleaseContext context, CreateReleaseConfiguration configuration)
   {
-    context.Logger.LogInformation("Creating release '{ReleaseName}' with tag '{TagName}'.", configuration.Name,
+    this._logger.LogInformation("Creating release '{ReleaseName}' with tag '{TagName}'.", configuration.Name,
       configuration.Tag);
 
     var release = new NewRelease(configuration.Tag)
@@ -76,7 +78,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
 
 
     var createdRelease = await this._gitHubContext!.CreateRelease(release);
-    context.Logger.LogInformation("Release created successfully: {ReleaseUrl}", createdRelease.HtmlUrl);
+    this._logger.LogInformation("Release created successfully: {ReleaseUrl}", createdRelease.HtmlUrl);
     return createdRelease;
   }
 
@@ -103,7 +105,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
   {
     foreach (var pr in pullRequests)
     {
-      context.Logger.LogInformation("Annotating pull request #{PullRequestNumber} with release {ReleaseName}.",
+      this._logger.LogInformation("Annotating pull request #{PullRequestNumber} with release {ReleaseName}.",
         pr.Number, release.Name);
       await this._gitHubContext!.CommentOnPullRequest(
         pr.Number,
@@ -116,7 +118,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
   {
     foreach (var issue in issues)
     {
-      context.Logger.LogInformation("Annotating issue #{IssueNumber} with release {ReleaseName}.",
+      this._logger.LogInformation("Annotating issue #{IssueNumber} with release {ReleaseName}.",
         issue.Number, release.Name);
       await this._gitHubContext!.CommentOnIssue(
         issue.Number,

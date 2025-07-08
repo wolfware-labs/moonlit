@@ -2,6 +2,27 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <PackageId>moonlit-cli</PackageId>
+    <Authors>Wolfware Team</Authors>
+    <Company>Wolfware LLC</Company>
+    <Description>A command-line interface tool for managing and executing Moonlit plugins. Supports loading plugins from NuGet packages and provides a flexible configuration system for plugin management.</Description>
+    <Title>Moonlit CLI</Title>
+    <Summary>CLI tool for managing Moonlit plugins with NuGet package integration.</Summary>
+    <PackageReleaseNotes>Initial Release</PackageReleaseNotes>
+    <PackageIcon>icon.png</PackageIcon>
+    <Copyright>© 2025 Wolfware LLC</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
+    <!--    <RepositoryType>git</RepositoryType>-->
+    <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
+    <PackageTags>Wolfware;Moonlit;CLI</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0-next.1</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <InformationalVersion>1.0.0-next.1</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +39,18 @@
   <ItemGroup>
     <None Update="release.yml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="icon.png">
+      <Pack>true</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="LICENSE.txt">
+      <Pack>true</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="README.md">
+      <Pack>true</Pack>
+      <PackagePath>\</PackagePath>
     </None>
   </ItemGroup>
 

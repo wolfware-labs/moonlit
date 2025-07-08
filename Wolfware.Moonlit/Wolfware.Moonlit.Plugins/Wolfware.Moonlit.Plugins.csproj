@@ -3,10 +3,10 @@
     <PackageId>Wolfware.Moonlit.Plugins</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description></Description>
+    <Description>A plugin system for Moonlit framework that allows dynamic loading and unloading of plugins from various sources.</Description>
     <Title>Moonlit Plugins</Title>
-    <Summary></Summary>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <Summary>A plugin system for Moonlit framework supporting dynamic loading and unloading of plugins</Summary>
+    <PackageReleaseNotes>Initial Release</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
@@ -17,9 +17,9 @@
     <PackageTags>Wolfware;Moonlit;Plugins</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>1.0.0-next.1</Version>
+    <Version>1.0.0-next.2</Version>
     <AssemblyVersion>1.0.0</AssemblyVersion>
-    <InformationalVersion>1.0.0-next.1</InformationalVersion>
+    <InformationalVersion>1.0.0-next.2</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,9 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="JetBrains.Annotations" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="JetBrains.Annotations"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions"/>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
   </ItemGroup>
 </Project>

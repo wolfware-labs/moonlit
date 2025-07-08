@@ -86,9 +86,8 @@ public class NugetPackageExtractor : INugetPackageExtractor
 
       return true;
     }
-    catch (Exception ex)
+    catch (Exception)
     {
-      this._logger.LogError(ex, "Error extracting package {PackageId} {Version}", packageId, version);
       return false;
     }
   }
