@@ -22,7 +22,11 @@ public interface IGitHubContext
 
   Task CommentOnPullRequest(int pullRequestNumber, string comment);
 
+  Task LabelPullRequest(int pullRequestNumber, string label);
+
   Task CommentOnIssue(int issueNumber, string comment);
+
+  Task LabelIssue(int issueNumber, string label);
 
   void SetOutput(string name, string value);
 

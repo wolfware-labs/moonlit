@@ -8,6 +8,8 @@ public sealed class CreateReleaseConfiguration
 
   public string Tag { get; set; } = string.Empty;
 
+  public string? Label { get; set; }
+
   public string? Body { get; set; }
 
   public Dictionary<string, ChangelogEntry[]>? Changelog { get; set; }

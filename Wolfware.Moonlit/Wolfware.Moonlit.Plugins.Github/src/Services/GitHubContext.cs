@@ -33,13 +33,7 @@ public sealed class GitHubContext : IGitHubContext
     ArgumentNullException.ThrowIfNull(sha, nameof(sha));
     ArgumentNullException.ThrowIfNull(message, nameof(message));
 
-    var newTag = new NewTag
-    {
-      Tag = tag,
-      Message = message,
-      Object = sha,
-      Type = TaggedType.Commit
-    };
+    var newTag = new NewTag {Tag = tag, Message = message, Object = sha, Type = TaggedType.Commit};
 
     return _gitHubClient.Git.Tag.Create(Repository.Id, newTag);
   }
@@ -74,10 +68,22 @@ public sealed class GitHubContext : IGitHubContext
     return _gitHubClient.Issue.Comment.Create(Repository.Id, pullRequestNumber, comment);
   }
 
+  public Task LabelPullRequest(int pullRequestNumber, string label)
+  {
+    ArgumentNullException.ThrowIfNull(label, nameof(label));
+    return _gitHubClient.Issue.Labels.AddToIssue(Repository.Id, pullRequestNumber, [label]);
+  }
+
   public Task CommentOnIssue(int issueNumber, string comment)
   {
     ArgumentNullException.ThrowIfNull(comment, nameof(comment));
     return _gitHubClient.Issue.Comment.Create(Repository.Id, issueNumber, comment);
+  }
+
+  public Task LabelIssue(int issueNumber, string label)
+  {
+    ArgumentNullException.ThrowIfNull(label, nameof(label));
+    return _gitHubClient.Issue.Labels.AddToIssue(Repository.Id, issueNumber, [label]);
   }
 
   public void SetOutput(string name, string value)
@@ -89,7 +95,6 @@ public sealed class GitHubContext : IGitHubContext
     }
 
     File.AppendAllText(output, $"{name}={value}{Environment.NewLine}");
-
   }
 
   public void SetEnvironmentVariable(string name, string value)

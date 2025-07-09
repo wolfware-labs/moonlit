@@ -32,12 +32,20 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     var release = await CreateGitHubRelease(context, configuration).ConfigureAwait(false);
     if (configuration.PullRequests is {Length: > 0})
     {
-      await this.AnnotatePullRequests(context, release, configuration.PullRequests);
+      await this.AnnotatePullRequests(release, configuration.PullRequests);
+      if (!string.IsNullOrWhiteSpace(configuration.Label))
+      {
+        await this.LabelPullRequests(configuration.Label, configuration.PullRequests);
+      }
     }
 
     if (configuration.Issues is {Length: > 0})
     {
-      await this.AnnotateIssues(context, release, configuration.Issues);
+      await this.AnnotateIssues(release, configuration.Issues);
+      if (!string.IsNullOrEmpty(configuration.Label))
+      {
+        await this.LabelIssues(configuration.Label, configuration.Issues);
+      }
     }
 
     return MiddlewareResult.Success(output =>
@@ -101,7 +109,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return markdown.ToString();
   }
 
-  private async Task AnnotatePullRequests(ReleaseContext context, Release release, PullRequestDetails[] pullRequests)
+  private async Task AnnotatePullRequests(Release release, PullRequestDetails[] pullRequests)
   {
     foreach (var pr in pullRequests)
     {
@@ -114,7 +122,17 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     }
   }
 
-  private async Task AnnotateIssues(ReleaseContext context, Release release, IssueDetails[] issues)
+  private async Task LabelPullRequests(string label, PullRequestDetails[] pullRequests)
+  {
+    foreach (var pr in pullRequests)
+    {
+      this._logger.LogInformation("Labeling pull request #{PullRequestNumber} with label {Label}.",
+        pr.Number, label);
+      await this._gitHubContext!.LabelPullRequest(pr.Number, label);
+    }
+  }
+
+  private async Task AnnotateIssues(Release release, IssueDetails[] issues)
   {
     foreach (var issue in issues)
     {
@@ -124,6 +142,16 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
         issue.Number,
         CreateRelease.GetReleaseComment(release.Name, release.HtmlUrl)
       );
+    }
+  }
+
+  public async Task LabelIssues(string label, IssueDetails[] issues)
+  {
+    foreach (var issue in issues)
+    {
+      this._logger.LogInformation("Labeling issue #{IssueNumber} with label {Label}.",
+        issue.Number, label);
+      await this._gitHubContext!.LabelIssue(issue.Number, label);
     }
   }
 
