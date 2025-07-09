@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Extensions;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
@@ -70,62 +71,90 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
 
   private async Task<CommitMessage[]> FilterOutNonUserFacingCommits(ChatClient client, CommitMessage[] commits)
   {
-    var commitsJson = string.Join(",", commits.Select(commit => JsonSerializer.Serialize(commit)));
-    var completion = await client.CompleteChatAsync(
-      new SystemChatMessage(
-        "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
-      new UserChatMessage(
-        $"Please review the following list of commit messages in JSON format. Return only those that are relevant to end users and should be included in a changelog. Ignore any commits related to internal documentation, refactoring, or non-user-facing changes. The commit list is as follows: {commitsJson}. Return the filtered list in JSON format.")
-    );
-
-    if (completion.Value.Content.Count == 0)
+    var responses = await commits.ParallelForEachBatch(15, async batch =>
     {
-      this._logger.LogError("Failed to filter commits. No content returned from OpenAI.");
-      throw new InvalidOperationException("Failed to filter commits. No content returned from OpenAI.");
-    }
+      var commitsJson = string.Join(",",
+        batch.Select(commit => JsonSerializer.Serialize(new {commit.Sha, commit.Message})));
+      var completion = await client.CompleteChatAsync(
+        new SystemChatMessage(
+          "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
+        new UserChatMessage(
+          $"Please review the following list of commit messages in JSON format containing the commit SHA and the commit Message. Return only the SHA of those that are relevant to end users and should be included in a changelog. Ignore any commits related to internal documentation, refactoring, or non-user-facing changes. The commit list is as follows: {commitsJson}. Return the filtered list as an array of strings. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
+      );
 
-    var filteredCommitsJson = completion.Value.Content[0].Text.Trim();
-    if (!string.IsNullOrWhiteSpace(filteredCommitsJson))
-    {
-      return JsonSerializer.Deserialize<CommitMessage[]>(filteredCommitsJson, JsonSerializerOptions.Web)
-             ?? throw new InvalidOperationException("Failed to deserialize filtered commits JSON.");
-    }
+      if (completion.Value.Content.Count == 0)
+      {
+        this._logger.LogError("Failed to filter commits. No content returned from OpenAI.");
+        throw new InvalidOperationException("Failed to filter commits. No content returned from OpenAI.");
+      }
 
-    this._logger.LogWarning("No user-facing commits found in the provided list.");
-    return [];
+      var filteredCommitsJson = completion.Value.Content[0].Text.Trim();
+      if (!string.IsNullOrWhiteSpace(filteredCommitsJson))
+      {
+        var filteredShas = JsonSerializer.Deserialize<string[]>(filteredCommitsJson, JsonSerializerOptions.Web)
+                           ?? throw new InvalidOperationException("Failed to deserialize filtered commits JSON.");
+        return filteredShas
+          .Select(sha => batch.First(commit => commit.Sha.Equals(sha, StringComparison.OrdinalIgnoreCase)))
+          .ToArray();
+      }
+
+      this._logger.LogWarning("No user-facing commits found in the provided list.");
+      return [];
+    });
+
+    return responses.SelectMany(response => response).ToArray();
   }
 
   private async Task<ChangelogEntry[]> RefineCommitsIntoChangelogEntries(ChatClient client, CommitMessage[] commits)
   {
-    var commitsJson = string.Join(",", commits.Select(commit => JsonSerializer.Serialize(commit)));
-    var completion = await client.CompleteChatAsync(
-      new SystemChatMessage(
-        "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
-      new UserChatMessage(
-        $"Please transform the following filtered list of commit messages into user-friendly changelog entries. Ensure the entries are clear, concise, and highlight the value to the end user. The filtered commit list is as follows: {commitsJson}. Return the final changelog entries in a formatted JSON format.")
-    );
-    if (completion.Value.Content.Count == 0)
+    var responses = await commits.ParallelForEachBatch(15, async batch =>
     {
-      this._logger.LogError("Failed to generate changelog entries. No content returned from OpenAI.");
-      throw new InvalidOperationException("Failed to generate changelog entries. No content returned from OpenAI.");
-    }
+      var commitsJson = string.Join(",",
+        batch.Select(commit => JsonSerializer.Serialize(new {commit.Sha, commit.Message})));
+      var completion = await client.CompleteChatAsync(
+        new SystemChatMessage(
+          "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
+        new UserChatMessage(
+          $"Please transform the following list of commit messages in JSON format containing the commit SHA and the commit Message, replacing the Message for a more user-friendly changelog entry. Ensure the entries are clear, concise, and highlight the value to the end user. The commit list is as follows: {commitsJson}. Return the filtered list in JSON format as an array of objects with the fields 'Sha' and 'Description' where the Sha field contains the commit SHA and the Description field contains the refined message. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
+      );
+      if (completion.Value.Content.Count == 0)
+      {
+        this._logger.LogError("Failed to generate changelog entries. No content returned from OpenAI.");
+        throw new InvalidOperationException("Failed to generate changelog entries. No content returned from OpenAI.");
+      }
 
-    var changelogJson = completion.Value.Content[0].Text.Trim();
-    if (string.IsNullOrWhiteSpace(changelogJson))
-    {
-      this._logger.LogWarning("No changelog entries generated from the provided commits.");
-      return [];
-    }
+      var changelogJson = completion.Value.Content[0].Text.Trim();
+      if (string.IsNullOrWhiteSpace(changelogJson))
+      {
+        this._logger.LogWarning("No changelog entries generated from the provided commits.");
+        return [];
+      }
 
-    var changelogEntries = JsonSerializer.Deserialize<ChangelogEntry[]>(changelogJson, JsonSerializerOptions.Web);
-    if (changelogEntries == null)
-    {
-      this._logger.LogError("Failed to deserialize changelog entries JSON.");
-      throw new InvalidOperationException("Failed to deserialize changelog entries JSON.");
-    }
+      var changelogEntries = JsonSerializer.Deserialize<ChangelogEntry[]>(changelogJson, JsonSerializerOptions.Web);
+      if (changelogEntries == null)
+      {
+        throw new InvalidOperationException("Failed to deserialize changelog entries JSON.");
+      }
 
-    this._logger.LogInformation("Generated {ChangelogCount} changelog entries.", changelogEntries.Length);
-    return changelogEntries;
+      if (batch.Length != changelogEntries.Length)
+      {
+        throw new InvalidOperationException(
+          $"Mismatch in number of commits ({batch.Length}) and generated changelog entries ({changelogEntries.Length}).");
+      }
+
+      if (changelogEntries.Any(x => string.IsNullOrWhiteSpace(x.Sha) ||
+                                    string.IsNullOrWhiteSpace(x.Description) ||
+                                    batch.All(c => !c.Sha.Equals(x.Sha, StringComparison.OrdinalIgnoreCase)))
+         )
+      {
+        this._logger.LogError("Generated changelog entries contain invalid data.");
+        throw new InvalidOperationException("Generated changelog entries contain invalid data.");
+      }
+
+      return changelogEntries;
+    });
+
+    return responses.SelectMany(response => response).ToArray();
   }
 
   private async Task<ChangelogCategory[]> CategorizeChangelogEntries(ChatClient client, ChangelogEntry[] entries)
@@ -137,7 +166,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
       new UserChatMessage(
         $"Please take the following list of refined changelog entries and categorize each entry into one of the following categories: 'New Features,' 'Bug Fixes,' or 'Improvements.' Return the categorized entries as a JSON array, where each object includes the category and the original entry. The entries are as follows: {entriesJson}."),
       new UserChatMessage(
-        "Based on the categorized changelog entries, please generate a brief summary for each category and provide a heading for each section. Return the final result in JSON format, with each category having a heading, a summary, and the list of entries."
+        "Based on the categorized changelog entries, please generate a brief summary for each category and provide a heading for each section. Return the final result in JSON format, with each category having a heading, a summary, and the list of entries. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly."
       )
     );
     if (completion.Value.Content.Count == 0)
