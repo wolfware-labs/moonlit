@@ -1,7 +1,7 @@
 ﻿<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Release" type="DotNetProject" factoryName=".NET Project">
+  <configuration default="false" name="Release Local" type="DotNetProject" factoryName=".NET Project">
     <option name="EXE_PATH" value="$PROJECT_DIR$/Wolfware.Moonlit.Cli/bin/Debug/net9.0/Wolfware.Moonlit.Cli.exe" />
-    <option name="PROGRAM_PARAMETERS" value="release" />
+    <option name="PROGRAM_PARAMETERS" value="release -f release.local.yml" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Wolfware.Moonlit.Cli/bin/Debug/net9.0" />
     <option name="PASS_PARENT_ENVS" value="1" />
     <option name="USE_EXTERNAL_CONSOLE" value="0" />

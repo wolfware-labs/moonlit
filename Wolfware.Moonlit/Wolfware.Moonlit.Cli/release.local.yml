@@ -2,15 +2,15 @@ name: "Test Release"
 
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0-next.2"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
   - name: "gh"
-    url: "nuget://Wolfware.Moonlit.Plugins.GitHub/1.0.0-next.2"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.2"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
   - name: "slack"
-    url: "nuget://Wolfware.Moonlit.Plugins.Slack/1.0.0-next.2"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Slack/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Slack.dll"
     config:
       token: $(SLACK_TOKEN)
 
@@ -46,7 +46,7 @@ stages:
       config:
         name: "Release $(output:version:nextVersion)"
         tag: $(output:version:nextVersion)
-        label: "released on $(output:repo:branch)"
+        label: "released on @$(output:repo:branch)"
         changelog: $(output:changelog:entries)
         prerelease: $(output:version:isPrerelease)
         pullRequests: $(output:items:pullRequests)
