@@ -94,7 +94,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
   {
     var markdown = new System.Text.StringBuilder();
 
-    foreach (var category in changelog)
+    foreach (var category in changelog.Where(x => x.Entries.Length > 0))
     {
       markdown.AppendLine($"### {category.Icon} {category.Name}");
       markdown.AppendLine($"#### {category.Summary}");
