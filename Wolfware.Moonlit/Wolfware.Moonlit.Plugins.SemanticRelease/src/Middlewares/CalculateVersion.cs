@@ -35,14 +35,17 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
   {
     if (configuration.Commits.Length == 0)
     {
-      this._logger.LogWarning("No commits provided for version calculation.");
-      return Task.FromResult(MiddlewareResult.Success());
+      return Task.FromResult(MiddlewareResult.Failure("No commits provided for version calculation."));
     }
 
     this._logger.LogInformation("Calculating next version based on {CommitCount} commits.",
       configuration.Commits.Length);
 
     var nextVersion = GetNextVersion(configuration);
+    if (nextVersion is null)
+    {
+      return Task.FromResult(MiddlewareResult.Failure("No version bump detected based on the provided commits."));
+    }
 
     this._logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
 
@@ -53,7 +56,7 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     }));
   }
 
-  private SemVersion GetNextVersion(Configuration configuration)
+  private SemVersion? GetNextVersion(Configuration configuration)
   {
     var prereleaseSuffix = GetPrereleaseSuffix(configuration);
     if (string.IsNullOrWhiteSpace(configuration.BaseVersion))

@@ -21,7 +21,7 @@ stages:
     - name: items
       run: gh.items-since-commit
       config:
-        tag: $(output:tag:commitSha)
+        sha: $(output:tag:commitSha)
     - name: version
       run: sr.calculate-version
       config:

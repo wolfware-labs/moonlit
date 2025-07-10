@@ -12,7 +12,7 @@ public sealed class SemanticVersionCalculator
     _commitsAnalyzer = commitsAnalyzer;
   }
 
-  public SemVersion CalculateNextVersion(SemVersion baseVersion, ConventionalCommit[] commits, string? suffix = null)
+  public SemVersion? CalculateNextVersion(SemVersion baseVersion, ConventionalCommit[] commits, string? suffix = null)
   {
     ArgumentNullException.ThrowIfNull(baseVersion, nameof(baseVersion));
     ArgumentNullException.ThrowIfNull(commits, nameof(commits));
@@ -22,6 +22,10 @@ public sealed class SemanticVersionCalculator
     }
 
     var bumpType = _commitsAnalyzer.Analyze(commits);
+    if (bumpType == VersionBumpType.None)
+    {
+      return null;
+    }
 
     if (string.IsNullOrWhiteSpace(suffix))
     {
