@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.SemanticRelease.Models;
+﻿namespace Wolfware.Moonlit.Plugins.Github.Models;
 
 public sealed class ChangelogCategory
 {

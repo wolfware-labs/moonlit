@@ -79,7 +79,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
         new SystemChatMessage(
           "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
         new UserChatMessage(
-          $"Please review the following list of commit messages in JSON format containing the commit SHA and the commit Message. Return only the SHA of those that are relevant to end users and should be included in a changelog. Ignore any commits related to internal documentation, refactoring, or non-user-facing changes. The commit list is as follows: {commitsJson}. Return the filtered list as an array of strings. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
+          $"Please review the following list of commit messages in JSON format containing the commit SHA and the commit Message. Return only the SHA of those that are relevant to end users and should be included in a changelog. Ignore any commits related to internal documentation, refactoring, or non-user-facing changes. The commits are following conventional commits specification. The commit list is as follows: {commitsJson}. Return the filtered list as an array of strings. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
       );
 
       if (completion.Value.Content.Count == 0)
@@ -115,7 +115,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
         new SystemChatMessage(
           "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
         new UserChatMessage(
-          $"Please transform the following list of commit messages in JSON format containing the commit SHA and the commit Message, replacing the Message for a more user-friendly changelog entry. Ensure the entries are clear, concise, and highlight the value to the end user. The commit list is as follows: {commitsJson}. Return the filtered list in JSON format as an array of objects with the fields 'Sha' and 'Description' where the Sha field contains the commit SHA and the Description field contains the refined message. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
+          $"Please transform the following list of commit messages in JSON format containing the commit SHA and the commit Message, replacing the Message for a more user-friendly changelog entry. Ensure the entries are clear, concise, and highlight the value to the end user. Keep in mind that the original commits are following conventional commits specification. The commit list is as follows: {commitsJson}. Return the filtered list in JSON format as an array of objects with the fields 'Sha' and 'Description' where the Sha field contains the commit SHA and the Description field contains the refined message. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
       );
       if (completion.Value.Content.Count == 0)
       {
@@ -164,9 +164,9 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
       new SystemChatMessage(
         "You are an expert at generating and organizing changelogs."),
       new UserChatMessage(
-        $"Please take the following list of refined changelog entries and categorize each entry into one of the following categories: 'New Features,' 'Bug Fixes,' or 'Improvements.' Return the categorized entries as a JSON array, where each object includes the category and the original entry. The entries are as follows: {entriesJson}."),
+        $"Please take the following list of refined changelog entries and categorize each entry into standard changelog categories. Return the categorized entries as a JSON array, where each object includes the category and the original entry. The entries are as follows: {entriesJson}."),
       new UserChatMessage(
-        "Based on the categorized changelog entries, please generate a brief summary for each category and provide a heading for each section. Return the final result in JSON format, with each category having a heading, a summary, and the list of entries. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly."
+        "Based on the categorized changelog entries, please generate a brief summary for each category and provide a heading for each section. Return the final result in JSON format, with each category having a heading, an emoji in text format, a summary, and the list of entries. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly."
       )
     );
     if (completion.Value.Content.Count == 0)

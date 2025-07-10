@@ -90,17 +90,18 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return createdRelease;
   }
 
-  private string CreateMarkdown(string repositoryUrl, Dictionary<string, ChangelogEntry[]> changelog)
+  private string CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
   {
     var markdown = new System.Text.StringBuilder();
 
-    foreach (var entry in changelog)
+    foreach (var category in changelog)
     {
-      markdown.AppendLine($"## {entry.Key}");
-      foreach (var item in entry.Value)
+      markdown.AppendLine($"## {category.Emoji} {category.Summary}");
+      markdown.AppendLine($"### {category.Summary}");
+      foreach (var item in category.Entries)
       {
         markdown.AppendLine(
-          $"- {item.Description} ([{item.Sha[..7]}]({repositoryUrl}/commit/{item.Sha}))");
+          $"- {item.Description}");
       }
 
       markdown.AppendLine();

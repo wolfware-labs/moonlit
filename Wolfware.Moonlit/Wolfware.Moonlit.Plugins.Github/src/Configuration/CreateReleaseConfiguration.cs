@@ -12,7 +12,7 @@ public sealed class CreateReleaseConfiguration
 
   public string? Body { get; set; }
 
-  public Dictionary<string, ChangelogEntry[]>? Changelog { get; set; }
+  public ChangelogCategory[] Changelog { get; set; } = [];
 
   public bool Draft { get; set; } = false;
 
