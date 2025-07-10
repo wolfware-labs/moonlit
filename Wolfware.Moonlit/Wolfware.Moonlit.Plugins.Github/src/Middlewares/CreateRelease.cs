@@ -78,8 +78,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     var release = new NewRelease(configuration.Tag)
     {
       Name = configuration.Name,
-      Body = configuration.Body ??
-             await CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog),
+      Body = configuration.Body ?? CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog),
       Draft = configuration.Draft,
       Prerelease = configuration.PreRelease
     };
@@ -90,9 +89,8 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return createdRelease;
   }
 
-  private async Task<string> CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
+  private string CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
   {
-    var pullRequests = await this._gitHubContext!.GetPullRequests(new PullRequestRequest {State = ItemStateFilter.All});
     var markdown = new System.Text.StringBuilder();
 
     foreach (var category in changelog)
@@ -101,14 +99,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
       markdown.AppendLine($"#### {category.Summary}");
       foreach (var item in category.Entries)
       {
-        markdown.Append($"- {item.Description}");
-        var pullRequest = pullRequests.FirstOrDefault(pr => pr.MergeCommitSha == item.Sha);
-        if (pullRequest != null)
-        {
-          markdown.Append($" ([#{pullRequest.Number}]({repositoryUrl}/pull/{pullRequest.Number}))");
-        }
-
-        markdown.AppendLine();
+        markdown.AppendLine($"- {item.Description} ([{item.Sha[..7]}]({repositoryUrl}/commit/{item.Sha}))");
       }
 
       markdown.AppendLine();
