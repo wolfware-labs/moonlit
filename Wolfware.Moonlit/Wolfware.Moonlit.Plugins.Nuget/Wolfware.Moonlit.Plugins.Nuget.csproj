@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Wolfware.Moonlit.Plugins.Nuget</PackageId>
+    <Authors>Wolfware Team</Authors>
+    <Company>Wolfware LLC</Company>
+    <Description>Plugin for managing Nuget packages in Moonlit release automation system</Description>
+    <Title>Moonlit Nuget Plugin</Title>
+    <Summary>Moonlit Nuget plugin for managing Nuget packages in release automation</Summary>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageIcon>icon.png</PackageIcon>
+    <Copyright>© 2025 Wolfware LLC</Copyright>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
+    <!--    <RepositoryType>git</RepositoryType>-->
+    <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
+    <PackageTags>Wolfware;Moonlit;Plugins;Nuget</PackageTags>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0-next.2</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <InformationalVersion>1.0.0-next.2</InformationalVersion>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\"/>
+    <None Include="LICENSE.txt" Pack="true" PackagePath="\"/>
+    <None Include="icon.png" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+</Project>

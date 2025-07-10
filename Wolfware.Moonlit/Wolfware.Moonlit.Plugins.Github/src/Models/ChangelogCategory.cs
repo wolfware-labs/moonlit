@@ -2,9 +2,9 @@
 
 public sealed class ChangelogCategory
 {
-  public string Heading { get; set; } = string.Empty;
+  public string Name { get; set; } = string.Empty;
 
-  public string Emoji { get; set; } = string.Empty;
+  public string Icon { get; set; } = string.Empty;
 
   public string Summary { get; set; } = string.Empty;
 

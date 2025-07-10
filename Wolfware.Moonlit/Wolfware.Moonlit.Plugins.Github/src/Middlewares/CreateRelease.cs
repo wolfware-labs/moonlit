@@ -62,8 +62,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
       return MiddlewareResult.Failure("Release name or tag is not specified.");
     }
 
-    if (string.IsNullOrWhiteSpace(configuration.Body) &&
-        (configuration.Changelog == null || configuration.Changelog.Count == 0))
+    if (string.IsNullOrWhiteSpace(configuration.Body) && configuration.Changelog.Length == 0)
     {
       return MiddlewareResult.Failure("Release body is not specified and no changelog entries are provided.");
     }
@@ -79,7 +78,8 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     var release = new NewRelease(configuration.Tag)
     {
       Name = configuration.Name,
-      Body = configuration.Body ?? CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog!),
+      Body = configuration.Body ??
+             await CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog),
       Draft = configuration.Draft,
       Prerelease = configuration.PreRelease
     };
@@ -90,18 +90,25 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return createdRelease;
   }
 
-  private string CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
+  private async Task<string> CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
   {
+    var pullRequests = await this._gitHubContext!.GetPullRequests(new PullRequestRequest {State = ItemStateFilter.All});
     var markdown = new System.Text.StringBuilder();
 
     foreach (var category in changelog)
     {
-      markdown.AppendLine($"## {category.Emoji} {category.Summary}");
-      markdown.AppendLine($"### {category.Summary}");
+      markdown.AppendLine($"### {category.Icon} {category.Name}");
+      markdown.AppendLine($"#### {category.Summary}");
       foreach (var item in category.Entries)
       {
-        markdown.AppendLine(
-          $"- {item.Description}");
+        markdown.Append($"- {item.Description}");
+        var pullRequest = pullRequests.FirstOrDefault(pr => pr.MergeCommitSha == item.Sha);
+        if (pullRequest != null)
+        {
+          markdown.Append($" ([#{pullRequest.Number}]({repositoryUrl}/pull/{pullRequest.Number}))");
+        }
+
+        markdown.AppendLine();
       }
 
       markdown.AppendLine();

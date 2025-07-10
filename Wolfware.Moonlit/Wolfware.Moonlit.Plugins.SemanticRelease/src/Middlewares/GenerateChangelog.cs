@@ -164,9 +164,12 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
       new SystemChatMessage(
         "You are an expert at generating and organizing changelogs."),
       new UserChatMessage(
-        $"Please take the following list of refined changelog entries and categorize each entry into standard changelog categories. Return the categorized entries as a JSON array, where each object includes the category and the original entry. The entries are as follows: {entriesJson}."),
-      new UserChatMessage(
-        "Based on the categorized changelog entries, please generate a brief summary for each category and provide a heading for each section. Return the final result in JSON format, with each category having a heading, an emoji in text format, a summary, and the list of entries. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly."
+        "Please take the following list of refined changelog entries and categorize each entry into standard changelog categories." +
+        "Based on the categorized changelog entries, please generate a brief summary for each category and provide a heading for each section." +
+        "Include an emoji in text format for each category to enhance readability." +
+        "Return the final result in JSON format, with each category having the following fields: name, icon, summary and entries" +
+        "DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly." +
+        $"The entries are as follows: {entriesJson}."
       )
     );
     if (completion.Value.Content.Count == 0)
