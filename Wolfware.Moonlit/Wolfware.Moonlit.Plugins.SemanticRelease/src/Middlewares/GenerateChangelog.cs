@@ -77,9 +77,18 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
         batch.Select(commit => JsonSerializer.Serialize(new {commit.Sha, commit.Message})));
       var completion = await client.CompleteChatAsync(
         new SystemChatMessage(
-          "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
+          "You are an expert at generating accurate and user-friendly changelogs based on commit messages."
+          ),
         new UserChatMessage(
-          $"Please review the following list of commit messages in JSON format containing the commit SHA and the commit Message. Return only the SHA of those that are relevant to end users and should be included in a changelog. Ignore any commits related to internal documentation, refactoring, or non-user-facing changes. The commits are following conventional commits specification. The commit list is as follows: {commitsJson}. Return the filtered list as an array of strings. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
+          $"Please review the following list of commit messages in JSON format containing the commit SHA and the commit Message." +
+          $"Return only the SHA of those that are relevant to end users and should be included in a changelog." +
+          $"Ignore any commits related to internal documentation, refactoring, or non-user-facing changes." +
+          $"The commits are following conventional commits specification." +
+          $"The commit list is as follows: {commitsJson}." +
+          $"Return the filtered list as an array of strings." +
+          $"DO NOT wrap the array in markdown or any other formatting." +
+          $"Just return the JSON array directly."
+          )
       );
 
       if (completion.Value.Content.Count == 0)
@@ -115,7 +124,13 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
         new SystemChatMessage(
           "You are an expert at generating accurate and user-friendly changelogs based on commit messages."),
         new UserChatMessage(
-          $"Please transform the following list of commit messages in JSON format containing the commit SHA and the commit Message, replacing the Message for a more user-friendly changelog entry. Ensure the entries are clear, concise, and highlight the value to the end user. Keep in mind that the original commits are following conventional commits specification. The commit list is as follows: {commitsJson}. Return the filtered list in JSON format as an array of objects with the fields 'Sha' and 'Description' where the Sha field contains the commit SHA and the Description field contains the refined message. DO NOT wrap the array in markdown or any other formatting. Just return the JSON array directly.")
+          $"Please transform the following list of commit messages in JSON format containing the commit SHA and the commit Message, replacing the Message for a more user-friendly changelog entry." +
+          $"Ensure the entries are clear, concise, and highlight the value to the end user." +
+          $"Keep in mind that the original commits are following conventional commits specification." +
+          $"The commit list is as follows: {commitsJson}." +
+          $"Return the filtered list in JSON format as an array of objects with the fields 'Sha' and 'Description' where the Sha field contains the commit SHA and the Description field contains the refined message." +
+          $"DO NOT wrap the array in markdown or any other formatting." +
+          $"Just return the JSON array directly.")
       );
       if (completion.Value.Content.Count == 0)
       {
