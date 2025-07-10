@@ -29,7 +29,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     }
 
     this._gitHubContext = await this._gitHubContextProvider.GetCurrentContext(context);
-    var release = await CreateGitHubRelease(context, configuration).ConfigureAwait(false);
+    var release = await CreateGitHubRelease(configuration).ConfigureAwait(false);
     if (configuration.PullRequests is {Length: > 0})
     {
       await this.AnnotatePullRequests(release, configuration.PullRequests);
@@ -70,7 +70,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return null;
   }
 
-  private async Task<Release> CreateGitHubRelease(ReleaseContext context, CreateReleaseConfiguration configuration)
+  private async Task<Release> CreateGitHubRelease(CreateReleaseConfiguration configuration)
   {
     this._logger.LogInformation("Creating release '{ReleaseName}' with tag '{TagName}'.", configuration.Name,
       configuration.Tag);
@@ -78,7 +78,8 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     var release = new NewRelease(configuration.Tag)
     {
       Name = configuration.Name,
-      Body = configuration.Body ?? CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog),
+      Body = configuration.Body ??
+             CreateRelease.CreateMarkdown(this._gitHubContext!.Repository.HtmlUrl, configuration.Changelog),
       Draft = configuration.Draft,
       Prerelease = configuration.PreRelease
     };
@@ -89,7 +90,7 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
     return createdRelease;
   }
 
-  private string CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
+  private static string CreateMarkdown(string repositoryUrl, ChangelogCategory[] changelog)
   {
     var markdown = new System.Text.StringBuilder();
 
