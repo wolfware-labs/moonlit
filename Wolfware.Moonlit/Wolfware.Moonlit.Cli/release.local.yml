@@ -9,6 +9,11 @@ plugins:
       token: $(GITHUB_TOKEN)
   - name: "sr"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+  - name: "nuget"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Nuget/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Nuget.dll"
+    config:
+      source: "https://api.nuget.org/v3/index.json"
+      apiKey: $(NUGET_API_KEY)
 
 stages:
   analyze:
@@ -30,13 +35,24 @@ stages:
         commits: $(output:items:commits)
         prereleaseMappings:
           main: next
+
+  build:
+    - name: pack
+      run: nuget.pack
+      config:
+        project: "../../../Wolfware.Moonlit.Cli.csproj"
+        version: $(output:version:nextFullVersion)
+    - name: publish
+      run: nuget.push
+      config:
+        package: $(output:pack:packagePath)
+
+  release:
     - name: changelog
       run: sr.generate-changelog
       config:
         commits: $(output:items:commits)
         openAiKey: $(OPENAI_API_KEY)
-
-  release:
     - name: createRelease
       run: gh.create-release
       config:

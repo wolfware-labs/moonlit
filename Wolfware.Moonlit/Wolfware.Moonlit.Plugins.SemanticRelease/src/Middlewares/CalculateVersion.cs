@@ -51,7 +51,8 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
-      output.Add("NextVersion", nextVersion.ToString());
+      output.Add("NextVersion", nextVersion.WithoutMetadata().ToString());
+      output.Add("NextFullVersion", nextVersion.ToString());
       output.Add("IsPrerelease", nextVersion.IsPrerelease);
     }));
   }
@@ -59,16 +60,17 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
   private SemVersion? GetNextVersion(Configuration configuration)
   {
     var prereleaseSuffix = GetPrereleaseSuffix(configuration);
+    var metadata = $"sha-{configuration.Commits.OrderBy(c => c.Date).Last().Sha[..7]}";
     if (string.IsNullOrWhiteSpace(configuration.BaseVersion))
     {
-      return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix);
+      return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix).WithMetadata(metadata);
     }
 
     var analyzer = new CommitsAnalyzer(configuration.CommitRules);
     var calculator = new SemanticVersionCalculator(analyzer);
     var baseVersion = SemVersion.Parse(configuration.BaseVersion);
     var commits = ConventionalCommitParser.Parse(configuration.Commits.Select(c => c.Message).ToArray());
-    return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix);
+    return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix)?.WithMetadata(metadata);
   }
 
   private string? GetPrereleaseSuffix(Configuration configuration)
