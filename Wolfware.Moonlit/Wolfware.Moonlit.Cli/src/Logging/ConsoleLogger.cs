@@ -22,10 +22,8 @@ public sealed class ConsoleLogger : ILogger
   {
     var filters = _filterAccessor().Rules;
 
-    // Find the first matching rule:
     foreach (var rule in filters)
     {
-      // rule.ProviderName == null means “any provider”
       var providerMatches = rule.ProviderName is null or nameof(ConsoleLoggerProvider);
       var categoryMatches = rule.CategoryName == null || _indentation.StartsWith(rule.CategoryName);
 
@@ -33,7 +31,6 @@ public sealed class ConsoleLogger : ILogger
         return logLevel >= rule.LogLevel;
     }
 
-    // No rule matched? apply default (true)
     return true;
   }
 
