@@ -18,7 +18,10 @@ public partial class ConsoleLoggerProvider : ILoggerProvider
 
   public ILogger CreateLogger(string categoryName)
   {
-    return new ConsoleLogger(this.GetCategory(categoryName), () => _filterOptions);
+    var indentation = categoryName.Contains("Plugin", StringComparison.OrdinalIgnoreCase) ? "\t" : string.Empty;
+    var showLevel = !categoryName.StartsWith("Wolfware.Moonlit", StringComparison.OrdinalIgnoreCase) ||
+                    categoryName.Contains("Plugin", StringComparison.OrdinalIgnoreCase);
+    return new ConsoleLogger(indentation, showLevel, () => _filterOptions);
   }
 
   public void Dispose()
@@ -55,6 +58,6 @@ public partial class ConsoleLoggerProvider : ILoggerProvider
     return categoryBuilder.ToString();
   }
 
-  [GeneratedRegex(@"^(?:Wolfware\.Moonlit\.?(?:Core\.)?(?:Plugins\.)?)(?<context>.*?)?(\..*)?\.(?<className>[^\.]*)$")]
+  [GeneratedRegex(@"^.+\.(?<className>.+)$")]
   private static partial Regex CategoryRegex();
 }

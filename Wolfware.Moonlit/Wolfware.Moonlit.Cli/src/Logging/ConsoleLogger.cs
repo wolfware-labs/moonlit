@@ -5,12 +5,14 @@ namespace Wolfware.Moonlit.Cli.Logging;
 
 public sealed class ConsoleLogger : ILogger
 {
-  private readonly string _categoryName;
+  private readonly string _indentation;
+  private readonly bool _showLevel;
   private readonly Func<LoggerFilterOptions> _filterAccessor;
 
-  public ConsoleLogger(string categoryName, Func<LoggerFilterOptions> getFilters)
+  public ConsoleLogger(string indentation, bool showLevel, Func<LoggerFilterOptions> getFilters)
   {
-    _categoryName = categoryName;
+    _indentation = indentation;
+    _showLevel = showLevel;
     _filterAccessor = getFilters;
   }
 
@@ -25,7 +27,7 @@ public sealed class ConsoleLogger : ILogger
     {
       // rule.ProviderName == null means “any provider”
       var providerMatches = rule.ProviderName is null or nameof(ConsoleLoggerProvider);
-      var categoryMatches = rule.CategoryName == null || _categoryName.StartsWith(rule.CategoryName);
+      var categoryMatches = rule.CategoryName == null || _indentation.StartsWith(rule.CategoryName);
 
       if (providerMatches && categoryMatches)
         return logLevel >= rule.LogLevel;
@@ -42,19 +44,23 @@ public sealed class ConsoleLogger : ILogger
       return;
 
     var message = formatter(state, exception);
-    var levelLabel = logLevel switch
+    var levelLabel = string.Empty;
+    if (this._showLevel)
     {
-      LogLevel.Trace => "[grey]TRACE[/]",
-      LogLevel.Debug => "[blue]DEBUG[/]",
-      LogLevel.Information => "[green]INFO[/]",
-      LogLevel.Warning => "[yellow]WARN[/]",
-      LogLevel.Error => "[red]ERROR[/]",
-      LogLevel.Critical => "[bold red]CRITICAL[/]",
-      _ => "[white]UNKNOWN[/]"
-    };
+      levelLabel = logLevel switch
+      {
+        LogLevel.Trace => "[grey]TRACE[/]",
+        LogLevel.Debug => "[blue]DEBUG[/]",
+        LogLevel.Information => "[green]INFO[/]",
+        LogLevel.Warning => "[yellow]WARN[/]",
+        LogLevel.Error => "[red]ERROR[/]",
+        LogLevel.Critical => "[bold red]CRITICAL[/]",
+        _ => "[white]UNKNOWN[/]"
+      };
+    }
 
     AnsiConsole.MarkupLine(
-      $"[steelblue][[[/][khaki3]{DateTime.Now:HH:mm:ss}[/][steelblue]]][/] [gray][[{_categoryName}]][/] {levelLabel} {Markup.Escape(message)}");
+      $"[steelblue][[[/][khaki3]{DateTime.Now:HH:mm:ss}[/][steelblue]]][/] {_indentation} {levelLabel} {Markup.Escape(message)}");
 
     if (exception != null)
     {

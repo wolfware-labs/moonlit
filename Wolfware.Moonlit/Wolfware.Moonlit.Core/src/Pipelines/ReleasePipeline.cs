@@ -59,20 +59,28 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        this._logger.LogInformation(">>> Start Step: {MiddlewareName} <<<", middlewareContext.Name);
+        this._logger.LogInformation("===================================================");
+        this._logger.LogInformation("Executing {MiddlewareName} ({MiddlewareType})", middlewareContext.Name,
+          middlewareContext.Middleware.GetType().Name);
         if (this._logger.IsEnabled(LogLevel.Debug))
         {
-          this._logger.LogDebug("Middleware configuration: {Configuration}",
+          this._logger.LogDebug("Configuration: {Configuration}",
             JsonSerializer.Serialize(middlewareContext.Configuration, JsonSerializerOptions.Default));
         }
+
+        this._logger.LogInformation("===================================================");
 
         var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
         var stopwatch = Stopwatch.StartNew();
         result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
           .ConfigureAwait(false);
         stopwatch.Stop();
-        this._logger.LogInformation("<<< End Step: {MiddlewareName} [{ElapsedMilliseconds} ms] >>>",
-          middlewareContext.Name, stopwatch.ElapsedMilliseconds);
+        this._logger.LogInformation("--------------------------------------------------");
+        this._logger.LogInformation("{MiddlewareResult} - Execution time: {ElapsedMilliseconds} ms.",
+          result.IsSuccessful ? "SUCCESS" : "FAILED", stopwatch.ElapsedMilliseconds);
+        this._logger.LogInformation("--------------------------------------------------");
+        this._logger.LogInformation("");
+        this._logger.LogInformation("");
 
         if (result.Warnings.Count > 0)
         {
