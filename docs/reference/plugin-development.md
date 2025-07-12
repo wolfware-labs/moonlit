@@ -45,54 +45,48 @@ using Wolfware.Moonlit.Plugins;
 
 namespace MyCompany.Moonlit.Plugins.MyPlugin
 {
-    public class MyPluginStartup : PluginStartup
+    public sealed class MyPluginStartup : PluginStartup
     {
-        public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+        protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
         {
             // Register services
             services.AddSingleton<IMyService, MyService>();
-            
-            // Register middlewares
-            services.AddTransient<MyMiddleware>();
         }
-        
-        public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
+
+        protected override void AddMiddlewares(IServiceCollection services)
         {
             // Register middlewares with names
-            registry.Register("my-middleware", typeof(MyMiddleware));
+            services.AddMiddleware<MyMiddleware>("my-middleware");
         }
     }
 }
 ```
 
-### ConfigureServices Method
+### ConfigurePlugin Method
 
-The `ConfigureServices` method is where you register your services and middlewares with the dependency injection container. This method is called when the plugin is loaded.
+The `ConfigurePlugin` method is where you register your services with the dependency injection container. This method is called when the plugin is loaded.
 
 ```csharp
-public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
 {
     // Register services
     services.AddSingleton<IMyService, MyService>();
-    
-    // Register middlewares
-    services.AddTransient<MyMiddleware>();
-    
+
     // Bind configuration
     services.Configure<MyPluginOptions>(configuration);
 }
 ```
 
-### ConfigureMiddlewares Method
+### AddMiddlewares Method
 
-The `ConfigureMiddlewares` method is where you register your middlewares with the middleware registry. This method is called after `ConfigureServices`.
+The `AddMiddlewares` method is where you register your middlewares with the dependency injection container. This method is called after `ConfigurePlugin`.
 
 ```csharp
-public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
+protected override void AddMiddlewares(IServiceCollection services)
 {
     // Register middlewares with names
-    registry.Register("my-middleware", typeof(MyMiddleware));
-    registry.Register("another-middleware", typeof(AnotherMiddleware));
+    services.AddMiddleware<MyMiddleware>("my-middleware");
+    services.AddMiddleware<AnotherMiddleware>("another-middleware");
 }
 ```
 
@@ -115,28 +109,28 @@ namespace MyCompany.Moonlit.Plugins.MyPlugin
     {
         private readonly ILogger<MyMiddleware> _logger;
         private readonly IMyService _myService;
-        
+
         public MyMiddleware(ILogger<MyMiddleware> logger, IMyService myService)
         {
             _logger = logger;
             _myService = myService;
         }
-        
+
         public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
         {
             _logger.LogInformation("Executing MyMiddleware");
-            
+
             // Get configuration from context
             var config = context.GetConfig<MyMiddlewareConfig>();
-            
+
             // Execute middleware logic
             var result = await _myService.DoSomethingAsync(config.SomeOption);
-            
-            // Add output to context
-            context.AddOutput("result", result);
-            
-            // Return success
-            return MiddlewareResult.Success();
+
+            // Return success with output
+            return MiddlewareResult.Success(output =>
+            {
+                output.Add("result", result);
+            });
         }
     }
 }
@@ -163,17 +157,29 @@ context.AddOutput("outputName", "outputValue");
 
 ### Middleware Result
 
-The `MiddlewareResult` indicates the success or failure of the middleware execution:
+The `MiddlewareResult` class represents the result of a middleware execution and provides information about its success or failure, along with any output or warnings:
 
 ```csharp
-// Return success
+// Return success without output
 return MiddlewareResult.Success();
+
+// Return success with output
+return MiddlewareResult.Success(output => 
+{
+    output.Add("key", "value");
+});
 
 // Return failure with error message
 return MiddlewareResult.Failure("Something went wrong");
 
-// Return failure with exception
-return MiddlewareResult.Failure(exception);
+// Return success with a warning
+return MiddlewareResult.Warning("This is a warning");
+
+// Return success with a warning and output
+return MiddlewareResult.Warning("This is a warning", output => 
+{
+    output.Add("key", "value");
+});
 ```
 
 ## Configuration Classes
@@ -187,7 +193,7 @@ namespace MyCompany.Moonlit.Plugins.MyPlugin
     {
         public string GlobalOption { get; set; }
     }
-    
+
     public class MyMiddlewareConfig
     {
         public string SomeOption { get; set; }
@@ -209,7 +215,7 @@ namespace MyCompany.Moonlit.Plugins.MyPlugin
     {
         Task<string> DoSomethingAsync(string input);
     }
-    
+
     public class MyService : IMyService
     {
         public async Task<string> DoSomethingAsync(string input)
@@ -290,17 +296,16 @@ using Wolfware.Moonlit.Plugins;
 
 namespace MyCompany.Moonlit.Plugins.Random
 {
-    public class RandomPluginStartup : PluginStartup
+    public sealed class RandomPluginStartup : PluginStartup
     {
-        public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+        protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
         {
             services.AddSingleton<IRandomService, RandomService>();
-            services.AddTransient<GenerateRandomNumberMiddleware>();
         }
-        
-        public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
+
+        protected override void AddMiddlewares(IServiceCollection services)
         {
-            registry.Register("generate", typeof(GenerateRandomNumberMiddleware));
+            services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
         }
     }
 }
@@ -314,11 +319,11 @@ namespace MyCompany.Moonlit.Plugins.Random
     {
         int GenerateNumber(int min, int max);
     }
-    
+
     public class RandomService : IRandomService
     {
         private readonly System.Random _random = new System.Random();
-        
+
         public int GenerateNumber(int min, int max)
         {
             return _random.Next(min, max + 1);
@@ -338,12 +343,12 @@ namespace MyCompany.Moonlit.Plugins.Random
         public int Min { get; set; } = 1;
         public int Max { get; set; } = 100;
     }
-    
+
     public class GenerateRandomNumberMiddleware : IMiddleware
     {
         private readonly ILogger<GenerateRandomNumberMiddleware> _logger;
         private readonly IRandomService _randomService;
-        
+
         public GenerateRandomNumberMiddleware(
             ILogger<GenerateRandomNumberMiddleware> logger,
             IRandomService randomService)
@@ -351,20 +356,21 @@ namespace MyCompany.Moonlit.Plugins.Random
             _logger = logger;
             _randomService = randomService;
         }
-        
+
         public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
         {
             _logger.LogInformation("Generating random number");
-            
+
             var config = context.GetConfig<GenerateRandomNumberConfig>();
-            
+
             var number = _randomService.GenerateNumber(config.Min, config.Max);
-            
+
             _logger.LogInformation($"Generated random number: {number}");
-            
-            context.AddOutput("number", number);
-            
-            return Task.FromResult(MiddlewareResult.Success());
+
+            return Task.FromResult(MiddlewareResult.Success(output =>
+            {
+                output.Add("number", number);
+            }));
         }
     }
 }

@@ -42,22 +42,25 @@ When Moonlit starts, it:
 In your plugin's startup class, you can register services with the DI container:
 
 ```csharp
-public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
 {
     // Register a singleton service
     services.AddSingleton<IMyService, MyService>();
-    
+
     // Register a transient service
     services.AddTransient<IMyTransientService, MyTransientService>();
-    
+
     // Register a scoped service
     services.AddScoped<IMyScopedService, MyScopedService>();
-    
-    // Register middlewares
-    services.AddTransient<MyMiddleware>();
-    
+
     // Bind configuration
     services.Configure<MyPluginOptions>(configuration);
+}
+
+protected override void AddMiddlewares(IServiceCollection services)
+{
+    // Register middlewares
+    services.AddMiddleware<MyMiddleware>("my-middleware");
 }
 ```
 
@@ -85,7 +88,7 @@ public class MyMiddleware : IMiddleware
     private readonly ILogger<MyMiddleware> _logger;
     private readonly IMyService _myService;
     private readonly IOptions<MyPluginOptions> _options;
-    
+
     public MyMiddleware(
         ILogger<MyMiddleware> logger,
         IMyService myService,
@@ -95,17 +98,17 @@ public class MyMiddleware : IMiddleware
         _myService = myService;
         _options = options;
     }
-    
+
     public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
     {
         _logger.LogInformation("Executing MyMiddleware");
-        
+
         // Use the injected services
         var result = await _myService.DoSomethingAsync();
-        
+
         // Use the options
         var option = _options.Value.SomeOption;
-        
+
         // Return success
         return MiddlewareResult.Success();
     }
@@ -131,7 +134,7 @@ public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
     _logger.LogInformation("This is an information message");
     _logger.LogWarning("This is a warning message");
     _logger.LogError("This is an error message");
-    
+
     return Task.FromResult(MiddlewareResult.Success());
 }
 ```
@@ -149,7 +152,7 @@ public MyMiddleware(IOptions<MyPluginOptions> options)
 public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 {
     var option = _options.Value.SomeOption;
-    
+
     return Task.FromResult(MiddlewareResult.Success());
 }
 ```
@@ -168,7 +171,7 @@ public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 {
     var client = _httpClientFactory.CreateClient("MyClient");
     var response = await client.GetAsync("https://api.example.com");
-    
+
     return MiddlewareResult.Success();
 }
 ```
@@ -185,10 +188,11 @@ The most common way to share data between middlewares is through the pipeline co
 // In the first middleware
 public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 {
-    // Add data to the context
-    context.AddOutput("myData", "Hello, World!");
-    
-    return Task.FromResult(MiddlewareResult.Success());
+    // Return success with output
+    return Task.FromResult(MiddlewareResult.Success(output =>
+    {
+        output.Add("myData", "Hello, World!");
+    }));
 }
 
 // In a later middleware
@@ -196,7 +200,7 @@ public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 {
     // Get data from the context
     var myData = context.GetOutput<string>("previousStep", "myData");
-    
+
     return Task.FromResult(MiddlewareResult.Success());
 }
 ```
@@ -216,12 +220,12 @@ public interface IPipelineState
 public class PipelineState : IPipelineState
 {
     private readonly Dictionary<string, string> _values = new Dictionary<string, string>();
-    
+
     public string GetValue(string key)
     {
         return _values.TryGetValue(key, out var value) ? value : null;
     }
-    
+
     public void SetValue(string key, string value)
     {
         _values[key] = value;
@@ -229,7 +233,7 @@ public class PipelineState : IPipelineState
 }
 
 // Register the service as scoped
-public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
 {
     services.AddScoped<IPipelineState, PipelineState>();
 }
@@ -238,17 +242,17 @@ public override void ConfigureServices(IServiceCollection services, IConfigurati
 public class FirstMiddleware : IMiddleware
 {
     private readonly IPipelineState _state;
-    
+
     public FirstMiddleware(IPipelineState state)
     {
         _state = state;
     }
-    
+
     public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
     {
         // Set data in the state
         _state.SetValue("myKey", "myValue");
-        
+
         return Task.FromResult(MiddlewareResult.Success());
     }
 }
@@ -257,17 +261,17 @@ public class FirstMiddleware : IMiddleware
 public class SecondMiddleware : IMiddleware
 {
     private readonly IPipelineState _state;
-    
+
     public SecondMiddleware(IPipelineState state)
     {
         _state = state;
     }
-    
+
     public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
     {
         // Get data from the state
         var value = _state.GetValue("myKey");
-        
+
         return Task.FromResult(MiddlewareResult.Success());
     }
 }
@@ -289,7 +293,7 @@ public class GlobalState : IGlobalState
 {
     private readonly Dictionary<string, string> _values = new Dictionary<string, string>();
     private readonly object _lock = new object();
-    
+
     public string GetValue(string key)
     {
         lock (_lock)
@@ -297,7 +301,7 @@ public class GlobalState : IGlobalState
             return _values.TryGetValue(key, out var value) ? value : null;
         }
     }
-    
+
     public void SetValue(string key, string value)
     {
         lock (_lock)
@@ -308,7 +312,7 @@ public class GlobalState : IGlobalState
 }
 
 // Register the service as singleton
-public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
 {
     services.AddSingleton<IGlobalState, GlobalState>();
 }

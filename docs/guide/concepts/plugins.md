@@ -35,21 +35,18 @@ The startup class is the entry point for a plugin. It must implement the `IPlugi
 Here's a simplified example of a plugin startup class:
 
 ```csharp
-public class GitPluginStartup : PluginStartup
+public sealed class GitPluginStartup : PluginStartup
 {
-    public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+    protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
     {
         // Register services
         services.AddSingleton<IGitService, GitService>();
-        
-        // Register middlewares
-        services.AddTransient<RepoContextMiddleware>();
     }
-    
-    public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
+
+    protected override void AddMiddlewares(IServiceCollection services)
     {
         // Register middlewares with names
-        registry.Register("repo-context", typeof(RepoContextMiddleware));
+        services.AddMiddleware<RepoContextMiddleware>("repo-context");
     }
 }
 ```

@@ -408,19 +408,19 @@ public class MyMiddleware : ReleaseMiddleware<MyMiddlewareConfig>
 3. Register the middleware in your plugin's startup class:
 
 ```csharp
-public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+public sealed class MyPluginStartup : PluginStartup
 {
+  protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
+  {
     // Register services
     services.AddSingleton<IMyService, MyService>();
+  }
 
-    // Register middlewares
-    services.AddTransient<MyMiddleware>();
-}
-
-public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
-{
+  protected override void AddMiddlewares(IServiceCollection services)
+  {
     // Register middlewares with names
-    registry.Register("my-middleware", typeof(MyMiddleware));
+    services.AddMiddleware<MyMiddleware>("my-middleware");
+  }
 }
 ```
 
@@ -435,6 +435,112 @@ stages:
         someOption: "value"
         anotherOption: 42
 ```
+
+## Plugin Startup
+
+Plugins in Moonlit use a startup class to configure services and register middlewares. This section explains how to implement a plugin startup class.
+
+### IPluginStartup Interface
+
+All plugin startup classes implement the `IPluginStartup` interface:
+
+```csharp
+public interface IPluginStartup
+{
+  void Configure(IServiceCollection services, IConfiguration configuration);
+}
+```
+
+The `Configure` method is called when the plugin is loaded. It receives an `IServiceCollection` object and an `IConfiguration` object, and is responsible for configuring the plugin's services and middlewares.
+
+### PluginStartup Abstract Class
+
+While you can implement the `IPluginStartup` interface directly, it's recommended to inherit from the `PluginStartup` abstract class, which provides a more structured way to configure your plugin:
+
+```csharp
+public abstract class PluginStartup : IPluginStartup
+{
+  public void Configure(IServiceCollection services, IConfiguration configuration)
+  {
+    ArgumentNullException.ThrowIfNull(services);
+    ArgumentNullException.ThrowIfNull(configuration);
+
+    this.ConfigurePlugin(services, configuration);
+    this.AddMiddlewares(services);
+  }
+
+  protected virtual void ConfigurePlugin(IServiceCollection services, IConfiguration configuration) { }
+
+  protected abstract void AddMiddlewares(IServiceCollection services);
+}
+```
+
+The `PluginStartup` abstract class:
+
+- Implements the `IPluginStartup` interface
+- Provides a `Configure` method that calls two separate methods:
+  - `ConfigurePlugin`: For configuring plugin-specific services
+  - `AddMiddlewares`: For registering middlewares
+- Makes `ConfigurePlugin` virtual (optional to override)
+- Makes `AddMiddlewares` abstract (required to override)
+
+### Implementing a Plugin Startup Class
+
+To implement a plugin startup class, follow these steps:
+
+1. Create a class that inherits from `PluginStartup`:
+
+```csharp
+public sealed class GitHubPluginStartup : PluginStartup
+{
+  protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
+  {
+    services.Configure<GitHubConfiguration>(configuration);
+    services.AddSingleton<IGitHubClient>(svc =>
+    {
+      var githubConfig = svc.GetRequiredService<IOptions<GitHubConfiguration>>().Value;
+      if (string.IsNullOrWhiteSpace(githubConfig.Token))
+      {
+        throw new InvalidOperationException("GitHub token is not configured.");
+      }
+
+      return new GitHubClient(new ProductHeaderValue("Wolfware.Moonlit.Plugins.Github"))
+      {
+        Credentials = new Credentials(githubConfig.Token)
+      };
+    });
+    services.AddSingleton<IGitHubContextProvider, GitHubContextFactory>();
+  }
+
+  protected override void AddMiddlewares(IServiceCollection services)
+  {
+    services.AddMiddleware<GetLatestTag>("latest-tag");
+    services.AddMiddleware<GetItemsSinceCommit>("items-since-commit");
+    services.AddMiddleware<CreateRelease>("create-release");
+    services.AddMiddleware<WriteVariables>("write-variables");
+  }
+}
+```
+
+In this example:
+
+- The `ConfigurePlugin` method configures GitHub-specific services:
+  - Registers the configuration
+  - Registers the GitHub client
+  - Registers other services needed by the plugin
+- The `AddMiddlewares` method registers the middlewares provided by the plugin:
+  - Each middleware is registered with a unique name
+  - The name is used to reference the middleware in the pipeline configuration
+
+### Best Practices for Plugin Startup Classes
+
+1. **Keep Configuration Focused**: Each plugin should have its own configuration class that represents its specific configuration needs.
+
+2. **Use Dependency Injection**: Register services using the dependency injection container to make them available to your middlewares.
+
+3. **Use Meaningful Names**: Give your middlewares meaningful names that describe their purpose.
+
+4. **Document Your Plugin**: Document your plugin's purpose, configuration options, and available middlewares.
 
 ## Middleware Best Practices
 

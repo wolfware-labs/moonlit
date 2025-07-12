@@ -49,21 +49,18 @@ using Wolfware.Moonlit.Plugins;
 
 namespace MyCompany.Moonlit.Plugins.Random
 {
-    public class RandomPluginStartup : PluginStartup
+    public sealed class RandomPluginStartup : PluginStartup
     {
-        public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+        protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
         {
             // Register services
             services.AddSingleton<IRandomService, RandomService>();
-            
-            // Register middlewares
-            services.AddTransient<GenerateRandomNumberMiddleware>();
         }
-        
-        public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
+
+        protected override void AddMiddlewares(IServiceCollection services)
         {
             // Register middlewares with names
-            registry.Register("generate", typeof(GenerateRandomNumberMiddleware));
+            services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
         }
     }
 }
@@ -80,11 +77,11 @@ namespace MyCompany.Moonlit.Plugins.Random
     {
         int GenerateNumber(int min, int max);
     }
-    
+
     public class RandomService : IRandomService
     {
         private readonly System.Random _random = new System.Random();
-        
+
         public int GenerateNumber(int min, int max)
         {
             return _random.Next(min, max + 1);
@@ -109,12 +106,12 @@ namespace MyCompany.Moonlit.Plugins.Random
         public int Min { get; set; } = 1;
         public int Max { get; set; } = 100;
     }
-    
+
     public class GenerateRandomNumberMiddleware : IMiddleware
     {
         private readonly ILogger<GenerateRandomNumberMiddleware> _logger;
         private readonly IRandomService _randomService;
-        
+
         public GenerateRandomNumberMiddleware(
             ILogger<GenerateRandomNumberMiddleware> logger,
             IRandomService randomService)
@@ -122,24 +119,24 @@ namespace MyCompany.Moonlit.Plugins.Random
             _logger = logger;
             _randomService = randomService;
         }
-        
+
         public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
         {
             _logger.LogInformation("Generating random number");
-            
+
             // Get configuration from context
             var config = context.GetConfig<GenerateRandomNumberConfig>();
-            
+
             // Generate a random number
             var number = _randomService.GenerateNumber(config.Min, config.Max);
-            
+
             _logger.LogInformation($"Generated random number: {number}");
-            
-            // Add output to context
-            context.AddOutput("number", number);
-            
-            // Return success
-            return Task.FromResult(MiddlewareResult.Success());
+
+            // Return success with output
+            return Task.FromResult(MiddlewareResult.Success(output =>
+            {
+                output.Add("number", number);
+            }));
         }
     }
 }
@@ -156,7 +153,7 @@ Update your project file (`MyCompany.Moonlit.Plugins.Random.csproj`) to include 
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    
+
     <!-- NuGet package metadata -->
     <PackageId>MyCompany.Moonlit.Plugins.Random</PackageId>
     <Version>1.0.0</Version>
@@ -215,7 +212,7 @@ stages:
       config:
         min: 1
         max: 10
-    
+
     - name: displayNumber
       run: console.log
       config:
@@ -251,11 +248,11 @@ You should see output similar to:
 You can add multiple middlewares to your plugin:
 
 ```csharp
-public override void ConfigureMiddlewares(IMiddlewareRegistry registry)
+protected override void AddMiddlewares(IServiceCollection services)
 {
-    registry.Register("generate", typeof(GenerateRandomNumberMiddleware));
-    registry.Register("roll-dice", typeof(RollDiceMiddleware));
-    registry.Register("flip-coin", typeof(FlipCoinMiddleware));
+    services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
+    services.AddMiddleware<RollDiceMiddleware>("roll-dice");
+    services.AddMiddleware<FlipCoinMiddleware>("flip-coin");
 }
 ```
 
@@ -268,15 +265,15 @@ public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 {
     // Get configuration from context
     var config = context.GetConfig<MyConfig>();
-    
+
     // Perform async operation
     var result = await _myService.DoSomethingAsync(config.SomeOption);
-    
-    // Add output to context
-    context.AddOutput("result", result);
-    
-    // Return success
-    return MiddlewareResult.Success();
+
+    // Return success with output
+    return MiddlewareResult.Success(output =>
+    {
+        output.Add("result", result);
+    });
 }
 ```
 
@@ -291,26 +288,26 @@ public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
     {
         // Get configuration from context
         var config = context.GetConfig<MyConfig>();
-        
+
         // Validate configuration
         if (config.SomeOption == null)
         {
             return MiddlewareResult.Failure("SomeOption is required");
         }
-        
+
         // Perform operation
         var result = await _myService.DoSomethingAsync(config.SomeOption);
-        
-        // Add output to context
-        context.AddOutput("result", result);
-        
-        // Return success
-        return MiddlewareResult.Success();
+
+        // Return success with output
+        return MiddlewareResult.Success(output =>
+        {
+            output.Add("result", result);
+        });
     }
     catch (Exception ex)
     {
         _logger.LogError(ex, "Error executing middleware");
-        return MiddlewareResult.Failure(ex);
+        return MiddlewareResult.Failure(ex.Message);
     }
 }
 ```
@@ -327,16 +324,22 @@ public class RandomPluginOptions
     public int DefaultMax { get; set; } = 100;
 }
 
-public override void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+public sealed class RandomPluginStartup : PluginStartup
 {
-    // Bind configuration
-    services.Configure<RandomPluginOptions>(configuration);
-    
-    // Register services
-    services.AddSingleton<IRandomService, RandomService>();
-    
-    // Register middlewares
-    services.AddTransient<GenerateRandomNumberMiddleware>();
+    protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
+    {
+        // Bind configuration
+        services.Configure<RandomPluginOptions>(configuration);
+
+        // Register services
+        services.AddSingleton<IRandomService, RandomService>();
+    }
+
+    protected override void AddMiddlewares(IServiceCollection services)
+    {
+        // Register middlewares
+        services.AddMiddleware<GenerateRandomNumberMiddleware>("generate");
+    }
 }
 ```
 
@@ -359,19 +362,19 @@ public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 {
     // Get configuration from context
     var config = context.GetConfig<GenerateRandomNumberConfig>();
-    
+
     // Use default values from global configuration if not specified
     var min = config.Min ?? _options.DefaultMin;
     var max = config.Max ?? _options.DefaultMax;
-    
+
     // Generate a random number
     var number = _randomService.GenerateNumber(min, max);
-    
-    // Add output to context
-    context.AddOutput("number", number);
-    
-    // Return success
-    return Task.FromResult(MiddlewareResult.Success());
+
+    // Return success with output
+    return Task.FromResult(MiddlewareResult.Success(output =>
+    {
+        output.Add("number", number);
+    }));
 }
 ```
 
