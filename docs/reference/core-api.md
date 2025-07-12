@@ -157,7 +157,7 @@ public interface IReleaseMiddleware
 |--------|-------------|
 | `ExecuteAsync(ReleaseContext context, IConfiguration configuration)` | Executes the middleware with the given context and configuration |
 
-### ReleaseMiddleware<TConfiguration>
+### ReleaseMiddleware&lt;TConfiguration&gt;
 
 The `ReleaseMiddleware<TConfiguration>` abstract class provides a more convenient way to handle configuration:
 
@@ -217,7 +217,9 @@ public abstract class PluginStartup : IPluginStartup
     this.AddMiddlewares(services);
   }
 
-  protected virtual void ConfigurePlugin(IServiceCollection services, IConfiguration configuration) { }
+  protected virtual void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
+  {
+  }
 
   protected abstract void AddMiddlewares(IServiceCollection services);
 }

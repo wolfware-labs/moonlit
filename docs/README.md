@@ -33,7 +33,7 @@ Once the image is built, you can run it with:
 docker run -p 8080:80 moonlit-docs
 ```
 
-This will make the documentation site available at http://localhost:8080.
+This will make the documentation site available at `http://localhost:8080`.
 
 ## Algolia Search Configuration
 
