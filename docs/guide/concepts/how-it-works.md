@@ -11,33 +11,20 @@ This page explains the architecture and core concepts of Moonlit, helping you un
 
 Moonlit follows a plugin-based architecture with a middleware pipeline pattern. Here's a high-level overview of how Moonlit works:
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Configuration  │────▶│  Plugin Loader  │────▶│  Pipeline       │
-│  Parser         │     │                 │     │  Executor       │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                        │
-                                                        ▼
-                                         ┌─────────────────────────────┐
-                                         │                             │
-                                         │  Stage 1                    │
-                                         │  ┌───────┐ ┌───────┐        │
-                                         │  │Step 1 │▶│Step 2 │▶...    │
-                                         │  └───────┘ └───────┘        │
-                                         │                             │
-                                         └─────────────────────────────┘
-                                                        │
-                                                        ▼
-                                         ┌─────────────────────────────┐
-                                         │                             │
-                                         │  Stage 2                    │
-                                         │  ┌───────┐ ┌───────┐        │
-                                         │  │Step 1 │▶│Step 2 │▶...    │
-                                         │  └───────┘ └───────┘        │
-                                         │                             │
-                                         └─────────────────────────────┘
+```mermaid
+flowchart TD
+    A[Configuration Parser] --> B[Plugin Loader]
+    B --> C[Pipeline Executor]
+    C --> D[Stage 1]
+    D --> E[Stage 2]
+
+    subgraph D[Stage 1]
+        D1[Step 1] --> D2[Step 2] --> D3[...]
+    end
+
+    subgraph E[Stage 2]
+        E1[Step 1] --> E2[Step 2] --> E3[...]
+    end
 ```
 
 ## Core Components

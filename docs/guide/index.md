@@ -58,8 +58,12 @@ Moonlit comes with several official plugins:
 
 Here's a simplified view of how Moonlit processes your configuration:
 
-```
-Configuration File → Load Plugins → Execute Stages → Execute Steps → Success/Failure
+```mermaid
+flowchart LR
+    A[Configuration File] --> B[Load Plugins]
+    B --> C[Execute Stages]
+    C --> D[Execute Steps]
+    D --> E[Success/Failure]
 ```
 
 ## Next Steps

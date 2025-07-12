@@ -22,20 +22,17 @@ This pattern is commonly used in web frameworks like ASP.NET Core, but Moonlit a
 
 In Moonlit, the middleware pipeline is used to execute steps in a release pipeline:
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│  Middleware 1   │────▶│  Middleware 2   │────▶│  Middleware 3   │────▶ ...
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-       │                       │                       │
-       │                       │                       │
-       ▼                       ▼                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│                        Release Context                          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    M1[Middleware 1] --> M2[Middleware 2]
+    M2 --> M3[Middleware 3]
+    M3 --> M4[...]
+
+    M1 -.-> RC[Release Context]
+    M2 -.-> RC
+    M3 -.-> RC
+
+    style RC width:400px
 ```
 
 Each middleware in the pipeline:
