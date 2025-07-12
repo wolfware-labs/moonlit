@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "Moonlit",
-  description: "A powerful .NET build and release pipeline tool",
+  description: "A powerful build and release pipeline tool built on .NET",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
