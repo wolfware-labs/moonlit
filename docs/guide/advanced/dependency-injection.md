@@ -83,7 +83,7 @@ Choose the appropriate lifetime based on your service's requirements:
 Middlewares receive their dependencies through constructor injection:
 
 ```csharp
-public class MyMiddleware : IMiddleware
+public class MyMiddleware : IReleaseMiddleware
 {
     private readonly ILogger<MyMiddleware> _logger;
     private readonly IMyService _myService;
@@ -99,7 +99,7 @@ public class MyMiddleware : IMiddleware
         _options = options;
     }
 
-    public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+    public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
     {
         _logger.LogInformation("Executing MyMiddleware");
 
@@ -129,7 +129,7 @@ public MyMiddleware(ILogger<MyMiddleware> logger)
     _logger = logger;
 }
 
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     _logger.LogInformation("This is an information message");
     _logger.LogWarning("This is a warning message");
@@ -149,7 +149,7 @@ public MyMiddleware(IOptions<MyPluginOptions> options)
     _options = options;
 }
 
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     var option = _options.Value.SomeOption;
 
@@ -167,7 +167,7 @@ public MyMiddleware(IHttpClientFactory httpClientFactory)
     _httpClientFactory = httpClientFactory;
 }
 
-public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     var client = _httpClientFactory.CreateClient("MyClient");
     var response = await client.GetAsync("https://api.example.com");
@@ -186,7 +186,7 @@ The most common way to share data between middlewares is through the pipeline co
 
 ```csharp
 // In the first middleware
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     // Return success with output
     return Task.FromResult(MiddlewareResult.Success(output =>
@@ -196,7 +196,7 @@ public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 }
 
 // In a later middleware
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     // Get data from the context
     var myData = context.GetOutput<string>("previousStep", "myData");
@@ -239,7 +239,7 @@ protected override void ConfigurePlugin(IServiceCollection services, IConfigurat
 }
 
 // In the first middleware
-public class FirstMiddleware : IMiddleware
+public class FirstMiddleware : IReleaseMiddleware
 {
     private readonly IPipelineState _state;
 
@@ -248,7 +248,7 @@ public class FirstMiddleware : IMiddleware
         _state = state;
     }
 
-    public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+    public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
     {
         // Set data in the state
         _state.SetValue("myKey", "myValue");
@@ -258,7 +258,7 @@ public class FirstMiddleware : IMiddleware
 }
 
 // In a later middleware
-public class SecondMiddleware : IMiddleware
+public class SecondMiddleware : IReleaseMiddleware
 {
     private readonly IPipelineState _state;
 
@@ -267,7 +267,7 @@ public class SecondMiddleware : IMiddleware
         _state = state;
     }
 
-    public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+    public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
     {
         // Get data from the state
         var value = _state.GetValue("myKey");

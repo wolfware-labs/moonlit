@@ -107,7 +107,7 @@ namespace MyCompany.Moonlit.Plugins.Random
         public int Max { get; set; } = 100;
     }
 
-    public class GenerateRandomNumberMiddleware : IMiddleware
+    public class GenerateRandomNumberMiddleware : IReleaseMiddleware
     {
         private readonly ILogger<GenerateRandomNumberMiddleware> _logger;
         private readonly IRandomService _randomService;
@@ -120,12 +120,12 @@ namespace MyCompany.Moonlit.Plugins.Random
             _randomService = randomService;
         }
 
-        public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+        public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
         {
             _logger.LogInformation("Generating random number");
 
-            // Get configuration from context
-            var config = context.GetConfig<GenerateRandomNumberConfig>();
+            // Get configuration from parameter
+            var config = configuration.Get<GenerateRandomNumberConfig>();
 
             // Generate a random number
             var number = _randomService.GenerateNumber(config.Min, config.Max);
@@ -306,10 +306,10 @@ protected override void AddMiddlewares(IServiceCollection services)
 If your middleware needs to perform asynchronous operations, use the `async/await` pattern:
 
 ```csharp
-public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
-    // Get configuration from context
-    var config = context.GetConfig<MyConfig>();
+    // Get configuration from parameter
+    var config = configuration.Get<MyConfig>();
 
     // Perform async operation
     var result = await _myService.DoSomethingAsync(config.SomeOption);
@@ -327,12 +327,12 @@ public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 Proper error handling is important in middlewares:
 
 ```csharp
-public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     try
     {
-        // Get configuration from context
-        var config = context.GetConfig<MyConfig>();
+        // Get configuration from parameter
+        var config = configuration.Get<MyConfig>();
 
         // Validate configuration
         if (config.SomeOption == null)
@@ -403,10 +403,10 @@ public GenerateRandomNumberMiddleware(
     _options = options.Value;
 }
 
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
-    // Get configuration from context
-    var config = context.GetConfig<GenerateRandomNumberConfig>();
+    // Get configuration from parameter
+    var config = configuration.Get<GenerateRandomNumberConfig>();
 
     // Use default values from global configuration if not specified
     var min = config.Min ?? _options.DefaultMin;

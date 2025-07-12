@@ -94,7 +94,7 @@ protected override void AddMiddlewares(IServiceCollection services)
 
 Middlewares are the components that execute specific tasks in the pipeline. Each middleware should:
 
-1. Implement the `IMiddleware` interface
+1. Implement the `IReleaseMiddleware` interface
 2. Accept dependencies through constructor injection
 3. Implement the `ExecuteAsync` method
 
@@ -105,7 +105,7 @@ using Wolfware.Moonlit.Plugins;
 
 namespace MyCompany.Moonlit.Plugins.MyPlugin
 {
-    public class MyMiddleware : IMiddleware
+    public class MyMiddleware : IReleaseMiddleware
     {
         private readonly ILogger<MyMiddleware> _logger;
         private readonly IMyService _myService;
@@ -116,12 +116,12 @@ namespace MyCompany.Moonlit.Plugins.MyPlugin
             _myService = myService;
         }
 
-        public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+        public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
         {
             _logger.LogInformation("Executing MyMiddleware");
 
-            // Get configuration from context
-            var config = context.GetConfig<MyMiddlewareConfig>();
+            // Get configuration from parameter
+            var config = configuration.Get<MyMiddlewareConfig>();
 
             // Execute middleware logic
             var result = await _myService.DoSomethingAsync(config.SomeOption);
@@ -136,17 +136,17 @@ namespace MyCompany.Moonlit.Plugins.MyPlugin
 }
 ```
 
-### Middleware Context
+### Release Context
 
-The `MiddlewareContext` provides access to:
+The `ReleaseContext` provides access to:
 
 - Configuration for the current step
 - Output from previous steps
 - Methods to add output for subsequent steps
 
 ```csharp
-// Get configuration
-var config = context.GetConfig<MyMiddlewareConfig>();
+// Get configuration from parameter
+var config = configuration.Get<MyMiddlewareConfig>();
 
 // Get output from previous steps
 var previousOutput = context.GetOutput<string>("previousStep", "outputName");
@@ -344,7 +344,7 @@ namespace MyCompany.Moonlit.Plugins.Random
         public int Max { get; set; } = 100;
     }
 
-    public class GenerateRandomNumberMiddleware : IMiddleware
+    public class GenerateRandomNumberMiddleware : IReleaseMiddleware
     {
         private readonly ILogger<GenerateRandomNumberMiddleware> _logger;
         private readonly IRandomService _randomService;
@@ -357,11 +357,11 @@ namespace MyCompany.Moonlit.Plugins.Random
             _randomService = randomService;
         }
 
-        public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+        public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
         {
             _logger.LogInformation("Generating random number");
 
-            var config = context.GetConfig<GenerateRandomNumberConfig>();
+            var config = configuration.Get<GenerateRandomNumberConfig>();
 
             var number = _randomService.GenerateNumber(config.Min, config.Max);
 
