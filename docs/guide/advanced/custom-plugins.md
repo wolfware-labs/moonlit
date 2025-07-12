@@ -221,6 +221,35 @@ stages:
         message: "The random number is: $(output:randomNumber:number)"
 ```
 
+### Plugin Reference Methods
+
+Moonlit supports multiple ways to reference plugins:
+
+1. **NuGet Packages** (as shown above):
+   ```yaml
+   plugins:
+     - name: "random"
+       url: "nuget://MyCompany.Moonlit.Plugins.Random/1.0.0"
+   ```
+
+2. **File URIs** (useful for local development and testing):
+   ```yaml
+   plugins:
+     - name: "random"
+       url: "file://D:/path/to/MyCompany.Moonlit.Plugins.Random/bin/Debug/net9.0/MyCompany.Moonlit.Plugins.Random.dll"
+   ```
+
+3. **HTTP/HTTPS URIs**:
+   ```yaml
+   plugins:
+     - name: "random"
+       url: "https://myplugins.com/MyCompany.Moonlit.Plugins.Random.dll"
+   ```
+
+:::: warning
+When using HTTP/HTTPS URIs, be aware that if the assembly has dependencies, they will not be automatically downloaded. This may cause the plugin to fail if it relies on external libraries. Future versions of Moonlit will include a manifest system to handle dependencies for remotely hosted plugins.
+::::
+
 ## Step 10: Run the Pipeline
 
 Run the pipeline:
