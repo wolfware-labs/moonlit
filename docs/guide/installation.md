@@ -1,6 +1,6 @@
 ---
 title: Installing Moonlit
-description: Learn how to install and set up Moonlit for your .NET projects
+description: Learn how to install and set up Moonlit for your projects
 ---
 
 # Installing Moonlit

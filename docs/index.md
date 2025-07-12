@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: "Moonlit"
-  text: "Modern Release Pipeline Built on .NET"
-  tagline: A powerful, extensible build and release automation tool for various project types
+  text: "Bring light to your release process"
+  tagline: A powerful, extensible build and release automation tool for modern development workflows.
   image:
     src: /logo.png
     alt: Moonlit
@@ -12,9 +12,6 @@ hero:
     - theme: brand
       text: Get Started
       link: /guide/
-    - theme: alt
-      text: View on GitHub
-      link: https://github.com/wolfware-labs/moonlit
     - theme: alt
       text: NuGet Package
       link: https://www.nuget.org/packages/moonlit-cli
@@ -26,7 +23,7 @@ features:
 
   - icon: 🧩
     title: Plugin Ecosystem
-    details: Extend functionality with plugins for Git, GitHub, Semantic Versioning, Slack, NuGet, Docker, and NPM.
+    details: Extend functionality with plugins for Git, GitHub, Semantic Versioning, Slack, NuGet, Docker, NPM, and many more.
 
   - icon: 🔄
     title: Pipeline Architecture
@@ -47,7 +44,7 @@ features:
 
 ## What is Moonlit?
 
-Moonlit is a build and release automation tool built on .NET designed to simplify and streamline your release pipeline. It provides a flexible, plugin-based architecture that allows you to automate complex release processes for various project types with a simple YAML configuration file. While built on .NET, Moonlit can work with many different technologies including Docker, NPM, and more.
+Moonlit is a build and release automation tool designed to simplify and streamline your release pipeline. It provides a flexible, plugin-based architecture that allows you to automate complex release processes for various project types with a simple YAML configuration file. Moonlit can work with many different technologies including Docker, NPM, and more.
 
 ## Quick Example
 

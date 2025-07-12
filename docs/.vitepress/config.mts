@@ -5,14 +5,14 @@ import * as path from 'path'
 // https://vitepress.dev/reference/site-config
 export default withMermaid({
   title: "Moonlit",
-  description: "A powerful build and release pipeline tool built on .NET",
+  description: "A powerful build and release pipeline tool",
   lang: 'en-US',
   lastUpdated: true,
 
   // SEO optimizations
   head: [
     ['meta', { name: 'author', content: 'Wolfware' }],
-    ['meta', { name: 'keywords', content: 'moonlit, build tool, release pipeline, .NET, automation, CI/CD, DevOps' }],
+    ['meta', { name: 'keywords', content: 'moonlit, build tool, release pipeline, automation, CI/CD, DevOps' }],
     ['meta', { name: 'robots', content: 'index, follow' }],
 
     // Favicon
@@ -20,15 +20,15 @@ export default withMermaid({
 
     // Open Graph / Facebook
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline Built on .NET' }],
-    ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool built on .NET' }],
+    ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline' }],
+    ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool' }],
     ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo.png' }],
     ['meta', { property: 'og:url', content: 'https://moonlitbuild.dev/' }],
 
     // Twitter
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline Built on .NET' }],
-    ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool built on .NET' }],
+    ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline' }],
+    ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool' }],
     ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo.png' }],
 
     // Canonical URL

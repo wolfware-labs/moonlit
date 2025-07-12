@@ -30,7 +30,7 @@ const { frontmatter, site } = useData()
 // Compute SEO values with fallbacks
 const pageTitle = computed(() => props.title || frontmatter.value.title || site.value.title)
 const pageDescription = computed(() => props.description || frontmatter.value.description || site.value.description)
-const pageKeywords = computed(() => props.keywords || frontmatter.value.keywords || 'moonlit, build tool, release pipeline, .NET, automation')
+const pageKeywords = computed(() => props.keywords || frontmatter.value.keywords || 'moonlit, build tool, release pipeline, automation')
 const pageImage = computed(() => props.image || frontmatter.value.image || 'https://moonlitbuild.dev/logo.png')
 const pageAuthor = computed(() => props.author || frontmatter.value.author || 'Wolfware')
 

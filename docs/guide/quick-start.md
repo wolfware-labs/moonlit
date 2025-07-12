@@ -5,7 +5,7 @@ description: Create your first Moonlit pipeline in minutes
 
 # Quick Start Guide
 
-This guide will walk you through creating a simple Moonlit pipeline to help you get started quickly. We'll create a basic pipeline that builds a .NET project and creates a GitHub release.
+This guide will walk you through creating a simple Moonlit pipeline to help you get started quickly. We'll create a basic pipeline that builds a project and creates a GitHub release. While this example uses a .NET project, Moonlit works with various project types and technologies.
 
 ## Prerequisites
 
