@@ -71,14 +71,35 @@ This pattern allows for a flexible and extensible pipeline where each step can b
 
 ## Execution Flow
 
-When you run Moonlit, the following sequence occurs:
+When you run the `moonlit release` command, the following detailed sequence occurs:
 
-1. **Configuration Loading**: Moonlit reads and parses your YAML configuration file
-2. **Plugin Resolution**: Moonlit resolves and loads the plugins specified in your configuration
-3. **Pipeline Initialization**: Moonlit sets up the pipeline with all the stages and steps
-4. **Stage Execution**: Moonlit executes each stage in sequence (or only the stages you specified)
-5. **Step Execution**: Within each stage, Moonlit executes each step in sequence
-6. **Result Reporting**: Moonlit reports the results of the pipeline execution
+1. **Configuration Parsing**:
+   - The release command uses the release configuration parser to parse the YAML file into a `ReleaseConfiguration` instance
+   - If specific stages were specified in the command arguments, the configuration is filtered to include only those stages
+   - If command-line arguments were provided, they override any matching arguments defined in the configuration file
+
+2. **Release Pipeline Creation**:
+   - A new release pipeline is created using the `ReleasePipelineFactory`
+   - The factory creates a new .NET configuration instance using `ConfigurationBuilder` with the following sources (in order of precedence):
+     - Environment variables with the prefix "MOONLIT_"
+     - Environment variables from .env file
+     - Arguments and variables from the configuration file (accessible via "args:<arg_name>" and "vars:<variable_name>")
+
+3. **Plugin Loading**:
+   - The plugins specified in the configuration are loaded in parallel
+   - For each plugin:
+     - The plugin assembly is loaded
+     - An instance of the plugin startup class is created
+     - A new `ServiceCollection` is created (each plugin has its own DI scope)
+     - A new configuration is created, combining the release configuration with the plugin-specific configuration
+     - The plugin's `Configure` method is called with the service collection and configuration
+     - A service provider is created from the service collection
+     - A new instance of the plugin is created with the service provider
+
+4. **Pipeline Execution**:
+   - The release pipeline executes all middlewares in the order specified in the configuration
+   - Each middleware receives the context from the previous middleware and updates it with its results
+   - The pipeline handles errors and provides logging throughout the execution
 
 ## Context Sharing
 

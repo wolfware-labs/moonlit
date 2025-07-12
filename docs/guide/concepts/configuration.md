@@ -33,6 +33,8 @@ stages:
 - **name**: The name of your pipeline
 - **plugins**: A list of plugins to use in your pipeline
 - **stages**: A dictionary of stages, each containing a list of steps
+- **variables**: A dictionary of variables that can be used throughout the pipeline
+- **arguments**: A dictionary of arguments that can be used throughout the pipeline
 
 ## Plugin Configuration
 
@@ -58,7 +60,7 @@ Each stage is a named entry in the `stages` section:
 stages:
   build:
     # Steps for the build stage
-  
+
   publish:
     # Steps for the publish stage
 ```
@@ -122,14 +124,63 @@ config:
 
 If the `BUILD_CONFIGURATION` environment variable is not set, Moonlit will use `Release` as the default value.
 
+## Variables and Arguments
+
+Moonlit supports two special top-level sections for sharing data across your pipeline:
+
+### Variables
+
+The `variables` section defines a dictionary of values that can be used throughout your pipeline:
+
+```yaml
+variables:
+  projectName: "MyProject"
+  buildConfiguration: "Release"
+  version: "1.0.0"
+```
+
+You can reference these variables in your configuration using the `$(vars:variableName)` syntax:
+
+```yaml
+config:
+  project: "./src/$(vars:projectName).csproj"
+  configuration: $(vars:buildConfiguration)
+```
+
+### Arguments
+
+The `arguments` section defines a dictionary of values that can be overridden by command-line arguments:
+
+```yaml
+arguments:
+  environment: "production"
+  skipTests: false
+```
+
+You can reference these arguments in your configuration using the `$(args:argumentName)` syntax:
+
+```yaml
+config:
+  environment: $(args:environment)
+  runTests: $(args:skipTests) == false
+```
+
+Command-line arguments take precedence over arguments defined in the configuration file.
+
 ## Configuration Inheritance
 
 Configuration values can be defined at multiple levels:
 
 1. **Plugin-level configuration**: Defined in the `plugins` section
 2. **Step-level configuration**: Defined in the `config` property of a step
+3. **Variables**: Defined in the `variables` section
+4. **Arguments**: Defined in the `arguments` section, can be overridden by command-line arguments
 
-Step-level configuration takes precedence over plugin-level configuration.
+The precedence order (from highest to lowest) is:
+1. Command-line arguments
+2. Step-level configuration
+3. Plugin-level configuration
+4. Variables defined in the configuration file
 
 ## Example: Complete Configuration
 
@@ -137,6 +188,16 @@ Here's an example of a complete configuration file:
 
 ```yaml
 name: "NuGet Package Release"
+
+variables:
+  projectPath: "./src/MyProject.csproj"
+  nugetSource: "https://api.nuget.org/v3/index.json"
+  versionPrefix: "v"
+
+arguments:
+  configuration: "Release"
+  skipPush: false
+  prerelease: false
 
 plugins:
   - name: "git"
@@ -159,7 +220,7 @@ stages:
     - name: tag
       run: gh.latest-tag
       config:
-        prefix: "v"
+        prefix: $(vars:versionPrefix)
     - name: version
       run: sr.calculate-version
       config:
@@ -173,22 +234,22 @@ stages:
     - name: build
       run: dotnet.build
       config:
-        project: "./src/MyProject.csproj"
-        configuration: $(BUILD_CONFIGURATION:Release)
+        project: $(vars:projectPath)
+        configuration: $(args:configuration)
 
   publish:
     - name: pack
       run: nuget.pack
       config:
-        project: "./src/MyProject.csproj"
+        project: $(vars:projectPath)
         version: $(output:version:nextVersion)
-    
+
     - name: push
       run: nuget.push
-      condition: $(output:version:isPrerelease) == false
+      condition: $(args:skipPush) == false && ($(args:prerelease) == true || $(output:version:isPrerelease) == false)
       config:
         package: $(output:pack:packagePath)
-        source: "https://api.nuget.org/v3/index.json"
+        source: $(vars:nugetSource)
 ```
 
 ## Using the Configuration File
