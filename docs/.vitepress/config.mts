@@ -1,4 +1,6 @@
 import { withMermaid } from "vitepress-plugin-mermaid"
+import * as fs from 'fs'
+import * as path from 'path'
 
 // https://vitepress.dev/reference/site-config
 export default withMermaid({
@@ -40,6 +42,19 @@ export default withMermaid({
   // Performance optimizations
   cleanUrls: true, // Remove .html extensions from URLs
 
+  // Copy versions.json to the output directory during build
+  buildEnd: async (siteConfig) => {
+    const srcPath = path.resolve(process.cwd(), 'versions.json')
+    const destPath = path.resolve(siteConfig.outDir, 'versions.json')
+
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, destPath)
+      console.log('Copied versions.json to output directory')
+    } else {
+      console.warn('versions.json not found in source directory')
+    }
+  },
+
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -74,6 +89,7 @@ export default withMermaid({
             { text: 'Creating Custom Plugins', link: '/guide/advanced/custom-plugins' },
             { text: 'Dependency Injection', link: '/guide/advanced/dependency-injection' },
             { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' },
+            { text: 'Documentation Versioning', link: '/guide/advanced/versioning' },
             { text: 'SEO Optimization Guide', link: '/guide/seo-optimization' }
           ]
         }

@@ -4,6 +4,7 @@ import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import './style.css'
 import SEOMetadata from './components/SEOMetadata.vue'
+import VersionSelector from './components/VersionSelector.vue'
 
 export default {
   extends: DefaultTheme,
@@ -13,12 +14,14 @@ export default {
       h(SEOMetadata),
       h(DefaultTheme.Layout, null, {
         // https://vitepress.dev/guide/extending-default-theme#layout-slots
+        'nav-bar-content-before': () => h(VersionSelector)
       })
     ])
   },
   enhanceApp({ app, router, siteData }) {
-    // Register SEOMetadata component globally
+    // Register components globally
     app.component('SEOMetadata', SEOMetadata)
+    app.component('VersionSelector', VersionSelector)
   },
   setup() {
     // Add JSON-LD structured data for SEO
