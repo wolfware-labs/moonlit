@@ -56,3 +56,7 @@ nunit-*.xml
 .idea
 *.user
 .env
+
+node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
