@@ -64,6 +64,22 @@ export default withMermaid({
       { text: 'Plugins', link: '/plugins/' }
     ],
 
+    // Algolia DocSearch Configuration
+    search: {
+      provider: 'algolia',
+      options: {
+        appId: 'YOUR_APP_ID',
+        apiKey: 'YOUR_API_KEY',
+        indexName: 'moonlit',
+        placeholder: 'Search documentation',
+        translations: {
+          button: {
+            buttonText: 'Search'
+          }
+        }
+      }
+    },
+
     sidebar: {
       '/guide/': [
         {
@@ -90,6 +106,7 @@ export default withMermaid({
             { text: 'Dependency Injection', link: '/guide/advanced/dependency-injection' },
             { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' },
             { text: 'Documentation Versioning', link: '/guide/advanced/versioning' },
+            { text: 'Algolia Search Integration', link: '/guide/advanced/algolia-search' },
             { text: 'SEO Optimization Guide', link: '/guide/seo-optimization' }
           ]
         }
