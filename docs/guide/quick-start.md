@@ -29,6 +29,10 @@ plugins:
     url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0"
     config:
       token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
+  - name: "dotnet"
+    url: "nuget://Wolfware.Moonlit.Plugins.DotNet/1.0.0"
 
 stages:
   build:

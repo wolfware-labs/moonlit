@@ -427,6 +427,12 @@ public sealed class MyPluginStartup : PluginStartup
 4. Use the middleware in your pipeline:
 
 ```yaml
+name: "Middleware Example"
+
+plugins:
+  - name: "myplugin"
+    url: "nuget://MyCompany.Moonlit.Plugins.MyPlugin/1.0.0"
+
 stages:
   mystage:
     - name: mystep

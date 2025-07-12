@@ -214,6 +214,15 @@ You can extend this pipeline to include additional steps, such as:
 Here's an example of how you might add these steps:
 
 ```yaml
+plugins:
+  # ... existing plugins ...
+  - name: "dotnet"
+    url: "nuget://Wolfware.Moonlit.Plugins.DotNet/1.0.0"
+  - name: "nuget"
+    url: "nuget://Wolfware.Moonlit.Plugins.Nuget/1.0.0"
+    config:
+      apiKey: $(NUGET_API_KEY)
+
 stages:
   # ... existing stages ...
 
@@ -223,7 +232,7 @@ stages:
       config:
         project: "./src/MyProject.csproj"
         configuration: "Release"
-    
+
     - name: test
       run: dotnet.test
       config:
@@ -235,13 +244,12 @@ stages:
       config:
         project: "./src/MyProject.csproj"
         version: $(output:version:nextVersion)
-    
+
     - name: push
       run: nuget.push
       config:
         package: $(output:pack:packagePath)
         source: "https://api.nuget.org/v3/index.json"
-        apiKey: $(NUGET_API_KEY)
 ```
 
 ## Next Steps

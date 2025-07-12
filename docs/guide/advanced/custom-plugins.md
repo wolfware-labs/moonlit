@@ -204,6 +204,8 @@ name: "Random Number Generator"
 plugins:
   - name: "random"
     url: "nuget://MyCompany.Moonlit.Plugins.Random/1.0.0"
+  - name: "console"
+    url: "nuget://Wolfware.Moonlit.Plugins.Console/1.0.0"
 
 stages:
   generate:
