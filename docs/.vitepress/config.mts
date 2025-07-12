@@ -93,7 +93,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: 'Released under the MIT License.',
+      message: 'Released under the MIT License. | Made with ❤️ (and a lot of ☕) by the <a href="https://wolfware.dev" target="_blank">Wolfware</a> team',
       copyright: 'Copyright © Wolfware LLC'
     }
   }
