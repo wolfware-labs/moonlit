@@ -68,9 +68,9 @@ export default withMermaid({
     search: {
       provider: 'algolia',
       options: {
-        appId: 'YOUR_APP_ID',
-        apiKey: 'YOUR_API_KEY',
-        indexName: 'moonlit',
+        appId: process.env.ALGOLIA_APP_ID || 'YOUR_APP_ID',
+        apiKey: process.env.ALGOLIA_API_KEY || 'YOUR_API_KEY',
+        indexName: process.env.ALGOLIA_INDEX_NAME || 'moonlit',
         placeholder: 'Search documentation',
         translations: {
           button: {
