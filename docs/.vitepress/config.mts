@@ -89,7 +89,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/wolfware/moonlit' }
+      { icon: 'github', link: 'https://github.com/wolfware-labs/moonlit' }
     ],
 
     footer: {

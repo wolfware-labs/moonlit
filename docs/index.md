@@ -14,7 +14,7 @@ hero:
       link: /guide/
     - theme: alt
       text: View on GitHub
-      link: https://github.com/wolfware/moonlit
+      link: https://github.com/wolfware-labs/moonlit
     - theme: alt
       text: NuGet Package
       link: https://www.nuget.org/packages/moonlit-cli
