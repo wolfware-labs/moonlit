@@ -11,7 +11,7 @@ Moonlit is distributed as a .NET tool via NuGet. This guide will walk you throug
 
 Before installing Moonlit, ensure you have the following prerequisites:
 
-- **.NET SDK**: Version 6.0 or later
+- **.NET SDK**: Version 9.0 or later
 - **NuGet**: Latest version recommended
 - **Git**: Required for most version control operations (used by Git plugin)
 

@@ -11,7 +11,7 @@ This guide will walk you through the process of creating a custom plugin for Moo
 
 Before you begin, make sure you have:
 
-- .NET SDK 6.0 or later installed
+- .NET SDK 9.0 or later installed
 - Basic knowledge of C# and .NET
 - Moonlit CLI installed
 - A code editor or IDE (Visual Studio, VS Code, etc.)
@@ -150,7 +150,7 @@ Update your project file (`MyCompany.Moonlit.Plugins.Random.csproj`) to include 
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 

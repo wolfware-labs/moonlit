@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '9.0.x'
       - run: dotnet tool install --global moonlit-cli
       - run: moonlit -f ./moonlit.yml -s build,publish
         env:

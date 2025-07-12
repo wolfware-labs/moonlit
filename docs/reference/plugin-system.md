@@ -243,7 +243,7 @@ Plugins can depend on other plugins or external libraries. These dependencies ar
 
 ```xml
 <dependencies>
-  <group targetFramework="net6.0">
+  <group targetFramework="net9.0">
     <dependency id="Wolfware.Moonlit.Plugins" version="1.0.0" />
     <dependency id="Octokit" version="0.50.0" />
   </group>
