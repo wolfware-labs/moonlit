@@ -145,13 +145,6 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 ```
 
-### Using Moonlit as a Local Tool
-
-If you've installed Moonlit as a local tool, you need to run it using `dotnet tool run`:
-
-```bash
-dotnet tool run moonlit -f ./moonlit.yml
-```
 
 ## Next Steps
 

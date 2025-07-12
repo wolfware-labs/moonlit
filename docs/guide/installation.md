@@ -31,27 +31,6 @@ moonlit --version
 
 This should display the current version of Moonlit.
 
-## Installing as a Local Tool
-
-If you prefer to install Moonlit as a project-specific tool, you can add it to your project's local tool manifest:
-
-1. If you haven't created a tool manifest yet, create one:
-
-```bash
-dotnet new tool-manifest
-```
-
-2. Install Moonlit as a local tool:
-
-```bash
-dotnet tool install --local moonlit-cli
-```
-
-3. You can then run Moonlit using:
-
-```bash
-dotnet tool run moonlit
-```
 
 ## Installing Specific Versions
 
@@ -71,11 +50,6 @@ To update Moonlit to the latest version:
 dotnet tool update --global moonlit-cli
 ```
 
-Or for a local tool:
-
-```bash
-dotnet tool update --local moonlit-cli
-```
 
 ## Uninstalling Moonlit
 
@@ -85,11 +59,6 @@ If you need to uninstall Moonlit:
 dotnet tool uninstall --global moonlit-cli
 ```
 
-Or for a local tool:
-
-```bash
-dotnet tool uninstall --local moonlit-cli
-```
 
 ## Next Steps
 
