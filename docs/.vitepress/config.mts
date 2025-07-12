@@ -4,6 +4,42 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Moonlit",
   description: "A powerful build and release pipeline tool built on .NET",
+  lang: 'en-US',
+  lastUpdated: true,
+
+  // SEO optimizations
+  head: [
+    ['meta', { name: 'author', content: 'Wolfware' }],
+    ['meta', { name: 'keywords', content: 'moonlit, build tool, release pipeline, .NET, automation, CI/CD, DevOps' }],
+    ['meta', { name: 'robots', content: 'index, follow' }],
+
+    // Favicon
+    ['link', { rel: 'icon', type: 'image/png', href: '/logo.png' }],
+
+    // Open Graph / Facebook
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline Built on .NET' }],
+    ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool built on .NET' }],
+    ['meta', { property: 'og:image', content: 'https://wolfware-labs.github.io/moonlit/logo.png' }],
+    ['meta', { property: 'og:url', content: 'https://wolfware-labs.github.io/moonlit/' }],
+
+    // Twitter
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline Built on .NET' }],
+    ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool built on .NET' }],
+    ['meta', { name: 'twitter:image', content: 'https://wolfware-labs.github.io/moonlit/logo.png' }],
+
+    // Canonical URL
+    ['link', { rel: 'canonical', href: 'https://wolfware-labs.github.io/moonlit/' }]
+  ],
+  // Sitemap configuration
+  sitemap: {
+    hostname: 'https://wolfware-labs.github.io/moonlit/'
+  },
+
+  // Performance optimizations
+  cleanUrls: true, // Remove .html extensions from URLs
+
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -37,7 +73,8 @@ export default defineConfig({
           items: [
             { text: 'Creating Custom Plugins', link: '/guide/advanced/custom-plugins' },
             { text: 'Dependency Injection', link: '/guide/advanced/dependency-injection' },
-            { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' }
+            { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' },
+            { text: 'SEO Optimization Guide', link: '/guide/seo-optimization' }
           ]
         }
       ],

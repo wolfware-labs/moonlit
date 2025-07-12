@@ -137,3 +137,56 @@
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
 
+/**
+ * Performance Optimizations for Core Web Vitals
+ * -------------------------------------------------------------------------- */
+
+/* Improve Cumulative Layout Shift (CLS) */
+img, video, iframe {
+  aspect-ratio: attr(width) / attr(height);
+  height: auto; /* Maintain aspect ratio */
+}
+
+/* Set explicit dimensions for common elements to prevent layout shifts */
+.VPImage {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Optimize font loading and rendering */
+html {
+  font-display: swap; /* Ensure text remains visible during webfont load */
+  text-rendering: optimizeSpeed;
+}
+
+/* Optimize for Largest Contentful Paint (LCP) */
+.VPHero {
+  content-visibility: auto; /* Improve rendering performance */
+}
+
+/* Optimize for First Input Delay (FID) */
+button, a {
+  touch-action: manipulation; /* Improve touch responsiveness */
+}
+
+/* Preconnect to external domains */
+:root {
+  --vp-preconnect: 'https://fonts.googleapis.com https://fonts.gstatic.com';
+}
+
+/* Optimize images */
+.VPImage {
+  will-change: transform; /* Optimize GPU acceleration for animations */
+  transform: translateZ(0); /* Force GPU acceleration */
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
