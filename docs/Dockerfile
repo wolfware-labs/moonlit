@@ -10,6 +10,9 @@ ENV ALGOLIA_APP_ID=$ALGOLIA_APP_ID \
     ALGOLIA_API_KEY=$ALGOLIA_API_KEY \
     ALGOLIA_INDEX_NAME=$ALGOLIA_INDEX_NAME
 
+# Install git for VitePress
+RUN apk add --no-cache git
+
 COPY package*.json ./
 
 RUN npm ci
