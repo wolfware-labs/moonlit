@@ -2,7 +2,7 @@
 
 public class PublishPackageConfiguration
 {
-  public string PackagePath { get; set; } = string.Empty;
+  public string Package { get; set; } = string.Empty;
 
   public string Source { get; set; } = "https://api.nuget.org/v3/index.json";
 

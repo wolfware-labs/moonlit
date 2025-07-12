@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NuGet.Common;
 using NuGet.Protocol;
@@ -23,10 +22,9 @@ public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
     PublishPackageConfiguration configuration)
   {
-    var packagePath = Path.GetFullPath(configuration.PackagePath, context.WorkingDirectory);
-    if (!File.Exists(packagePath))
+    if (!File.Exists(configuration.Package))
     {
-      return MiddlewareResult.Failure($"NuGet package file not found at path: {packagePath}");
+      return MiddlewareResult.Failure($"NuGet package file not found at path: {configuration.Package}");
     }
 
     var source = string.IsNullOrWhiteSpace(configuration.Source)
@@ -49,7 +47,7 @@ public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
     var packageUpdateResource = await repository.GetResourceAsync<PackageUpdateResource>();
 
     await packageUpdateResource.Push(
-      packagePaths: [packagePath],
+      packagePaths: [configuration.Package],
       symbolSource: string.Empty,
       timeoutInSecond: 30,
       disableBuffering: false,
@@ -61,7 +59,7 @@ public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
       allowInsecureConnections: false,
       log: NullLogger.Instance
     );
-    this._logger.LogInformation("Package published successfully: {PackagePath}", packagePath);
+    this._logger.LogInformation("Package published successfully: {PackagePath}", configuration.Package);
     return MiddlewareResult.Success();
   }
 }
