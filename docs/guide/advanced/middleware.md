@@ -210,20 +210,119 @@ The `AddOutput` method takes two parameters:
 
 ## Middleware Result
 
-The `MiddlewareResult` indicates the success or failure of the middleware execution:
+The `MiddlewareResult` class represents the result of a middleware execution and provides information about its success or failure, along with any output or warnings:
 
 ```csharp
-// Return success
+public sealed record MiddlewareResult
+{
+  public bool IsSuccessful { get; init; }
+
+  public string? ErrorMessage { get; init; }
+
+  public MiddlewareOutput Output { get; init; } = new();
+
+  public List<string> Warnings { get; init; } = [];
+
+  public static MiddlewareResult Success(Action<MiddlewareOutput>? setOutput = null)
+  {
+    var result = new MiddlewareResult {IsSuccessful = true};
+    setOutput?.Invoke(result.Output);
+    return result;
+  }
+
+  public static MiddlewareResult Failure(string errorMessage) =>
+    new() {IsSuccessful = false, ErrorMessage = errorMessage};
+
+  public static MiddlewareResult Warning(string warning, Action<MiddlewareOutput>? setOutput = null)
+  {
+    var result = new MiddlewareResult {IsSuccessful = true, Warnings = [warning]};
+    setOutput?.Invoke(result.Output);
+    return result;
+  }
+}
+```
+
+The `MiddlewareResult` class has the following properties:
+
+- `IsSuccessful`: Indicates whether the middleware execution was successful
+- `ErrorMessage`: Contains an error message if the execution failed
+- `Output`: Contains the output data produced by the middleware
+- `Warnings`: Contains any warnings generated during execution
+
+You can create a `MiddlewareResult` using the following static methods:
+
+```csharp
+// Return success without output
 return MiddlewareResult.Success();
+
+// Return success with output
+return MiddlewareResult.Success(output => 
+{
+    output.Add("key", "value");
+});
 
 // Return failure with error message
 return MiddlewareResult.Failure("Something went wrong");
 
-// Return failure with exception
-return MiddlewareResult.Failure(exception);
+// Return success with a warning
+return MiddlewareResult.Warning("This is a warning");
+
+// Return success with a warning and output
+return MiddlewareResult.Warning("This is a warning", output => 
+{
+    output.Add("key", "value");
+});
 ```
 
 If a middleware returns a failure result, the pipeline execution stops by default, unless the step is configured to continue on error.
+
+### Middleware Output
+
+The `MiddlewareOutput` class is used to store output data from a middleware execution:
+
+```csharp
+public sealed class MiddlewareOutput
+{
+  private readonly Dictionary<string, object?> _data;
+
+  public MiddlewareOutput(IReadOnlyDictionary<string, object?>? initialData = null)
+  {
+    this._data = new Dictionary<string, object?>(initialData ?? new Dictionary<string, object?>());
+  }
+
+  public void Add<T>(string key, T value)
+  {
+    ArgumentNullException.ThrowIfNull(key, nameof(key));
+
+    if (this._data.ContainsKey(key))
+    {
+      throw new ArgumentException($"Key '{key}' already exists in the middleware output.",
+        nameof(key));
+    }
+
+    if (value is string strValue)
+    {
+      this._data[key] = strValue;
+      return;
+    }
+
+    this._data[key] = value;
+  }
+
+  public Dictionary<string, object?> ToDictionary(string scope)
+  {
+    return this._data.ToDictionary(
+      kvp => $"output:{scope}:{kvp.Key}",
+      kvp => kvp.Value
+    );
+  }
+}
+```
+
+The `MiddlewareOutput` class provides methods to:
+
+- Add output data with a key-value pair
+- Convert the output data to a dictionary with a specific scope
 
 ## Creating a Custom Middleware
 
@@ -265,11 +364,11 @@ public class MyMiddleware : IReleaseMiddleware
         // Execute middleware logic
         var result = await _myService.DoSomethingAsync(config.SomeOption);
 
-        // Add output to context
-        context.AddOutput("result", result);
-
-        // Return success
-        return MiddlewareResult.Success();
+        // Return success with output
+        return MiddlewareResult.Success(output =>
+        {
+            output.Add("result", result);
+        });
     }
 }
 ```
@@ -295,11 +394,11 @@ public class MyMiddleware : ReleaseMiddleware<MyMiddlewareConfig>
         // Execute middleware logic
         var result = await _myService.DoSomethingAsync(config.SomeOption);
 
-        // Add output to context
-        context.AddOutput("result", result);
-
-        // Return success
-        return MiddlewareResult.Success();
+        // Return success with output
+        return MiddlewareResult.Success(output =>
+        {
+            output.Add("result", result);
+        });
     }
 }
 ```
@@ -402,11 +501,11 @@ public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfig
         // Execute middleware logic
         var result = await _myService.DoSomethingAsync(config.SomeOption);
 
-        // Add output to context
-        context.AddOutput("result", result);
-
-        // Return success
-        return MiddlewareResult.Success();
+        // Return success with output
+        return MiddlewareResult.Success(output =>
+        {
+            output.Add("result", result);
+        });
     }
     catch (Exception ex)
     {
@@ -432,11 +531,11 @@ protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext cont
         // Execute middleware logic
         var result = await _myService.DoSomethingAsync(config.SomeOption);
 
-        // Add output to context
-        context.AddOutput("result", result);
-
-        // Return success
-        return MiddlewareResult.Success();
+        // Return success with output
+        return MiddlewareResult.Success(output =>
+        {
+            output.Add("result", result);
+        });
     }
     catch (Exception ex)
     {
@@ -464,11 +563,11 @@ public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfig
     var result = await _myService.DoSomethingAsync(config.SomeOption);
     _logger.LogDebug("Service operation result: {Result}", result);
 
-    // Add output to context
-    context.AddOutput("result", result);
-
     _logger.LogInformation("MyMiddleware execution completed successfully");
-    return MiddlewareResult.Success();
+    return MiddlewareResult.Success(output =>
+    {
+        output.Add("result", result);
+    });
 }
 ```
 
@@ -487,11 +586,11 @@ protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext cont
     var result = await _myService.DoSomethingAsync(config.SomeOption);
     _logger.LogDebug("Service operation result: {Result}", result);
 
-    // Add output to context
-    context.AddOutput("result", result);
-
     _logger.LogInformation("MyMiddleware execution completed successfully");
-    return MiddlewareResult.Success();
+    return MiddlewareResult.Success(output =>
+    {
+        output.Add("result", result);
+    });
 }
 ```
 
