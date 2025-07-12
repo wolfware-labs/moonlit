@@ -22,21 +22,21 @@ export default withMermaid({
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline Built on .NET' }],
     ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool built on .NET' }],
-    ['meta', { property: 'og:image', content: 'https://wolfware-labs.github.io/moonlit/logo.png' }],
-    ['meta', { property: 'og:url', content: 'https://wolfware-labs.github.io/moonlit/' }],
+    ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo.png' }],
+    ['meta', { property: 'og:url', content: 'https://moonlitbuild.dev/' }],
 
     // Twitter
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline Built on .NET' }],
     ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool built on .NET' }],
-    ['meta', { name: 'twitter:image', content: 'https://wolfware-labs.github.io/moonlit/logo.png' }],
+    ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo.png' }],
 
     // Canonical URL
-    ['link', { rel: 'canonical', href: 'https://wolfware-labs.github.io/moonlit/' }]
+    ['link', { rel: 'canonical', href: 'https://moonlitbuild.dev/' }]
   ],
   // Sitemap configuration
   sitemap: {
-    hostname: 'https://wolfware-labs.github.io/moonlit/'
+    hostname: 'https://moonlitbuild.dev/'
   },
 
   // Performance optimizations

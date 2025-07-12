@@ -31,24 +31,24 @@ const { frontmatter, site } = useData()
 const pageTitle = computed(() => props.title || frontmatter.value.title || site.value.title)
 const pageDescription = computed(() => props.description || frontmatter.value.description || site.value.description)
 const pageKeywords = computed(() => props.keywords || frontmatter.value.keywords || 'moonlit, build tool, release pipeline, .NET, automation')
-const pageImage = computed(() => props.image || frontmatter.value.image || 'https://wolfware-labs.github.io/moonlit/logo.png')
+const pageImage = computed(() => props.image || frontmatter.value.image || 'https://moonlitbuild.dev/logo.png')
 const pageAuthor = computed(() => props.author || frontmatter.value.author || 'Wolfware')
 
 // Update metadata when component mounts
 onMounted(() => {
   // Update page title
   document.title = `${pageTitle.value} | Moonlit`
-  
+
   // Update meta tags
   updateMetaTag('description', pageDescription.value)
   updateMetaTag('keywords', pageKeywords.value)
   updateMetaTag('author', pageAuthor.value)
-  
+
   // Update Open Graph tags
   updateMetaTag('og:title', pageTitle.value, 'property')
   updateMetaTag('og:description', pageDescription.value, 'property')
   updateMetaTag('og:image', pageImage.value, 'property')
-  
+
   // Update Twitter Card tags
   updateMetaTag('twitter:title', pageTitle.value)
   updateMetaTag('twitter:description', pageDescription.value)
@@ -58,9 +58,9 @@ onMounted(() => {
 // Helper function to update meta tags
 function updateMetaTag(name, content, attributeName = 'name') {
   if (!content) return
-  
+
   let meta = document.querySelector(`meta[${attributeName}="${name}"]`)
-  
+
   if (meta) {
     meta.setAttribute('content', content)
   } else {

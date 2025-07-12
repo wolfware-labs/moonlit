@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://wolfware-labs.github.io/moonlit/sitemap.xml
+Sitemap: https://moonlitbuild.dev/sitemap.xml
