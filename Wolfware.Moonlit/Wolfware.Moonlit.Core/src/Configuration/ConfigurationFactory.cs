@@ -27,8 +27,8 @@ public sealed class ConfigurationFactory : IConfigurationFactory
   public IConfiguration CreateBaseConfiguration()
   {
     return new ConfigurationBuilder()
-      .AddEnvironmentFile()
       .AddEnvironmentVariables("MOONLIT_")
+      .AddEnvironmentFile()
       .Build();
   }
 
