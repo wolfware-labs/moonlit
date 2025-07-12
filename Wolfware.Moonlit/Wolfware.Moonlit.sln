@@ -21,11 +21,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Se
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Git", "Wolfware.Moonlit.Plugins.Git\Wolfware.Moonlit.Plugins.Git.csproj", "{180F9045-D96C-48E7-ABAA-0E368CAF0EE0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Nuget", "Wolfware.Moonlit.Plugins.Nuget\Wolfware.Moonlit.Plugins.Nuget.csproj", "{9DAF23B0-5A3B-4DDB-A26B-3C5E21098184}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Docker", "Wolfware.Moonlit.Plugins.Docker\Wolfware.Moonlit.Plugins.Docker.csproj", "{C8F0ED98-E154-4A28-BDDC-FA8C7EFA35E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Npm", "Wolfware.Moonlit.Plugins.Npm\Wolfware.Moonlit.Plugins.Npm.csproj", "{609A38F7-81F8-4703-A9FD-B805B30D85C0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.Dotnet", "Wolfware.Moonlit.Plugins.Dotnet\Wolfware.Moonlit.Plugins.Dotnet.csproj", "{B338DE07-29D1-444D-A92B-5202A25B67E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfware.Moonlit.Plugins.NodeJs", "Wolfware.Moonlit.Plugins.NodeJs\Wolfware.Moonlit.Plugins.NodeJs.csproj", "{AC0CA096-0E53-408A-AAC5-BE1CAD3B992D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -61,17 +61,17 @@ Global
 		{180F9045-D96C-48E7-ABAA-0E368CAF0EE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{180F9045-D96C-48E7-ABAA-0E368CAF0EE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{180F9045-D96C-48E7-ABAA-0E368CAF0EE0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9DAF23B0-5A3B-4DDB-A26B-3C5E21098184}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9DAF23B0-5A3B-4DDB-A26B-3C5E21098184}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9DAF23B0-5A3B-4DDB-A26B-3C5E21098184}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9DAF23B0-5A3B-4DDB-A26B-3C5E21098184}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C8F0ED98-E154-4A28-BDDC-FA8C7EFA35E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C8F0ED98-E154-4A28-BDDC-FA8C7EFA35E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8F0ED98-E154-4A28-BDDC-FA8C7EFA35E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8F0ED98-E154-4A28-BDDC-FA8C7EFA35E8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{609A38F7-81F8-4703-A9FD-B805B30D85C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{609A38F7-81F8-4703-A9FD-B805B30D85C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{609A38F7-81F8-4703-A9FD-B805B30D85C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{609A38F7-81F8-4703-A9FD-B805B30D85C0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B338DE07-29D1-444D-A92B-5202A25B67E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B338DE07-29D1-444D-A92B-5202A25B67E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B338DE07-29D1-444D-A92B-5202A25B67E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B338DE07-29D1-444D-A92B-5202A25B67E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC0CA096-0E53-408A-AAC5-BE1CAD3B992D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC0CA096-0E53-408A-AAC5-BE1CAD3B992D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC0CA096-0E53-408A-AAC5-BE1CAD3B992D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC0CA096-0E53-408A-AAC5-BE1CAD3B992D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

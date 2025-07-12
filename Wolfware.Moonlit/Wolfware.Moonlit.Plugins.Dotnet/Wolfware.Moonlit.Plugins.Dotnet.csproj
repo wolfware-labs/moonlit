@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>Wolfware.Moonlit.Plugins.Nuget</PackageId>
+    <PackageId>Wolfware.Moonlit.Plugins.Dotnet</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description>Plugin for managing Nuget packages in Moonlit release automation system</Description>
-    <Title>Moonlit Nuget Plugin</Title>
-    <Summary>Moonlit Nuget plugin for managing Nuget packages in release automation</Summary>
+    <Description>Plugin for managing Dotnet projects in Moonlit release automation system</Description>
+    <Title>Moonlit Dotnet Plugin</Title>
+    <Summary>Moonlit Dotnet plugin for managing Dotnet projects in release automation</Summary>
     <PackageReleaseNotes></PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>
@@ -14,7 +14,7 @@
     <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
     <!--    <RepositoryType>git</RepositoryType>-->
     <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
-    <PackageTags>Wolfware;Moonlit;Plugins;Nuget</PackageTags>
+    <PackageTags>Wolfware;Moonlit;Plugins;Dotnet</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Version>1.0.0-next.2</Version>
@@ -26,11 +26,13 @@
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="NuGet.Protocol"/>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\"/>
     <None Include="LICENSE.txt" Pack="true" PackagePath="\"/>
     <None Include="icon.png" Pack="true" PackagePath="\"/>
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="NuGet.Protocol" />
-  </ItemGroup>
+
 </Project>

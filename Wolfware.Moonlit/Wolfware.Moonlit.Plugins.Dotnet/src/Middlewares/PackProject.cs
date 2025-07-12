@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 using Wolfware.Moonlit.Plugins.Nuget.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
 

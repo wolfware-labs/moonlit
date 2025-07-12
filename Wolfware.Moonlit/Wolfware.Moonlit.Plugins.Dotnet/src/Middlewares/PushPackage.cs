@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using NuGet.Common;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
+using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 using Wolfware.Moonlit.Plugins.Nuget.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
@@ -11,9 +12,9 @@ namespace Wolfware.Moonlit.Plugins.Nuget.Middlewares;
 public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
 {
   private readonly ILogger<PushPackage> _logger;
-  private readonly NugetConfiguration _globalConfiguration;
+  private readonly DotnetConfiguration _globalConfiguration;
 
-  public PushPackage(ILogger<PushPackage> logger, IOptions<NugetConfiguration> globalConfiguration)
+  public PushPackage(ILogger<PushPackage> logger, IOptions<DotnetConfiguration> globalConfiguration)
   {
     _logger = logger;
     _globalConfiguration = globalConfiguration.Value;
@@ -28,7 +29,7 @@ public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
     }
 
     var source = string.IsNullOrWhiteSpace(configuration.Source)
-      ? _globalConfiguration.Source
+      ? _globalConfiguration.NugetSource
       : configuration.Source;
     if (string.IsNullOrWhiteSpace(source))
     {
@@ -36,7 +37,7 @@ public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
     }
 
     var apiKey = string.IsNullOrWhiteSpace(configuration.ApiKey)
-      ? _globalConfiguration.ApiKey
+      ? _globalConfiguration.NugetApiKey
       : configuration.ApiKey;
     if (string.IsNullOrWhiteSpace(apiKey))
     {

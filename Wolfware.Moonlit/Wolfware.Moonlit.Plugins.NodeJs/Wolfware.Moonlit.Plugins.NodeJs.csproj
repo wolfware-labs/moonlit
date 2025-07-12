@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>Wolfware.Moonlit.Plugins.Npm</PackageId>
+    <PackageId>Wolfware.Moonlit.Plugins.NodeJs</PackageId>
     <Authors>Wolfware Team</Authors>
     <Company>Wolfware LLC</Company>
-    <Description>Plugin for managing Npm packages in Moonlit release automation system</Description>
-    <Title>Moonlit Npm Plugin</Title>
-    <Summary>Moonlit Npm plugin for managing Npm packages in release automation</Summary>
+    <Description>Plugin for managing NodeJs projects in Moonlit release automation system</Description>
+    <Title>Moonlit NodeJs Plugin</Title>
+    <Summary>Moonlit NodeJs plugin for managing NodeJs projects in release automation</Summary>
     <PackageReleaseNotes></PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>
@@ -14,7 +14,7 @@
     <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
     <!--    <RepositoryType>git</RepositoryType>-->
     <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
-    <PackageTags>Wolfware;Moonlit;Plugins;Npm</PackageTags>
+    <PackageTags>Wolfware;Moonlit;Plugins;NodeJs</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Version>1.0.0-next.2</Version>
@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wolfware.Moonlit.Plugins\Wolfware.Moonlit.Plugins.csproj"/>
   </ItemGroup>
+
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\"/>
     <None Include="LICENSE.txt" Pack="true" PackagePath="\"/>
