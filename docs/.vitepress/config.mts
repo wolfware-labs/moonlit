@@ -53,7 +53,14 @@ export default defineConfig({
           text: 'API',
           items: [
             { text: 'Core API', link: '/reference/core-api' },
-            { text: 'Plugin Development', link: '/reference/plugin-development' }
+            { text: 'Plugin Development', link: '/reference/plugin-development' },
+            { text: 'Plugin System Architecture', link: '/reference/plugin-system' }
+          ]
+        },
+        {
+          text: 'Troubleshooting',
+          items: [
+            { text: 'Error Handling', link: '/reference/error-handling' }
           ]
         }
       ],
