@@ -27,10 +27,7 @@ COPY --from=build /app/.vitepress/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-RUN echo '#!/bin/sh\n\
-echo "Starting Moonlit documentation server..."\n\
-echo "Algolia search is configured with the values provided during build time."\n\
-exec nginx -g "daemon off;"\n' > /docker-entrypoint.sh && \
+RUN printf '#!/bin/sh\necho "Starting Moonlit documentation server..."\necho "Algolia search is configured with the values provided during build time."\nexec nginx -g "daemon off;"\n' > /docker-entrypoint.sh && \
 chmod +x /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
