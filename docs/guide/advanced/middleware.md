@@ -33,53 +33,104 @@ In Moonlit, the middleware pipeline is used to execute steps in a release pipeli
        ▼                       ▼                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│                        Pipeline Context                         │
+│                        Release Context                          │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 Each middleware in the pipeline:
 
-1. Receives the `MiddlewareContext` object
+1. Receives the `ReleaseContext` object and configuration
 2. Performs its specific task (e.g., building a project, creating a release)
 3. Updates the context with its results (e.g., build output, release URL)
 4. Returns a `MiddlewareResult` indicating success or failure
 
 ## Middleware Interface
 
-All middlewares in Moonlit implement the `IMiddleware` interface:
+All middlewares in Moonlit implement the `IReleaseMiddleware` interface:
 
 ```csharp
-public interface IMiddleware
+public interface IReleaseMiddleware
 {
-    Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context);
+  Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration);
 }
 ```
 
-The `ExecuteAsync` method is called when the middleware is executed in the pipeline. It receives a `MiddlewareContext` object and returns a `MiddlewareResult`.
+The `ExecuteAsync` method is called when the middleware is executed in the pipeline. It receives a `ReleaseContext` object and an `IConfiguration` object, and returns a `MiddlewareResult`.
 
-## Middleware Context
-
-The `MiddlewareContext` object is passed through the pipeline and contains:
-
-- Configuration for the current step
-- Output from previous steps
-- Methods to add output for subsequent steps
-
-### Getting Configuration
-
-You can get the configuration for the current step from the context:
+Alternatively, you can inherit from the `ReleaseMiddleware<T>` abstract class, which provides a more convenient way to handle configuration:
 
 ```csharp
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public abstract class ReleaseMiddleware<TConfiguration> : IReleaseMiddleware
 {
-    // Get configuration from context
-    var config = context.GetConfig<MyMiddlewareConfig>();
-    
+  public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
+  {
+    ArgumentNullException.ThrowIfNull(context, nameof(context));
+    ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
+
+    var config = configuration.GetRequired<TConfiguration>();
+    return ExecuteAsync(context, config);
+  }
+
+  protected abstract Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, TConfiguration configuration);
+}
+```
+
+The abstract class handles the configuration deserialization for you, so you only need to implement the protected `ExecuteAsync` method that receives the strongly-typed configuration.
+
+## Release Context
+
+The `ReleaseContext` class is passed through the pipeline and contains information about the release process. According to the issue description, the `ReleaseContext` class looks like this:
+
+```csharp
+public sealed record ReleaseContext
+{
+  public CancellationToken CancellationToken { get; init; }
+
+  public string WorkingDirectory { get; init; } = Environment.CurrentDirectory;
+}
+```
+
+The `ReleaseContext` provides:
+
+- `CancellationToken`: Used to check if the operation has been canceled
+- `WorkingDirectory`: The directory where the release process is running (defaults to the current directory)
+
+In addition to these properties, the context system in Moonlit also provides extension methods for:
+
+- Getting configuration for the current step
+- Getting output from previous steps
+- Adding output for subsequent steps
+
+### Working with Configuration
+
+When implementing the `IReleaseMiddleware` interface directly, you receive the configuration as a parameter:
+
+```csharp
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
+{
+    // Get configuration from the parameter
+    var config = configuration.Get<MyMiddlewareConfig>();
+
     // Use the configuration
     var option = config.SomeOption;
-    
+
     return Task.FromResult(MiddlewareResult.Success());
+}
+```
+
+When inheriting from `ReleaseMiddleware<T>`, the configuration is automatically deserialized for you:
+
+```csharp
+public class MyMiddleware : ReleaseMiddleware<MyMiddlewareConfig>
+{
+    protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+    {
+        // Use the configuration directly
+        var option = config.SomeOption;
+
+        return Task.FromResult(MiddlewareResult.Success());
+    }
 }
 ```
 
@@ -87,17 +138,32 @@ The configuration is automatically deserialized from the YAML configuration file
 
 ### Getting Output from Previous Steps
 
-You can get output from previous steps:
+You can get output from previous steps using the context's output system:
 
 ```csharp
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     // Get output from a previous step
     var previousOutput = context.GetOutput<string>("previousStep", "outputName");
-    
+
     // Use the output
     // ...
-    
+
+    return Task.FromResult(MiddlewareResult.Success());
+}
+```
+
+Or when using the `ReleaseMiddleware<T>` abstract class:
+
+```csharp
+protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+{
+    // Get output from a previous step
+    var previousOutput = context.GetOutput<string>("previousStep", "outputName");
+
+    // Use the output
+    // ...
+
     return Task.FromResult(MiddlewareResult.Success());
 }
 ```
@@ -108,17 +174,32 @@ The `GetOutput<T>` method takes two parameters:
 
 ### Adding Output for Subsequent Steps
 
-You can add output for subsequent steps:
+You can add output for subsequent steps using the context's output system:
 
 ```csharp
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     // Perform some operation
     var result = "Hello, World!";
-    
+
     // Add output to context
     context.AddOutput("outputName", result);
-    
+
+    return Task.FromResult(MiddlewareResult.Success());
+}
+```
+
+Or when using the `ReleaseMiddleware<T>` abstract class:
+
+```csharp
+protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+{
+    // Perform some operation
+    var result = "Hello, World!";
+
+    // Add output to context
+    context.AddOutput("outputName", result);
+
     return Task.FromResult(MiddlewareResult.Success());
 }
 ```
@@ -158,38 +239,72 @@ public class MyMiddlewareConfig
 }
 ```
 
-2. Create a middleware class that implements `IMiddleware`:
+2. Create a middleware class that implements `IReleaseMiddleware` or inherits from `ReleaseMiddleware<T>`:
+
+### Option 1: Implementing IReleaseMiddleware
 
 ```csharp
-public class MyMiddleware : IMiddleware
+public class MyMiddleware : IReleaseMiddleware
 {
     private readonly ILogger<MyMiddleware> _logger;
     private readonly IMyService _myService;
-    
+
     public MyMiddleware(ILogger<MyMiddleware> logger, IMyService myService)
     {
         _logger = logger;
         _myService = myService;
     }
-    
-    public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+
+    public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
     {
         _logger.LogInformation("Executing MyMiddleware");
-        
-        // Get configuration from context
-        var config = context.GetConfig<MyMiddlewareConfig>();
-        
+
+        // Get configuration
+        var config = configuration.Get<MyMiddlewareConfig>();
+
         // Execute middleware logic
         var result = await _myService.DoSomethingAsync(config.SomeOption);
-        
+
         // Add output to context
         context.AddOutput("result", result);
-        
+
         // Return success
         return MiddlewareResult.Success();
     }
 }
 ```
+
+### Option 2: Inheriting from ReleaseMiddleware&lt;T&gt;
+
+```csharp
+public class MyMiddleware : ReleaseMiddleware<MyMiddlewareConfig>
+{
+    private readonly ILogger<MyMiddleware> _logger;
+    private readonly IMyService _myService;
+
+    public MyMiddleware(ILogger<MyMiddleware> logger, IMyService myService)
+    {
+        _logger = logger;
+        _myService = myService;
+    }
+
+    protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+    {
+        _logger.LogInformation("Executing MyMiddleware");
+
+        // Execute middleware logic
+        var result = await _myService.DoSomethingAsync(config.SomeOption);
+
+        // Add output to context
+        context.AddOutput("result", result);
+
+        // Return success
+        return MiddlewareResult.Success();
+    }
+}
+```
+
+
 
 3. Register the middleware in your plugin's startup class:
 
@@ -198,7 +313,7 @@ public override void ConfigureServices(IServiceCollection services, IConfigurati
 {
     // Register services
     services.AddSingleton<IMyService, MyService>();
-    
+
     // Register middlewares
     services.AddTransient<MyMiddleware>();
 }
@@ -233,17 +348,35 @@ Each middleware should have a single responsibility. If a middleware is doing to
 Use constructor injection to receive dependencies:
 
 ```csharp
-public class MyMiddleware : IMiddleware
+public class MyMiddleware : IReleaseMiddleware
 {
     private readonly ILogger<MyMiddleware> _logger;
     private readonly IMyService _myService;
-    
+
     public MyMiddleware(ILogger<MyMiddleware> logger, IMyService myService)
     {
         _logger = logger;
         _myService = myService;
     }
-    
+
+    // ...
+}
+```
+
+Or when inheriting from `ReleaseMiddleware<T>`:
+
+```csharp
+public class MyMiddleware : ReleaseMiddleware<MyMiddlewareConfig>
+{
+    private readonly ILogger<MyMiddleware> _logger;
+    private readonly IMyService _myService;
+
+    public MyMiddleware(ILogger<MyMiddleware> logger, IMyService myService)
+    {
+        _logger = logger;
+        _myService = myService;
+    }
+
     // ...
 }
 ```
@@ -253,25 +386,55 @@ public class MyMiddleware : IMiddleware
 Provide clear error messages and handle exceptions properly:
 
 ```csharp
-public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     try
     {
-        // Get configuration from context
-        var config = context.GetConfig<MyMiddlewareConfig>();
-        
+        // Get configuration
+        var config = configuration.Get<MyMiddlewareConfig>();
+
         // Validate configuration
         if (string.IsNullOrEmpty(config.SomeOption))
         {
             return MiddlewareResult.Failure("SomeOption is required");
         }
-        
+
         // Execute middleware logic
         var result = await _myService.DoSomethingAsync(config.SomeOption);
-        
+
         // Add output to context
         context.AddOutput("result", result);
-        
+
+        // Return success
+        return MiddlewareResult.Success();
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error executing middleware");
+        return MiddlewareResult.Failure(ex);
+    }
+}
+```
+
+Or when inheriting from `ReleaseMiddleware<T>`:
+
+```csharp
+protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+{
+    try
+    {
+        // Validate configuration
+        if (string.IsNullOrEmpty(config.SomeOption))
+        {
+            return MiddlewareResult.Failure("SomeOption is required");
+        }
+
+        // Execute middleware logic
+        var result = await _myService.DoSomethingAsync(config.SomeOption);
+
+        // Add output to context
+        context.AddOutput("result", result);
+
         // Return success
         return MiddlewareResult.Success();
     }
@@ -288,22 +451,45 @@ public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 Add detailed logging to help diagnose issues:
 
 ```csharp
-public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
     _logger.LogInformation("Starting execution of MyMiddleware");
-    
-    // Get configuration from context
-    var config = context.GetConfig<MyMiddlewareConfig>();
+
+    // Get configuration
+    var config = configuration.Get<MyMiddlewareConfig>();
     _logger.LogDebug("Configuration: {@Config}", config);
-    
+
     // Execute middleware logic
     _logger.LogInformation("Executing service operation");
     var result = await _myService.DoSomethingAsync(config.SomeOption);
     _logger.LogDebug("Service operation result: {Result}", result);
-    
+
     // Add output to context
     context.AddOutput("result", result);
-    
+
+    _logger.LogInformation("MyMiddleware execution completed successfully");
+    return MiddlewareResult.Success();
+}
+```
+
+Or when inheriting from `ReleaseMiddleware<T>`:
+
+```csharp
+protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+{
+    _logger.LogInformation("Starting execution of MyMiddleware");
+
+    // Log configuration
+    _logger.LogDebug("Configuration: {@Config}", config);
+
+    // Execute middleware logic
+    _logger.LogInformation("Executing service operation");
+    var result = await _myService.DoSomethingAsync(config.SomeOption);
+    _logger.LogDebug("Service operation result: {Result}", result);
+
+    // Add output to context
+    context.AddOutput("result", result);
+
     _logger.LogInformation("MyMiddleware execution completed successfully");
     return MiddlewareResult.Success();
 }
@@ -317,7 +503,19 @@ Document your middleware's purpose, configuration options, and outputs:
 /// <summary>
 /// A middleware that does something useful.
 /// </summary>
-public class MyMiddleware : IMiddleware
+public class MyMiddleware : IReleaseMiddleware
+{
+    // ...
+}
+```
+
+Or when inheriting from `ReleaseMiddleware<T>`:
+
+```csharp
+/// <summary>
+/// A middleware that does something useful.
+/// </summary>
+public class MyMiddleware : ReleaseMiddleware<MyMiddlewareConfig>
 {
     // ...
 }
@@ -331,7 +529,7 @@ public class MyMiddlewareConfig
     /// Some option that does something.
     /// </summary>
     public string SomeOption { get; set; }
-    
+
     /// <summary>
     /// Another option that does something else.
     /// </summary>
@@ -346,24 +544,46 @@ public class MyMiddlewareConfig
 You can make a middleware execute conditionally based on the pipeline context:
 
 ```csharp
-public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+public Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
 {
-    // Get configuration from context
-    var config = context.GetConfig<MyMiddlewareConfig>();
-    
+    // Get configuration
+    var config = configuration.Get<MyMiddlewareConfig>();
+
     // Get output from a previous step
     var branch = context.GetOutput<string>("repo", "branch");
-    
+
     // Skip execution based on a condition
     if (branch != "main" && !config.RunOnAllBranches)
     {
         _logger.LogInformation("Skipping execution on branch {Branch}", branch);
         return Task.FromResult(MiddlewareResult.Success());
     }
-    
+
     // Continue with normal execution
     // ...
-    
+
+    return Task.FromResult(MiddlewareResult.Success());
+}
+```
+
+Or when inheriting from `ReleaseMiddleware<T>`:
+
+```csharp
+protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, MyMiddlewareConfig config)
+{
+    // Get output from a previous step
+    var branch = context.GetOutput<string>("repo", "branch");
+
+    // Skip execution based on a condition
+    if (branch != "main" && !config.RunOnAllBranches)
+    {
+        _logger.LogInformation("Skipping execution on branch {Branch}", branch);
+        return Task.FromResult(MiddlewareResult.Success());
+    }
+
+    // Continue with normal execution
+    // ...
+
     return Task.FromResult(MiddlewareResult.Success());
 }
 ```
@@ -373,28 +593,28 @@ public Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
 You can compose multiple middlewares to create more complex behaviors:
 
 ```csharp
-public class CompositeMiddleware : IMiddleware
+public class CompositeMiddleware : IReleaseMiddleware
 {
-    private readonly IMiddleware _firstMiddleware;
-    private readonly IMiddleware _secondMiddleware;
-    
-    public CompositeMiddleware(IMiddleware firstMiddleware, IMiddleware secondMiddleware)
+    private readonly IReleaseMiddleware _firstMiddleware;
+    private readonly IReleaseMiddleware _secondMiddleware;
+
+    public CompositeMiddleware(IReleaseMiddleware firstMiddleware, IReleaseMiddleware secondMiddleware)
     {
         _firstMiddleware = firstMiddleware;
         _secondMiddleware = secondMiddleware;
     }
-    
-    public async Task<MiddlewareResult> ExecuteAsync(MiddlewareContext context)
+
+    public async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, IConfiguration configuration)
     {
         // Execute the first middleware
-        var firstResult = await _firstMiddleware.ExecuteAsync(context);
+        var firstResult = await _firstMiddleware.ExecuteAsync(context, configuration);
         if (!firstResult.IsSuccess)
         {
             return firstResult;
         }
-        
+
         // Execute the second middleware
-        return await _secondMiddleware.ExecuteAsync(context);
+        return await _secondMiddleware.ExecuteAsync(context, configuration);
     }
 }
 ```
