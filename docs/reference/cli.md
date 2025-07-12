@@ -101,9 +101,20 @@ The log format includes:
 
 Example:
 ```
-[2023-06-15 10:15:30 INFO] Starting pipeline: My Pipeline
-[2023-06-15 10:15:31 INFO] Loading plugins...
-[2023-06-15 10:15:32 INFO] Running stage: build
+🚀 Executing release pipeline: My Pipeline
+📁 Working Directory: D:\path\to\your\project
+⚙ Configuration File: moonlit.yml
+
+[00:17:08]   ===================================================
+[00:17:08]   Executing step (Middleware)
+[00:17:08]   Configuration: {"key":"value"}
+[00:17:08]   ===================================================
+[00:17:08]       INFO Log message
+[00:17:08]       WARN Warning message
+[00:17:08]       ERROR Error message
+[00:17:08]   --------------------------------------------------
+[00:17:08]   SUCCESS - Execution time: 125 ms.
+[00:17:08]   --------------------------------------------------
 ```
 
 ## Advanced Usage

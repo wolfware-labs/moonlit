@@ -88,16 +88,62 @@ moonlit -f moonlit.yml -s build
 Moonlit will display the progress of each step in the pipeline. If everything is configured correctly, you should see output similar to:
 
 ```
-[INFO] Starting pipeline: My First Pipeline
-[INFO] Loading plugins...
-[INFO] Running stage: build
-[INFO] Step: repo
-[INFO] Step: build
-[INFO] Running stage: publish
-[INFO] Step: tag
-[INFO] Step: version
-[INFO] Step: createRelease
-[INFO] Pipeline completed successfully
+🚀 Executing release pipeline: My First Pipeline
+📁 Working Directory: D:\path\to\your\project
+⚙ Configuration File: moonlit.yml
+
+[00:17:08]   ===================================================
+[00:17:08]   Executing repo (GetRepositoryContext)
+[00:17:08]   Configuration: {}
+[00:17:08]   ===================================================
+[00:17:08]       INFO Current branch: main
+[00:17:08]       INFO Remote URL: https://github.com/username/repo.git
+[00:17:08]   --------------------------------------------------
+[00:17:08]   SUCCESS - Execution time: 125 ms.
+[00:17:08]   --------------------------------------------------
+[00:17:08]              
+[00:17:08]              
+[00:17:08]   ===================================================
+[00:17:08]   Executing build (DotNetBuildMiddleware)
+[00:17:08]   Configuration: {"project":"./src/MyProject.csproj","configuration":"Release"}
+[00:17:08]   ===================================================
+[00:17:09]       INFO Building project: ./src/MyProject.csproj
+[00:17:10]       INFO Build completed successfully
+[00:17:10]   --------------------------------------------------
+[00:17:10]   SUCCESS - Execution time: 2105 ms.
+[00:17:10]   --------------------------------------------------
+[00:17:10]              
+[00:17:10]              
+[00:17:10]   ===================================================
+[00:17:10]   Executing tag (GetLatestTag)
+[00:17:10]   Configuration: {"prefix":"v"}
+[00:17:10]   ===================================================
+[00:17:10]       INFO Found tag: v1.0.0
+[00:17:10]   --------------------------------------------------
+[00:17:10]   SUCCESS - Execution time: 356 ms.
+[00:17:10]   --------------------------------------------------
+[00:17:10]              
+[00:17:10]              
+[00:17:10]   ===================================================
+[00:17:10]   Executing version (CalculateVersion)
+[00:17:10]   Configuration: {"branch":"main","baseVersion":"v1.0.0"}
+[00:17:10]   ===================================================
+[00:17:10]       INFO Calculating next version
+[00:17:10]       INFO Next version calculated: 1.1.0
+[00:17:10]   --------------------------------------------------
+[00:17:10]   SUCCESS - Execution time: 78 ms.
+[00:17:10]   --------------------------------------------------
+[00:17:10]              
+[00:17:10]              
+[00:17:10]   ===================================================
+[00:17:10]   Executing createRelease (CreateRelease)
+[00:17:10]   Configuration: {"name":"Release 1.1.0","tag":"v1.1.0"}
+[00:17:10]   ===================================================
+[00:17:11]       INFO Creating GitHub release: v1.1.0
+[00:17:11]       INFO Release created successfully
+[00:17:11]   --------------------------------------------------
+[00:17:11]   SUCCESS - Execution time: 1254 ms.
+[00:17:11]   --------------------------------------------------
 ```
 
 ## Understanding the Configuration

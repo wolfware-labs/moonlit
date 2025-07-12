@@ -230,15 +230,29 @@ moonlit -f moonlit.yml
 You should see output similar to:
 
 ```
-[INFO] Starting pipeline: Random Number Generator
-[INFO] Loading plugins...
-[INFO] Running stage: generate
-[INFO] Step: randomNumber
-[INFO] Generating random number
-[INFO] Generated random number: 7
-[INFO] Step: displayNumber
-[INFO] The random number is: 7
-[INFO] Pipeline completed successfully
+🚀 Executing release pipeline: Random Number Generator
+📁 Working Directory: D:\path\to\your\project
+⚙ Configuration File: moonlit.yml
+
+[00:17:08]   ===================================================
+[00:17:08]   Executing randomNumber (GenerateRandomNumberMiddleware)
+[00:17:08]   Configuration: {"min":1,"max":10}
+[00:17:08]   ===================================================
+[00:17:08]       INFO Generating random number
+[00:17:08]       INFO Generated random number: 7
+[00:17:08]   --------------------------------------------------
+[00:17:08]   SUCCESS - Execution time: 42 ms.
+[00:17:08]   --------------------------------------------------
+[00:17:08]              
+[00:17:08]              
+[00:17:09]   ===================================================
+[00:17:09]   Executing displayNumber (ConsoleLogMiddleware)
+[00:17:09]   Configuration: {"message":"The random number is: 7"}
+[00:17:09]   ===================================================
+[00:17:09]       INFO The random number is: 7
+[00:17:09]   --------------------------------------------------
+[00:17:09]   SUCCESS - Execution time: 12 ms.
+[00:17:09]   --------------------------------------------------
 ```
 
 ## Advanced Plugin Development
