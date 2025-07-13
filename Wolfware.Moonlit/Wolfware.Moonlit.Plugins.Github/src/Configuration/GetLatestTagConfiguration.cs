@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Github.Configuration;
 
-public class GetLatestTagConfiguration
+public sealed class GetLatestTagConfiguration
 {
   public string? Prefix { get; set; } = null;
 

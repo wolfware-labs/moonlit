@@ -37,7 +37,7 @@ dotnet add package Wolfware.Moonlit.Plugins
 Implement a plugin by extending the `PluginStartup` base class:
 
 ```csharp
-public class MyCustomPluginStartup : PluginStartup
+public sealed class MyCustomPluginStartup : PluginStartup
 {
   protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
@@ -57,7 +57,7 @@ public class MyCustomPluginStartup : PluginStartup
 Create custom middleware components to extend the pipeline functionality:
 
 ```csharp
-public class MyCustomMiddleware : ReleaseMiddleware<MyConfig>
+public sealed class MyCustomMiddleware : ReleaseMiddleware<MyConfig>
 {
   protected override Task<MiddlewareResult> ExecuteAsync(
     ReleaseContext context, 

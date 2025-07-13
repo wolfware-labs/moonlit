@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 
 namespace Wolfware.Moonlit.Cli.Logging;
 
-public class ConsoleLoggerProvider : ILoggerProvider
+public sealed class ConsoleLoggerProvider : ILoggerProvider
 {
   private readonly IDisposable? _onChange;
   private LoggerFilterOptions _filterOptions;

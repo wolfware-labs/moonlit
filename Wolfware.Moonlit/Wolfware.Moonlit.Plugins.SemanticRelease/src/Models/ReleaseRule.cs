@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
-public class ReleaseRule
+public sealed class ReleaseRule
 {
   public string Type { get; set; } = string.Empty;
 

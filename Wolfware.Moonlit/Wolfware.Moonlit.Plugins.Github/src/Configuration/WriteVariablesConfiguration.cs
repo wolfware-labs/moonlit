@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Github.Configuration;
 
-public class WriteVariablesConfiguration
+public sealed class WriteVariablesConfiguration
 {
   public Dictionary<string, string> Output { get; set; } = new();
 

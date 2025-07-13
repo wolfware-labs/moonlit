@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 
-public class PublishPackageConfiguration
+public sealed class PublishPackageConfiguration
 {
   public string Package { get; set; } = string.Empty;
 

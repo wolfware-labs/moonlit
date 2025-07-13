@@ -7,7 +7,7 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Dotnet;
 
-public class DotnetPluginStartup : PluginStartup
+public sealed class DotnetPluginStartup : PluginStartup
 {
   protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
@@ -19,5 +19,6 @@ public class DotnetPluginStartup : PluginStartup
     services.AddMiddleware<BuildProject>("build");
     services.AddMiddleware<PackProject>("pack");
     services.AddMiddleware<PushPackage>("push");
+    services.AddMiddleware<RunUnitTests>("test");
   }
 }

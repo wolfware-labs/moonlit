@@ -5,7 +5,7 @@ using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Plugins.Git;
 
-public class GitPluginStartup : PluginStartup
+public sealed class GitPluginStartup : PluginStartup
 {
   protected override void AddMiddlewares(IServiceCollection services)
   {

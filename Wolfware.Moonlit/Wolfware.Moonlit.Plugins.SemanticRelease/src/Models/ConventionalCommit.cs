@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
-public class ConventionalCommit
+public sealed class ConventionalCommit
 {
   public string Type { get; set; } = string.Empty;
 

@@ -1,5 +1,5 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 
-public sealed class BuildProjectConfiguration
+public sealed class RunUnitTestsConfiguration
 {
 }

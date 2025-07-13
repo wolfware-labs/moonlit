@@ -12,7 +12,7 @@ namespace Wolfware.Moonlit.Core.Plugins;
 /// <summary>
 /// Provides functionality for creating and initializing plugin instances.
 /// </summary>
-public class PluginFactory : IPluginFactory
+public sealed class PluginFactory : IPluginFactory
 {
   private readonly IPluginPathResolver _pluginPathResolver;
   private readonly IConfigurationFactory _configurationFactory;

@@ -11,7 +11,7 @@ namespace Wolfware.Moonlit.Core.Pipelines;
 /// the pipeline, including access to the associated middleware logic and its configuration settings.
 /// It implements the <see cref="IMiddlewareContext"/> interface, ensuring adherence to the required contract.
 /// </remarks>
-public class MiddlewareContext : IMiddlewareContext
+public sealed class MiddlewareContext : IMiddlewareContext
 {
   /// <inheritdoc />
   public required string Name { get; init; }

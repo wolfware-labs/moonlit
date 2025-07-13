@@ -10,7 +10,7 @@ using Wolfware.Moonlit.Core.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Nuget;
 
-public class NugetPackageExtractor : INugetPackageExtractor
+public sealed class NugetPackageExtractor : INugetPackageExtractor
 {
   private readonly ILogger<NugetPackageExtractor> _logger;
   private readonly SourceCacheContext _cacheContext;

@@ -8,7 +8,7 @@ namespace Wolfware.Moonlit.Core.Configuration.Converters;
 /// A custom YAML type converter for the `PluginConfiguration` class.
 /// Converts instances of `PluginConfiguration` to and from YAML format.
 /// </summary>
-public class PluginConfigurationConverter : IYamlTypeConverter
+public sealed class PluginConfigurationConverter : IYamlTypeConverter
 {
   public bool Accepts(Type type)
   {

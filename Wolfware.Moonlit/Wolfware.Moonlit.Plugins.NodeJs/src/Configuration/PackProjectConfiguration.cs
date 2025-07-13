@@ -1,5 +1,5 @@
 ﻿namespace Wolfware.Moonlit.Plugins.NodeJs.Configuration;
 
-public class PackProjectConfiguration
+public sealed class PackProjectConfiguration
 {
 }

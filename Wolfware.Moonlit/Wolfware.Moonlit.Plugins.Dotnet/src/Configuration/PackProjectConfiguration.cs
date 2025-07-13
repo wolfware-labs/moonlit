@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 
-public class PackProjectConfiguration
+public sealed class PackProjectConfiguration
 {
   public string Project { get; set; } = string.Empty;
 
