@@ -22,13 +22,13 @@ export default withMermaid({
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline' }],
     ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool' }],
-    ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo.png' }],
+    ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo_portrait.png' }],
 
     // Twitter
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline' }],
     ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool' }],
-    ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo.png' }],
+    ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo_portrait.png' }],
   ],
   // Sitemap configuration
   sitemap: {
