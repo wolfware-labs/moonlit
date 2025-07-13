@@ -101,9 +101,11 @@ Brief introduction explaining what this recipe does and why it's useful.
 
 ## Configuration
 
-```yaml
-# Your configuration example
-```
+    # Your configuration example in YAML format
+    name: example
+    version: 1.0.0
+    settings:
+      key: value
 
 ## Explanation
 
