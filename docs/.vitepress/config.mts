@@ -40,7 +40,7 @@ export default withMermaid({
   },
 
   // Performance optimizations
-  // cleanUrls: true, // Remove .html extensions from URLs
+  cleanUrls: true, // Remove .html extensions from URLs
 
   // Copy versions.json to the output directory during build
   buildEnd: async (siteConfig) => {
