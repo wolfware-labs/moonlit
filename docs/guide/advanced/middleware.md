@@ -745,6 +745,50 @@ public class MyMiddlewareConfig
 }
 ```
 
+## Condition Evaluation
+
+Moonlit uses the DynamicExpresso library to evaluate conditions in the pipeline. Conditions are used in two places:
+
+1. The `condition` property (corresponds to `ExecuteOn` in the API) determines whether a step should be executed.
+2. The `stopOn` property determines whether the pipeline should stop after a step completes.
+
+### How Conditions Are Evaluated
+
+Conditions are evaluated against the output from previous steps. The `Output` variable is available in expressions and provides access to the output from all previous steps.
+
+For example, the condition `$(output:repo:branch) == 'main'` is evaluated as `Output["repo"]["branch"] == 'main'` using DynamicExpresso.
+
+Here's how conditions are evaluated in the pipeline:
+
+1. For the `condition` property, if the condition evaluates to true, the step is executed. If it evaluates to false, the step is skipped.
+2. For the `stopOn` property, if the condition evaluates to true, the pipeline stops after the step completes. If it evaluates to false, the pipeline continues with the next step.
+
+### Examples of Conditions
+
+```yaml
+# Execute a step only if the branch is 'main'
+- name: deployToProduction
+  run: deploy.azure
+  condition: $(output:repo:branch) == 'main'
+  config:
+    environment: "production"
+
+# Stop the pipeline if the version is a prerelease
+- name: checkVersion
+  run: version.check
+  stopOn: $(output:checkVersion:isPrerelease) == true
+  config:
+    version: $(output:version:nextVersion)
+
+# Complex condition with multiple checks
+- name: push
+  run: dotnet.push
+  condition: $(args:skipPush) == false && ($(args:prerelease) == true || $(output:version:isPrerelease) == false)
+  config:
+    package: $(output:pack:packagePath)
+    source: $(vars:nugetSource)
+```
+
 ## Advanced Middleware Techniques
 
 ### Conditional Execution
