@@ -123,7 +123,6 @@ export default withMermaid({
             { text: 'Creating Custom Plugins', link: '/guide/advanced/custom-plugins' },
             { text: 'Dependency Injection', link: '/guide/advanced/dependency-injection' },
             { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' },
-            { text: 'Documentation Versioning', link: '/guide/advanced/versioning' },
             { text: 'Contributing', link: '/guide/advanced/contributing' }
           ]
         }
