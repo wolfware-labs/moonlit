@@ -23,16 +23,12 @@ export default withMermaid({
     ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline' }],
     ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool' }],
     ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo.png' }],
-    ['meta', { property: 'og:url', content: 'https://moonlitbuild.dev/' }],
 
     // Twitter
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline' }],
     ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool' }],
     ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo.png' }],
-
-    // Canonical URL
-    ['link', { rel: 'canonical', href: 'https://moonlitbuild.dev/' }]
   ],
   // Sitemap configuration
   sitemap: {
@@ -41,6 +37,27 @@ export default withMermaid({
 
   // Performance optimizations
   cleanUrls: true, // Remove .html extensions from URLs
+
+  // Generate dynamic canonical URLs and update Open Graph URL for each page
+  transformHead({ pageData }) {
+    // Get the page path, handling index.md files and clean URLs
+    let pagePath = '';
+
+    if (pageData.relativePath !== 'index.md') {
+      // For non-homepage files
+      pagePath = pageData.relativePath
+        .replace(/\.md$/, '')         // Remove .md extension
+        .replace(/\/index$/, '/');    // Handle nested index.md files
+    }
+
+    // Construct the full canonical URL
+    const canonicalUrl = new URL(pagePath, 'https://moonlitbuild.dev/').href;
+
+    return [
+      ['link', { rel: 'canonical', href: canonicalUrl }],
+      ['meta', { property: 'og:url', content: canonicalUrl }]
+    ];
+  },
 
   // Copy versions.json to the output directory during build
   buildEnd: async (siteConfig) => {
