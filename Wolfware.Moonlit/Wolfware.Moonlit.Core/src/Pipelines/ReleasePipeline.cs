@@ -1,9 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
+using DynamicExpresso;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
-using Wolfware.Moonlit.Plugins.Abstractions;
+using Wolfware.Moonlit.Core.Extensions;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
@@ -17,18 +18,21 @@ public sealed class ReleasePipeline : IAsyncDisposable
   private readonly IPluginsContext _pluginsContext;
   private readonly IReadOnlyList<IMiddlewareContext> _middlewareContexts;
   private readonly IConfigurationFactory _configurationFactory;
+  private readonly IConditionEvaluator _conditionEvaluator;
   private readonly ILogger _logger;
 
   public ReleasePipeline(
     IPluginsContext pluginsContext,
     IReadOnlyList<IMiddlewareContext> middlewareContexts,
     IConfigurationFactory configurationFactory,
+    IConditionEvaluator conditionEvaluator,
     ILogger logger
   )
   {
     _pluginsContext = pluginsContext;
     _middlewareContexts = middlewareContexts;
     _configurationFactory = configurationFactory;
+    _conditionEvaluator = conditionEvaluator;
     _logger = logger;
   }
 
@@ -59,6 +63,22 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
+        if (!string.IsNullOrWhiteSpace(middlewareContext.ExecuteOn) &&
+            _conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.ExecuteOn))
+        {
+          this._logger.LogInformation("===================================================");
+          this._logger.LogInformation(
+            "Skipping {MiddlewareName} ({MiddlewareType}) due to condition not met.",
+            middlewareContext.Name,
+            middlewareContext.Middleware.GetType().Name
+          );
+          this._logger.LogInformation("Condition: {Condition}", middlewareContext.ExecuteOn);
+          this._logger.LogInformation("===================================================");
+          this._logger.LogInformation("");
+          this._logger.LogInformation("");
+          continue;
+        }
+
         this._logger.LogInformation("===================================================");
         this._logger.LogInformation("Executing {MiddlewareName} ({MiddlewareType})", middlewareContext.Name,
           middlewareContext.Middleware.GetType().Name);
@@ -105,6 +125,20 @@ public sealed class ReleasePipeline : IAsyncDisposable
             break;
           }
         }
+
+        if (string.IsNullOrWhiteSpace(middlewareContext.StopOn) ||
+            !_conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.StopOn))
+        {
+          continue;
+        }
+
+        this._logger.LogInformation("---------------------------------------------------");
+        this._logger.LogInformation(
+          "Stopping pipeline execution after {MiddlewareName} due to stop condition met.",
+          middlewareContext.Name);
+        this._logger.LogInformation("Condition: {Condition}", middlewareContext.StopOn);
+        this._logger.LogInformation("---------------------------------------------------");
+        break;
       }
       catch (OperationCanceledException)
       {

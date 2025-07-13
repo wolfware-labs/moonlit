@@ -23,7 +23,10 @@ public class MiddlewareContext : IMiddlewareContext
   public required bool ContinueOnError { get; init; }
 
   /// <inheritdoc />
-  public required string? Condition { get; init; }
+  public required string? ExecuteOn { get; init; }
+
+  /// <inheritdoc />
+  public required string? StopOn { get; init; }
 
   /// <inheritdoc />
   public required Dictionary<string, object?> Configuration { get; init; }

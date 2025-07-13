@@ -17,16 +17,19 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
 {
   private readonly IPluginsContextFactory _pluginsContextFactory;
   private readonly IConfigurationFactory _configurationFactory;
+  private readonly IConditionEvaluator _conditionEvaluator;
   private readonly ILoggerProvider _loggerProvider;
 
   public ReleasePipelineFactory(
     IPluginsContextFactory pluginsContextFactory,
     IConfigurationFactory configurationFactory,
+    IConditionEvaluator conditionEvaluator,
     ILoggerProvider loggerProvider
   )
   {
     _pluginsContextFactory = pluginsContextFactory;
     _configurationFactory = configurationFactory;
+    _conditionEvaluator = conditionEvaluator;
     _loggerProvider = loggerProvider;
   }
 
@@ -42,12 +45,19 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
         Name = x.StepName,
         Middleware = pluginsContext.GetPlugin(x.PluginName).GetMiddleware(x.MiddlewareName),
         ContinueOnError = x.ContinueOnError,
-        Condition = x.Condition,
+        ExecuteOn = x.ExecuteOn,
+        StopOn = x.StopOn,
         Configuration = x.Configuration
       })
       .ToList();
     var logger = this._loggerProvider.CreateLogger("Wolfware.Moonlit.Release");
-    return new ReleasePipeline(pluginsContext, middlewares, this._configurationFactory, logger);
+    return new ReleasePipeline(
+      pluginsContext,
+      middlewares,
+      this._configurationFactory,
+      this._conditionEvaluator,
+      logger
+    );
   }
 
   private IConfiguration GetReleaseConfiguration(ReleaseConfiguration configuration)

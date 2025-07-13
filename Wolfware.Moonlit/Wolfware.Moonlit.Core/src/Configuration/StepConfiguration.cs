@@ -37,7 +37,13 @@ public sealed class StepConfiguration
   /// Gets or sets the condition that determines whether the step should be executed.
   /// The condition is typically an expression or a boolean value evaluated during the execution pipeline.
   /// </summary>
-  public string? Condition { get; set; }
+  public string? ExecuteOn { get; set; }
+
+  /// <summary>
+  /// Gets or sets the condition upon which the execution of the step should halt.
+  /// This property defines a state or criteria where the pipeline is designed to stop processing further.
+  /// </summary>
+  public string? StopOn { get; set; }
 
   /// <summary>
   /// Gets or sets the collection of configuration key-value pairs associated with the step.

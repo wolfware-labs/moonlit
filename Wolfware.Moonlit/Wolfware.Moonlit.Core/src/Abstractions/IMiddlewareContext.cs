@@ -49,12 +49,23 @@ public interface IMiddlewareContext
   /// Gets the condition that determines whether the middleware should be executed during a pipeline run.
   /// </summary>
   /// <remarks>
-  /// The <see cref="Condition"/> property specifies an optional condition that can control the execution
+  /// The <see cref="ExecuteOn"/> property specifies an optional condition that can control the execution
   /// of the middleware. This condition is evaluated at runtime, allowing dynamic inclusion or exclusion
   /// of the middleware logic based on the specified criteria. If no condition is provided, the middleware
   /// is considered always eligible for execution.
   /// </remarks>
-  public string? Condition { get; }
+  public string? ExecuteOn { get; }
+
+  /// <summary>
+  /// Gets the condition specifying when the pipeline execution should stop after this middleware.
+  /// </summary>
+  /// <remarks>
+  /// The <see cref="StopOn"/> property specifies an optional condition that, when evaluated to true,
+  /// will halt the pipeline execution after this middleware completes. The condition is evaluated using
+  /// a dynamic expression interpreter, with access to the pipeline's output configuration. If no condition
+  /// is specified (null), the pipeline continues execution normally.
+  /// </remarks>
+  public string? StopOn { get; }
 
   /// <summary>
   /// Gets the configuration settings specific to the middleware context.
