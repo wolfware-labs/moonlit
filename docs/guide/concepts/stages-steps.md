@@ -114,7 +114,7 @@ The available configuration options depend on the middleware being executed. Eac
 
 ### Conditional Steps
 
-You can make steps conditional using the `condition` property:
+You can make steps conditional using the `condition` property (corresponds to `ExecuteOn` in the API):
 
 ```yaml
 - name: deployToProduction
@@ -125,6 +125,20 @@ You can make steps conditional using the `condition` property:
 ```
 
 In this example, the `deployToProduction` step will only execute if the current branch is `main`.
+
+### Stopping Pipeline Execution
+
+You can conditionally stop the pipeline execution after a step using the `stopOn` property:
+
+```yaml
+- name: checkVersion
+  run: version.check
+  stopOn: $(output:checkVersion:isPrerelease) == true
+  config:
+    version: $(output:version:nextVersion)
+```
+
+In this example, the pipeline will stop after the `checkVersion` step if the version is a prerelease.
 
 ### Error Handling
 
