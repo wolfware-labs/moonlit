@@ -31,7 +31,7 @@ const { frontmatter, site } = useData()
 const pageTitle = computed(() => props.title || frontmatter.value.title || site.value.title)
 const pageDescription = computed(() => props.description || frontmatter.value.description || site.value.description)
 const pageKeywords = computed(() => props.keywords || frontmatter.value.keywords || 'moonlit, build tool, release pipeline, automation')
-const pageImage = computed(() => props.image || frontmatter.value.image || 'https://moonlitbuild.dev/logo.png')
+const pageImage = computed(() => props.image || frontmatter.value.image || 'https://moonlitbuild.dev/logo_portrait.png')
 const pageAuthor = computed(() => props.author || frontmatter.value.author || 'Wolfware')
 
 // Update metadata when component mounts (client-side only)
