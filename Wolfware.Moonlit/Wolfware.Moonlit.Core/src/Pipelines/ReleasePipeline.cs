@@ -63,8 +63,8 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        if (!string.IsNullOrWhiteSpace(middlewareContext.ExecuteOn) &&
-            _conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.ExecuteOn))
+        if (!string.IsNullOrWhiteSpace(middlewareContext.Condition) &&
+            _conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.Condition))
         {
           this._logger.LogInformation("===================================================");
           this._logger.LogInformation(
@@ -72,7 +72,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
             middlewareContext.Name,
             middlewareContext.Middleware.GetType().Name
           );
-          this._logger.LogInformation("Condition: {Condition}", middlewareContext.ExecuteOn);
+          this._logger.LogInformation("Condition: {Condition}", middlewareContext.Condition);
           this._logger.LogInformation("===================================================");
           this._logger.LogInformation("");
           this._logger.LogInformation("");
