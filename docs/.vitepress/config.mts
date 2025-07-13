@@ -78,7 +78,8 @@ export default withMermaid({
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/' },
       { text: 'Reference', link: '/reference/' },
-      { text: 'Plugins', link: '/plugins/' }
+      { text: 'Plugins', link: '/plugins/' },
+      { text: 'Cookbook', link: '/cookbook/' }
     ],
 
     // Algolia DocSearch Configuration
@@ -122,7 +123,8 @@ export default withMermaid({
             { text: 'Creating Custom Plugins', link: '/guide/advanced/custom-plugins' },
             { text: 'Dependency Injection', link: '/guide/advanced/dependency-injection' },
             { text: 'Middleware Pipeline', link: '/guide/advanced/middleware' },
-            { text: 'Documentation Versioning', link: '/guide/advanced/versioning' }
+            { text: 'Documentation Versioning', link: '/guide/advanced/versioning' },
+            { text: 'Contributing', link: '/guide/advanced/contributing' }
           ]
         }
       ],
@@ -162,12 +164,15 @@ export default withMermaid({
             { text: 'Docker Plugin', link: '/plugins/docker' },
             { text: 'NodeJs Plugin', link: '/plugins/nodejs' }
           ]
-        },
+        }
+      ],
+      '/cookbook/': [
         {
-          text: 'Examples',
+          text: 'Recipes',
           items: [
-            { text: 'NuGet Release Pipeline', link: '/plugins/examples/nuget-release' },
-            { text: 'Docker Deployment', link: '/plugins/examples/docker-deployment' }
+            { text: 'Overview', link: '/cookbook/' },
+            { text: 'NuGet Release Pipeline', link: '/cookbook/nuget-release' },
+            { text: 'Docker Deployment', link: '/cookbook/docker-deployment' }
           ]
         }
       ]
