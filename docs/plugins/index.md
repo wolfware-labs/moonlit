@@ -93,11 +93,11 @@ The Docker plugin provides integration with Docker. It allows you to:
 
 The NodeJs plugin provides integration with Node.js and NPM. It allows you to:
 
-- Run any scripts defined in package.json
 - Build Node.js projects without packing them
-- Pack and publish NPM packages to registries
-- Manage package versions
-- Execute any Node.js-related operations
+- Pack NPM packages
+- Push packages to NPM registries
+
+Future versions will include more comprehensive features like running scripts defined in package.json and installing dependencies.
 
 [Learn more about the NodeJs Plugin](./nodejs.md)
 

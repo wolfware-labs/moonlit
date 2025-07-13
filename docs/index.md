@@ -60,6 +60,8 @@ plugins:
     url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
   - name: "gh"
     url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0"
+  - name: "dotnet"
+    url: "nuget://Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
 
 stages:
   build:
@@ -70,7 +72,7 @@ stages:
 
   publish:
     - name: pack
-      run: nuget.pack
+      run: dotnet.pack
       config:
         project: "./src/MyProject.csproj"
 ```
