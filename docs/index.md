@@ -165,6 +165,7 @@ stages:
       run: sr.generate-changelog
       config:
         commits: $(output:items:commits)  # Uses commits from analyze stage
+        openAiKey: $(OPENAI_API_KEY)  # Uses OpenAI API key for AI-generated changelogs
 
     # Create a GitHub release, but only for the main branch
     - name: release
