@@ -1,19 +1,24 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useData } from 'vitepress'
+import { withBase } from 'vitepress'
 
 const versions = ref([])
-const currentVersion = ref('')
+const currentVersion = ref('Current')
 const isOpen = ref(false)
 
+// This will only run on the client side when wrapped in ClientOnly
 onMounted(async () => {
   try {
-    const response = await fetch('/versions.json')
+    // Use withBase to ensure the path is correct
+    const response = await fetch(withBase('/versions.json'))
     const data = await response.json()
-    versions.value = data.versions
-    currentVersion.value = data.current
+    versions.value = data.versions || []
+    currentVersion.value = data.current || 'Current'
   } catch (error) {
     console.error('Failed to load versions:', error)
+    // Provide fallback data in case of error
+    versions.value = []
+    currentVersion.value = 'Current'
   }
 })
 

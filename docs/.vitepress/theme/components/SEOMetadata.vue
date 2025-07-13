@@ -34,7 +34,7 @@ const pageKeywords = computed(() => props.keywords || frontmatter.value.keywords
 const pageImage = computed(() => props.image || frontmatter.value.image || 'https://moonlitbuild.dev/logo.png')
 const pageAuthor = computed(() => props.author || frontmatter.value.author || 'Wolfware')
 
-// Update metadata when component mounts
+// Update metadata when component mounts (client-side only)
 onMounted(() => {
   // Update page title
   document.title = `${pageTitle.value} | Moonlit`

@@ -11,14 +11,14 @@ export default {
   Layout: () => {
     // Include SEOMetadata component in the layout
     return h('div', [
-      h(SEOMetadata),
+      h('ClientOnly', () => h(SEOMetadata)),
       h(DefaultTheme.Layout, null, {
         // https://vitepress.dev/guide/extending-default-theme#layout-slots
-        'nav-bar-content-before': () => h(VersionSelector)
+        'nav-bar-content-before': () => h('ClientOnly', () => h(VersionSelector))
       })
     ])
   },
-  enhanceApp({ app, router, siteData }) {
+  enhanceApp({app, router, siteData}) {
     // Register components globally
     app.component('SEOMetadata', SEOMetadata)
     app.component('VersionSelector', VersionSelector)
@@ -45,6 +45,7 @@ export default {
         }
       };
 
+      // Add JSON-LD script to head
       const script = document.createElement('script');
       script.setAttribute('type', 'application/ld+json');
       script.textContent = JSON.stringify(jsonLd);
