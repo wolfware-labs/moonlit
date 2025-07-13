@@ -48,6 +48,12 @@ Moonlit is a build and release automation tool designed to simplify and streamli
 
 Even this docs site you are reading right now is built with Moonlit! 😮 All the nuget packages part of the Moonlit toolset, including the CLI are built with Moonlit as well! 🤯
 
+## Installation
+
+```bash
+dotnet tool install --global moonlit-cli
+```
+
 ## Quick Example
 
 This is just one example of what Moonlit can do. Moonlit can work with various project types and technologies, not just .NET projects. See the [Plugins](/plugins/) section for more examples, including Docker and NPM integrations.
@@ -145,12 +151,6 @@ stages:
       config:
         channel: "#releases"
         message: ":rocket: New Release - $(output:version:nextVersion) is now available! :tada:"
-```
-
-## Installation
-
-```bash
-dotnet tool install --global moonlit-cli
 ```
 
 [Learn more about Moonlit](/guide/)
