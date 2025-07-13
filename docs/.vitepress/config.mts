@@ -20,14 +20,14 @@ export default withMermaid({
 
     // Open Graph / Facebook
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'Moonlit - Modern Release Pipeline' }],
-    ['meta', { property: 'og:description', content: 'A powerful build and release pipeline tool' }],
+    ['meta', { property: 'og:title', content: 'Moonlit - Bring light to your release process' }],
+    ['meta', { property: 'og:description', content: 'A powerful, extensible build and release automation tool for modern development workflows' }],
     ['meta', { property: 'og:image', content: 'https://moonlitbuild.dev/logo_portrait.png' }],
 
     // Twitter
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Moonlit - Modern Release Pipeline' }],
-    ['meta', { name: 'twitter:description', content: 'A powerful build and release pipeline tool' }],
+    ['meta', { name: 'twitter:title', content: 'Moonlit - Bring light to your release process' }],
+    ['meta', { name: 'twitter:description', content: 'A powerful, extensible build and release automation tool for modern development workflows' }],
     ['meta', { name: 'twitter:image', content: 'https://moonlitbuild.dev/logo_portrait.png' }],
   ],
   // Sitemap configuration

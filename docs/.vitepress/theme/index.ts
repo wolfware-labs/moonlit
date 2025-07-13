@@ -30,7 +30,7 @@ export default {
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
         'name': 'Moonlit',
-        'description': 'A powerful build and release pipeline tool',
+        'description': 'A powerful, extensible build and release automation tool for modern development workflows',
         'applicationCategory': 'DeveloperApplication',
         'operatingSystem': 'Windows, Linux, macOS',
         'offers': {
