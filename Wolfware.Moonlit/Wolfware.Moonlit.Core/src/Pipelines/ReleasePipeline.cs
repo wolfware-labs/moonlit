@@ -63,82 +63,27 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
       try
       {
-        if (!string.IsNullOrWhiteSpace(middlewareContext.Condition) &&
-            _conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.Condition))
+        if (!this.CheckMiddlewareCondition(middlewareContext, configuration))
         {
-          this._logger.LogInformation("===================================================");
-          this._logger.LogInformation(
-            "Skipping {MiddlewareName} ({MiddlewareType}) due to condition not met.",
-            middlewareContext.Name,
-            middlewareContext.Middleware.GetType().Name
-          );
-          this._logger.LogInformation("Condition: {Condition}", middlewareContext.Condition);
-          this._logger.LogInformation("===================================================");
-          this._logger.LogInformation("");
-          this._logger.LogInformation("");
           continue;
         }
 
-        this._logger.LogInformation("===================================================");
-        this._logger.LogInformation("Executing {MiddlewareName} ({MiddlewareType})", middlewareContext.Name,
-          middlewareContext.Middleware.GetType().Name);
-        if (this._logger.IsEnabled(LogLevel.Debug))
-        {
-          this._logger.LogDebug("Configuration: {Configuration}",
-            JsonSerializer.Serialize(middlewareContext.Configuration, JsonSerializerOptions.Default));
-        }
-
-        this._logger.LogInformation("===================================================");
-
-        var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
-        var stopwatch = Stopwatch.StartNew();
-        result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
+        result = await this.ExecuteMiddlewareAsync(middlewareContext, context, configuration)
           .ConfigureAwait(false);
-        stopwatch.Stop();
-        this._logger.LogInformation("--------------------------------------------------");
-        this._logger.LogInformation("{MiddlewareResult} - Execution time: {ElapsedMilliseconds} ms.",
-          result.IsSuccessful ? "SUCCESS" : "FAILED", stopwatch.ElapsedMilliseconds);
-        this._logger.LogInformation("--------------------------------------------------");
-        this._logger.LogInformation("");
-        this._logger.LogInformation("");
 
-        if (result.Warnings.Count > 0)
+        this.LogWarnings(result);
+
+        if (!result.IsSuccessful && !middlewareContext.ContinueOnError)
         {
-          foreach (var warning in result.Warnings)
-          {
-            this._logger.LogWarning(warning);
-          }
+          return result;
         }
 
-        switch (result.IsSuccessful)
+        configuration = this.AppendOutputToConfiguration(middlewareContext.Name, configuration, result);
+
+        if (this.CheckMiddlewareHaltCondition(middlewareContext, configuration))
         {
-          case false when !middlewareContext.ContinueOnError:
-            return result;
-          case true:
-          {
-            var resultOutput = result.Output.ToDictionary(middlewareContext.Name);
-            if (resultOutput.Count > 0)
-            {
-              configuration = this._configurationFactory.Create(resultOutput, configuration);
-            }
-
-            break;
-          }
+          break;
         }
-
-        if (string.IsNullOrWhiteSpace(middlewareContext.StopOn) ||
-            !_conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.StopOn))
-        {
-          continue;
-        }
-
-        this._logger.LogInformation("---------------------------------------------------");
-        this._logger.LogInformation(
-          "Stopping pipeline execution after {MiddlewareName} due to stop condition met.",
-          middlewareContext.Name);
-        this._logger.LogInformation("Condition: {Condition}", middlewareContext.StopOn);
-        this._logger.LogInformation("---------------------------------------------------");
-        break;
       }
       catch (OperationCanceledException)
       {
@@ -155,6 +100,93 @@ public sealed class ReleasePipeline : IAsyncDisposable
     }
 
     return result;
+  }
+
+  private bool CheckMiddlewareCondition(IMiddlewareContext middlewareContext, IConfiguration configuration)
+  {
+    if (string.IsNullOrWhiteSpace(middlewareContext.Condition) ||
+        !_conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.Condition))
+    {
+      return true;
+    }
+
+    this._logger.LogInformation("===================================================");
+    this._logger.LogInformation(
+      "Skipping {MiddlewareName} ({MiddlewareType}) due to condition not met.",
+      middlewareContext.Name,
+      middlewareContext.Middleware.GetType().Name
+    );
+    this._logger.LogInformation("Condition: {Condition}", middlewareContext.Condition);
+    this._logger.LogInformation("===================================================");
+    this._logger.LogInformation("");
+    this._logger.LogInformation("");
+    return false;
+  }
+
+  private async Task<MiddlewareResult> ExecuteMiddlewareAsync(IMiddlewareContext middlewareContext,
+    ReleaseContext context, IConfiguration configuration)
+  {
+    this._logger.LogInformation("===================================================");
+    this._logger.LogInformation("Executing {MiddlewareName} ({MiddlewareType})", middlewareContext.Name,
+      middlewareContext.Middleware.GetType().Name);
+    if (this._logger.IsEnabled(LogLevel.Debug))
+    {
+      this._logger.LogDebug("Configuration: {Configuration}",
+        JsonSerializer.Serialize(middlewareContext.Configuration, JsonSerializerOptions.Default));
+    }
+
+    this._logger.LogInformation("===================================================");
+
+    var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
+    var stopwatch = Stopwatch.StartNew();
+    var result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
+      .ConfigureAwait(false);
+    stopwatch.Stop();
+    this._logger.LogInformation("--------------------------------------------------");
+    this._logger.LogInformation("{MiddlewareResult} - Execution time: {ElapsedMilliseconds} ms.",
+      result.IsSuccessful ? "SUCCESS" : "FAILED", stopwatch.ElapsedMilliseconds);
+    this._logger.LogInformation("--------------------------------------------------");
+    this._logger.LogInformation("");
+    this._logger.LogInformation("");
+
+    return result;
+  }
+
+  private void LogWarnings(MiddlewareResult result)
+  {
+    if (result.Warnings.Count <= 0)
+    {
+      return;
+    }
+
+    foreach (var warning in result.Warnings)
+    {
+      this._logger.LogWarning(warning);
+    }
+  }
+
+  private IConfiguration AppendOutputToConfiguration(string middlewareName, IConfiguration configuration,
+    MiddlewareResult result)
+  {
+    var resultOutput = result.Output.ToDictionary(middlewareName);
+    return resultOutput.Count > 0 ? this._configurationFactory.Create(resultOutput, configuration) : configuration;
+  }
+
+  private bool CheckMiddlewareHaltCondition(IMiddlewareContext middlewareContext, IConfiguration configuration)
+  {
+    if (string.IsNullOrWhiteSpace(middlewareContext.StopOn) ||
+        !_conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.StopOn))
+    {
+      return false;
+    }
+
+    this._logger.LogInformation("---------------------------------------------------");
+    this._logger.LogInformation(
+      "Stopping pipeline execution after {MiddlewareName} due to stop condition met.",
+      middlewareContext.Name);
+    this._logger.LogInformation("Condition: {Condition}", middlewareContext.StopOn);
+    this._logger.LogInformation("---------------------------------------------------");
+    return true;
   }
 
   /// <inheritdoc />
