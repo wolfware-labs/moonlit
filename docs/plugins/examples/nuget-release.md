@@ -217,9 +217,7 @@ Here's an example of how you might add these steps:
 plugins:
   # ... existing plugins ...
   - name: "dotnet"
-    url: "nuget://Wolfware.Moonlit.Plugins.DotNet/1.0.0"
-  - name: "nuget"
-    url: "nuget://Wolfware.Moonlit.Plugins.Nuget/1.0.0"
+    url: "nuget://Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
     config:
       apiKey: $(NUGET_API_KEY)
 
@@ -240,13 +238,13 @@ stages:
 
   publish:
     - name: pack
-      run: nuget.pack
+      run: dotnet.pack
       config:
         project: "./src/MyProject.csproj"
         version: $(output:version:nextVersion)
 
     - name: push
-      run: nuget.push
+      run: dotnet.push
       config:
         package: $(output:pack:packagePath)
         source: "https://api.nuget.org/v3/index.json"

@@ -19,10 +19,10 @@ Stages are defined in your Moonlit configuration file under the `stages` section
 stages:
   build:
     # Steps for the build stage
-  
+
   test:
     # Steps for the test stage
-  
+
   publish:
     # Steps for the publish stage
 ```
@@ -88,7 +88,7 @@ stages:
   analyze:
     - name: repo
       run: git.repo-context
-    
+
     - name: version
       run: sr.calculate-version
       config:
@@ -155,8 +155,8 @@ plugins:
     url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0"
   - name: "sr"
     url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-  - name: "nuget"
-    url: "nuget://Wolfware.Moonlit.Plugins.Nuget/1.0.0"
+  - name: "dotnet"
+    url: "nuget://Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
 
 stages:
   analyze:
@@ -179,13 +179,13 @@ stages:
 
   publish:
     - name: pack
-      run: nuget.pack
+      run: dotnet.pack
       config:
         project: "./src/MyProject.csproj"
         version: $(output:version:nextVersion)
-    
+
     - name: push
-      run: nuget.push
+      run: dotnet.push
       config:
         package: $(output:pack:packagePath)
         source: "https://api.nuget.org/v3/index.json"

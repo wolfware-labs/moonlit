@@ -90,7 +90,7 @@ Moonlit comes with several official plugins:
 - **Wolfware.Plugins.GitHub**: GitHub API integration
 - **Wolfware.Plugins.SemanticRelease**: Semantic versioning and changelog generation
 - **Wolfware.Plugins.Slack**: Slack notifications
-- **Wolfware.Plugins.Nuget**: NuGet package operations
+- **Wolfware.Plugins.Dotnet**: .NET project operations
 - **Wolfware.Plugins.Docker**: Docker image building and publishing
 - **Wolfware.Plugins.NodeJs**: NPM package operations
 

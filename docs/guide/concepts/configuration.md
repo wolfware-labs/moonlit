@@ -208,8 +208,8 @@ plugins:
       token: $(GITHUB_TOKEN)
   - name: "sr"
     url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-  - name: "nuget"
-    url: "nuget://Wolfware.Moonlit.Plugins.Nuget/1.0.0"
+  - name: "dotnet"
+    url: "nuget://Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
     config:
       apiKey: $(NUGET_API_KEY)
 
@@ -239,13 +239,13 @@ stages:
 
   publish:
     - name: pack
-      run: nuget.pack
+      run: dotnet.pack
       config:
         project: $(vars:projectPath)
         version: $(output:version:nextVersion)
 
     - name: push
-      run: nuget.push
+      run: dotnet.push
       condition: $(args:skipPush) == false && ($(args:prerelease) == true || $(output:version:isPrerelease) == false)
       config:
         package: $(output:pack:packagePath)

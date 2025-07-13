@@ -62,17 +62,18 @@ The Slack plugin provides integration with Slack. It allows you to:
 
 [Learn more about the Slack Plugin](./slack.md)
 
-### NuGet Plugin
+### Dotnet Plugin
 
-**Package**: `Wolfware.Moonlit.Plugins.Nuget`
+**Package**: `Wolfware.Moonlit.Plugins.Dotnet`
 
-The NuGet plugin provides integration with NuGet. It allows you to:
+The Dotnet plugin provides integration with .NET projects. It allows you to:
 
+- Build .NET projects without packing them
 - Pack .NET projects into NuGet packages
 - Push packages to NuGet repositories
 - Manage package versions
 
-[Learn more about the NuGet Plugin](./nuget.md)
+[Learn more about the Dotnet Plugin](./dotnet.md)
 
 ### Docker Plugin
 
