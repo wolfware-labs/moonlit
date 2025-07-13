@@ -1,10 +1,9 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
-using Wolfware.Moonlit.Plugins.Nuget.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Plugins.Nuget.Middlewares;
+namespace Wolfware.Moonlit.Plugins.Dotnet.Middlewares;
 
 public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
 {
@@ -73,7 +72,6 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
     var process = new Process {StartInfo = processStartInfo};
     process.Start();
     process.WaitForExit();
-    var output = process.StandardOutput.ReadToEnd();
     var error = process.StandardError.ReadToEnd();
     if (process.ExitCode != 0)
     {

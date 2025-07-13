@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.Nuget.Configuration;
+﻿namespace Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 
 public class PublishPackageConfiguration
 {

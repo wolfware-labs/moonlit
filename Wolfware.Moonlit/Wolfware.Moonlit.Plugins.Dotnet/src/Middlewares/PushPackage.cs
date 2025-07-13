@@ -4,10 +4,9 @@ using NuGet.Common;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
-using Wolfware.Moonlit.Plugins.Nuget.Configuration;
 using Wolfware.Moonlit.Plugins.Pipeline;
 
-namespace Wolfware.Moonlit.Plugins.Nuget.Middlewares;
+namespace Wolfware.Moonlit.Plugins.Dotnet.Middlewares;
 
 public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
 {
