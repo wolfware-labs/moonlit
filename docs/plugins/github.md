@@ -142,6 +142,41 @@ stages:
         releaseName: $(output:createRelease:name)
 ```
 
+### write-variables
+
+The `write-variables` middleware allows you to set output and environment variables in your GitHub workflow.
+
+#### Inputs
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| output | dictionary | No | {} | A dictionary of output variables to set |
+| environment | dictionary | No | {} | A dictionary of environment variables to set |
+
+#### Outputs
+
+This middleware does not produce any outputs.
+
+| Name | Type | Description |
+|------|------|-------------|
+| *None* | | |
+
+#### Example
+
+```yaml
+stages:
+  setup:
+    - name: setVariables
+      run: gh.write-variables
+      config:
+        output:
+          REPO_NAME: "my-repo"
+          VERSION: "1.0.0"
+        environment:
+          GITHUB_ENV: "production"
+          DEPLOY_TARGET: "main"
+```
+
 ## Usage in Pipelines
 
 The GitHub plugin is commonly used in release pipelines to:

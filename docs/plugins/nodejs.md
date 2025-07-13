@@ -5,7 +5,7 @@ description: Documentation for the NodeJs plugin in Moonlit
 
 # NodeJs Plugin
 
-The NodeJs plugin provides comprehensive integration with Node.js and NPM. It allows you to run any scripts defined in package.json, build Node.js projects without packing them, pack and publish NPM packages to registries, manage package versions, and execute any Node.js-related operations.
+The NodeJs plugin provides integration with Node.js and NPM. It allows you to build Node.js projects, pack NPM packages, and push them to registries. Future versions will include more comprehensive features like running scripts defined in package.json and installing dependencies.
 
 ## Installation
 
@@ -27,9 +27,13 @@ The NodeJs plugin provides the following middlewares:
 
 ### run-script
 
-The `run-script` middleware executes a script defined in the package.json file.
+::: warning Planned Feature
+The `run-script` middleware is planned for future implementation but is not available in the current version of the NodeJs plugin.
+:::
 
-#### Inputs
+The `run-script` middleware will execute a script defined in the package.json file.
+
+#### Planned Inputs
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
@@ -37,13 +41,13 @@ The `run-script` middleware executes a script defined in the package.json file.
 | script | string | Yes | - | The name of the script to run (as defined in package.json) |
 | args | string | No | - | Additional arguments to pass to the script |
 
-#### Outputs
+#### Planned Outputs
 
 | Name | Type | Description |
 |------|------|-------------|
 | output | string | The standard output from the script execution |
 
-#### Example
+#### Example (Future Implementation)
 
 ```yaml
 stages:
@@ -123,9 +127,9 @@ stages:
         packageFile: $(output:pack:packagePath)
 ```
 
-### publish
+### push
 
-The `publish` middleware publishes an NPM package to a registry.
+The `push` middleware publishes an NPM package to a registry.
 
 #### Inputs
 
@@ -152,8 +156,8 @@ stages:
       config:
         directory: "./"
         version: $(output:version:nextVersion)
-    - name: publish
-      run: npm.publish
+    - name: push
+      run: npm.push
       config:
         package: $(output:pack:packagePath)
         registry: "https://registry.npmjs.org"
@@ -161,22 +165,26 @@ stages:
 
 ### install
 
-The `install` middleware installs dependencies for a Node.js project.
+::: warning Planned Feature
+The `install` middleware is planned for future implementation but is not available in the current version of the NodeJs plugin.
+:::
 
-#### Inputs
+The `install` middleware will install dependencies for a Node.js project.
+
+#### Planned Inputs
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | directory | string | Yes | - | The directory containing the package.json file |
 | production | boolean | No | false | Whether to install only production dependencies |
 
-#### Outputs
+#### Planned Outputs
 
 | Name | Type | Description |
 |------|------|-------------|
 | output | string | The standard output from the installation process |
 
-#### Example
+#### Example (Future Implementation)
 
 ```yaml
 stages:
@@ -242,8 +250,8 @@ stages:
         directory: "./my-node-project"
         version: $(output:version:nextVersion)
 
-    - name: publish
-      run: npm.publish
+    - name: push
+      run: npm.push
       config:
         package: $(output:pack:packagePath)
         registry: "https://registry.npmjs.org"

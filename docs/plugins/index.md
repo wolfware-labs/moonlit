@@ -101,6 +101,22 @@ The NodeJs plugin provides integration with Node.js and NPM. It allows you to:
 
 [Learn more about the NodeJs Plugin](./nodejs.md)
 
+### Moonlit Plugin
+
+**Package**: `Wolfware.Moonlit.Plugins.Moonlit`
+
+The Moonlit plugin is designed for managing Moonlit release files as submodules in the Moonlit release automation system. It allows you to:
+
+- Manage Moonlit release configuration files as submodules
+- Work with Moonlit-specific release processes
+- Simplify the management of complex Moonlit release pipelines
+
+::: warning
+This plugin is currently under development and not fully implemented yet. The implementation is incomplete with the main middleware method throwing a `NotImplementedException`.
+:::
+
+[Learn more about the Moonlit Plugin](./moonlit.md)
+
 ## Using Plugins
 
 To use a plugin in your Moonlit pipeline, add it to the `plugins` section of your configuration file:

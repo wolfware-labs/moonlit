@@ -63,23 +63,27 @@ stages:
 
 ### login
 
-The `login` middleware logs in to a Docker registry.
+::: warning Planned Feature
+The `login` middleware is planned for future implementation but is not available in the current version of the Docker plugin.
+:::
 
-#### Inputs
+The `login` middleware will log in to a Docker registry.
+
+#### Planned Inputs
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | registry | string | No | "docker.io" | The URL of the Docker registry to log in to |
 
-#### Outputs
+#### Planned Outputs
 
-This middleware does not produce any documented outputs.
+This middleware is not expected to produce any outputs.
 
 | Name | Type | Description |
 |------|------|-------------|
 | *None* | | |
 
-#### Example
+#### Example (Future Implementation)
 
 ```yaml
 stages:
@@ -125,9 +129,13 @@ stages:
 
 ### deploy
 
-The `deploy` middleware deploys a Docker image to a target environment.
+::: warning Planned Feature
+The `deploy` middleware is planned for future implementation but is not available in the current version of the Docker plugin.
+:::
 
-#### Inputs
+The `deploy` middleware will deploy a Docker image to a target environment.
+
+#### Planned Inputs
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
@@ -137,13 +145,13 @@ The `deploy` middleware deploys a Docker image to a target environment.
 | sshKey | string | Yes | - | The SSH key to use for connecting to the host |
 | composeFile | string | Yes | - | The path to the Docker Compose file |
 
-#### Outputs
+#### Planned Outputs
 
 | Name | Type | Description |
 |------|------|-------------|
 | environment | string | The name of the environment that was deployed to |
 
-#### Example
+#### Example (Future Implementation)
 
 ```yaml
 stages:

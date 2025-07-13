@@ -162,7 +162,8 @@ export default withMermaid({
             { text: 'Slack Plugin', link: '/plugins/slack' },
             { text: 'Dotnet Plugin', link: '/plugins/dotnet' },
             { text: 'Docker Plugin', link: '/plugins/docker' },
-            { text: 'NodeJs Plugin', link: '/plugins/nodejs' }
+            { text: 'NodeJs Plugin', link: '/plugins/nodejs' },
+            { text: 'Moonlit Plugin', link: '/plugins/moonlit' }
           ]
         }
       ],
