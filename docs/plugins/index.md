@@ -91,11 +91,13 @@ The Docker plugin provides integration with Docker. It allows you to:
 
 **Package**: `Wolfware.Moonlit.Plugins.NodeJs`
 
-The NodeJs plugin provides integration with NPM. It allows you to:
+The NodeJs plugin provides integration with Node.js and NPM. It allows you to:
 
-- Build and pack NPM packages
-- Publish packages to NPM registries
+- Run any scripts defined in package.json
+- Build Node.js projects without packing them
+- Pack and publish NPM packages to registries
 - Manage package versions
+- Execute any Node.js-related operations
 
 [Learn more about the NodeJs Plugin](./nodejs.md)
 

@@ -46,7 +46,7 @@ Moonlit comes with several official plugins:
 - **Wolfware.Plugins.Slack**: Slack notifications
 - **Wolfware.Plugins.Dotnet**: .NET project operations
 - **Wolfware.Plugins.Docker**: Docker image building and publishing
-- **Wolfware.Plugins.NodeJs**: NPM package operations
+- **Wolfware.Plugins.NodeJs**: Node.js and NPM operations, including running scripts, building projects, and package management
 
 ## How Moonlit Works
 
