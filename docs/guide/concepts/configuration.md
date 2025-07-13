@@ -81,7 +81,7 @@ Each step within a stage has the following properties:
 - **name**: A unique identifier for the step
 - **run**: The middleware to execute, in the format `pluginName.middlewareName`
 - **condition** (optional): A condition that must be true for the step to execute (corresponds to `ExecuteOn` in the API)
-- **stopOn** (optional): A condition that, when true, will halt the pipeline execution after this step completes
+- **haltIf** (optional): A condition that, when true, will halt the pipeline execution after this step completes
 - **continueOnError** (optional): Whether to continue execution if the step fails
 - **config** (optional): Configuration settings for the middleware
 

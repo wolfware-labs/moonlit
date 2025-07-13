@@ -128,17 +128,17 @@ In this example, the `deployToProduction` step will only execute if the current 
 
 ### Stopping Pipeline Execution
 
-You can conditionally stop the pipeline execution after a step using the `stopOn` property:
+You can conditionally stop the pipeline execution after a step using the `haltIf` property:
 
 ```yaml
 - name: checkVersion
   run: version.check
-  stopOn: $(output:checkVersion:isPrerelease) == true
+  haltIf: $(output:checkVersion:isPrerelease) == true
   config:
     version: $(output:version:nextVersion)
 ```
 
-In this example, the pipeline will stop after the `checkVersion` step if the version is a prerelease.
+In this example, the pipeline will halt after the `checkVersion` step if the version is a prerelease.
 
 ### Error Handling
 

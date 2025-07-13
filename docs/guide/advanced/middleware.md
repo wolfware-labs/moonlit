@@ -750,7 +750,7 @@ public class MyMiddlewareConfig
 Moonlit uses the DynamicExpresso library to evaluate conditions in the pipeline. Conditions are used in two places:
 
 1. The `condition` property (corresponds to `ExecuteOn` in the API) determines whether a step should be executed.
-2. The `stopOn` property determines whether the pipeline should stop after a step completes.
+2. The `haltIf` property determines whether the pipeline should halt after a step completes.
 
 ### How Conditions Are Evaluated
 
@@ -761,7 +761,7 @@ For example, the condition `$(output:repo:branch) == 'main'` is evaluated as `Ou
 Here's how conditions are evaluated in the pipeline:
 
 1. For the `condition` property, if the condition evaluates to true, the step is executed. If it evaluates to false, the step is skipped.
-2. For the `stopOn` property, if the condition evaluates to true, the pipeline stops after the step completes. If it evaluates to false, the pipeline continues with the next step.
+2. For the `haltIf` property, if the condition evaluates to true, the pipeline halts after the step completes. If it evaluates to false, the pipeline continues with the next step.
 
 ### Examples of Conditions
 
@@ -776,7 +776,7 @@ Here's how conditions are evaluated in the pipeline:
 # Stop the pipeline if the version is a prerelease
 - name: checkVersion
   run: version.check
-  stopOn: $(output:checkVersion:isPrerelease) == true
+  haltIf: $(output:checkVersion:isPrerelease) == true
   config:
     version: $(output:version:nextVersion)
 
