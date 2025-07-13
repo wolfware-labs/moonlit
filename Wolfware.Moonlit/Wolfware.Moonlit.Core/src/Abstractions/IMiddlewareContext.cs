@@ -35,6 +35,28 @@ public interface IMiddlewareContext
   public IReleaseMiddleware Middleware { get; }
 
   /// <summary>
+  /// Gets a value indicating whether the middleware execution should continue when a failure occurs.
+  /// </summary>
+  /// <remarks>
+  /// The <see cref="ContinueOnError"/> property determines whether the pipeline should proceed
+  /// with the execution of subsequent middleware components when the current middleware encounters an error.
+  /// Setting this to <c>true</c> allows the pipeline to continue regardless of failures, whereas setting it to <c>false</c>
+  /// stops further execution and triggers appropriate error handling mechanisms.
+  /// </remarks>
+  public bool ContinueOnError { get; }
+
+  /// <summary>
+  /// Gets the condition that determines whether the middleware should be executed during a pipeline run.
+  /// </summary>
+  /// <remarks>
+  /// The <see cref="Condition"/> property specifies an optional condition that can control the execution
+  /// of the middleware. This condition is evaluated at runtime, allowing dynamic inclusion or exclusion
+  /// of the middleware logic based on the specified criteria. If no condition is provided, the middleware
+  /// is considered always eligible for execution.
+  /// </remarks>
+  public string? Condition { get; }
+
+  /// <summary>
   /// Gets the configuration settings specific to the middleware context.
   /// </summary>
   /// <remarks>

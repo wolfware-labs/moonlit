@@ -41,6 +41,8 @@ public sealed class ReleasePipelineFactory : IReleasePipelineFactory
       {
         Name = x.StepName,
         Middleware = pluginsContext.GetPlugin(x.PluginName).GetMiddleware(x.MiddlewareName),
+        ContinueOnError = x.ContinueOnError,
+        Condition = x.Condition,
         Configuration = x.Configuration
       })
       .ToList();

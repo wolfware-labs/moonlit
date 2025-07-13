@@ -90,28 +90,33 @@ public sealed class ReleasePipeline : IAsyncDisposable
           }
         }
 
-        if (!result.IsSuccessful)
+        switch (result.IsSuccessful)
         {
-          return result;
-        }
+          case false when !middlewareContext.ContinueOnError:
+            return result;
+          case true:
+          {
+            var resultOutput = result.Output.ToDictionary(middlewareContext.Name);
+            if (resultOutput.Count > 0)
+            {
+              configuration = this._configurationFactory.Create(resultOutput, configuration);
+            }
 
-        var resultOutput = result.Output.ToDictionary(middlewareContext.Name);
-        if (resultOutput.Count > 0)
-        {
-          configuration = this._configurationFactory.Create(resultOutput, configuration);
+            break;
+          }
         }
       }
       catch (OperationCanceledException)
       {
-        this._logger.LogInformation("Pipeline execution was cancelled by the user.");
         return MiddlewareResult.Failure("Pipeline execution was cancelled by the user.");
       }
       catch (Exception ex)
       {
-        this._logger.LogError(ex, "An error occurred while executing middleware {MiddlewareName}.",
-          middlewareContext.Name);
-        return MiddlewareResult.Failure(
-          $"An error occurred while executing middleware {middlewareContext.Name}: {ex.Message}");
+        if (!middlewareContext.ContinueOnError)
+        {
+          return MiddlewareResult.Failure(
+            $"An error occurred while executing middleware {middlewareContext.Name}: {ex.Message}");
+        }
       }
     }
 

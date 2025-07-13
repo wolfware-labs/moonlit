@@ -27,6 +27,19 @@ public sealed class StepConfiguration
   public string MiddlewareName { get; set; } = string.Empty;
 
   /// <summary>
+  /// Gets or sets a value indicating whether the process should continue execution of subsequent steps
+  /// even if the current step fails. If set to true, the failure of this step will not interrupt
+  /// the remaining pipeline, allowing subsequent steps to execute.
+  /// </summary>
+  public bool ContinueOnError { get; set; } = false;
+
+  /// <summary>
+  /// Gets or sets the condition that determines whether the step should be executed.
+  /// The condition is typically an expression or a boolean value evaluated during the execution pipeline.
+  /// </summary>
+  public string? Condition { get; set; }
+
+  /// <summary>
   /// Gets or sets the collection of configuration key-value pairs associated with the step.
   /// This dictionary stores additional customizable settings or parameters
   /// required for the step's execution.

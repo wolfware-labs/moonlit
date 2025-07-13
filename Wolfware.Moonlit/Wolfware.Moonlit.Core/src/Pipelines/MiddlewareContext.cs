@@ -20,5 +20,11 @@ public class MiddlewareContext : IMiddlewareContext
   public required IReleaseMiddleware Middleware { get; init; }
 
   /// <inheritdoc />
+  public required bool ContinueOnError { get; init; }
+
+  /// <inheritdoc />
+  public required string? Condition { get; init; }
+
+  /// <inheritdoc />
   public required Dictionary<string, object?> Configuration { get; init; }
 }
