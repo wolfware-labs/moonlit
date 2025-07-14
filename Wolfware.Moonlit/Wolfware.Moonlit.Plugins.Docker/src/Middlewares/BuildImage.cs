@@ -1,5 +1,5 @@
 ﻿using Wolfware.Moonlit.Plugins.Docker.Configuration;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Docker.Middlewares;
 

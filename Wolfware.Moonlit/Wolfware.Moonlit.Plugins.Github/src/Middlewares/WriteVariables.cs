@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Configuration;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 

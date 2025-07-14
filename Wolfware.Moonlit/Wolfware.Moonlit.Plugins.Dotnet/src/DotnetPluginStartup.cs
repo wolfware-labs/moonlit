@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 using Wolfware.Moonlit.Plugins.Dotnet.Middlewares;
 using Wolfware.Moonlit.Plugins.Extensions;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Dotnet;
 

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Extensions;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease;

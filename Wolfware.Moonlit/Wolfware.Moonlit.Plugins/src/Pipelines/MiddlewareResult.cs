@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace Wolfware.Moonlit.Plugins.Pipeline;
+namespace Wolfware.Moonlit.Plugins.Pipelines;
 
 /// Represents the outcome of a pipeline operation, encapsulating success, failure, and warning details.
 [PublicAPI]

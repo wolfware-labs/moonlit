@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace Wolfware.Moonlit.Plugins.Pipeline;
+namespace Wolfware.Moonlit.Plugins.Pipelines;
 
 [PublicAPI]
 public sealed class MiddlewareOutput

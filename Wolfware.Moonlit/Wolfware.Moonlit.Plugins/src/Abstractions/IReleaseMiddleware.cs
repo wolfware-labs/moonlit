@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 using Microsoft.Extensions.Configuration;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Abstractions;
 

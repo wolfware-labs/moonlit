@@ -3,7 +3,7 @@ using Octokit;
 using Wolfware.Moonlit.Plugins.Git.Extensions;
 using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Models;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 using GitRepository = LibGit2Sharp.Repository;
 
 namespace Wolfware.Moonlit.Plugins.Github.Services;

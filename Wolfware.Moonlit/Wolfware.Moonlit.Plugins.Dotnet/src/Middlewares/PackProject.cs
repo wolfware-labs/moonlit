@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Dotnet.Middlewares;
 

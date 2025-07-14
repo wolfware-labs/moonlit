@@ -1,7 +1,6 @@
 ﻿using JetBrains.Annotations;
-using Microsoft.Extensions.Logging;
 
-namespace Wolfware.Moonlit.Plugins.Pipeline;
+namespace Wolfware.Moonlit.Plugins.Pipelines;
 
 /// <summary>
 /// Represents the context within which the release pipeline and its associated middleware execute.

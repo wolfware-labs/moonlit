@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Extensions;
 
-namespace Wolfware.Moonlit.Plugins.Pipeline;
+namespace Wolfware.Moonlit.Plugins.Pipelines;
 
 /// <summary>
 /// Represents an abstract base class for implementing middleware components in a release pipeline.

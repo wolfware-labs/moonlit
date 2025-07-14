@@ -5,7 +5,7 @@ using Wolfware.Moonlit.Cli.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Pipelines;
 using Wolfware.Moonlit.Core.Plugins;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Cli.Commands;
 

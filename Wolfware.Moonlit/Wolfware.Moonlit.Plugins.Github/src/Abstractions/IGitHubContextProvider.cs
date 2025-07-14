@@ -1,4 +1,4 @@
-﻿using Wolfware.Moonlit.Plugins.Pipeline;
+﻿using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Github.Abstractions;
 

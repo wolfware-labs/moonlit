@@ -2,7 +2,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Extensions;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 

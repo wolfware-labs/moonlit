@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Abstractions;
 
-namespace Wolfware.Moonlit.Plugins.Pipeline;
+namespace Wolfware.Moonlit.Plugins.Pipelines;
 
 /// <summary>
 /// Provides a base implementation for configuring and initializing a plugin.

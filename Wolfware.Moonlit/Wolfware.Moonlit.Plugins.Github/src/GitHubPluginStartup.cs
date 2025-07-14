@@ -7,7 +7,7 @@ using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Configuration;
 using Wolfware.Moonlit.Plugins.Github.Middlewares;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 using GitHubContextFactory = Wolfware.Moonlit.Plugins.Github.Services.GitHubContextFactory;
 
 namespace Wolfware.Moonlit.Plugins.Github;

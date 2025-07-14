@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Semver;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Services;

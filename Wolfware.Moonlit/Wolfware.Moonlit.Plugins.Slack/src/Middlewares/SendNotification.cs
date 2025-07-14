@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SlackNet;
 using SlackNet.WebApi;
-using Wolfware.Moonlit.Plugins.Pipeline;
+using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.Slack.Configuration;
 
 namespace Wolfware.Moonlit.Plugins.Slack.Middlewares;
