@@ -59,7 +59,7 @@ public sealed class PushPackage : ReleaseMiddleware<PublishPackageConfiguration>
         getApiKey: _ => apiKey,
         getSymbolApiKey: _ => null,
         noServiceEndpoint: false,
-        skipDuplicate: true,
+        skipDuplicate: false,
         symbolPackageUpdateResource: null,
         allowInsecureConnections: false,
         log: NullLogger.Instance
