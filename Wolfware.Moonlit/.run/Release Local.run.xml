@@ -24,9 +24,10 @@
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Slack" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Slack/Wolfware.Moonlit.Plugins.Slack.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.SemanticRelease" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.SemanticRelease/Wolfware.Moonlit.Plugins.SemanticRelease.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Git" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Git/Wolfware.Moonlit.Plugins.Git.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Nuget" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Nuget/Wolfware.Moonlit.Plugins.Nuget.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Docker" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Docker/Wolfware.Moonlit.Plugins.Docker.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Npm" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Npm/Wolfware.Moonlit.Plugins.Npm.csproj" />
+      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Dotnet" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Dotnet/Wolfware.Moonlit.Plugins.Dotnet.csproj" />
+      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.NodeJs" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.NodeJs/Wolfware.Moonlit.Plugins.NodeJs.csproj" />
+      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Moonlit" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Moonlit/Wolfware.Moonlit.Plugins.Moonlit.csproj" />
     </method>
   </configuration>
 </component>

@@ -69,32 +69,42 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
       CreateNoWindow = true,
       WorkingDirectory = context.WorkingDirectory
     };
-    var process = new Process {StartInfo = processStartInfo};
-    process.Start();
-    process.WaitForExit();
-    var error = process.StandardError.ReadToEnd();
-    if (process.ExitCode != 0)
-    {
-      return Task.FromResult(MiddlewareResult.Failure($"Failed to pack project. Error: {error}"));
-    }
 
-    var nupkgFiles = Directory.GetFiles(outputDirectory, "*.nupkg");
-    switch (nupkgFiles.Length)
+    try
     {
-      case 0:
-        return Task.FromResult(MiddlewareResult.Failure("No .nupkg files were created."));
-      case 1:
-        this._logger.LogInformation("Project packed successfully. Location: {PackageLocation}", nupkgFiles[0]);
-        break;
-      case > 1:
-        this._logger.LogWarning("Multiple .nupkg files were created. Using the first one: {NupkgFile}", nupkgFiles[0]);
-        break;
-    }
+      var process = new Process {StartInfo = processStartInfo};
+      process.Start();
+      process.WaitForExit();
+      var error = process.StandardError.ReadToEnd();
+      if (process.ExitCode != 0)
+      {
+        return Task.FromResult(MiddlewareResult.Failure($"Failed to pack project. Error: {error}"));
+      }
 
-    return Task.FromResult(MiddlewareResult.Success(output =>
+      var nupkgFiles = Directory.GetFiles(outputDirectory, "*.nupkg");
+      switch (nupkgFiles.Length)
+      {
+        case 0:
+          return Task.FromResult(MiddlewareResult.Failure("No .nupkg files were created."));
+        case 1:
+          this._logger.LogInformation("Project packed successfully. Location: {PackageLocation}", nupkgFiles[0]);
+          break;
+        case > 1:
+          this._logger.LogWarning("Multiple .nupkg files were created. Using the first one: {NupkgFile}",
+            nupkgFiles[0]);
+          break;
+      }
+
+      return Task.FromResult(MiddlewareResult.Success(output =>
+      {
+        output.Add("PackagePath", nupkgFiles[0]);
+      }));
+    }
+    catch (Exception e)
     {
-      output.Add("PackagePath", nupkgFiles[0]);
-    }));
+      this._logger.LogError(e, "Failed to pack project {ProjectPath}", projectPath);
+      return Task.FromResult(MiddlewareResult.Failure($"Failed to pack project: {e.Message}"));
+    }
   }
 
   private static string? GetAssemblyVersion(PackProjectConfiguration configuration)

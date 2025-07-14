@@ -9,11 +9,11 @@ plugins:
       token: $(GITHUB_TOKEN)
   - name: "sr"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
-  - name: "nuget"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Nuget/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Nuget.dll"
+  - name: "dotnet"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Dotnet/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Dotnet.dll"
     config:
-      source: "https://api.nuget.org/v3/index.json"
-      apiKey: $(NUGET_API_KEY)
+      nugetSource: "https://nuget.pkg.github.com/wolfware-labs/index.json"
+      nugetApiKey: $(GITHUB_TOKEN)
 
 stages:
   analyze:
@@ -38,12 +38,12 @@ stages:
 
   build:
     - name: pack
-      run: nuget.pack
+      run: dotnet.pack
       config:
         project: "../../../Wolfware.Moonlit.Cli.csproj"
         version: $(output:version:nextFullVersion)
     - name: publish
-      run: nuget.push
+      run: dotnet.push
       config:
         package: $(output:pack:packagePath)
 
