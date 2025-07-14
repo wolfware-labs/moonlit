@@ -23,7 +23,7 @@ A typical plugin package has the following structure:
 ```
 MyCompany.Moonlit.Plugins.MyPlugin.nupkg
 ├── lib
-│   └── net6.0
+│   └── net9.0
 │       └── MyCompany.Moonlit.Plugins.MyPlugin.dll
 ├── MyCompany.Moonlit.Plugins.MyPlugin.nuspec
 └── [Content_Files]
