@@ -11,9 +11,9 @@
     <Copyright>© 2025 Wolfware LLC</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <!--    <RepositoryUrl>https://github.com/myorg/mylibrary</RepositoryUrl>-->
-    <!--    <RepositoryType>git</RepositoryType>-->
-    <!--    <PackageProjectUrl>https://myprojectsite.com</PackageProjectUrl>-->
+    <RepositoryUrl>https://github.com/wolfware-labs/moonlit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://moonlitbuild.dev</PackageProjectUrl>
     <PackageTags>Wolfware;Moonlit;Plugins</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
