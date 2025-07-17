@@ -54,9 +54,11 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
         "PackageVersion could not be determined. Please specify it in the configuration or provide a valid Version."));
     }
 
-    this._logger.LogInformation(
-      "Packing project {ProjectPath} with AssemblyVersion={AssemblyVersion}, FileVersion={FileVersion}, InformationalVersion={InformationalVersion}, PackageVersion={PackageVersion}",
-      projectPath, assemblyVersion, fileVersion, informationalVersion, packageVersion);
+    this._logger.LogInformation("Project: {ProjectPath}", Path.GetFileName(projectPath));
+    this._logger.LogInformation("AssemblyVersion: {AssemblyVersion}", assemblyVersion);
+    this._logger.LogInformation("FileVersion: {FileVersion}", fileVersion);
+    this._logger.LogInformation("InformationalVersion: {InformationalVersion}", informationalVersion);
+    this._logger.LogInformation("PackageVersion: {PackageVersion}", packageVersion);
     var arguments =
       $"pack \"{projectPath}\" -p:AssemblyVersion={assemblyVersion} -p:FileVersion={fileVersion} -p:InformationalVersion={informationalVersion} -p:PackageVersion={packageVersion} --output \"{outputDirectory}\"";
     var processStartInfo = new ProcessStartInfo
@@ -75,9 +77,28 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
       var process = new Process {StartInfo = processStartInfo};
       process.Start();
       process.WaitForExit();
-      var error = process.StandardError.ReadToEnd();
+      var output = process.StandardOutput.ReadToEnd();
+      var outputLines = output.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries)
+        .Select(line => line.Trim());
+      foreach (var line in outputLines)
+      {
+        if (line.Contains("error", StringComparison.OrdinalIgnoreCase))
+        {
+          this._logger.LogError(line);
+        }
+        else if (line.Contains("warning", StringComparison.OrdinalIgnoreCase))
+        {
+          this._logger.LogWarning(line);
+        }
+        else
+        {
+          this._logger.LogInformation(line);
+        }
+      }
+
       if (process.ExitCode != 0)
       {
+        var error = process.StandardError.ReadToEnd();
         return Task.FromResult(MiddlewareResult.Failure($"Failed to pack project. Error: {error}"));
       }
 
@@ -87,11 +108,12 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
         case 0:
           return Task.FromResult(MiddlewareResult.Failure("No .nupkg files were created."));
         case 1:
-          this._logger.LogInformation("Project packed successfully. Location: {PackageLocation}", nupkgFiles[0]);
+          this._logger.LogInformation("Project packed successfully. Package: {PackageName}",
+            Path.GetFileNameWithoutExtension(nupkgFiles[0]));
           break;
         case > 1:
-          this._logger.LogWarning("Multiple .nupkg files were created. Using the first one: {NupkgFile}",
-            nupkgFiles[0]);
+          this._logger.LogWarning("Multiple .nupkg files were created. Using the first one: {PackageName}",
+            Path.GetFileNameWithoutExtension(nupkgFiles[0]));
           break;
       }
 
