@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using Wolfware.Moonlit.Plugins.Pipelines;
@@ -78,7 +77,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
       var completion = await client.CompleteChatAsync(
         new SystemChatMessage(
           "You are an expert at generating accurate and user-friendly changelogs based on commit messages."
-          ),
+        ),
         new UserChatMessage(
           $"Please review the following list of commit messages in JSON format containing the commit SHA and the commit Message." +
           $"Return only the SHA of those that are relevant to end users and should be included in a changelog." +
@@ -88,7 +87,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Conf
           $"Return the filtered list as an array of strings." +
           $"DO NOT wrap the array in markdown or any other formatting." +
           $"Just return the JSON array directly."
-          )
+        )
       );
 
       if (completion.Value.Content.Count == 0)
