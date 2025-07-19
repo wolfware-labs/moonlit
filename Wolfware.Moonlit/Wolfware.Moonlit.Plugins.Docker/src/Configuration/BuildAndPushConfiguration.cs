@@ -21,4 +21,8 @@ public sealed class BuildAndPushConfiguration
   public bool NoCache { get; set; } = false;
 
   public bool Pull { get; set; } = false;
+
+  public string[] CacheFrom { get; set; } = [];
+
+  public string[] CacheTo { get; set; } = [];
 }

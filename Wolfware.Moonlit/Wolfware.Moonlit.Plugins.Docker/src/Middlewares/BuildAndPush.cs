@@ -62,6 +62,16 @@ public sealed class BuildAndPush : ReleaseMiddleware<BuildAndPushConfiguration>
       commandArguments.Add("--no-cache");
     }
 
+    if (configuration.CacheFrom.Length > 0)
+    {
+      commandArguments.AddRange(configuration.CacheFrom.Select(cacheFrom => $"--cache-from {cacheFrom}"));
+    }
+
+    if (configuration.CacheTo.Length > 0)
+    {
+      commandArguments.AddRange(configuration.CacheTo.Select(cacheTo => $"--cache-to {cacheTo}"));
+    }
+
     if (configuration.Pull)
     {
       commandArguments.Add("--pull");
