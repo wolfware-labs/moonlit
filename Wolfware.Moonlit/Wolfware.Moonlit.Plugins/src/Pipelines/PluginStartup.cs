@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Abstractions;
+using Wolfware.Moonlit.Plugins.Extensions;
 
 namespace Wolfware.Moonlit.Plugins.Pipelines;
 
@@ -23,7 +24,7 @@ public abstract class PluginStartup : IPluginStartup
     ArgumentNullException.ThrowIfNull(configuration);
 
     this.ConfigurePlugin(services, configuration);
-    this.AddMiddlewares(services);
+    services.AddMiddlewares(this.AddMiddlewares);
   }
 
   /// <summary>
@@ -33,9 +34,11 @@ public abstract class PluginStartup : IPluginStartup
   /// <param name="configuration">The configuration instance providing settings for the plugin initialization.</param>
   protected virtual void ConfigurePlugin(IServiceCollection services, IConfiguration configuration) { }
 
+
   /// <summary>
-  /// Adds the required middleware components for the plugin.
+  /// Adds middleware components to the middleware collection to configure the pipeline
+  /// for the plugin's execution.
   /// </summary>
-  /// <param name="services">The service collection to which middleware components are registered.</param>
-  protected abstract void AddMiddlewares(IServiceCollection services);
+  /// <param name="middlewares">The middleware collection used for adding and managing middleware components.</param>
+  protected abstract void AddMiddlewares(IMiddlewareCollection middlewares);
 }

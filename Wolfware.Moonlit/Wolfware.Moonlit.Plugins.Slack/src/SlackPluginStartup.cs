@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SlackNet.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins.Extensions;
+using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.Slack.Middlewares;
 
@@ -28,8 +28,8 @@ public sealed class SlackPluginStartup : PluginStartup
     services.AddSlackNet(cfg => cfg.UseApiToken(slackApiToken));
   }
 
-  protected override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    services.AddMiddleware<SendNotification>("send-notification");
+    middlewares.Add<SendNotification>("send-notification");
   }
 }

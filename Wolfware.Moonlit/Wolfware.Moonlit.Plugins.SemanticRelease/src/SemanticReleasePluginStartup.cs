@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins.Extensions;
+﻿using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
@@ -10,9 +9,9 @@ namespace Wolfware.Moonlit.Plugins.SemanticRelease;
 /// </summary>
 public sealed class SemanticReleasePluginStartup : PluginStartup
 {
-  protected override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    services.AddMiddleware<CalculateVersion>("calculate-version");
-    services.AddMiddleware<GenerateChangelog>("generate-changelog");
+    middlewares.Add<CalculateVersion>("calculate-version");
+    middlewares.Add<GenerateChangelog>("generate-changelog");
   }
 }

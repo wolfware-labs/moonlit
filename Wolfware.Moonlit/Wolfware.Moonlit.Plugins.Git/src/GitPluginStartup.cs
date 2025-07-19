@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins.Extensions;
+﻿using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Git.Middlewares;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
@@ -7,8 +6,8 @@ namespace Wolfware.Moonlit.Plugins.Git;
 
 public sealed class GitPluginStartup : PluginStartup
 {
-  protected override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    services.AddMiddleware<GetRepositoryContext>("repo-context");
+    middlewares.Add<GetRepositoryContext>("repo-context");
   }
 }

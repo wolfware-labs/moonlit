@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 using Wolfware.Moonlit.Plugins.Dotnet.Middlewares;
-using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Dotnet;
@@ -14,11 +14,11 @@ public sealed class DotnetPluginStartup : PluginStartup
     services.Configure<DotnetConfiguration>(configuration);
   }
 
-  protected override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    services.AddMiddleware<BuildProject>("build");
-    services.AddMiddleware<PackProject>("pack");
-    services.AddMiddleware<PushPackage>("push");
-    services.AddMiddleware<RunUnitTests>("test");
+    middlewares.Add<BuildProject>("build");
+    middlewares.Add<PackProject>("pack");
+    middlewares.Add<PushPackage>("push");
+    middlewares.Add<RunUnitTests>("test");
   }
 }

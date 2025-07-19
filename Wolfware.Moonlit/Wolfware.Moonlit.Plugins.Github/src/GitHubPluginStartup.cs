@@ -41,11 +41,11 @@ public sealed class GitHubPluginStartup : PluginStartup
     services.AddSingleton<IGitHubContextProvider, GitHubContextFactory>();
   }
 
-  protected override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    services.AddMiddleware<GetLatestTag>("latest-tag");
-    services.AddMiddleware<GetItemsSinceCommit>("items-since-commit");
-    services.AddMiddleware<CreateRelease>("create-release");
-    services.AddMiddleware<WriteVariables>("write-variables");
+    middlewares.Add<GetLatestTag>("latest-tag");
+    middlewares.Add<GetItemsSinceCommit>("items-since-commit");
+    middlewares.Add<CreateRelease>("create-release");
+    middlewares.Add<WriteVariables>("write-variables");
   }
 }

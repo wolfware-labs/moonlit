@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Plugins.Extensions;
+﻿using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.NodeJs.Middlewares;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
@@ -7,10 +6,10 @@ namespace Wolfware.Moonlit.Plugins.NodeJs;
 
 public sealed class NodeJsPluginStartup : PluginStartup
 {
-  protected override void AddMiddlewares(IServiceCollection services)
+  protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    services.AddMiddleware<BuildProject>("build");
-    services.AddMiddleware<PackProject>("pack");
-    services.AddMiddleware<PushPackage>("push");
+    middlewares.Add<BuildProject>("build");
+    middlewares.Add<PackProject>("pack");
+    middlewares.Add<PushPackage>("push");
   }
 }
