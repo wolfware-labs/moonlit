@@ -19,5 +19,6 @@ public sealed class DockerPluginStartup : PluginStartup
   {
     middlewares.Add<Login>("login");
     middlewares.Add<SetupBuildx>("setup-buildx");
+    middlewares.Add<BuildAndPush>("build-and-push");
   }
 }

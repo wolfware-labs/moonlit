@@ -38,7 +38,7 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
 
     if (configuration.Platforms.Length > 0)
     {
-      commandArguments.Add($"--platform {string.Join(",", configuration.Platforms)}");
+      commandArguments.AddRange(configuration.Platforms.Select(platform => $"--platform {platform}"));
     }
 
     if (!string.IsNullOrWhiteSpace(configuration.Endpoint))
