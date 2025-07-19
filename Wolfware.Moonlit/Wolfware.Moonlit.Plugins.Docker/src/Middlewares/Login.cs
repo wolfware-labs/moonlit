@@ -12,8 +12,8 @@ public sealed class Login : ReleaseMiddleware<LoginConfiguration>
 
   public Login(ILogger<Login> logger, IDockerClient dockerClient)
   {
-    _logger = logger;
-    _dockerClient = dockerClient;
+    this._logger = logger;
+    this._dockerClient = dockerClient;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, LoginConfiguration configuration)
@@ -23,9 +23,18 @@ public sealed class Login : ReleaseMiddleware<LoginConfiguration>
       return MiddlewareResult.Failure("Docker login requires both username and password to be set.");
     }
 
-    _logger.LogInformation("Starting Docker login process...");
-    await _dockerClient.Login(configuration.Server, configuration.Username, configuration.Password);
-    _logger.LogInformation("Docker login process completed successfully.");
+    this._logger.LogInformation("Starting Docker login process...");
+    this._logger.LogInformation("Logging in to Docker registry {Server} with user {Username}",
+      configuration.Server ?? "Docker Hub",
+      configuration.Username);
+    var commandOptions = new[]
+    {
+      new KeyValuePair<string, string>("--username", configuration.Username),
+      new KeyValuePair<string, string>("--password", configuration.Password)
+    };
+    var commandArgs = configuration.Server != null ? new[] {configuration.Server} : Array.Empty<string>();
+    await this._dockerClient.RunDockerCommand("login", commandArgs, commandOptions);
+    this._logger.LogInformation("Docker login process completed successfully.");
     return MiddlewareResult.Success();
   }
 }

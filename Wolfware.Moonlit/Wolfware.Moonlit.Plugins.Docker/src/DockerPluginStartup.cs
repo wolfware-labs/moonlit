@@ -18,7 +18,6 @@ public sealed class DockerPluginStartup : PluginStartup
   protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
     middlewares.Add<Login>("login");
-    middlewares.Add<BuildImage>("build");
-    middlewares.Add<PushImage>("push");
+    middlewares.Add<SetupBuildx>("setup-buildx");
   }
 }
