@@ -8,9 +8,9 @@ public sealed class SetupBuildxConfiguration
 
   public string? Endpoint { get; set; }
 
-  public bool Use { get; set; } = true;
-
   public bool Bootstrap { get; set; } = true;
+
+  public bool SetBuilderVariable { get; set; } = true;
 
   public string[] Platforms { get; set; } = [];
 }

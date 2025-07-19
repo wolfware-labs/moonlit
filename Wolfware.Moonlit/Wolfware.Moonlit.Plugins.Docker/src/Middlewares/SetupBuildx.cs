@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Docker.Abstractions;
 using Wolfware.Moonlit.Plugins.Docker.Configuration;
+using Wolfware.Moonlit.Plugins.Docker.Constants;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Docker.Middlewares;
@@ -26,11 +27,6 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
 
     var commandArguments = new List<string> {"create", $"--name {name}", $"--driver {driver}"};
 
-    if (configuration.Use)
-    {
-      commandArguments.Add("--use");
-    }
-
     if (configuration.Bootstrap)
     {
       commandArguments.Add("--bootstrap");
@@ -48,7 +44,15 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
 
     await _dockerClient.Run("buildx", commandArguments.ToArray(), context.CancellationToken);
 
+    if (configuration.SetBuilderVariable)
+    {
+      Environment.SetEnvironmentVariable(PluginEnvironmentVariables.DockerBuildxBuilder, name);
+    }
+
     _logger.LogInformation("Docker Buildx setup process completed successfully.");
-    return MiddlewareResult.Success();
+    return MiddlewareResult.Success(output =>
+    {
+      output.Add("Name", name);
+    });
   }
 }

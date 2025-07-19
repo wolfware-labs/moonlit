@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Docker.Abstractions;
 using Wolfware.Moonlit.Plugins.Docker.Configuration;
+using Wolfware.Moonlit.Plugins.Docker.Constants;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Docker.Middlewares;
@@ -23,6 +24,14 @@ public sealed class BuildAndPush : ReleaseMiddleware<BuildAndPushConfiguration>
 
     var commandArguments = new List<string> {"build"};
 
+    var builder = configuration.Builder ??
+                  Environment.GetEnvironmentVariable(PluginEnvironmentVariables.DockerBuildxBuilder);
+
+    if (!string.IsNullOrWhiteSpace(builder))
+    {
+      commandArguments.Add($"--builder {builder}");
+    }
+
     if (configuration.Tags.Length > 0)
     {
       commandArguments.AddRange(configuration.Tags.Select(tag => $"--tag {tag}"));
@@ -38,9 +47,9 @@ public sealed class BuildAndPush : ReleaseMiddleware<BuildAndPushConfiguration>
       commandArguments.AddRange(configuration.BuildArgs.Select(buildArg => $"--build-arg {buildArg}"));
     }
 
-    if (configuration.Labels.Length > 0)
+    if (configuration.Labels.Count > 0)
     {
-      commandArguments.AddRange(configuration.Labels.Select(label => $"--label {label}"));
+      commandArguments.AddRange(configuration.Labels.Select(label => $"--label {label.Key}={label.Value}"));
     }
 
     if (configuration.Platforms.Length > 0)

@@ -2,6 +2,8 @@
 
 public sealed class BuildAndPushConfiguration
 {
+  public string? Builder { get; set; }
+
   public string[] Tags { get; set; } = [];
 
   public string? File { get; set; }
@@ -12,7 +14,7 @@ public sealed class BuildAndPushConfiguration
 
   public string[] BuildArgs { get; set; } = [];
 
-  public string[] Labels { get; set; } = [];
+  public Dictionary<string, string> Labels { get; set; } = [];
 
   public string[] Platforms { get; set; } = [];
 

@@ -43,3 +43,12 @@ stages:
         registry: ghcr.io
     - name: buildx
       run: docker.setup-buildx
+    - name: build-and-push
+      run: docker.build-and-push
+      config:
+        context: "../../../../../docs"
+        file: "../../../../../docs/Dockerfile"
+        push: false
+        tags:
+          - "ghcr.io/wolfware-labs/moonlit-docs-test:$(output:version:nextVersion)"
+          - "ghcr.io/wolfware-labs/moonlit-docs-test:latest"
