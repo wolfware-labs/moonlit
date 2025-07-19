@@ -2,8 +2,8 @@
 
 /// <summary>
 /// Represents a collection of middleware components, enabling middleware registration
-/// and management in a pipeline architecture. Provides functionality to add middleware components
-/// to the collection for execution in a pipeline.
+/// in a release pipeline. Provides functionality to add middleware components
+/// to the collection for execution in a release pipeline.
 /// </summary>
 public interface IMiddlewareCollection
 {
