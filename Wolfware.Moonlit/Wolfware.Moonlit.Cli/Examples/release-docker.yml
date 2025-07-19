@@ -1,0 +1,45 @@
+﻿name: "Docker Image Release"
+
+plugins:
+  - name: "git"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
+  - name: "gh"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
+    config:
+      token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+  - name: "docker"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Docker/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Docker.dll"
+
+
+stages:
+  analyze:
+    - name: repo
+      run: git.repo-context
+    - name: tag
+      run: gh.latest-tag
+      config:
+        prefix: "v"
+    - name: items
+      run: gh.items-since-commit
+      config:
+        sha: $(output:tag:commitSha)
+    - name: version
+      run: sr.calculate-version
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        commits: $(output:items:commits)
+        prereleaseMappings:
+          main: next
+
+  build:
+    - name: login
+      run: docker.login
+      config:
+        username: wolfware-labs
+        password: $(GITHUB_TOKEN)
+        registry: ghcr.io
+    - name: buildx
+      run: docker.setup-buildx

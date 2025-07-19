@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Docker.Abstractions;
 using Wolfware.Moonlit.Plugins.Docker.Configuration;
 using Wolfware.Moonlit.Plugins.Pipelines;
@@ -23,21 +24,21 @@ public sealed class Login : ReleaseMiddleware<LoginConfiguration>
       return MiddlewareResult.Failure("Docker login requires both username and password to be set.");
     }
 
-    this._logger.LogInformation("Starting Docker login process...");
     this._logger.LogInformation("Logging in to Docker registry {Server} with user {Username}",
-      configuration.Server ?? "Docker Hub",
+      configuration.Registry ?? "Docker Hub",
       configuration.Username);
 
     var commandArguments = new List<string>();
-    if (!string.IsNullOrWhiteSpace(configuration.Server))
+    if (!string.IsNullOrWhiteSpace(configuration.Registry))
     {
-      commandArguments.Add(configuration.Server);
+      commandArguments.Add(configuration.Registry);
     }
 
     commandArguments.Add($"--username {configuration.Username}");
-    commandArguments.Add($"--password {configuration.Password}");
+    commandArguments.Add("--password-stdin");
 
-    await this._dockerClient.RunDockerCommand("login", commandArguments.ToArray());
+    var readOnlyPassword = configuration.Password.AsMemory();
+    await this._dockerClient.Run("login", commandArguments.ToArray(), readOnlyPassword, context.CancellationToken);
     this._logger.LogInformation("Docker login process completed successfully.");
     return MiddlewareResult.Success();
   }

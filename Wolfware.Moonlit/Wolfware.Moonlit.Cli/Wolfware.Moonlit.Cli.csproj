@@ -38,10 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="release.nuget.yml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="release.local.yml">
+    <None Update="Examples\*.*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

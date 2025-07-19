@@ -46,7 +46,7 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
       commandArguments.Add(configuration.Endpoint);
     }
 
-    await _dockerClient.RunDockerCommand("buildx", commandArguments.ToArray());
+    await _dockerClient.Run("buildx", commandArguments.ToArray(), context.CancellationToken);
 
     _logger.LogInformation("Docker Buildx setup process completed successfully.");
     return MiddlewareResult.Success();

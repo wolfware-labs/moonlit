@@ -1,7 +1,7 @@
 ﻿<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Release Local" type="DotNetProject" factoryName=".NET Project">
+  <configuration default="false" name="Release Docker" type="DotNetProject" factoryName=".NET Project">
     <option name="EXE_PATH" value="$PROJECT_DIR$/Wolfware.Moonlit.Cli/bin/Debug/net9.0/Wolfware.Moonlit.Cli.exe" />
-    <option name="PROGRAM_PARAMETERS" value="release -f release.local.yml" />
+    <option name="PROGRAM_PARAMETERS" value="release -f Examples/release-docker.yml" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Wolfware.Moonlit.Cli/bin/Debug/net9.0" />
     <option name="PASS_PARENT_ENVS" value="1" />
     <option name="USE_EXTERNAL_CONSOLE" value="0" />
@@ -21,13 +21,9 @@
     <method v="2">
       <option name="Build" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Github" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Github/Wolfware.Moonlit.Plugins.Github.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Slack" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Slack/Wolfware.Moonlit.Plugins.Slack.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.SemanticRelease" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.SemanticRelease/Wolfware.Moonlit.Plugins.SemanticRelease.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Git" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Git/Wolfware.Moonlit.Plugins.Git.csproj" />
       <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Docker" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Docker/Wolfware.Moonlit.Plugins.Docker.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Dotnet" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Dotnet/Wolfware.Moonlit.Plugins.Dotnet.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.NodeJs" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.NodeJs/Wolfware.Moonlit.Plugins.NodeJs.csproj" />
-      <option name="Build" default="false" projectName="Wolfware.Moonlit.Plugins.Moonlit" projectPath="$PROJECT_DIR$/Wolfware.Moonlit.Plugins.Moonlit/Wolfware.Moonlit.Plugins.Moonlit.csproj" />
     </method>
   </configuration>
 </component>

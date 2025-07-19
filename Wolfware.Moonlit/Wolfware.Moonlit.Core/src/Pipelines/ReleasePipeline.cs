@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -124,9 +126,30 @@ public sealed class ReleasePipeline : IAsyncDisposable
   private async Task<MiddlewareResult> ExecuteMiddlewareAsync(IMiddlewareContext middlewareContext,
     ReleaseContext context, IConfiguration configuration)
   {
+    var middlewareName = middlewareContext.Name;
+    var middlewareType = middlewareContext.Middleware.GetType();
+    var middlewareAssembly = middlewareType.Assembly;
+    var middlewareAssemblyVersion = this.GetAssemblyVersion(middlewareType.Assembly);
+
+    var headerBuilder = new StringBuilder();
+    headerBuilder.Append($"Executing {middlewareName} (");
+
+    if (!string.IsNullOrWhiteSpace(middlewareAssembly.GetName().Name))
+    {
+      headerBuilder.Append($"{middlewareAssembly.GetName().Name}.");
+    }
+
+    headerBuilder.Append(middlewareType.Name);
+
+    if (!string.IsNullOrWhiteSpace(middlewareAssemblyVersion))
+    {
+      headerBuilder.Append($" v{middlewareAssemblyVersion}");
+    }
+
+    headerBuilder.Append(")");
+
     this._logger.LogInformation("===================================================");
-    this._logger.LogInformation("Executing {MiddlewareName} ({MiddlewareType})", middlewareContext.Name,
-      middlewareContext.Middleware.GetType().Name);
+    this._logger.LogInformation(headerBuilder.ToString());
     if (this._logger.IsEnabled(LogLevel.Debug))
     {
       this._logger.LogDebug("Configuration: {Configuration}",
@@ -148,6 +171,28 @@ public sealed class ReleasePipeline : IAsyncDisposable
     this._logger.LogInformation("");
 
     return result;
+  }
+
+  private string? GetAssemblyVersion(Assembly middlewareTypeAssembly)
+  {
+    var fileVersionAttribute = middlewareTypeAssembly
+      .GetCustomAttribute<AssemblyFileVersionAttribute>();
+
+    if (fileVersionAttribute != null)
+    {
+      return fileVersionAttribute.Version;
+    }
+
+    var informationalVersionAttribute = middlewareTypeAssembly
+      .GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+
+    if (informationalVersionAttribute != null)
+    {
+      return informationalVersionAttribute.InformationalVersion;
+    }
+
+    var version = middlewareTypeAssembly.GetName().Version;
+    return version?.ToString();
   }
 
   private void LogWarnings(MiddlewareResult result)

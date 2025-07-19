@@ -2,7 +2,7 @@
 
 public sealed class LoginConfiguration
 {
-  public string? Server { get; set; }
+  public string? Registry { get; set; }
 
   public string Username { get; set; } = string.Empty;
 
