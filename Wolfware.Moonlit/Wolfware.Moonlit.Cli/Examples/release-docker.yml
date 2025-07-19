@@ -38,11 +38,13 @@ stages:
     - name: login
       run: docker.login
       config:
-        username: wolfware-labs
-        password: $(GITHUB_TOKEN)
-        registry: ghcr.io
+        username: $(DOCKER_USER)
+        password: $(DOCKER_PAT)
     - name: buildx
       run: docker.setup-buildx
+      config:
+        driver: cloud
+        endpoint: "wolfware/wolfware-builder"
     - name: build-and-push
       run: docker.build-and-push
       config:

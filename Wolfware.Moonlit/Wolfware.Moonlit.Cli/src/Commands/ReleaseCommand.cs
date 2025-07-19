@@ -1,10 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using Wolfware.Moonlit.Cli.Logging;
 using Wolfware.Moonlit.Core.Abstractions;
-using Wolfware.Moonlit.Core.Pipelines;
-using Wolfware.Moonlit.Core.Plugins;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Cli.Commands;
@@ -80,6 +78,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
   {
     try
     {
+      var stopwatch = Stopwatch.StartNew();
       var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath).ConfigureAwait(false);
       var configuration = await _configurationParser.Parse(configurationContent).ConfigureAwait(false);
 
@@ -154,11 +153,13 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
 
       if (response.IsSuccessful)
       {
-        AnsiConsole.MarkupLine(":check_mark_button: [green]Release completed[/]");
+        AnsiConsole.MarkupLineInterpolated(
+          $":check_mark_button: [green]Release completed[/] in {stopwatch.Elapsed.TotalSeconds:N2} seconds.");
         return 0;
       }
 
-      AnsiConsole.MarkupLineInterpolated($"\n[red]Release failed:[/] {response.ErrorMessage}");
+      AnsiConsole.MarkupLineInterpolated(
+        $"\n[red]Release failed:[/] {response.ErrorMessage} in {stopwatch.Elapsed.TotalSeconds:N2} seconds.");
       return 1;
     }
     catch (Exception e)
