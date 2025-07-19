@@ -2,5 +2,5 @@
 
 public interface IDockerClient
 {
-  Task RunDockerCommand(string command, string[] arguments, params KeyValuePair<string, string>[] options);
+  Task RunDockerCommand(string command, string[] arguments);
 }

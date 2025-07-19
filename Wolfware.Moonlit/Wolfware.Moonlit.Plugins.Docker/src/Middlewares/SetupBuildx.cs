@@ -21,23 +21,27 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
   {
     _logger.LogInformation("Starting Docker Buildx setup process...");
 
-    string driver = string.IsNullOrWhiteSpace(configuration.Driver) ? "docker-container" : configuration.Driver;
-    string? endpoint = string.IsNullOrWhiteSpace(configuration.Endpoint) ? null : configuration.Endpoint;
+    var name = string.IsNullOrWhiteSpace(configuration.Name) ? $"moonlit-builder-{Guid.NewGuid()}" : configuration.Name;
+    var driver = string.IsNullOrWhiteSpace(configuration.Driver) ? "docker-container" : configuration.Driver;
 
-    _logger.LogInformation("Creating Docker Buildx builder with driver {Driver} and endpoint {Endpoint}",
-      driver, endpoint ?? "default");
+    var commandArguments = new List<string> {"create", $"--name {name}", $"--driver {driver}"};
 
-    var commandOptions = new List<KeyValuePair<string, string>> {new("--driver", driver), new("--use", string.Empty)};
-
-    if (endpoint != null)
+    if (configuration.Use)
     {
-      commandOptions.Add(new KeyValuePair<string, string>("--driver-opt", $"env.DOCKER_HOST={endpoint}"));
+      commandArguments.Add("--use");
     }
 
-    var commandArgs = new[] {configuration.BuilderName ?? "moonlit-builder"};
+    if (configuration.Bootstrap)
+    {
+      commandArguments.Add("--bootstrap");
+    }
 
-    await _dockerClient.RunDockerCommand("buildx", new[] {"create"}.Concat(commandArgs).ToArray(),
-      commandOptions.ToArray());
+    if (!string.IsNullOrWhiteSpace(configuration.Endpoint))
+    {
+      commandArguments.Add(configuration.Endpoint);
+    }
+
+    await _dockerClient.RunDockerCommand("buildx", commandArguments.ToArray());
 
     _logger.LogInformation("Docker Buildx setup process completed successfully.");
     return MiddlewareResult.Success();

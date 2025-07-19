@@ -1,27 +1,19 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Docker.Abstractions;
 
 namespace Wolfware.Moonlit.Plugins.Docker.Services;
 
 internal sealed class DockerClient : IDockerClient
 {
-  public async Task RunDockerCommand(string command, string[] arguments, params KeyValuePair<string, string>[] options)
+  public async Task RunDockerCommand(string command, string[] arguments)
   {
-    var commandOptions = options
-      .Where(arg => !string.IsNullOrWhiteSpace(arg.Value))
-      .Select(arg => $"{arg.Key} {arg.Value}")
-      .ToArray();
-
-    var commandArguments = string.Join(" ", arguments);
-
     var process = new Process
     {
       StartInfo = new ProcessStartInfo
       {
         FileName = "docker",
-        Arguments = $"{command} {commandOptions} {commandArguments}",
+        Arguments = $"{command} {string.Join(" ", arguments)}",
         UseShellExecute = false,
         RedirectStandardOutput = true,
         RedirectStandardError = true,

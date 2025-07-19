@@ -27,13 +27,17 @@ public sealed class Login : ReleaseMiddleware<LoginConfiguration>
     this._logger.LogInformation("Logging in to Docker registry {Server} with user {Username}",
       configuration.Server ?? "Docker Hub",
       configuration.Username);
-    var commandOptions = new[]
+
+    var commandArguments = new List<string>();
+    if (!string.IsNullOrWhiteSpace(configuration.Server))
     {
-      new KeyValuePair<string, string>("--username", configuration.Username),
-      new KeyValuePair<string, string>("--password", configuration.Password)
-    };
-    var commandArgs = configuration.Server != null ? new[] {configuration.Server} : Array.Empty<string>();
-    await this._dockerClient.RunDockerCommand("login", commandArgs, commandOptions);
+      commandArguments.Add(configuration.Server);
+    }
+
+    commandArguments.Add($"--username {configuration.Username}");
+    commandArguments.Add($"--password {configuration.Password}");
+
+    await this._dockerClient.RunDockerCommand("login", commandArguments.ToArray());
     this._logger.LogInformation("Docker login process completed successfully.");
     return MiddlewareResult.Success();
   }
