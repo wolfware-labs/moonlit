@@ -36,6 +36,11 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
       commandArguments.Add("--bootstrap");
     }
 
+    if (configuration.Platforms.Length > 0)
+    {
+      commandArguments.Add($"--platform {string.Join(",", configuration.Platforms)}");
+    }
+
     if (!string.IsNullOrWhiteSpace(configuration.Endpoint))
     {
       commandArguments.Add(configuration.Endpoint);

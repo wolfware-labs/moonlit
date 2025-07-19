@@ -11,4 +11,6 @@ public sealed class SetupBuildxConfiguration
   public bool Use { get; set; } = true;
 
   public bool Bootstrap { get; set; } = true;
+
+  public string[] Platforms { get; set; } = [];
 }
