@@ -34,7 +34,7 @@ jobs:
           dotnet-version: '9.x'
 
       - name: Install Moonlit
-        run: dotnet tool install -g moonlit-cli
+        run: dotnet tool install -g --prerelease moonlit-cli
 
       - name: Add global tools to PATH
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
