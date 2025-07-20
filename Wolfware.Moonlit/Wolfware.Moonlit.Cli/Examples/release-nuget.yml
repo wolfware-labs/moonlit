@@ -41,7 +41,7 @@ stages:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
         prereleaseMappings:
-          main: next
+          dev: next
 
   build:
     - name: pack
