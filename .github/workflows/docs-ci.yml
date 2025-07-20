@@ -43,6 +43,6 @@ jobs:
         run: moonlit release
         env:
           MOONLIT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MOONLIT_DOCKER_USER: ${{ secrets.GITHUB_TOKEN }}
-          MOONLIT_DOCKER_PAT: ${{ secrets.GITHUB_TOKEN }}
+          MOONLIT_DOCKER_USER: ${{ vars.DOCKER_USER }}
+          MOONLIT_DOCKER_PAT: ${{ secrets.DOCKER_PAT }}
           MOONLIT_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
