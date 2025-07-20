@@ -2,15 +2,15 @@ name: "Documents Site Image Release"
 
 plugins:
   - name: "git"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0-next.3"
   - name: "gh"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0-next.3"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.3"
   - name: "docker"
-    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Docker/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Docker.dll"
+    url: "nuget://Wolfware.Moonlit.Plugins.Docker/1.0.0-next.3"
 
 stages:
   analyze:
