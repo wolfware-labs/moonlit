@@ -2,15 +2,15 @@
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 
-public sealed class CommitsAnalyzerConfiguration
+public sealed class ConventionalCommitsAnalyzerConfiguration
 {
   public bool BreakingChangesAlwaysMajor { get; set; } = true;
 
   public List<ReleaseRule> Rules { get; set; } = [];
 
-  public static CommitsAnalyzerConfiguration CreateDefault()
+  public static ConventionalCommitsAnalyzerConfiguration CreateDefault()
   {
-    return new CommitsAnalyzerConfiguration
+    return new ConventionalCommitsAnalyzerConfiguration
     {
       Rules =
       [

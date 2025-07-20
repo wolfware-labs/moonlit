@@ -2,7 +2,6 @@
 using Semver;
 using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
-using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
@@ -10,15 +9,18 @@ namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersionConfiguration>
 {
   private readonly ILogger<CalculateVersion> _logger;
+  private readonly SharedContext _sharedContext;
 
-  public CalculateVersion(ILogger<CalculateVersion> logger)
+  public CalculateVersion(ILogger<CalculateVersion> logger, SharedContext sharedContext)
   {
     _logger = logger;
+    _sharedContext = sharedContext;
   }
 
   protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
     CalculateVersionConfiguration configuration)
   {
+    configuration.Commits ??= this._sharedContext.Commits;
     if (configuration.Commits.Length == 0)
     {
       return Task.FromResult(MiddlewareResult.Failure("No commits provided for version calculation."));
@@ -46,18 +48,18 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersionConfigu
   private SemVersion? GetNextVersion(CalculateVersionConfiguration configuration)
   {
     var prereleaseSuffix = GetPrereleaseSuffix(configuration);
-    var metadata = $"sha-{configuration.Commits.OrderBy(c => c.Date).Last().Sha[..7]}";
+    var metadata = $"sha-{configuration.Commits!.OrderBy(c => c.Date).Last().Sha[..7]}";
     if (string.IsNullOrWhiteSpace(configuration.BaseVersion))
     {
       return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix)
         .WithMetadata(metadata);
     }
 
-    var analyzer = new CommitsAnalyzer(configuration.CommitRules);
+    var analyzer = new ConventionalCommitsAnalyzer(configuration.ConventionalCommitRules);
     var calculator = new SemanticVersionCalculator(analyzer);
     var baseVersion = SemVersion.Parse(configuration.BaseVersion);
-    var commits = ConventionalCommitParser.Parse(configuration.Commits.Select(c => c.Message).ToArray());
-    return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix)?.WithMetadata(metadata);
+    return calculator.CalculateNextVersion(baseVersion, configuration.Commits!, prereleaseSuffix)
+      ?.WithMetadata(metadata);
   }
 
   private string? GetPrereleaseSuffix(CalculateVersionConfiguration configuration)

@@ -3,11 +3,11 @@ using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
-public sealed class CommitsAnalyzer
+public sealed class ConventionalCommitsAnalyzer
 {
-  private readonly CommitsAnalyzerConfiguration _configuration;
+  private readonly ConventionalCommitsAnalyzerConfiguration _configuration;
 
-  public CommitsAnalyzer(CommitsAnalyzerConfiguration configuration)
+  public ConventionalCommitsAnalyzer(ConventionalCommitsAnalyzerConfiguration configuration)
   {
     _configuration = configuration;
   }

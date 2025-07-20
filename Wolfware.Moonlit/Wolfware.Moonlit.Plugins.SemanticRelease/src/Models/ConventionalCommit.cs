@@ -11,4 +11,8 @@ public sealed class ConventionalCommit
   public bool IsBreakingChange { get; set; }
 
   public string? FullMessage { get; set; }
+
+  public DateTimeOffset Date { get; set; }
+
+  public string Sha { get; set; } = string.Empty;
 }

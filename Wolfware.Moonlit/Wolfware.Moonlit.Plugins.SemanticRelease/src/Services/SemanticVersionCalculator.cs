@@ -5,11 +5,11 @@ namespace Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 public sealed class SemanticVersionCalculator
 {
-  private readonly CommitsAnalyzer _commitsAnalyzer;
+  private readonly ConventionalCommitsAnalyzer _conventionalCommitsAnalyzer;
 
-  public SemanticVersionCalculator(CommitsAnalyzer commitsAnalyzer)
+  public SemanticVersionCalculator(ConventionalCommitsAnalyzer conventionalCommitsAnalyzer)
   {
-    _commitsAnalyzer = commitsAnalyzer;
+    _conventionalCommitsAnalyzer = conventionalCommitsAnalyzer;
   }
 
   public SemVersion? CalculateNextVersion(SemVersion baseVersion, ConventionalCommit[] commits, string? suffix = null)
@@ -21,7 +21,7 @@ public sealed class SemanticVersionCalculator
       throw new ArgumentException("At least one commit is required to calculate the next version.", nameof(commits));
     }
 
-    var bumpType = _commitsAnalyzer.Analyze(commits);
+    var bumpType = _conventionalCommitsAnalyzer.Analyze(commits);
     if (bumpType == VersionBumpType.None)
     {
       return null;

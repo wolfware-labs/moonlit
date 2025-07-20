@@ -10,9 +10,10 @@ public class CalculateVersionConfiguration
 
   public string Branch { get; set; } = string.Empty;
 
-  public CommitMessage[] Commits { get; set; } = [];
+  public ConventionalCommit[]? Commits { get; set; }
 
-  public CommitsAnalyzerConfiguration CommitRules = CommitsAnalyzerConfiguration.CreateDefault();
+  public ConventionalCommitsAnalyzerConfiguration ConventionalCommitRules { get; set; } =
+    ConventionalCommitsAnalyzerConfiguration.CreateDefault();
 
   public Dictionary<string, string> PrereleaseMappings { get; set; } = new();
 }

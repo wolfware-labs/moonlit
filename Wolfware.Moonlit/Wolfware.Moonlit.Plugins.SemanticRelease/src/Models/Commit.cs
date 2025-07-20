@@ -1,6 +1,6 @@
 ﻿namespace Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
-public sealed record CommitMessage
+public sealed record Commit
 {
   public string Sha { get; set; } = string.Empty;
 

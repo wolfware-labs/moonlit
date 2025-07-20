@@ -5,41 +5,53 @@ using Wolfware.Moonlit.Plugins.Pipelines;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Extensions;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
 public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelogConfiguration>
 {
   private readonly ILogger<GenerateChangelog> _logger;
+  private readonly SharedContext _sharedContext;
 
-  public GenerateChangelog(ILogger<GenerateChangelog> logger)
+  public GenerateChangelog(ILogger<GenerateChangelog> logger, SharedContext sharedContext)
   {
     _logger = logger;
+    _sharedContext = sharedContext;
   }
 
   protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
     GenerateChangelogConfiguration configuration)
   {
+    configuration.Commits ??= this._sharedContext.Commits;
     if (configuration.Commits.Length == 0)
     {
       this._logger.LogWarning("No commits provided for changelog generation.");
       return MiddlewareResult.Success();
     }
 
-    var client = new ChatClient(model: "gpt-4o", apiKey: configuration.OpenAiKey);
+    var client = string.IsNullOrWhiteSpace(configuration.OpenAiKey)
+      ? null
+      : new ChatClient(model: "gpt-4o", apiKey: configuration.OpenAiKey);
 
     this._logger.LogInformation("Generating changelog for {CommitCount} commits.", configuration.Commits.Length);
     try
     {
-      var userFacingCommits = await FilterOutNonUserFacingCommits(client, configuration.Commits);
-      if (userFacingCommits.Length == 0)
+      var userFacingCommits = configuration.Commits;
+      if (client != null && configuration.FilterNonUserFacingCommits)
       {
-        this._logger.LogInformation("No user-facing commits found. Skipping changelog generation.");
-        return MiddlewareResult.Success();
+        userFacingCommits = await FilterOutNonUserFacingCommits(client, configuration.Commits);
+        if (userFacingCommits.Length == 0)
+        {
+          this._logger.LogInformation("No user-facing commits found. Skipping changelog generation.");
+          return MiddlewareResult.Success();
+        }
+
+        this._logger.LogInformation("Filtered down to {UserFacingCommitCount} user-facing commits.",
+          userFacingCommits.Length);
       }
 
-      this._logger.LogInformation("Filtered down to {UserFacingCommitCount} user-facing commits.",
-        userFacingCommits.Length);
+
       var changelogEntries = await RefineCommitsIntoChangelogEntries(client, userFacingCommits);
       if (changelogEntries.Length == 0)
       {
@@ -63,12 +75,13 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelogConfi
     }
   }
 
-  private async Task<CommitMessage[]> FilterOutNonUserFacingCommits(ChatClient client, CommitMessage[] commits)
+  private async Task<ConventionalCommit[]> FilterOutNonUserFacingCommits(ChatClient client,
+    ConventionalCommit[] commits)
   {
     var responses = await commits.ParallelForEachBatch(15, async batch =>
     {
       var commitsJson = string.Join(",",
-        batch.Select(commit => JsonSerializer.Serialize(new {commit.Sha, commit.Message})));
+        batch.Select(commit => JsonSerializer.Serialize(new {commit.Sha, commit.FullMessage})));
       var completion = await client.CompleteChatAsync(
         new SystemChatMessage(
           "You are an expert at generating accurate and user-friendly changelogs based on commit messages."
@@ -108,7 +121,8 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelogConfi
     return responses.SelectMany(response => response).ToArray();
   }
 
-  private async Task<ChangelogEntry[]> RefineCommitsIntoChangelogEntries(ChatClient client, CommitMessage[] commits)
+  private async Task<ChangelogEntry[]> RefineCommitsIntoChangelogEntries(ChatClient client,
+    ConventionalCommit[] commits)
   {
     var responses = await commits.ParallelForEachBatch(15, async batch =>
     {
