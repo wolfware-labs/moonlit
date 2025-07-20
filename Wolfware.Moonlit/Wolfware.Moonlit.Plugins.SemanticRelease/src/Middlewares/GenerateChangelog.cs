@@ -2,28 +2,23 @@
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 using Wolfware.Moonlit.Plugins.Pipelines;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Extensions;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Models;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
-public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelog.Configuration>
+public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelogConfiguration>
 {
   private readonly ILogger<GenerateChangelog> _logger;
-
-  public sealed class Configuration
-  {
-    public CommitMessage[] Commits { get; set; } = [];
-
-    public string OpenAiKey { get; set; } = string.Empty;
-  }
 
   public GenerateChangelog(ILogger<GenerateChangelog> logger)
   {
     _logger = logger;
   }
 
-  protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  protected override async Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
+    GenerateChangelogConfiguration configuration)
   {
     if (configuration.Commits.Length == 0)
     {

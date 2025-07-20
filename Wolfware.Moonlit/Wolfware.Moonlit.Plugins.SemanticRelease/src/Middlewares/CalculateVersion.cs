@@ -7,31 +7,17 @@ using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
 namespace Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 
-public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Configuration>
+public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersionConfiguration>
 {
   private readonly ILogger<CalculateVersion> _logger;
-
-  public sealed class Configuration
-  {
-    public string InitialVersion { get; set; } = "1.0.0";
-
-    public string? BaseVersion { get; set; }
-
-    public string Branch { get; set; } = string.Empty;
-
-    public CommitMessage[] Commits { get; set; } = [];
-
-    public CommitsAnalyzerConfiguration CommitRules = CommitsAnalyzerConfiguration.CreateDefault();
-
-    public Dictionary<string, string> PrereleaseMappings { get; set; } = new();
-  }
 
   public CalculateVersion(ILogger<CalculateVersion> logger)
   {
     _logger = logger;
   }
 
-  protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context, Configuration configuration)
+  protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
+    CalculateVersionConfiguration configuration)
   {
     if (configuration.Commits.Length == 0)
     {
@@ -57,13 +43,14 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     }));
   }
 
-  private SemVersion? GetNextVersion(Configuration configuration)
+  private SemVersion? GetNextVersion(CalculateVersionConfiguration configuration)
   {
     var prereleaseSuffix = GetPrereleaseSuffix(configuration);
     var metadata = $"sha-{configuration.Commits.OrderBy(c => c.Date).Last().Sha[..7]}";
     if (string.IsNullOrWhiteSpace(configuration.BaseVersion))
     {
-      return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix).WithMetadata(metadata);
+      return CalculateVersion.ParseInitialVersion(configuration.InitialVersion, prereleaseSuffix)
+        .WithMetadata(metadata);
     }
 
     var analyzer = new CommitsAnalyzer(configuration.CommitRules);
@@ -73,7 +60,7 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersion.Config
     return calculator.CalculateNextVersion(baseVersion, commits, prereleaseSuffix)?.WithMetadata(metadata);
   }
 
-  private string? GetPrereleaseSuffix(Configuration configuration)
+  private string? GetPrereleaseSuffix(CalculateVersionConfiguration configuration)
   {
     if (!configuration.PrereleaseMappings.TryGetValue(configuration.Branch, out var prerelease))
     {
