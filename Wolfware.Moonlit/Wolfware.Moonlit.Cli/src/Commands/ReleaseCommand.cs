@@ -155,12 +155,12 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
       if (response.IsSuccessful)
       {
         AnsiConsole.MarkupLineInterpolated(
-          $":check_mark_button: [green]Release completed[/] in {stopwatch.Elapsed.TotalSeconds:N2} seconds.");
+          $":check_mark_button: [green]Release completed[/] in {stopwatch.Elapsed.TotalSeconds:N2} seconds");
         return 0;
       }
 
       AnsiConsole.MarkupLineInterpolated(
-        $"\n[red]Release failed:[/] {response.ErrorMessage} in {stopwatch.Elapsed.TotalSeconds:N2} seconds.");
+        $"\n[red]Release failed:[/] {response.ErrorMessage}");
       return 1;
     }
     catch (Exception e)
