@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Core.Abstractions;
+﻿namespace Wolfware.Moonlit.Core.Nuget.Abstractions;
 
 public interface INugetPackageExtractor
 {

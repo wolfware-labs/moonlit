@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Core.Abstractions;
+﻿namespace Wolfware.Moonlit.Core.FileSystem.Abstractions;
 
 /// <summary>
 /// Provides an abstraction for resolving file paths from a given URI.

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace Wolfware.Moonlit.Core.Abstractions;
+namespace Wolfware.Moonlit.Core.Configuration.Abstractions;
 
 /// <summary>
 /// Represents a factory for creating configurations using the provided data or predefined base settings.

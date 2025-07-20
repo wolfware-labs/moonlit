@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.FileSystem.Abstractions;
+using Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Plugins;
 

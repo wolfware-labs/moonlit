@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Configuration;
 
-namespace Wolfware.Moonlit.Core.Abstractions;
+namespace Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 /// <summary>
 /// Defines a factory interface responsible for creating instances of <see cref="IPluginsContext"/>.

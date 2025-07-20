@@ -1,6 +1,4 @@
-﻿using Wolfware.Moonlit.Core.Configuration;
-
-namespace Wolfware.Moonlit.Core.Abstractions;
+﻿namespace Wolfware.Moonlit.Core.Configuration.Abstractions;
 
 /// <summary>
 /// Defines a mechanism to parse release configurations from a string and produce a <see cref="ReleaseConfiguration"/> object.

@@ -6,7 +6,7 @@ using NuGet.Packaging.Core;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
-using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Nuget.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Nuget;
 

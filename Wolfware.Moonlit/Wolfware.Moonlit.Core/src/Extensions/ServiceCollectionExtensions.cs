@@ -1,11 +1,16 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Core.Configuration.Abstractions;
 using Wolfware.Moonlit.Core.Expressions;
+using Wolfware.Moonlit.Core.FileSystem;
+using Wolfware.Moonlit.Core.FileSystem.Abstractions;
+using Wolfware.Moonlit.Core.Http;
 using Wolfware.Moonlit.Core.Nuget;
+using Wolfware.Moonlit.Core.Nuget.Abstractions;
 using Wolfware.Moonlit.Core.Pipelines;
+using Wolfware.Moonlit.Core.Pipelines.Abstractions;
 using Wolfware.Moonlit.Core.Plugins;
-using Wolfware.Moonlit.Core.Plugins.Resolvers;
+using Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Extensions;
 

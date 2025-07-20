@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Core.Abstractions;
+﻿namespace Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 /// <summary>
 /// Defines a method for resolving the file path of a plugin based on its URI.

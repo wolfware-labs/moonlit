@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Core.Configuration.Abstractions;
+using Wolfware.Moonlit.Core.Pipelines.Abstractions;
+using Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Pipelines;
 

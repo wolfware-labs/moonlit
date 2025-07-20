@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Microsoft.Extensions.Configuration;
-using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Plugins;
 

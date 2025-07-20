@@ -1,4 +1,4 @@
-﻿using Wolfware.Moonlit.Core.Abstractions;
+﻿using Wolfware.Moonlit.Core.Configuration.Abstractions;
 using Wolfware.Moonlit.Core.Configuration.Converters;
 using YamlDotNet.Core;
 using YamlDotNet.Core.Events;

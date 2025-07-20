@@ -1,4 +1,4 @@
-﻿using Wolfware.Moonlit.Core.Abstractions;
+﻿using Wolfware.Moonlit.Core.Pipelines.Abstractions;
 using Wolfware.Moonlit.Plugins.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Pipelines;

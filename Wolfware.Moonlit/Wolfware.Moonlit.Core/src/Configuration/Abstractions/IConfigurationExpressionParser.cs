@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace Wolfware.Moonlit.Core.Abstractions;
+namespace Wolfware.Moonlit.Core.Configuration.Abstractions;
 
 public interface IConfigurationExpressionParser
 {

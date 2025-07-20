@@ -1,6 +1,6 @@
-﻿using Wolfware.Moonlit.Core.Abstractions;
+﻿using Wolfware.Moonlit.Core.FileSystem.Abstractions;
 
-namespace Wolfware.Moonlit.Core.Plugins.Resolvers;
+namespace Wolfware.Moonlit.Core.FileSystem;
 
 public sealed class FilePathResolver : IFilePathResolver
 {

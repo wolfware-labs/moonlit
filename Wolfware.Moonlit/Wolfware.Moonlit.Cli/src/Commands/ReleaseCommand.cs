@@ -2,7 +2,8 @@
 using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
-using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Configuration.Abstractions;
+using Wolfware.Moonlit.Core.Pipelines.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Cli.Commands;

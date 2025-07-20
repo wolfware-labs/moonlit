@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Core.Abstractions;
+﻿namespace Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 /// <summary>
 /// Represents a context for managing and interacting with plugins.

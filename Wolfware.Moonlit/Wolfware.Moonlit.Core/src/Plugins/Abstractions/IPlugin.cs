@@ -1,6 +1,6 @@
 ﻿using Wolfware.Moonlit.Plugins.Abstractions;
 
-namespace Wolfware.Moonlit.Core.Abstractions;
+namespace Wolfware.Moonlit.Core.Plugins.Abstractions;
 
 /// <summary>
 /// Represents a plugin that provides middleware functionality and supports asynchronous disposal.

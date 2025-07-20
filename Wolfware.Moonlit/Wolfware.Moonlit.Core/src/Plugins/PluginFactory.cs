@@ -3,8 +3,9 @@ using McMaster.NETCore.Plugins;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Wolfware.Moonlit.Core.Abstractions;
 using Wolfware.Moonlit.Core.Configuration;
+using Wolfware.Moonlit.Core.Configuration.Abstractions;
+using Wolfware.Moonlit.Core.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Abstractions;
 
 namespace Wolfware.Moonlit.Core.Plugins;

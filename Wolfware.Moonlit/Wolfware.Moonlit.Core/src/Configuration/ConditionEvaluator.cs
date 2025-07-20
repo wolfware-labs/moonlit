@@ -1,6 +1,6 @@
 ﻿using DynamicExpresso;
 using Microsoft.Extensions.Configuration;
-using Wolfware.Moonlit.Core.Abstractions;
+using Wolfware.Moonlit.Core.Configuration.Abstractions;
 using Wolfware.Moonlit.Core.Extensions;
 
 namespace Wolfware.Moonlit.Core.Expressions;

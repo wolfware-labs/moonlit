@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
-using Wolfware.Moonlit.Plugins.Abstractions;
+﻿using Wolfware.Moonlit.Plugins.Abstractions;
 
-namespace Wolfware.Moonlit.Core.Abstractions;
+namespace Wolfware.Moonlit.Core.Pipelines.Abstractions;
 
 /// <summary>
 /// Represents the contextual data provided to middleware components during pipeline execution.
