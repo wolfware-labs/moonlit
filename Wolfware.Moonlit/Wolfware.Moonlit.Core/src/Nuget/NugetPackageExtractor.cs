@@ -3,7 +3,6 @@ using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
-using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
 using Wolfware.Moonlit.Core.Nuget.Abstractions;
@@ -13,30 +12,36 @@ namespace Wolfware.Moonlit.Core.Nuget;
 public sealed class NugetPackageExtractor : INugetPackageExtractor
 {
   private readonly ILogger<NugetPackageExtractor> _logger;
+  private readonly IRepositoryProvider _repositoryProvider;
   private readonly SourceCacheContext _cacheContext;
-  private readonly List<SourceRepository> _repositories;
 
-  public NugetPackageExtractor(ILogger<NugetPackageExtractor> logger)
+  public NugetPackageExtractor(ILogger<NugetPackageExtractor> logger, IRepositoryProvider repositoryProvider)
   {
     this._logger = logger;
+    this._repositoryProvider = repositoryProvider;
     this._cacheContext = new SourceCacheContext();
-
-    var packageSource = new PackageSource("https://api.nuget.org/v3/index.json");
-    var sourceRepository = Repository.Factory.GetCoreV3(packageSource);
-    this._repositories = [sourceRepository];
   }
 
   public Task<bool> ExtractPackageContent(
+    string repositoryId,
     string packageId,
     string version,
     string destinationFolder,
     CancellationToken cancellationToken = default)
   {
     var downloadedPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    return ExtractPackageContent(packageId, version, destinationFolder, downloadedPackages, cancellationToken);
+    return ExtractPackageContent(
+      repositoryId,
+      packageId,
+      version,
+      destinationFolder,
+      downloadedPackages,
+      cancellationToken
+    );
   }
 
   private async Task<bool> ExtractPackageContent(
+    string repositoryId,
     string packageId,
     string version,
     string destinationFolder,
@@ -49,10 +54,17 @@ public sealed class NugetPackageExtractor : INugetPackageExtractor
       return true;
     }
 
+    var repository = _repositoryProvider.GetRepository(repositoryId);
+    if (repository == null)
+    {
+      this._logger.LogError("Repository {RepositoryId} not found", repositoryId);
+      return false;
+    }
+
     try
     {
       var packageIdentity = new PackageIdentity(packageId, NuGetVersion.Parse(version));
-      var downloadResource = await _repositories[0].GetResourceAsync<DownloadResource>(cancellationToken);
+      var downloadResource = await repository.GetResourceAsync<DownloadResource>(cancellationToken);
 
       var downloadResult = await downloadResource.GetDownloadResourceResultAsync(
         packageIdentity,
@@ -75,6 +87,7 @@ public sealed class NugetPackageExtractor : INugetPackageExtractor
         cancellationToken, async (dep, ct) =>
         {
           await ExtractPackageContent(
+            repositoryId,
             dep.Id,
             dep.VersionRange.MinVersion!.ToString(),
             destinationFolder,

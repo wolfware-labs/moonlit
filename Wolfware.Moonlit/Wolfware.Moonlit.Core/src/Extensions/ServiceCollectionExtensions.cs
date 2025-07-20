@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<IConfigurationExpressionParser, ConfigurationExpressionParser>();
     services.AddSingleton<INugetPackageExtractor, NugetPackageExtractor>();
     services.AddSingleton<IConditionEvaluator, ConditionEvaluator>();
+    services.AddSingleton<IRepositoryProvider, RepositoryProvider>();
 
     services.AddFilePathResolver<NugetPackageResolver>("nuget");
     services.AddFilePathResolver<FilePathResolver>("file");

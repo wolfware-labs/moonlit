@@ -3,6 +3,7 @@
 public interface INugetPackageExtractor
 {
   Task<bool> ExtractPackageContent(
+    string repositoryId,
     string packageId,
     string version,
     string destinationFolder,

@@ -9,7 +9,7 @@ public sealed class NugetPackageResolver : IFilePathResolver
   private readonly INugetPackageExtractor _packageExtractor;
   private readonly ILogger<NugetPackageResolver> _logger;
 
-  public NugetPackageResolver(IRegistryResolver registryResolver, INugetPackageExtractor packageExtractor, ILogger<NugetPackageResolver> logger)
+  public NugetPackageResolver(INugetPackageExtractor packageExtractor, ILogger<NugetPackageResolver> logger)
   {
     _packageExtractor = packageExtractor;
     _logger = logger;
@@ -17,19 +17,16 @@ public sealed class NugetPackageResolver : IFilePathResolver
 
   public async ValueTask<string> ResolvePath(Uri assemblyUri, CancellationToken cancellationToken = default)
   {
-
-    var packageId = assemblyUri.Host;
-    var version = assemblyUri.AbsolutePath.Trim('/');
-
-    if (string.IsNullOrWhiteSpace(packageId))
+    var repositoryId = assemblyUri.Host;
+    var packageInfo = assemblyUri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+    if (packageInfo.Length != 2)
     {
-      throw new ArgumentException("Package ID is missing in the URI.");
+      throw new ArgumentException(
+        "Invalid package URI format. Expected format: nuget://<repository>/<packageId>/<version>");
     }
 
-    if (string.IsNullOrWhiteSpace(version))
-    {
-      throw new ArgumentException("Package version is missing in the URI.");
-    }
+    var packageId = packageInfo[0];
+    var version = packageInfo[1];
 
     var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
     var packagePath = Path.Combine(appDataFolder, "moonlit", "plugins", packageId.ToLower(), version);
@@ -47,7 +44,8 @@ public sealed class NugetPackageResolver : IFilePathResolver
     if (!Directory.EnumerateFileSystemEntries(packagePath).Any())
     {
       this._logger.LogInformation("Installing Plugin {PackageId} version {Version}", packageId, version);
-      await this._packageExtractor.ExtractPackageContent(packageId, version, packagePath, cancellationToken)
+      await this._packageExtractor
+        .ExtractPackageContent(repositoryId, packageId, version, packagePath, cancellationToken)
         .ConfigureAwait(false);
       this._logger.LogInformation("Plugin {PackageId} installed successfully", packageId);
     }

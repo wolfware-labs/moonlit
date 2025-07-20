@@ -1,0 +1,33 @@
+﻿name: "External Nuget Packages Release"
+
+plugins:
+  - name: "git"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.3"
+  - name: "gh"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.3"
+    config:
+      token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.3"
+
+
+stages:
+  analyze:
+    - name: repo
+      run: git.repo-context
+    - name: tag
+      run: gh.latest-tag
+      config:
+        prefix: "v"
+    - name: items
+      run: gh.items-since-commit
+      config:
+        sha: $(output:tag:commitSha)
+    - name: version
+      run: sr.calculate-version
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        commits: $(output:items:commits)
+        prereleaseMappings:
+          main: next
