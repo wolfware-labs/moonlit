@@ -54,7 +54,7 @@ public sealed class AiAgent : IAiAgent
         throw new InvalidOperationException("Failed to filter commits. No content returned from AI Agent.");
       }
 
-      var filteredCommitsJson = completion.Value.Content[0].Text.Trim();
+      var filteredCommitsJson = AiAgent.CleanResponse(completion.Value.Content[0].Text);
       if (string.IsNullOrWhiteSpace(filteredCommitsJson))
       {
         this._logger.LogWarning("No user-facing commits found in the provided list.");
@@ -109,7 +109,7 @@ public sealed class AiAgent : IAiAgent
         throw new InvalidOperationException(errorMessage);
       }
 
-      var summariesJson = completion.Value.Content[0].Text.Trim();
+      var summariesJson = AiAgent.CleanResponse(completion.Value.Content[0].Text);
       if (string.IsNullOrWhiteSpace(summariesJson))
       {
         var errorMessage = "AI Agent was not able to refine commit summaries. Empty response.";
@@ -148,5 +148,25 @@ public sealed class AiAgent : IAiAgent
     });
 
     return responses.SelectMany(response => response).ToArray();
+  }
+
+  private static string CleanResponse(string response)
+  {
+    var trimmed = response.Trim();
+    if (!trimmed.StartsWith("```") || !trimmed.EndsWith("```"))
+    {
+      return trimmed;
+    }
+
+    var firstNewline = trimmed.IndexOf('\n');
+    if (firstNewline <= 0)
+    {
+      return trimmed[3..^3].Trim();
+    }
+
+    var language = trimmed.Substring(3, firstNewline - 3).Trim();
+    return language.Equals("json", StringComparison.OrdinalIgnoreCase)
+      ? trimmed[(firstNewline + 1)..^3].Trim()
+      : trimmed[3..^3].Trim();
   }
 }

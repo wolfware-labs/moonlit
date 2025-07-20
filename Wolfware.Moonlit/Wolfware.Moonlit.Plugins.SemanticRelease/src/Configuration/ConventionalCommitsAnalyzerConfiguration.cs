@@ -6,7 +6,7 @@ public sealed class ConventionalCommitsAnalyzerConfiguration
 {
   public bool BreakingChangesAlwaysMajor { get; set; } = true;
 
-  public List<ReleaseRule> Rules { get; set; } = [];
+  public ReleaseRule[] Rules { get; set; } = [];
 
   public static ConventionalCommitsAnalyzerConfiguration CreateDefault()
   {

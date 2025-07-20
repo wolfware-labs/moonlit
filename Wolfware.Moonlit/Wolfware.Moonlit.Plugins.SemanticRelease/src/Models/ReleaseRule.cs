@@ -2,24 +2,15 @@
 
 public sealed class ReleaseRule
 {
-  public string Type { get; set; } = string.Empty;
+  public string? Type { get; set; }
 
-  public string Scope { get; set; } = string.Empty;
+  public string? Scope { get; set; }
 
   public VersionBumpType Release { get; set; }
 
   public bool Matches(ConventionalCommit commit)
   {
-    if (!string.IsNullOrEmpty(Type) && !string.Equals(commit.Type, Type, StringComparison.OrdinalIgnoreCase))
-    {
-      return false;
-    }
-
-    if (!string.IsNullOrEmpty(Scope) && !string.Equals(commit.Scope, Scope, StringComparison.OrdinalIgnoreCase))
-    {
-      return false;
-    }
-
-    return true;
+    return (string.IsNullOrEmpty(Type) || string.Equals(commit.Type, Type, StringComparison.OrdinalIgnoreCase)) &&
+           (string.IsNullOrEmpty(Scope) || string.Equals(commit.Scope, Scope, StringComparison.OrdinalIgnoreCase));
   }
 }

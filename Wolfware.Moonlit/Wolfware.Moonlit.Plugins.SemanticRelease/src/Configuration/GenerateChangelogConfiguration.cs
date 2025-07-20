@@ -9,4 +9,6 @@ public sealed class GenerateChangelogConfiguration
   public bool FilterNonUserFacingCommits { get; set; } = false;
 
   public bool RefineCommitsSummary { get; set; } = false;
+
+  public ChangelogGeneratorConfiguration ChangelogRules { get; set; } = ChangelogGeneratorConfiguration.CreateDefault();
 }

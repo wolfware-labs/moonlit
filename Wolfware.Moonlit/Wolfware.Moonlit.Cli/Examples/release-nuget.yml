@@ -57,6 +57,9 @@ stages:
   release:
     - name: changelog
       run: sr.generate-changelog
+      config:
+        filterNonUserFacingCommits: true
+        refineCommitsSummary: true
 #    - name: createRelease
 #      run: gh.create-release
 #      config:
