@@ -24,12 +24,15 @@ stages:
       run: gh.items-since-commit
       config:
         sha: $(output:tag:commitSha)
+    - name: conventional-commits
+      run: sr.analyze
+      config:
+        commits: $(output:items:commits)
     - name: version
       run: sr.calculate-version
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        commits: $(output:items:commits)
         prereleaseMappings:
           dev: next
 
@@ -57,7 +60,6 @@ stages:
     - name: changelog
       run: sr.generate-changelog
       config:
-        commits: $(output:items:commits)
         openAiKey: $(OPENAI_API_KEY)
     - name: createRelease
       run: gh.create-release
