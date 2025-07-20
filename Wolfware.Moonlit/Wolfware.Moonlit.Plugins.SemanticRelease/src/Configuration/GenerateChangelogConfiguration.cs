@@ -6,9 +6,7 @@ public sealed class GenerateChangelogConfiguration
 {
   public ConventionalCommit[]? Commits { get; set; }
 
-  public string? OpenAiKey { get; set; } = string.Empty;
+  public bool FilterNonUserFacingCommits { get; set; } = false;
 
-  public bool FilterNonUserFacingCommits { get; set; } = true;
-
-  public bool RefineCommitsSummary { get; set; } = true;
+  public bool RefineCommitsSummary { get; set; } = false;
 }
