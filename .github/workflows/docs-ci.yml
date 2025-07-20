@@ -39,6 +39,25 @@ jobs:
       - name: Add global tools to PATH
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
+      - name: Install Docker Buildx with cloud driver support
+        run: |
+          # Download the latest buildx version with cloud support from buildx-desktop repo
+          BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx-desktop/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Installing buildx version: $BUILDX_VERSION"
+          
+          # Create the CLI plugins directory
+          mkdir -p ~/.docker/cli-plugins
+          
+          # Download and install buildx with cloud driver support
+          curl -L "https://github.com/docker/buildx-desktop/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
+            -o ~/.docker/cli-plugins/docker-buildx
+          
+          # Make it executable
+          chmod +x ~/.docker/cli-plugins/docker-buildx
+          
+          # Verify installation
+          docker buildx version
+
       - name: Release
         run: moonlit release
         env:
