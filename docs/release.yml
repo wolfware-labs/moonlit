@@ -31,7 +31,7 @@ stages:
         baseVersion: $(output:tag:name)
         commits: $(output:items:commits)
         prereleaseMappings:
-          main: next
+          dev: next
 
   build:
     - name: login
