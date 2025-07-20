@@ -2,6 +2,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wolfware.Moonlit.Plugins.Abstractions;
 using Wolfware.Moonlit.Plugins.Pipelines;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Abstractions;
+using Wolfware.Moonlit.Plugins.SemanticRelease.Configuration;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Middlewares;
 using Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 
@@ -15,6 +17,9 @@ public sealed class SemanticReleasePluginStartup : PluginStartup
   protected override void ConfigurePlugin(IServiceCollection services, IConfiguration configuration)
   {
     services.AddSingleton<SharedContext>();
+    services.AddSingleton<IAiAgent, AiAgent>();
+    services.AddSingleton<IOpenAiClient, OpenAiClient>();
+    services.Configure<OpenAiClientConfiguration>(configuration);
   }
 
   protected override void AddMiddlewares(IMiddlewareCollection middlewares)

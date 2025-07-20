@@ -10,5 +10,5 @@ public sealed class GenerateChangelogConfiguration
 
   public bool FilterNonUserFacingCommits { get; set; } = true;
 
-  public bool RefineCommitMessages { get; set; } = true;
+  public bool RefineCommitsSummary { get; set; } = true;
 }

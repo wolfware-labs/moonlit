@@ -21,9 +21,10 @@ public partial class ConventionalCommitConverter
       return new ConventionalCommit
       {
         Type = "unknown",
-        Description = commit.Message,
+        Summary = commit.Message.Split('\n')[0].Trim(),
+        Body = commit.Message,
         IsBreakingChange = false,
-        FullMessage = commit.Message,
+        RawMessage = commit.Message,
         Date = commit.Date,
         Sha = commit.Sha[..7]
       };
@@ -35,15 +36,16 @@ public partial class ConventionalCommitConverter
     {
       Type = match.Groups["type"].Value.ToLowerInvariant(),
       Scope = match.Groups["scope"].Value,
-      Description = match.Groups["description"].Value,
+      Summary = match.Groups["body"].Value.Split('\n')[0].Trim(),
+      Body = match.Groups["body"].Value,
       IsBreakingChange = match.Groups["breaking"].Success || hasBreakingFooter,
-      FullMessage = commit.Message,
+      RawMessage = commit.Message,
       Date = commit.Date,
       Sha = commit.Sha[..7]
     };
   }
 
-  [GeneratedRegex(@"^(?<type>\w+)(?:\((?<scope>[\w\-_]+)\))?(?<breaking>!)?:\s*(?<description>.*)$",
+  [GeneratedRegex(@"^(?<type>\w+)(?:\((?<scope>[\w\-_]+)\))?(?<breaking>!)?:\s*(?<body>.*)$",
     RegexOptions.Multiline | RegexOptions.Compiled)]
   private static partial Regex GetCommitRegex();
 }
