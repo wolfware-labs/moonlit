@@ -14,21 +14,28 @@ namespace Wolfware.Moonlit.Plugins.SemanticRelease.Services;
 public partial class OpenAiClient : IOpenAiClient
 {
   private readonly ILogger<OpenAiClient> _logger;
+  private readonly SharedRetryCoordinator _retryCoordinator;
   private readonly OpenAiClientConfiguration _configuration;
   private readonly Lazy<ChatClient> _chatClient;
   private readonly AsyncRetryPolicy _retryPolicy;
 
-  public OpenAiClient(ILogger<OpenAiClient> logger, IOptions<OpenAiClientConfiguration> configuration)
+  public OpenAiClient(ILogger<OpenAiClient> logger, IOptions<OpenAiClientConfiguration> configuration,
+    SharedRetryCoordinator retryCoordinator)
   {
     this._logger = logger;
     this._configuration = configuration.Value;
+    this._retryCoordinator = retryCoordinator;
     this._chatClient = new Lazy<ChatClient>(CreateChatClient);
     this._retryPolicy = this.CreateRetryPolicy();
   }
 
   public Task<ClientResult<ChatCompletion>> CompleteChatAsync(params ChatMessage[] messages)
   {
-    return this._retryPolicy.ExecuteAsync(() => this._chatClient.Value.CompleteChatAsync(messages));
+    return this._retryPolicy.ExecuteAsync(async () =>
+    {
+      await this._retryCoordinator.WaitIfRateLimitedAsync();
+      return await this._chatClient.Value.CompleteChatAsync(messages);
+    });
   }
 
   private ChatClient CreateChatClient()
@@ -56,13 +63,16 @@ public partial class OpenAiClient : IOpenAiClient
         retryCount: 5,
         sleepDurationProvider: (retryAttempt, context) =>
         {
+          var delay = TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+
           if (context.TryGetValue("retry-after-seconds", out var val) &&
               double.TryParse(val?.ToString(), out double seconds))
           {
-            return TimeSpan.FromSeconds(seconds);
+            delay = TimeSpan.FromSeconds(seconds);
           }
 
-          return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+          this._retryCoordinator.SetGlobalRetryAfter(delay);
+          return delay;
         },
         onRetry: (exception, delay, attempt, context) =>
         {
@@ -74,7 +84,6 @@ public partial class OpenAiClient : IOpenAiClient
           }
 
           this._logger.LogWarning(
-            exception,
             "[Retry {Attempt}] Rate limited by OpenAI API. Retrying in {Delay} seconds...",
             attempt, delay.TotalSeconds
           );

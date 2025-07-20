@@ -59,11 +59,11 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelogConfi
         commits = await _aiAgent.RefineCommitsSummary(commits);
       }
 
-      var changelog = this._changelogGenerator.GenerateChangelog(commits, configuration.ChangelogRules);
+      var categories = this._changelogGenerator.GenerateChangelog(commits, configuration.ChangelogRules);
 
       return MiddlewareResult.Success(output =>
       {
-        output.Add("Changelog", changelog);
+        output.Add("Categories", categories);
       });
     }
     catch (Exception ex)
