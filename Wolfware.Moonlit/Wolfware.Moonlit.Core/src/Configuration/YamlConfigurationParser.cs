@@ -18,7 +18,7 @@ namespace Wolfware.Moonlit.Core.Configuration;
 /// </remarks>
 public sealed class YamlConfigurationParser : IReleaseConfigurationParser
 {
-  public Task<ReleaseConfiguration> Parse(string configuration, CancellationToken cancellationToken = default)
+  public ReleaseConfiguration Parse(string configuration)
   {
     var deserializer = new DeserializerBuilder()
       .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -33,6 +33,6 @@ public sealed class YamlConfigurationParser : IReleaseConfigurationParser
         "Failed to parse the release configuration. Ensure the YAML format is correct.");
     }
 
-    return Task.FromResult(releaseConfiguration);
+    return releaseConfiguration;
   }
 }

@@ -9,6 +9,9 @@ plugins:
       token: $(GITHUB_TOKEN)
   - name: "sr"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
   - name: "dotnet"
     url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Dotnet/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Dotnet.dll"
     config:
@@ -28,12 +31,15 @@ stages:
       run: gh.items-since-commit
       config:
         sha: $(output:tag:commitSha)
+    - name: conventional-commits
+      run: sr.analyze
+      config:
+        commits: $(output:items:commits)
     - name: version
       run: sr.calculate-version
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        commits: $(output:items:commits)
         prereleaseMappings:
           main: next
 
@@ -51,9 +57,6 @@ stages:
   release:
     - name: changelog
       run: sr.generate-changelog
-      config:
-        commits: $(output:items:commits)
-        openAiKey: $(OPENAI_API_KEY)
 #    - name: createRelease
 #      run: gh.create-release
 #      config:

@@ -19,7 +19,8 @@ public sealed class SemanticReleasePluginStartup : PluginStartup
     services.AddSingleton<SharedContext>();
     services.AddSingleton<IAiAgent, AiAgent>();
     services.AddSingleton<IOpenAiClient, OpenAiClient>();
-    services.Configure<OpenAiClientConfiguration>(configuration);
+    services.Configure<OpenAiClientConfiguration>(configuration.GetSection("OpenAi"));
+    services.AddSingleton<IChangelogGenerator, ChangelogGenerator>();
   }
 
   protected override void AddMiddlewares(IMiddlewareCollection middlewares)

@@ -6,10 +6,10 @@
 public interface IReleaseConfigurationParser
 {
   /// <summary>
-  /// Parses a release configuration from the provided string and returns a <see cref="ReleaseConfiguration"/> object.
+  /// Parses the provided configuration string and returns a <see cref="ReleaseConfiguration"/> object
+  /// representing the release process settings.
   /// </summary>
-  /// <param name="configuration">The string containing the serialized release configuration in a predefined format.</param>
-  /// <param name="cancellationToken">A token to monitor for cancellation requests, with a default value of <see cref="CancellationToken.None"/>.</param>
-  /// <returns>A task representing the asynchronous operation. The task result contains the parsed <see cref="ReleaseConfiguration"/> object.</returns>
-  Task<ReleaseConfiguration> Parse(string configuration, CancellationToken cancellationToken = default);
+  /// <param name="configuration">The configuration string to parse into a <see cref="ReleaseConfiguration"/> object.</param>
+  /// <returns>A <see cref="ReleaseConfiguration"/> object containing the parsed release process settings.</returns>
+  ReleaseConfiguration Parse(string configuration);
 }

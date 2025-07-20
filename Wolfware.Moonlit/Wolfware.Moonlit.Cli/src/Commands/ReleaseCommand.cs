@@ -81,7 +81,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseCommand.Settings>
     {
       var stopwatch = Stopwatch.StartNew();
       var configurationContent = await File.ReadAllTextAsync(settings.ConfigurationFilePath).ConfigureAwait(false);
-      var configuration = await _configurationParser.Parse(configurationContent).ConfigureAwait(false);
+      var configuration = _configurationParser.Parse(configurationContent);
 
       if (configuration.Stages.Count == 0)
       {

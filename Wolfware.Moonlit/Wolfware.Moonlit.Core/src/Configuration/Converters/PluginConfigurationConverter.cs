@@ -1,4 +1,5 @@
-﻿using YamlDotNet.Core;
+﻿using Wolfware.Moonlit.Core.Extensions;
+using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
@@ -74,52 +75,7 @@ public sealed class PluginConfigurationConverter : IYamlTypeConverter
           break;
 
         case "config":
-          if (parser.Current is MappingStart)
-          {
-            parser.MoveNext();
-
-            while (parser.Current is not MappingEnd)
-            {
-              if (parser.Current is not Scalar configKeyScalar)
-              {
-                throw new YamlException($"Expected scalar key in config but found {parser.Current}");
-              }
-
-              var configKey = configKeyScalar.Value;
-              parser.MoveNext();
-
-              // Handle null values or scalar values
-              if (parser.Current is Scalar configValueScalar)
-              {
-                configDict[configKey] = configValueScalar.Value;
-                parser.MoveNext();
-              }
-              else if (parser.Current is SequenceStart)
-              {
-                // Skip arrays and complex structures, we only support string values
-                parser.SkipThisAndNestedEvents();
-              }
-              else if (parser.Current is MappingStart)
-              {
-                // Skip nested objects, we only support string values
-                parser.SkipThisAndNestedEvents();
-              }
-              else
-              {
-                // Handle null or other scalar types
-                configDict[configKey] = null;
-                parser.MoveNext();
-              }
-            }
-
-            parser.MoveNext(); // Skip MappingEnd
-          }
-          else
-          {
-            // Skip non-mapping config values
-            parser.SkipThisAndNestedEvents();
-          }
-
+          configDict = parser.ParseMap();
           break;
 
         default:

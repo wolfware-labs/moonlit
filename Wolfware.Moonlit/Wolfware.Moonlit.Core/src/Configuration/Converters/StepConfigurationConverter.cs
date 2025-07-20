@@ -1,4 +1,5 @@
-﻿using YamlDotNet.Core;
+﻿using Wolfware.Moonlit.Core.Extensions;
+using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
@@ -83,7 +84,7 @@ public sealed class StepConfigurationConverter : IYamlTypeConverter
           break;
 
         case "config":
-          configDict = this.ParseMap(parser);
+          configDict = parser.ParseMap();
           break;
 
         default:
@@ -102,84 +103,5 @@ public sealed class StepConfigurationConverter : IYamlTypeConverter
   public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)
   {
     throw new NotSupportedException("Writing YAML for StepConfiguration is not supported.");
-  }
-
-  private Dictionary<string, object?> ParseMap(IParser parser)
-  {
-    var map = new Dictionary<string, object?>();
-    if (parser.Current is not MappingStart)
-    {
-      throw new YamlException($"Expected mapping start for configuration but found {parser.Current}");
-    }
-
-    parser.MoveNext();
-    while (parser.Current is not MappingEnd)
-    {
-      if (parser.Current is not Scalar keyScalar)
-      {
-        throw new YamlException($"Expected scalar key in configuration but found {parser.Current}");
-      }
-
-      var key = keyScalar.Value;
-      parser.MoveNext();
-
-      switch (parser.Current)
-      {
-        case Scalar valueScalar:
-          map[key] = valueScalar.Value;
-          parser.MoveNext();
-          break;
-        case SequenceStart:
-          map[key] = this.ParseSequence(parser);
-          break;
-        case MappingStart:
-          map[key] = this.ParseMap(parser);
-          break;
-        default:
-          map[key] = null;
-          parser.MoveNext();
-          break;
-      }
-    }
-
-    parser.MoveNext(); // Skip MappingEnd
-    return map;
-  }
-
-  private List<object?> ParseSequence(IParser parser)
-  {
-    var sequenceValues = new List<object?>();
-    if (parser.Current is not SequenceStart)
-    {
-      throw new YamlException($"Expected sequence start but found {parser.Current}");
-    }
-
-    parser.MoveNext(); // Move to first item in sequence
-
-    while (parser.Current is not SequenceEnd)
-    {
-      switch (parser.Current)
-      {
-        case Scalar scalar:
-          sequenceValues.Add(scalar.Value);
-          break;
-        case SequenceStart:
-          sequenceValues.Add(this.ParseSequence(parser));
-          break;
-        case MappingStart:
-          sequenceValues.Add(this.ParseMap(parser));
-          break;
-        default:
-          // Handle null or other scalar types
-          sequenceValues.Add(null);
-          parser.MoveNext();
-          break;
-      }
-
-      parser.MoveNext(); // Move to next item in sequence
-    }
-
-    parser.MoveNext(); // Skip SequenceEnd
-    return sequenceValues;
   }
 }
