@@ -1,0 +1,71 @@
+name: "Documents Site Image Release"
+
+plugins:
+  - name: "git"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Git/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Git.dll"
+  - name: "gh"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.GitHub/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Github.dll"
+    config:
+      token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.SemanticRelease/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.SemanticRelease.dll"
+  - name: "docker"
+    url: "file://D:/wolfware/moonlit/Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Docker/bin/Debug/net9.0/Wolfware.Moonlit.Plugins.Docker.dll"
+
+stages:
+  analyze:
+    - name: repo
+      run: git.repo-context
+    - name: tag
+      run: gh.latest-tag
+      config:
+        prefix: "docs-v"
+    - name: items
+      run: gh.items-since-commit
+      config:
+        sha: $(output:tag:commitSha)
+    - name: version
+      run: sr.calculate-version
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        commits: $(output:items:commits)
+        prereleaseMappings:
+          main: next
+
+  build:
+    - name: login
+      run: docker.login
+      config:
+        username: $(DOCKER_USER)
+        password: $(DOCKER_PAT)
+    - name: buildx
+      run: docker.setup-buildx
+      config:
+        driver: cloud
+        endpoint: "wolfware/wolfware-builder"
+    - name: build-and-push
+      run: docker.build-and-push
+      config:
+        file: "Dockerfile"
+        push: false
+        tags:
+          - "wolfware/moonlit-docs:$(output:version:nextVersion)"
+          - "wolfware/moonlit-docs:latest"
+
+  release:
+    - name: changelog
+      run: sr.generate-changelog
+      config:
+        commits: $(output:items:commits)
+        openAiKey: $(OPENAI_API_KEY)
+    - name: createRelease
+      run: gh.create-release
+      config:
+        name: "Docs Release $(output:version:nextVersion)"
+        tag: docs-v$(output:version:nextVersion)
+        label: "released on @$(output:repo:branch)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
+        pullRequests: $(output:items:pullRequests)
+        issues: $(output:items:issues)
