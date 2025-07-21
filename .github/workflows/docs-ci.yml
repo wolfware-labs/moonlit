@@ -42,24 +42,12 @@ jobs:
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Install Docker Buildx with cloud driver support
-        run: |
-          # Get the download URL using jq for reliable JSON parsing
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/docker/buildx-desktop/releases/latest | \
-            jq -r '.assets[] | select(.name | contains("linux-amd64") and (contains(".json") | not)) | .browser_download_url')
-          
-          echo "Downloading buildx from: $DOWNLOAD_URL"
-          
-          # Verify we got a valid URL
-          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-            echo "Error: Could not find download URL"
-            exit 1
-          fi
-          
+        run: | 
           # Create the CLI plugins directory
           mkdir -p ~/.docker/cli-plugins
           
           # Download and install buildx
-          curl -L "$DOWNLOAD_URL" -o ~/.docker/cli-plugins/docker-buildx
+          curl -L "https://github.com/docker/buildx-desktop/releases/download/v0.24.0-desktop.2/buildx-v0.24.0-desktop.2.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx
           
           # Make it executable
           chmod +x ~/.docker/cli-plugins/docker-buildx
