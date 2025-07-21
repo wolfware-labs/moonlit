@@ -27,10 +27,11 @@ stages:
       run: gh.items-since-commit
       config:
         sha: $(output:tag:commitSha)
-    - name: conventional-commits
+    - name: conventionalCommits
       run: sr.analyze
       config:
         commits: $(output:items:commits)
+        haltIf: output.conventionalCommits.commitCount == 0
         includeScopes:
           - docs
     - name: version
