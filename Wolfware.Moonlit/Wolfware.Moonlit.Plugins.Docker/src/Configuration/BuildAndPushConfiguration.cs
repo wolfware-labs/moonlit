@@ -10,7 +10,7 @@ public sealed class BuildAndPushConfiguration
 
   public string Context { get; set; } = ".";
 
-  public bool Push { get; set; } = false;
+  public bool Push { get; set; } = true;
 
   public string[] BuildArgs { get; set; } = [];
 
