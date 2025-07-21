@@ -11,7 +11,7 @@ public sealed class ConditionEvaluator : IConditionEvaluator
 
   public bool Evaluate(IConfigurationSection outputSection, string expression)
   {
-    this._interpreter.SetVariable("Output", outputSection.AsObject());
+    this._interpreter.SetVariable("output", outputSection.AsDynamicObject());
     return this._interpreter.Eval(expression) is true;
   }
 }

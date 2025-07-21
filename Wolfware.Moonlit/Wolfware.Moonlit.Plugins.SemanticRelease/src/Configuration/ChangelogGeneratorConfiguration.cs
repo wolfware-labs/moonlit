@@ -72,6 +72,13 @@ public sealed class ChangelogGeneratorConfiguration
           IsBreakingChange = true,
           Icon = ":boom:",
           Summary = "Breaking changes"
+        },
+        new ChangelogRule
+        {
+          Type = "unknown",
+          Section = "Other Changes",
+          Icon = ":package:",
+          Summary = "Other changes that don't fit into the above categories"
         }
       ]
     };

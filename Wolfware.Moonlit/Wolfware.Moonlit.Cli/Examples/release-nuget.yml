@@ -31,10 +31,13 @@ stages:
       run: gh.items-since-commit
       config:
         sha: $(output:tag:commitSha)
-    - name: conventional-commits
+    - name: conventionalCommits
       run: sr.analyze
+      haltIf: output.conventionalCommits.CommitCount == 4
       config:
         commits: $(output:items:commits)
+        includeScopes:
+          - docs
     - name: version
       run: sr.calculate-version
       config:
@@ -57,9 +60,6 @@ stages:
   release:
     - name: changelog
       run: sr.generate-changelog
-      config:
-        filterNonUserFacingCommits: true
-        refineCommitsSummary: true
     - name: createRelease
       run: gh.create-release
       config:
