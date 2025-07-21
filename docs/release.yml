@@ -40,6 +40,8 @@ stages:
         baseVersion: $(output:tag:name)
         prereleaseMappings:
           dev: next
+    - name: changelog
+      run: sr.generate-changelog
 
   build:
     - name: login
@@ -61,11 +63,6 @@ stages:
           - "wolfware/moonlit-docs:latest"
 
   release:
-    - name: changelog
-      run: sr.generate-changelog
-      config:
-        filterNonUserFacingCommits: true
-        refineCommitsSummary: true
     - name: createRelease
       run: gh.create-release
       config:
