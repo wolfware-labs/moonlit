@@ -33,9 +33,10 @@ stages:
         sha: $(output:tag:commitSha)
     - name: conventionalCommits
       run: sr.analyze
-      haltIf: output.conventionalCommits.commitCount == 4
+      haltIf: output.conventionalCommits.commitCount == 0
       config:
         commits: $(output:items:commits)
+        includeUnscoped: false
         includeScopes:
           - docs
     - name: version
@@ -60,13 +61,13 @@ stages:
   release:
     - name: changelog
       run: sr.generate-changelog
-    - name: createRelease
-      run: gh.create-release
-      config:
-        name: "Moonlit CLI Release $(output:version:nextVersion)"
-        tag: "moonlit-cli-v$(output:version:nextVersion)"
-        label: "released on @$(output:repo:branch)"
-        changelog: $(output:changelog:categories)
-        prerelease: $(output:version:isPrerelease)
-        pullRequests: $(output:items:pullRequests)
-        issues: $(output:items:issues)
+#    - name: createRelease
+#      run: gh.create-release
+#      config:
+#        name: "Moonlit CLI Release $(output:version:nextVersion)"
+#        tag: "moonlit-cli-v$(output:version:nextVersion)"
+#        label: "released on @$(output:repo:branch)"
+#        changelog: $(output:changelog:categories)
+#        prerelease: $(output:version:isPrerelease)
+#        pullRequests: $(output:items:pullRequests)
+#        issues: $(output:items:issues)
