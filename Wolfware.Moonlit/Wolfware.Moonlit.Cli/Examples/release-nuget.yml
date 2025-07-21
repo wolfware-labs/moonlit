@@ -63,8 +63,8 @@ stages:
     - name: createRelease
       run: gh.create-release
       config:
-        name: "Release $(output:version:nextVersion)"
-        tag: $(output:version:nextVersion)
+        name: "Moonlit CLI Release $(output:version:nextVersion)"
+        tag: "moonlit-cli-v$(output:version:nextVersion)"
         label: "released on @$(output:repo:branch)"
         changelog: $(output:changelog:categories)
         prerelease: $(output:version:isPrerelease)
