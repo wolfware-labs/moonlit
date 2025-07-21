@@ -43,13 +43,17 @@ jobs:
 
       - name: Install Docker Buildx with cloud driver support
         run: |
-          # Get the download URL for linux-amd64 buildx binary
+          # Get the download URL using jq for reliable JSON parsing
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/docker/buildx-desktop/releases/latest | \
-            grep "browser_download_url.*linux-amd64\"" | \
-            grep -v ".json" | \
-            sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')
+            jq -r '.assets[] | select(.name | contains("linux-amd64") and (contains(".json") | not)) | .browser_download_url')
           
           echo "Downloading buildx from: $DOWNLOAD_URL"
+          
+          # Verify we got a valid URL
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            echo "Error: Could not find download URL"
+            exit 1
+          fi
           
           # Create the CLI plugins directory
           mkdir -p ~/.docker/cli-plugins
