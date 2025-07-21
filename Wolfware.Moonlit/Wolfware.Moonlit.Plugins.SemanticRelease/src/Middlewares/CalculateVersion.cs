@@ -39,9 +39,9 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersionConfigu
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
-      output.Add("NextVersion", nextVersion.WithoutMetadata().ToString());
-      output.Add("NextFullVersion", nextVersion.ToString());
-      output.Add("IsPrerelease", nextVersion.IsPrerelease);
+      output.Add("nextVersion", nextVersion.WithoutMetadata().ToString());
+      output.Add("nextFullVersion", nextVersion.ToString());
+      output.Add("isPrerelease", nextVersion.IsPrerelease);
     }));
   }
 

@@ -56,17 +56,17 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
     {
       if (commits is not null && commits.Length > 0)
       {
-        output.Add("Commits", commits);
+        output.Add("commits", commits);
       }
 
       if (pullRequests is not null && pullRequests.Length > 0)
       {
-        output.Add("PullRequests", pullRequests);
+        output.Add("prs", pullRequests);
       }
 
       if (issues is not null && issues.Length > 0)
       {
-        output.Add("Issues", issues);
+        output.Add("issues", issues);
       }
     });
   }

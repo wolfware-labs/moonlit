@@ -28,8 +28,8 @@ public sealed class GetRepositoryContext : IReleaseMiddleware
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
-      output.Add("Branch", currentBranch);
-      output.Add("RemoteUrl", remoteUrl);
+      output.Add("branch", currentBranch);
+      output.Add("remoteUrl", remoteUrl);
     }));
   }
 }

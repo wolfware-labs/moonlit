@@ -63,7 +63,7 @@ public sealed class GenerateChangelog : ReleaseMiddleware<GenerateChangelogConfi
 
       return MiddlewareResult.Success(output =>
       {
-        output.Add("Categories", categories);
+        output.Add("categories", categories);
       });
     }
     catch (Exception ex)

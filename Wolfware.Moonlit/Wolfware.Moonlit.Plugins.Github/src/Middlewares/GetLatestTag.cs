@@ -48,8 +48,8 @@ public sealed class GetLatestTag : ReleaseMiddleware<GetLatestTagConfiguration>
     );
     return MiddlewareResult.Success(output =>
     {
-      output.Add("Name", latestTag.Name ?? string.Empty);
-      output.Add("CommitSha", ((GitHubCommit)latestTag.Commit).Sha);
+      output.Add("name", latestTag.Name ?? string.Empty);
+      output.Add("commitSha", ((GitHubCommit)latestTag.Commit).Sha);
     });
   }
 }

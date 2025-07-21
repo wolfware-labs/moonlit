@@ -50,8 +50,8 @@ public sealed class CreateRelease : ReleaseMiddleware<CreateReleaseConfiguration
 
     return MiddlewareResult.Success(output =>
     {
-      output.Add("Name", release.Name);
-      output.Add("Url", release.HtmlUrl);
+      output.Add("name", release.Name);
+      output.Add("url", release.HtmlUrl);
     });
   }
 

@@ -52,7 +52,7 @@ public sealed class SetupBuildx : ReleaseMiddleware<SetupBuildxConfiguration>
     _logger.LogInformation("Docker Buildx setup process completed successfully.");
     return MiddlewareResult.Success(output =>
     {
-      output.Add("Name", name);
+      output.Add("name", name);
     });
   }
 }

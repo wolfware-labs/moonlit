@@ -22,8 +22,8 @@ public sealed class ConvertCommits : ReleaseMiddleware<ConvertCommitsConfigurati
     this._sharedContext.Commits = commits;
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
-      output.Add("Commits", commits);
-      output.Add("CommitCount", commits.Length);
+      output.Add("commits", commits);
+      output.Add("commitCount", commits.Length);
     }));
   }
 

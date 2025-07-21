@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Docker.Abstractions;
 using Wolfware.Moonlit.Plugins.Docker.Configuration;
 using Wolfware.Moonlit.Plugins.Pipelines;

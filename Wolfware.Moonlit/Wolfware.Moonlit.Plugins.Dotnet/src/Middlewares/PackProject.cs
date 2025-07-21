@@ -119,7 +119,7 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
 
       return Task.FromResult(MiddlewareResult.Success(output =>
       {
-        output.Add("PackagePath", nupkgFiles[0]);
+        output.Add("packagePath", nupkgFiles[0]);
       }));
     }
     catch (Exception e)
