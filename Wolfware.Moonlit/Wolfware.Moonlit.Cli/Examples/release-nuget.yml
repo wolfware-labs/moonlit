@@ -33,7 +33,7 @@ stages:
         sha: $(output:tag:commitSha)
     - name: conventionalCommits
       run: sr.analyze
-      haltIf: output.conventionalCommits.CommitCount == 4
+      haltIf: output.conventionalCommits.commitCount == 4
       config:
         commits: $(output:items:commits)
         includeScopes:
