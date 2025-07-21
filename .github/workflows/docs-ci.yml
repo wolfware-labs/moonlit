@@ -43,16 +43,19 @@ jobs:
 
       - name: Install Docker Buildx with cloud driver support
         run: |
-          # Download the latest buildx version with cloud support from buildx-desktop repo
-          BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx-desktop/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "Installing buildx version: $BUILDX_VERSION"
+          # Get the download URL for linux-amd64 buildx binary
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/docker/buildx-desktop/releases/latest | \
+            grep "browser_download_url.*linux-amd64\"" | \
+            grep -v ".json" | \
+            sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')
+          
+          echo "Downloading buildx from: $DOWNLOAD_URL"
           
           # Create the CLI plugins directory
           mkdir -p ~/.docker/cli-plugins
           
-          # Download and install buildx with cloud driver support
-          curl -L "https://github.com/docker/buildx-desktop/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
-            -o ~/.docker/cli-plugins/docker-buildx
+          # Download and install buildx
+          curl -L "$DOWNLOAD_URL" -o ~/.docker/cli-plugins/docker-buildx
           
           # Make it executable
           chmod +x ~/.docker/cli-plugins/docker-buildx
