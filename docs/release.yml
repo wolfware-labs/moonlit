@@ -31,6 +31,8 @@ stages:
       run: sr.analyze
       config:
         commits: $(output:items:commits)
+        includeScopes:
+          - docs
     - name: version
       run: sr.calculate-version
       config:
