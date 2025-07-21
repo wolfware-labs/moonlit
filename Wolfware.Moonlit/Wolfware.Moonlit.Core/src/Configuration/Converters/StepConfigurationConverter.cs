@@ -83,6 +83,53 @@ public sealed class StepConfigurationConverter : IYamlTypeConverter
 
           break;
 
+        case "haltif":
+          if (parser.Current is Scalar haltIfScalar)
+          {
+            stepConfig.HaltIf = haltIfScalar.Value;
+            parser.MoveNext();
+          }
+          else
+          {
+            throw new YamlException($"Expected scalar value for haltIf but found {parser.Current}");
+          }
+
+          break;
+
+        case "continueonerror":
+          if (parser.Current is Scalar continueOnErrorScalar)
+          {
+            if (bool.TryParse(continueOnErrorScalar.Value, out var continueOnError))
+            {
+              stepConfig.ContinueOnError = continueOnError;
+            }
+            else
+            {
+              throw new YamlException($"Invalid boolean value for continueOnError: {continueOnErrorScalar.Value}");
+            }
+
+            parser.MoveNext();
+          }
+          else
+          {
+            throw new YamlException($"Expected scalar value for continueOnError but found {parser.Current}");
+          }
+
+          break;
+
+        case "condition":
+          if (parser.Current is Scalar conditionScalar)
+          {
+            stepConfig.Condition = conditionScalar.Value;
+            parser.MoveNext();
+          }
+          else
+          {
+            throw new YamlException($"Expected scalar value for condition but found {parser.Current}");
+          }
+
+          break;
+
         case "config":
           configDict = parser.ParseMap();
           break;

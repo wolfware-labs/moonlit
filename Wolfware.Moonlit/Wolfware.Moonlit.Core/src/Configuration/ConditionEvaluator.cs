@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Wolfware.Moonlit.Core.Configuration.Abstractions;
 using Wolfware.Moonlit.Core.Extensions;
 
-namespace Wolfware.Moonlit.Core.Expressions;
+namespace Wolfware.Moonlit.Core.Configuration;
 
 public sealed class ConditionEvaluator : IConditionEvaluator
 {

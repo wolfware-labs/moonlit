@@ -219,8 +219,8 @@ public sealed class ReleasePipeline : IAsyncDisposable
 
   private bool CheckMiddlewareHaltCondition(IMiddlewareContext middlewareContext, IConfiguration configuration)
   {
-    if (string.IsNullOrWhiteSpace(middlewareContext.StopOn) ||
-        !_conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.StopOn))
+    if (string.IsNullOrWhiteSpace(middlewareContext.HaltIf) ||
+        !_conditionEvaluator.Evaluate(configuration.GetSection("output"), middlewareContext.HaltIf))
     {
       return false;
     }
@@ -229,7 +229,7 @@ public sealed class ReleasePipeline : IAsyncDisposable
     this._logger.LogInformation(
       "Stopping pipeline execution after {MiddlewareName} due to stop condition met.",
       middlewareContext.Name);
-    this._logger.LogInformation("Condition: {Condition}", middlewareContext.StopOn);
+    this._logger.LogInformation("Condition: {Condition}", middlewareContext.HaltIf);
     this._logger.LogInformation("---------------------------------------------------");
     return true;
   }

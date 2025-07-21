@@ -59,12 +59,12 @@ public interface IMiddlewareContext
   /// Gets the condition specifying when the pipeline execution should stop after this middleware.
   /// </summary>
   /// <remarks>
-  /// The <see cref="StopOn"/> property specifies an optional condition that, when evaluated to true,
+  /// The <see cref="HaltIf"/> property specifies an optional condition that, when evaluated to true,
   /// will halt the pipeline execution after this middleware completes. The condition is evaluated using
   /// a dynamic expression interpreter, with access to the pipeline's output configuration. If no condition
   /// is specified (null), the pipeline continues execution normally.
   /// </remarks>
-  public string? StopOn { get; }
+  public string? HaltIf { get; }
 
   /// <summary>
   /// Gets the configuration settings specific to the middleware context.

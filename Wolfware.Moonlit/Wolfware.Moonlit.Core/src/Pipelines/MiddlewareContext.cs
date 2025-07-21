@@ -26,7 +26,7 @@ public sealed class MiddlewareContext : IMiddlewareContext
   public required string? Condition { get; init; }
 
   /// <inheritdoc />
-  public required string? StopOn { get; init; }
+  public required string? HaltIf { get; init; }
 
   /// <inheritdoc />
   public required Dictionary<string, object?> Configuration { get; init; }
