@@ -8,7 +8,7 @@ plugins:
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.3"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.4"
   - name: "docker"
     url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Docker/1.0.0-next.3"
 
