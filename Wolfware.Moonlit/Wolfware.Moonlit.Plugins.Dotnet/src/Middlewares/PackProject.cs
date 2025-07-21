@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Dotnet.Configuration;
 using Wolfware.Moonlit.Plugins.Pipelines;
@@ -59,12 +60,29 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
     this._logger.LogInformation("FileVersion: {FileVersion}", fileVersion);
     this._logger.LogInformation("InformationalVersion: {InformationalVersion}", informationalVersion);
     this._logger.LogInformation("PackageVersion: {PackageVersion}", packageVersion);
-    var arguments =
-      $"pack \"{projectPath}\" -p:AssemblyVersion={assemblyVersion} -p:FileVersion={fileVersion} -p:InformationalVersion={informationalVersion} -p:PackageVersion={packageVersion} --output \"{outputDirectory}\"";
+
+    var argumentsBuilder = new StringBuilder($"pack \"{projectPath}\"");
+    argumentsBuilder.Append($" -p:AssemblyVersion={assemblyVersion}");
+    argumentsBuilder.Append($" -p:FileVersion={fileVersion}");
+    argumentsBuilder.Append($" -p:InformationalVersion={informationalVersion}");
+    argumentsBuilder.Append($" -p:PackageVersion={packageVersion}");
+    argumentsBuilder.Append($" --output \"{outputDirectory}\"");
+    argumentsBuilder.Append($" --configuration {configuration.Configuration}");
+
+    if (configuration.NoBuild)
+    {
+      argumentsBuilder.Append(" --no-build");
+    }
+
+    if (configuration.NoRestore)
+    {
+      argumentsBuilder.Append(" --no-restore");
+    }
+
     var processStartInfo = new ProcessStartInfo
     {
       FileName = "dotnet",
-      Arguments = arguments,
+      Arguments = argumentsBuilder.ToString(),
       RedirectStandardOutput = true,
       RedirectStandardError = true,
       UseShellExecute = false,

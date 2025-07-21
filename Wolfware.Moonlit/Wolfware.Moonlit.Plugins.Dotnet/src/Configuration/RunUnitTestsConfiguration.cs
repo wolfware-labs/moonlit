@@ -2,4 +2,7 @@
 
 public sealed class RunUnitTestsConfiguration
 {
+  public string Project { get; set; } = string.Empty;
+
+  public string Configuration { get; set; } = "Release";
 }

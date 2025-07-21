@@ -2,4 +2,7 @@
 
 public sealed class BuildProjectConfiguration
 {
+  public string Project { get; set; } = string.Empty;
+
+  public string Configuration { get; set; } = "Release";
 }

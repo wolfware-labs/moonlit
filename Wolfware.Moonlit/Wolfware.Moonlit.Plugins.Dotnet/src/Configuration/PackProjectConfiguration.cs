@@ -13,4 +13,10 @@ public sealed class PackProjectConfiguration
   public string? InformationalVersion { get; set; }
 
   public string? PackageVersion { get; set; }
+
+  public string Configuration { get; set; } = "Release";
+
+  public bool NoBuild { get; set; } = false;
+
+  public bool NoRestore { get; set; } = false;
 }
