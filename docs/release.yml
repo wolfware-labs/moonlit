@@ -54,7 +54,6 @@ stages:
       run: docker.build-and-push
       config:
         file: "Dockerfile"
-        push: false
         tags:
           - "wolfware/moonlit-docs:$(output:version:nextVersion)"
           - "wolfware/moonlit-docs:latest"
