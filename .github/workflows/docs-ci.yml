@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: Development
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
+      pull-requests: write
+      issues: write
 
     
     defaults:

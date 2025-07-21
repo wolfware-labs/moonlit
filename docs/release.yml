@@ -9,6 +9,9 @@ plugins:
       token: $(GITHUB_TOKEN)
   - name: "sr"
     url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.4"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
   - name: "docker"
     url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Docker/1.0.0-next.3"
 
@@ -60,7 +63,8 @@ stages:
     - name: changelog
       run: sr.generate-changelog
       config:
-        openAiKey: $(OPENAI_API_KEY)
+        filterNonUserFacingCommits: true
+        refineCommitsSummary: true
     - name: createRelease
       run: gh.create-release
       config:
