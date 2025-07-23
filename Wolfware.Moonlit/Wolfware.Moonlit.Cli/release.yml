@@ -13,7 +13,7 @@ plugins:
       openAi:
         apiKey: $(OPENAI_API_KEY)
   - name: "dotnet"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.4"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
     config:
       nugetApiKey: $(NUGET_API_KEY)
 
