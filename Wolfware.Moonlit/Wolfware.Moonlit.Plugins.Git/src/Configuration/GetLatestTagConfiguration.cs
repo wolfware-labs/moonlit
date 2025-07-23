@@ -1,4 +1,4 @@
-﻿namespace Wolfware.Moonlit.Plugins.Github.Configuration;
+﻿namespace Wolfware.Moonlit.Plugins.Git.Configuration;
 
 public sealed class GetLatestTagConfiguration
 {
@@ -6,5 +6,5 @@ public sealed class GetLatestTagConfiguration
 
   public string? Suffix { get; set; } = null;
 
-  public string Pattern { get; set; } = "[0-9]+.[0-9]+.[0-9]+";
+  public string Pattern { get; set; } = "[0-9]+.[0-9]+.[0-9]+.*";
 }

@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Octokit;
 using Wolfware.Moonlit.Plugins.Abstractions;
-using Wolfware.Moonlit.Plugins.Extensions;
 using Wolfware.Moonlit.Plugins.Github.Abstractions;
 using Wolfware.Moonlit.Plugins.Github.Configuration;
 using Wolfware.Moonlit.Plugins.Github.Middlewares;
@@ -43,7 +42,6 @@ public sealed class GitHubPluginStartup : PluginStartup
 
   protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    middlewares.Add<GetLatestTag>("latest-tag");
     middlewares.Add<GetItemsSinceCommit>("items-since-commit");
     middlewares.Add<CreateRelease>("create-release");
     middlewares.Add<WriteVariables>("write-variables");

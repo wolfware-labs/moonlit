@@ -24,9 +24,9 @@ stages:
     - name: repo
       run: git.repo-context
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
       config:
-        prefix: "v"
+        prefix: "cli-v"
     - name: items
       run: gh.items-since-commit
       config:
@@ -47,20 +47,20 @@ stages:
         prereleaseMappings:
           dev: next
 
-  build:
-    - name: pack
-      run: dotnet.pack
-      config:
-        project: "../../../Wolfware.Moonlit.Cli.csproj"
-        version: $(output:version:nextFullVersion)
+#  build:
+#    - name: pack
+#      run: dotnet.pack
+#      config:
+#        project: "../../../Wolfware.Moonlit.Cli.csproj"
+#        version: $(output:version:nextFullVersion)
 #    - name: publish
 #      run: dotnet.push
 #      config:
 #        package: $(output:pack:packagePath)
 
-  release:
-    - name: changelog
-      run: sr.generate-changelog
+#  release:
+#    - name: changelog
+#      run: sr.generate-changelog
 #    - name: createRelease
 #      run: gh.create-release
 #      config:

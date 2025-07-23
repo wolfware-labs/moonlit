@@ -130,45 +130,23 @@ public sealed class ReleasePipeline : IAsyncDisposable
   {
     var middlewareName = middlewareContext.Name;
     var middlewareType = middlewareContext.Middleware.GetType();
-    var middlewareAssembly = middlewareType.Assembly;
     var middlewareAssemblyVersion = this.GetAssemblyVersion(middlewareType.Assembly);
 
-    var headerBuilder = new StringBuilder();
-    headerBuilder.Append($"Executing {middlewareName} (");
-
-    if (!string.IsNullOrWhiteSpace(middlewareAssembly.GetName().Name))
-    {
-      headerBuilder.Append($"{middlewareAssembly.GetName().Name}.");
-    }
-
-    headerBuilder.Append(middlewareType.Name);
-
-    if (!string.IsNullOrWhiteSpace(middlewareAssemblyVersion))
-    {
-      headerBuilder.Append($" v{middlewareAssemblyVersion}");
-    }
-
-    headerBuilder.Append(")");
-
-    this._logger.LogInformation("===================================================");
-    this._logger.LogInformation(headerBuilder.ToString());
-    if (this._logger.IsEnabled(LogLevel.Debug))
-    {
-      this._logger.LogDebug("Configuration: {Configuration}",
-        JsonSerializer.Serialize(middlewareContext.Configuration, JsonSerializerOptions.Default));
-    }
-
-    this._logger.LogInformation("===================================================");
+    this._logger.LogInformation("===================================================================================");
+    this._logger.LogInformation("Step: {MiddlewareName}", middlewareName);
+    this._logger.LogInformation("Middleware: {MiddlewareTypeFullName}", middlewareType.FullName);
+    this._logger.LogInformation("Version: {MiddlewareAssemblyVersion}", middlewareAssemblyVersion);
+    this._logger.LogInformation("===================================================================================");
 
     var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
     var stopwatch = Stopwatch.StartNew();
     var result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
       .ConfigureAwait(false);
     stopwatch.Stop();
-    this._logger.LogInformation("--------------------------------------------------");
+    this._logger.LogInformation("-----------------------------------------------------------------------------------");
     this._logger.LogInformation("{MiddlewareResult} - Execution time: {ElapsedMilliseconds} ms.",
       result.IsSuccessful ? "SUCCESS" : "FAILED", stopwatch.ElapsedMilliseconds);
-    this._logger.LogInformation("--------------------------------------------------");
+    this._logger.LogInformation("-----------------------------------------------------------------------------------");
     this._logger.LogInformation("");
     this._logger.LogInformation("");
 
