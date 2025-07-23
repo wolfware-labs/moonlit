@@ -1,0 +1,75 @@
+name: "Moonlit Plugins Library Release"
+
+plugins:
+  - name: "git"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.4"
+  - name: "gh"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.5"
+    config:
+      token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.4"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
+  - name: "dotnet"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
+    config:
+      nugetApiKey: $(NUGET_API_KEY)
+
+stages:
+  analyze:
+    - name: repo
+      run: git.repo-context
+    - name: tag
+      run: git.latest-tag
+      config:
+        prefix: "plugins-v"
+    - name: items
+      run: gh.items-since-commit
+      config:
+        sha: $(output:tag:commitSha)
+    - name: conventionalCommits
+      run: sr.analyze
+      config:
+        commits: $(output:items:commits)
+        haltIf: output.conventionalCommits.commitCount == 0
+        includeScopes:
+          - plugins
+    - name: version
+      run: sr.calculate-version
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        prereleaseMappings:
+          dev: next
+    - name: changelog
+      run: sr.generate-changelog
+
+  build:
+    - name: build
+      run: dotnet.build
+      config:
+        project: Wolfware.Moonlit.Plugins.csproj
+        version: $(output:version:nextFullVersion)
+    - name: pack
+      run: dotnet.pack
+      config:
+        project: Wolfware.Moonlit.Plugins.csproj
+        version: $(output:version:nextFullVersion)
+    - name: publish
+      run: dotnet.push
+      config:
+        package: $(output:pack:packagePath)
+
+  release:
+    - name: createRelease
+      run: gh.create-release
+      config:
+        name: "Wolfware.Moonlit.Plugins Release $(output:version:nextVersion)"
+        tag: cli-v$(output:version:nextVersion)
+        label: "released on @$(output:repo:branch)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
+        pullRequests: $(output:items:pullRequests)
+        issues: $(output:items:issues)
