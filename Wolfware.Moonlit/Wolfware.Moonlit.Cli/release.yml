@@ -47,6 +47,11 @@ stages:
       run: sr.generate-changelog
 
   build:
+    - name: build
+      run: dotnet.build
+      config:
+        project: Wolfware.Moonlit.Cli.csproj
+        version: $(output:version:nextFullVersion)
     - name: pack
       run: dotnet.pack
       config:
