@@ -132,21 +132,21 @@ public sealed class ReleasePipeline : IAsyncDisposable
     var middlewareType = middlewareContext.Middleware.GetType();
     var middlewareAssemblyVersion = this.GetAssemblyVersion(middlewareType.Assembly);
 
-    this._logger.LogInformation("===================================================================================");
+    this._logger.LogInformation("================================================================================");
     this._logger.LogInformation("Step: {MiddlewareName}", middlewareName);
     this._logger.LogInformation("Middleware: {MiddlewareTypeFullName}", middlewareType.FullName);
     this._logger.LogInformation("Version: {MiddlewareAssemblyVersion}", middlewareAssemblyVersion);
-    this._logger.LogInformation("===================================================================================");
+    this._logger.LogInformation("================================================================================");
 
     var middlewareConfiguration = this._configurationFactory.Create(middlewareContext.Configuration, configuration);
     var stopwatch = Stopwatch.StartNew();
     var result = await middlewareContext.Middleware.ExecuteAsync(context, middlewareConfiguration)
       .ConfigureAwait(false);
     stopwatch.Stop();
-    this._logger.LogInformation("-----------------------------------------------------------------------------------");
+    this._logger.LogInformation("--------------------------------------------------------------------------------");
     this._logger.LogInformation("{MiddlewareResult} - Execution time: {ElapsedMilliseconds} ms.",
       result.IsSuccessful ? "SUCCESS" : "FAILED", stopwatch.ElapsedMilliseconds);
-    this._logger.LogInformation("-----------------------------------------------------------------------------------");
+    this._logger.LogInformation("--------------------------------------------------------------------------------");
     this._logger.LogInformation("");
     this._logger.LogInformation("");
 

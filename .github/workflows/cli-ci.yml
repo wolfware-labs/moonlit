@@ -6,6 +6,7 @@ on:
     branches: [ "main", "dev" ]
     paths:
       - 'Wolfware.Moonlit/Wolfware.Moonlit.Cli/**'
+      - 'Wolfware.Moonlit/Wolfware.Moonlit.Core/**'
 
 
 jobs:
