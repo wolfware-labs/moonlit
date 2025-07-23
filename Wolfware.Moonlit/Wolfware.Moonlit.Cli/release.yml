@@ -1,4 +1,4 @@
-name: "Documents Site Image Release"
+name: "Moonlit CLI Release"
 
 plugins:
   - name: "git"
