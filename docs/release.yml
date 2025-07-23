@@ -2,9 +2,9 @@ name: "Documents Site Image Release"
 
 plugins:
   - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.3"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.4"
   - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.4"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.5"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
@@ -20,7 +20,7 @@ stages:
     - name: repo
       run: git.repo-context
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
       config:
         prefix: "docs-v"
     - name: items
