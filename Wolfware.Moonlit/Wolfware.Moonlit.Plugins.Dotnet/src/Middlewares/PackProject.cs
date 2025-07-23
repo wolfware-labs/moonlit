@@ -60,6 +60,10 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
     this._logger.LogInformation("FileVersion: {FileVersion}", fileVersion);
     this._logger.LogInformation("InformationalVersion: {InformationalVersion}", informationalVersion);
     this._logger.LogInformation("PackageVersion: {PackageVersion}", packageVersion);
+    this._logger.LogInformation("Output Directory: {OutputDirectory}", outputDirectory);
+    this._logger.LogInformation("Configuration: {Configuration}", configuration.Configuration);
+    this._logger.LogInformation("NoBuild: {NoBuild}", configuration.NoBuild);
+    this._logger.LogInformation("NoRestore: {NoRestore}", configuration.NoRestore);
 
     var argumentsBuilder = new StringBuilder($"pack \"{projectPath}\"");
     argumentsBuilder.Append($" -p:AssemblyVersion={assemblyVersion}");
@@ -117,7 +121,8 @@ public sealed class PackProject : ReleaseMiddleware<PackProjectConfiguration>
       if (process.ExitCode != 0)
       {
         var error = process.StandardError.ReadToEnd();
-        return Task.FromResult(MiddlewareResult.Failure($"Failed to pack project. Error: {error}"));
+        var errorMessage = string.IsNullOrWhiteSpace(error) ? "Unknown error." : error.Trim();
+        return Task.FromResult(MiddlewareResult.Failure($"Failed to pack project. Error: {errorMessage}"));
       }
 
       var nupkgFiles = Directory.GetFiles(outputDirectory, "*.nupkg");
