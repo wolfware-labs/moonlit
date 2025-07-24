@@ -1,4 +1,4 @@
-name: "Moonlit Plugins Library CLI Release"
+name: "Moonlit Plugins Library Release"
 
 plugins:
   - name: "git"
@@ -69,8 +69,8 @@ stages:
     - name: createRelease
       run: gh.create-release
       config:
-        name: "Moonlit CLI Release $(output:version:nextVersion)"
-        tag: cli-v$(output:version:nextVersion)
+        name: "Moonlit Plugins Release $(output:version:nextVersion)"
+        tag: plugins-v$(output:version:nextVersion)
         label: "released on @$(output:repo:branch)"
         changelog: $(output:changelog:categories)
         prerelease: $(output:version:isPrerelease)
