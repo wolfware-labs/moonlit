@@ -33,6 +33,18 @@ public sealed class YamlConfigurationParser : IReleaseConfigurationParser
         "Failed to parse the release configuration. Ensure the YAML format is correct.");
     }
 
-    return releaseConfiguration;
+    return YamlConfigurationParser.CleanupConfiguration(releaseConfiguration);
+  }
+
+  private static ReleaseConfiguration CleanupConfiguration(ReleaseConfiguration configuration)
+  {
+    return configuration with
+    {
+      Name = configuration.Name?.Trim() ?? string.Empty,
+      Arguments = configuration.Arguments.Where(x => x.Value != null).ToDictionary() ?? [],
+      Variables = configuration.Variables.Where(x => x.Value != null).ToDictionary() ?? [],
+      Plugins = configuration.Plugins ?? [],
+      Stages = configuration.Stages.Where(x => x.Value != null).ToDictionary() ?? [],
+    };
   }
 }

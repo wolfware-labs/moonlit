@@ -4,7 +4,7 @@
 /// Represents the configuration for a release process, containing settings for variables, plugins,
 /// arguments, and staged steps to be executed in the pipeline.
 /// </summary>
-public sealed class ReleaseConfiguration
+public sealed record ReleaseConfiguration
 {
   /// <summary>
   /// Gets the name of the release configuration.

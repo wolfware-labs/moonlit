@@ -36,6 +36,7 @@ stages:
         haltIf: output.conventionalCommits.commitCount == 0
         includeScopes:
           - cli
+          - core
     - name: version
       run: sr.calculate-version
       config:

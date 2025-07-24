@@ -26,19 +26,21 @@ stages:
     - name: tag
       run: git.latest-tag
       config:
-        prefix: "cli-v"
-    - name: items
-      run: gh.items-since-commit
+        prefix: "plugins-v"
+    - name: commits
+      run: git.commits
+    - name: ghItems
+      run: gh.related-items
       config:
-        sha: $(output:tag:commitSha)
+        commits: $(output:commits:details)
     - name: conventionalCommits
       run: sr.analyze
       haltIf: output.conventionalCommits.commitCount == 0
       config:
-        commits: $(output:items:commits)
+        commits: $(output:commits:details)
         includeUnscoped: false
         includeScopes:
-          - docs
+          - plugins
     - name: version
       run: sr.calculate-version
       config:
@@ -47,7 +49,7 @@ stages:
         prereleaseMappings:
           dev: next
 
-#  build:
+  build:
 #    - name: pack
 #      run: dotnet.pack
 #      config:

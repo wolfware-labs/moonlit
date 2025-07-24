@@ -203,12 +203,12 @@ public sealed class ReleasePipeline : IAsyncDisposable
       return false;
     }
 
-    this._logger.LogInformation("---------------------------------------------------");
+    this._logger.LogInformation("--------------------------------------------------------------------------------");
     this._logger.LogInformation(
       "Stopping pipeline execution after {MiddlewareName} due to stop condition met.",
       middlewareContext.Name);
     this._logger.LogInformation("Condition: {Condition}", middlewareContext.HaltIf);
-    this._logger.LogInformation("---------------------------------------------------");
+    this._logger.LogInformation("--------------------------------------------------------------------------------");
     return true;
   }
 
