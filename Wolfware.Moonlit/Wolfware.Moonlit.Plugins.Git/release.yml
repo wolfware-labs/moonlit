@@ -1,0 +1,78 @@
+name: "Moonlit Git Library Release"
+
+plugins:
+  - name: "git"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
+  - name: "gh"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
+    config:
+      token: $(GITHUB_TOKEN)
+  - name: "sr"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
+  - name: "dotnet"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
+    config:
+      nugetApiKey: $(NUGET_API_KEY)
+
+stages:
+  analyze:
+    - name: repo
+      run: git.repo-context
+    - name: tag
+      run: git.latest-tag
+      config:
+        prefix: "plugin-git-v"
+    - name: commits
+      run: git.commits
+    - name: ghItems
+      run: gh.related-items
+      config:
+        commits: $(output:commits:details)
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
+        includeScopes:
+          - plugin-git
+    - name: version
+      run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
+      config:
+        branch: $(output:repo:branch)
+        baseVersion: $(output:tag:name)
+        prereleaseMappings:
+          dev: next
+    - name: changelog
+      run: sr.generate-changelog
+
+  build:
+    - name: build
+      run: dotnet.build
+      config:
+        project: Wolfware.Moonlit.Plugins.Git.csproj
+        version: $(output:version:nextFullVersion)
+    - name: pack
+      run: dotnet.pack
+      config:
+        project: Wolfware.Moonlit.Plugins.Git.csproj
+        version: $(output:version:nextFullVersion)
+
+  release:
+    - name: publish
+      run: dotnet.push
+      config:
+        package: $(output:pack:packagePath)
+    - name: createRelease
+      run: gh.create-release
+      config:
+        name: "Moonlit Git Plugin Release $(output:version:nextVersion)"
+        tag: plugin-git-v$(output:version:nextVersion)
+        label: "released on @$(output:repo:branch)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
+        pullRequests: $(output:ghItems:pullRequests)
+        issues: $(output:ghItems:issues)
