@@ -1,0 +1,51 @@
+name: Plugin GitHub CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "dev" ]
+    paths:
+      - 'Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Github/**'
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    environment: Development
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      pull-requests: write
+      issues: write
+
+    
+    defaults:
+      run:
+        working-directory: Wolfware.Moonlit/Wolfware.Moonlit.Plugins.Github
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+            fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Install Moonlit
+        run: dotnet tool install -g --prerelease moonlit-cli
+
+      - name: Add global tools to PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Release
+        run: moonlit release
+        env:
+          MOONLIT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MOONLIT_NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          MOONLIT_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
