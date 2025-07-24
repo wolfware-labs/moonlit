@@ -42,7 +42,7 @@ public sealed class GitHubPluginStartup : PluginStartup
 
   protected override void AddMiddlewares(IMiddlewareCollection middlewares)
   {
-    middlewares.Add<GetItemsSinceCommit>("items-since-commit");
+    middlewares.Add<GetRelatedItems>("related-items");
     middlewares.Add<CreateRelease>("create-release");
     middlewares.Add<WriteVariables>("write-variables");
   }

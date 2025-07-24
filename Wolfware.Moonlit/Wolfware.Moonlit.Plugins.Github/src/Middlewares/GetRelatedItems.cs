@@ -7,13 +7,13 @@ using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Github.Middlewares;
 
-public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitConfiguration>
+public sealed class GetRelatedItems : ReleaseMiddleware<GetRelatedItemsConfiguration>
 {
   private readonly IGitHubContextProvider _contextProvider;
-  private readonly ILogger<GetItemsSinceCommit> _logger;
+  private readonly ILogger<GetRelatedItems> _logger;
   private IGitHubContext? _githubContext;
 
-  public GetItemsSinceCommit(IGitHubContextProvider contextProvider, ILogger<GetItemsSinceCommit> logger)
+  public GetRelatedItems(IGitHubContextProvider contextProvider, ILogger<GetRelatedItems> logger)
   {
     _contextProvider = contextProvider;
     _logger = logger;
@@ -21,24 +21,22 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
 
   protected override async Task<MiddlewareResult> ExecuteAsync(
     ReleaseContext context,
-    GetItemsSinceCommitConfiguration configuration
+    GetRelatedItemsConfiguration configuration
   )
   {
-    this._githubContext = await _contextProvider.GetCurrentContext(context);
-
-    CommitDetails[]? commits = null;
-    if (configuration.IncludeCommits || configuration.IncludePullRequests || configuration.IncludeIssues)
+    if (configuration.Commits.Length == 0)
     {
-      this._logger.LogInformation("Fetching commits since {Sha}", configuration.Sha ?? "the beginning");
-      commits = await this.GetCommitsSinceCommit(configuration.Sha).ConfigureAwait(false);
-      this._logger.LogInformation("Found {Count} commits", commits.Length);
+      this._logger.LogInformation("No commits provided in configuration");
+      return MiddlewareResult.Success();
     }
+
+    this._githubContext = await _contextProvider.GetCurrentContext(context);
 
     PullRequestDetails[]? pullRequests = null;
     if (configuration.IncludePullRequests || configuration.IncludeIssues)
     {
       this._logger.LogInformation("Fetching pull requests from commits");
-      var commitShas = commits?.Select(c => c.Sha).ToArray() ?? [];
+      var commitShas = configuration.Commits.Select(c => c.Sha).ToArray();
       pullRequests = await this.GetPullRequestsFromCommits(commitShas).ConfigureAwait(false);
       this._logger.LogInformation("Found {Count} pull requests", pullRequests.Length);
     }
@@ -54,11 +52,6 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
 
     return MiddlewareResult.Success(output =>
     {
-      if (commits is not null && commits.Length > 0)
-      {
-        output.Add("commits", commits);
-      }
-
       if (pullRequests is not null && pullRequests.Length > 0)
       {
         output.Add("prs", pullRequests);
@@ -69,19 +62,6 @@ public sealed class GetItemsSinceCommit : ReleaseMiddleware<GetItemsSinceCommitC
         output.Add("issues", issues);
       }
     });
-  }
-
-  private async Task<CommitDetails[]> GetCommitsSinceCommit(string? commitSha)
-  {
-    var commits = await this._githubContext!.GetCommits(new CommitRequest {Sha = commitSha});
-    return commits.Select(c => new CommitDetails
-      {
-        Sha = c.Sha,
-        Message = c.Commit.Message,
-        Author = c.Author?.Login ?? c.Commit.Author.Name,
-        Date = c.Commit.Author.Date
-      }
-    ).OrderByDescending(x => x.Date).ToArray();
   }
 
   private async Task<PullRequestDetails[]> GetPullRequestsFromCommits(string[] commits)
