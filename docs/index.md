@@ -54,6 +54,12 @@ Even this docs site you are reading right now is built with Moonlit! 😮 All th
 dotnet tool install --global moonlit-cli
 ```
 
+To install a prerelease version:
+
+```bash
+dotnet tool install --global moonlit-cli --prerelease
+```
+
 ## Quick Example
 
 This is just one example of what Moonlit can do. Moonlit can work with various project types and technologies, not just .NET projects. See the [Plugins](/plugins/) section for more examples, including Docker and NPM integrations.
