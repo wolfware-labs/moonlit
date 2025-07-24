@@ -3,6 +3,7 @@ using LibGit2Sharp;
 using Microsoft.Extensions.Logging;
 using Wolfware.Moonlit.Plugins.Git.Configuration;
 using Wolfware.Moonlit.Plugins.Git.Extensions;
+using Wolfware.Moonlit.Plugins.Git.Services;
 using Wolfware.Moonlit.Plugins.Pipelines;
 
 namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
@@ -10,10 +11,12 @@ namespace Wolfware.Moonlit.Plugins.Git.Middlewares;
 public sealed class GetLatestTag : ReleaseMiddleware<GetLatestTagConfiguration>
 {
   private readonly ILogger<GetLatestTag> _logger;
+  private readonly SharedContext _sharedContext;
 
-  public GetLatestTag(ILogger<GetLatestTag> logger)
+  public GetLatestTag(ILogger<GetLatestTag> logger, SharedContext sharedContext)
   {
     _logger = logger;
+    _sharedContext = sharedContext;
   }
 
   protected override Task<MiddlewareResult> ExecuteAsync(ReleaseContext context,
@@ -44,6 +47,8 @@ public sealed class GetLatestTag : ReleaseMiddleware<GetLatestTagConfiguration>
       "Latest tag found: {TagName}",
       latestTag.FriendlyName ?? "None"
     );
+
+    this._sharedContext.LatestTagSha = latestTag.Target.Sha;
 
     var name = latestTag.FriendlyName?[(configuration.Prefix ?? string.Empty).Length..] ?? string.Empty;
     name = name[..^((configuration.Suffix ?? string.Empty).Length)];
