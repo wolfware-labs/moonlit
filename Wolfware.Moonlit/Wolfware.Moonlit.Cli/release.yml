@@ -33,14 +33,15 @@ stages:
         commits: $(output:commits:details)
     - name: conventionalCommits
       run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
       config:
         commits: $(output:commits:details)
-        haltIf: output.conventionalCommits.commitCount == 0
         includeScopes:
           - cli
           - core
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
