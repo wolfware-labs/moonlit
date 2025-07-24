@@ -32,13 +32,17 @@ public sealed class CalculateVersion : ReleaseMiddleware<CalculateVersionConfigu
     var nextVersion = GetNextVersion(configuration);
     if (nextVersion is null)
     {
-      return Task.FromResult(MiddlewareResult.Failure("No version bump detected based on the provided commits."));
+      return Task.FromResult(MiddlewareResult.Success(output =>
+      {
+        output.Add("hasNewVersion", false);
+      }));
     }
 
     this._logger.LogInformation("Next version calculated: {NextVersion}", nextVersion);
 
     return Task.FromResult(MiddlewareResult.Success(output =>
     {
+      output.Add("hasNewVersion", true);
       output.Add("nextVersion", nextVersion.WithoutMetadata().ToString());
       output.Add("nextFullVersion", nextVersion.ToString());
       output.Add("isPrerelease", nextVersion.IsPrerelease);

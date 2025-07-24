@@ -6,7 +6,6 @@
     <Description>A plugin for Moonlit that adds semantic release capabilities</Description>
     <Title>Moonlit Semantic Release Plugin</Title>
     <Summary>A semantic release plugin for Moonlit enabling automatic versioning and changelog generation</Summary>
-    <PackageReleaseNotes></PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>© 2025 Wolfware LLC</Copyright>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
@@ -17,9 +16,9 @@
     <PackageTags>Wolfware;Moonlit;Plugins;SemanticRelease</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>1.0.0-next.4</Version>
+    <Version>1.0.0-next.5</Version>
     <AssemblyVersion>1.0.0</AssemblyVersion>
-    <InformationalVersion>1.0.0-next.4</InformationalVersion>
+    <InformationalVersion>1.0.0-next.5</InformationalVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
@@ -29,8 +28,8 @@
 
   <ItemGroup>
     <PackageReference Include="LibGit2Sharp"/>
-    <PackageReference Include="OpenAI" />
-    <PackageReference Include="Polly" />
+    <PackageReference Include="OpenAI"/>
+    <PackageReference Include="Polly"/>
     <PackageReference Include="Semver"/>
   </ItemGroup>
 
