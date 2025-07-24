@@ -2,13 +2,13 @@ name: "Documents Site Image Release"
 
 plugins:
   - name: "git"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.4"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
   - name: "gh"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.5"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.4"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
     config:
       openAi:
         apiKey: $(OPENAI_API_KEY)
@@ -23,19 +23,22 @@ stages:
       run: git.latest-tag
       config:
         prefix: "docs-v"
-    - name: items
-      run: gh.items-since-commit
+    - name: commits
+      run: git.commits
+    - name: ghItems
+      run: gh.related-items
       config:
-        sha: $(output:tag:commitSha)
+        commits: $(output:commits:details)
     - name: conventionalCommits
       run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
       config:
-        commits: $(output:items:commits)
-        haltIf: output.conventionalCommits.commitCount == 0
+        commits: $(output:commits:details)
         includeScopes:
           - docs
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
@@ -72,5 +75,5 @@ stages:
         label: "released on @$(output:repo:branch)"
         changelog: $(output:changelog:categories)
         prerelease: $(output:version:isPrerelease)
-        pullRequests: $(output:items:pullRequests)
-        issues: $(output:items:issues)
+        pullRequests: $(output:ghItems:pullRequests)
+        issues: $(output:ghItems:issues)
