@@ -14,7 +14,7 @@ To use the Git plugin in your Moonlit pipeline, add it to the `plugins` section 
 ```yaml
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
 ```
 
 ## Middlewares
@@ -55,6 +55,73 @@ stages:
 ```
 
 In this example, the `repo-context` middleware is used to get information about the current Git repository. The branch name and remote URL are then used in the next step of the pipeline.
+
+### latest-tag
+
+The `latest-tag` middleware retrieves the latest tag from the Git repository. It can filter tags by prefix.
+
+#### Inputs
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| prefix | string | No | - | A prefix to filter tags (e.g., "v" to get only tags starting with "v") |
+
+#### Outputs
+
+| Name | Type | Description |
+|------|------|-------------|
+| name | string | The name of the latest tag |
+| commitSha | string | The commit SHA that the tag points to |
+
+#### Example
+
+```yaml
+stages:
+  analyze:
+    - name: tag
+      run: git.latest-tag
+      config:
+        prefix: "v"
+    - name: nextStep
+      run: some.other-middleware
+      config:
+        baseVersion: $(output:tag:name)
+```
+
+### commits
+
+The `commits` middleware retrieves commits from the Git repository. By default, it retrieves all commits since the last tag.
+
+#### Inputs
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| since | string | No | - | A commit SHA or tag to start from (if not provided, uses the latest tag) |
+| until | string | No | HEAD | A commit SHA or tag to end at |
+
+#### Outputs
+
+| Name | Type | Description |
+|------|------|-------------|
+| details | array | An array of commit details (message, author, date, etc.) |
+| count | integer | The number of commits retrieved |
+
+#### Example
+
+```yaml
+stages:
+  analyze:
+    - name: tag
+      run: git.latest-tag
+      config:
+        prefix: "v"
+    - name: commits
+      run: git.commits
+    - name: nextStep
+      run: some.other-middleware
+      config:
+        commits: $(output:commits:details)
+```
 
 ## Usage in Pipelines
 

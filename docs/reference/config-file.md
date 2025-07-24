@@ -142,55 +142,82 @@ name: "NuGet Package Release"
 
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
   - name: "gh"
-    url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-  - name: "dotnet"
-    url: "nuget://Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
     config:
-      apiKey: $(NUGET_API_KEY)
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
+  - name: "dotnet"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
+    config:
+      nugetApiKey: $(NUGET_API_KEY)
 
 stages:
   analyze:
     - name: repo
       run: git.repo-context
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
       config:
         prefix: "v"
+    - name: commits
+      run: git.commits
+    - name: ghItems
+      run: gh.related-items
+      config:
+        commits: $(output:commits:details)
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
+        includeScopes:
+          - myproject
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
         prereleaseMappings:
           main: next
           develop: beta
+    - name: changelog
+      run: sr.generate-changelog
 
   build:
     - name: build
       run: dotnet.build
       config:
         project: "./src/MyProject.csproj"
+        version: $(output:version:nextFullVersion)
         configuration: $(BUILD_CONFIGURATION:Release)
-
-  publish:
     - name: pack
       run: dotnet.pack
       config:
         project: "./src/MyProject.csproj"
-        version: $(output:version:nextVersion)
+        version: $(output:version:nextFullVersion)
 
-    - name: push
+  release:
+    - name: publish
       run: dotnet.push
-      condition: $(output:version:isPrerelease) == false
       config:
         package: $(output:pack:packagePath)
-        source: "https://api.nuget.org/v3/index.json"
+    - name: createRelease
+      run: gh.create-release
+      config:
+        name: "Release $(output:version:nextVersion)"
+        tag: v$(output:version:nextVersion)
+        label: "released on @$(output:repo:branch)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
+        pullRequests: $(output:ghItems:pullRequests)
+        issues: $(output:ghItems:issues)
 ```
 
 ## Schema Validation

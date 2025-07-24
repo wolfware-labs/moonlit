@@ -14,12 +14,50 @@ To use the Semantic Release plugin in your Moonlit pipeline, add it to the `plug
 ```yaml
 plugins:
   - name: "sr"
-    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
 ```
 
 ## Middlewares
 
 The Semantic Release plugin provides the following middlewares:
+
+### analyze
+
+The `analyze` middleware analyzes commit messages to identify conventional commits and categorize them by type (feat, fix, etc.).
+
+#### Inputs
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| commits | array | Yes | - | An array of commits to analyze |
+| includeScopes | array | No | - | An array of scopes to include in the analysis |
+
+#### Outputs
+
+| Name | Type | Description |
+|------|------|-------------|
+| conventionalCommits | object | Information about the analyzed commits |
+| commitCount | integer | The number of conventional commits found |
+| types | object | Counts of commits by type (feat, fix, etc.) |
+
+#### Example
+
+```yaml
+stages:
+  analyze:
+    - name: commits
+      run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
+        includeScopes:
+          - myproject
+```
 
 ### calculate-version
 
@@ -31,16 +69,17 @@ The `calculate-version` middleware calculates the next version based on commit m
 |------|------|----------|---------|-------------|
 | branch | string | Yes | - | The current branch name |
 | baseVersion | string | Yes | - | The base version to calculate from (e.g., "v1.0.0") |
-| commits | array | Yes | - | An array of commits to analyze |
 | prereleaseMappings | object | No | - | A mapping of branch names to prerelease identifiers |
 
 #### Outputs
 
 | Name | Type | Description |
 |------|------|-------------|
-| nextVersion | string | The calculated next version |
+| nextVersion | string | The calculated next version (without prerelease identifier) |
+| nextFullVersion | string | The calculated next version (with prerelease identifier if applicable) |
 | isPrerelease | boolean | Whether the calculated version is a prerelease |
 | prereleaseName | string | The prerelease identifier (if applicable) |
+| hasNewVersion | boolean | Whether a new version was calculated |
 
 #### Example
 
@@ -50,65 +89,67 @@ stages:
     - name: repo
       run: git.repo-context
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
       config:
         prefix: "v"
-    - name: items
-      run: gh.items-since-commit
+    - name: commits
+      run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
       config:
-        tag: $(output:tag:commitSha)
+        commits: $(output:commits:details)
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
-        commits: $(output:items:commits)
         prereleaseMappings:
-          main: latest
-          develop: staging
-          feature/*: dev
+          main: next
+          develop: beta
+          feature/*: alpha
     - name: nextStep
       run: some.other-middleware
       config:
         version: $(output:version:nextVersion)
+        fullVersion: $(output:version:nextFullVersion)
         isPrerelease: $(output:version:isPrerelease)
 ```
 
 ### generate-changelog
 
-The `generate-changelog` middleware generates a changelog from commit messages. It can optionally use OpenAI to generate more readable and comprehensive changelog entries.
+The `generate-changelog` middleware generates a changelog from conventional commits. It can use OpenAI to generate more readable and comprehensive changelog entries.
 
 #### Inputs
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| commits | array | Yes | - | An array of commits to include in the changelog |
-| openAiKey | string | No | - | An OpenAI API key to use for generating more readable changelog entries |
+| commits | array | No | - | An array of commits to include in the changelog (if not provided, uses the commits from the analyze middleware) |
 
 #### Outputs
 
 | Name | Type | Description |
 |------|------|-------------|
-| entries | string | The generated changelog entries |
+| categories | object | The generated changelog entries organized by category (features, fixes, etc.) |
+| markdown | string | The complete changelog in markdown format |
 
 #### Example
 
 ```yaml
 stages:
   analyze:
-    - name: items
-      run: gh.items-since-commit
+    - name: commits
+      run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
       config:
-        tag: $(output:tag:commitSha)
+        commits: $(output:commits:details)
     - name: changelog
       run: sr.generate-changelog
+    - name: createRelease
+      run: gh.create-release
       config:
-        commits: $(output:items:commits)
-        openAiKey: $(OPENAI_API_KEY)
-    - name: nextStep
-      run: some.other-middleware
-      config:
-        changelog: $(output:changelog:entries)
+        changelog: $(output:changelog:categories)
 ```
 
 ## Usage in Pipelines

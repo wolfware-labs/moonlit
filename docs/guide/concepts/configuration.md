@@ -43,7 +43,7 @@ Each plugin entry in the `plugins` section has the following properties:
 ```yaml
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
     config:
       # Plugin-specific configuration
 ```
@@ -202,55 +202,75 @@ arguments:
 
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
   - name: "gh"
-    url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
-  - name: "dotnet"
-    url: "nuget://Wolfware.Moonlit.Plugins.Dotnet/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
     config:
-      apiKey: $(NUGET_API_KEY)
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
+  - name: "dotnet"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
+    config:
+      nugetApiKey: $(NUGET_API_KEY)
 
 stages:
   analyze:
     - name: repo
       run: git.repo-context
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
       config:
         prefix: $(vars:versionPrefix)
+    - name: commits
+      run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
+      haltIf: output.conventionalCommits.commitCount == 0
+      config:
+        commits: $(output:commits:details)
     - name: version
       run: sr.calculate-version
+      haltIf: "!output.version.hasNewVersion"
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
         prereleaseMappings:
           main: next
           develop: beta
+    - name: changelog
+      run: sr.generate-changelog
 
   build:
     - name: build
       run: dotnet.build
       config:
         project: $(vars:projectPath)
+        version: $(output:version:nextFullVersion)
         configuration: $(args:configuration)
-
-  publish:
     - name: pack
       run: dotnet.pack
       config:
         project: $(vars:projectPath)
-        version: $(output:version:nextVersion)
+        version: $(output:version:nextFullVersion)
 
+  release:
     - name: push
       run: dotnet.push
       condition: $(args:skipPush) == false && ($(args:prerelease) == true || $(output:version:isPrerelease) == false)
       config:
         package: $(output:pack:packagePath)
         source: $(vars:nugetSource)
+    - name: createRelease
+      run: gh.create-release
+      config:
+        name: "Release $(output:version:nextVersion)"
+        tag: "$(vars:versionPrefix)$(output:version:nextVersion)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
 ```
 
 ## Using the Configuration File

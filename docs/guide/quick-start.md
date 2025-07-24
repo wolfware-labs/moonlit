@@ -24,53 +24,75 @@ name: "My First Pipeline"
 
 plugins:
   - name: "git"
-    url: "nuget://Wolfware.Moonlit.Plugins.Git/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Git/1.0.0-next.5"
   - name: "gh"
-    url: "nuget://Wolfware.Moonlit.Plugins.Github/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Github/1.0.0-next.6"
     config:
       token: $(GITHUB_TOKEN)
   - name: "sr"
-    url: "nuget://Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.SemanticRelease/1.0.0-next.5"
+    config:
+      openAi:
+        apiKey: $(OPENAI_API_KEY)
   - name: "dotnet"
-    url: "nuget://Wolfware.Moonlit.Plugins.DotNet/1.0.0"
+    url: "nuget://nuget.org/Wolfware.Moonlit.Plugins.Dotnet/1.0.0-next.5"
+    config:
+      nugetApiKey: $(NUGET_API_KEY)
 
 stages:
-  build:
+  analyze:
     - name: repo
       run: git.repo-context
-    - name: build
-      run: dotnet.build
-      config:
-        project: "./src/MyProject.csproj"
-        configuration: "Release"
-
-  publish:
     - name: tag
-      run: gh.latest-tag
+      run: git.latest-tag
       config:
         prefix: "v"
+    - name: commits
+      run: git.commits
+    - name: conventionalCommits
+      run: sr.analyze
+      config:
+        commits: $(output:commits:details)
     - name: version
       run: sr.calculate-version
       config:
         branch: $(output:repo:branch)
         baseVersion: $(output:tag:name)
+    - name: changelog
+      run: sr.generate-changelog
+
+  build:
+    - name: build
+      run: dotnet.build
+      config:
+        project: "./src/MyProject.csproj"
+        version: $(output:version:nextFullVersion)
+        configuration: "Release"
+
+  release:
     - name: createRelease
       run: gh.create-release
       config:
         name: "Release $(output:version:nextVersion)"
         tag: "v$(output:version:nextVersion)"
+        changelog: $(output:changelog:categories)
+        prerelease: $(output:version:isPrerelease)
 ```
 
 ## Step 2: Set Environment Variables
 
-Moonlit uses environment variables for sensitive information. Set the GitHub token:
+Moonlit uses environment variables for sensitive information. Set the required tokens and API keys:
 
 ```bash
 # For Windows
 set GITHUB_TOKEN=your_github_token
+set OPENAI_API_KEY=your_openai_api_key
+set NUGET_API_KEY=your_nuget_api_key
 
 # For macOS/Linux
 export GITHUB_TOKEN=your_github_token
+export OPENAI_API_KEY=your_openai_api_key
+export NUGET_API_KEY=your_nuget_api_key
 ```
 
 ## Step 3: Run the Pipeline
