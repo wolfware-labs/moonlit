@@ -21,7 +21,7 @@
     <PackageVersion Include="OpenAI" Version="2.2.0" />
     <PackageVersion Include="Polly" Version="8.6.2" />
     <PackageVersion Include="Semver" Version="3.0.0" />
-    <PackageVersion Include="SlackNet.Extensions.DependencyInjection" Version="0.16.1" />
+    <PackageVersion Include="SlackNet.Extensions.DependencyInjection" Version="0.17.2" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.50.0" />
     <PackageVersion Include="System.Text.Json" Version="9.0.7" />
     <PackageVersion Include="YamlDotNet" Version="16.3.0" />
