@@ -1,0 +1,14 @@
+[workspace]
+resolver = "3"
+members = ["engine"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Elastic-2.0"
+authors = ["Wolfware LLC"]
+repository = "https://github.com/wolfware-labs/moonlit"
+rust-version = "1.97"
+
+[workspace.dependencies]
+wit-parser = "0.253"
