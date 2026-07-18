@@ -16,6 +16,7 @@ miette.workspace = true
 thiserror.workspace = true
 indexmap.workspace = true
 dotenvy.workspace = true
+regex.workspace = true
 
 [dev-dependencies]
 wit-parser.workspace = true

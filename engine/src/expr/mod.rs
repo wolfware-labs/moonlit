@@ -8,3 +8,7 @@ pub use value::Value;
 pub mod accumulator;
 
 pub use accumulator::{Accumulator, Resolve};
+
+pub mod substitute;
+
+pub use substitute::substitute;
