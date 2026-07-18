@@ -71,13 +71,18 @@ mod tests {
 
     #[test]
     fn rfc3339_and_naive_and_date_only_coerce_to_datetime() {
-        assert!(matches!(
+        // Naive datetimes default to zero offset; DateTime equality is by instant, so all three
+        // 03:04:05 forms equal the RFC3339 UTC value.
+        let expected_dt = DateTime::parse_from_rfc3339("2024-01-02T03:04:05Z").unwrap();
+        assert_eq!(
             coerce("2024-01-02T03:04:05Z"),
-            Scalar::DateTime(_)
-        ));
-        assert!(matches!(coerce("2024-01-02T03:04:05"), Scalar::DateTime(_)));
-        assert!(matches!(coerce("2024-01-02 03:04:05"), Scalar::DateTime(_)));
-        assert!(matches!(coerce("2024-01-02"), Scalar::DateTime(_)));
+            Scalar::DateTime(expected_dt)
+        );
+        assert_eq!(coerce("2024-01-02T03:04:05"), Scalar::DateTime(expected_dt));
+        assert_eq!(coerce("2024-01-02 03:04:05"), Scalar::DateTime(expected_dt));
+
+        let expected_date = DateTime::parse_from_rfc3339("2024-01-02T00:00:00Z").unwrap();
+        assert_eq!(coerce("2024-01-02"), Scalar::DateTime(expected_date));
     }
 
     #[test]
