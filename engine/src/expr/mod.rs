@@ -4,3 +4,7 @@
 pub mod value;
 
 pub use value::Value;
+
+pub mod accumulator;
+
+pub use accumulator::{Accumulator, Resolve};

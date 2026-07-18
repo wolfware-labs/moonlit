@@ -15,6 +15,7 @@ saphyr-parser.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 indexmap.workspace = true
+dotenvy.workspace = true
 
 [dev-dependencies]
 wit-parser.workspace = true
