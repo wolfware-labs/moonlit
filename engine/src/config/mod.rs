@@ -10,7 +10,12 @@
 
 pub mod diagnostic;
 pub mod model;
-// `tree` is internal and currently consumed only by its own tests; Task 4 (`convert`) makes it
-// used in the library build, at which point this `allow(dead_code)` is removed.
+// `tree` is internal and currently consumed only by its own tests; Task 5 (`parse_config`) makes
+// it used in the library build, at which point this `allow(dead_code)` is removed. `convert`
+// uses `tree::Node`/`NodeValue` but does not call `build_tree`, so `build_tree` itself stays dead
+// until Task 5.
 #[allow(dead_code)]
 mod tree;
+// `convert` is consumed only by its own tests until Task 5's `parse_config` wires it in.
+#[allow(dead_code)]
+mod convert;
