@@ -131,7 +131,7 @@ fn convert_plugin(node: &Node, src: &Source) -> Result<Plugin, ConfigDiagnostic>
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("url") => url = Some(convert_url(value, src)?),
             Some("config") => config = Some(config_map(value)),
-            Some("permissions") => permissions = Some(convert_permissions(value)),
+            Some("permissions") => permissions = Some(convert_permissions(value, src)?),
             _ => {}
         }
     }
@@ -191,7 +191,7 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
     Spanned::new(value, node.span)
 }
 
-fn convert_permissions(node: &Node) -> Permissions {
+fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigDiagnostic> {
     let mut p = Permissions::full_trust();
     if let NodeValue::Map(entries) = &node.value {
         for (key, value) in entries {
@@ -200,15 +200,16 @@ fn convert_permissions(node: &Node) -> Permissions {
                 Some("exec") => p.exec = string_list(value),
                 Some("env") => p.env = string_list(value),
                 Some("filesystem") => {
-                    if let Some(fs) = scalar_string(value).and_then(|s| parse_fs(&s)) {
-                        p.filesystem = fs;
+                    if let Some(s) = scalar_string(value) {
+                        p.filesystem =
+                            parse_fs(&s).ok_or_else(|| src.invalid_filesystem(&s, value.span))?;
                     }
                 }
                 _ => {}
             }
         }
     }
-    p
+    Ok(p)
 }
 
 fn string_list(node: &Node) -> Vec<String> {
@@ -472,5 +473,66 @@ stages:
         let perms = c.plugins.value[0].permissions.as_ref().expect("present");
         assert_eq!(perms.network, vec!["api.github.com".to_string()]);
         assert_eq!(perms.filesystem, FilesystemAccess::ReadOnly);
+    }
+
+    #[test]
+    fn invalid_filesystem_value_errors_instead_of_failing_open() {
+        let err = parse(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n    permissions:\n      filesystem: readonyl\nstages:\n  s:\n    - name: a\n      run: p.x\n",
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.message(),
+            "Invalid filesystem access: readonyl. Expected one of: none, read-only, read-write."
+        );
+    }
+
+    #[test]
+    fn missing_url_is_reported() {
+        let err = parse("plugins:\n  - name: p\nstages:\n  s:\n    - name: a\n      run: p.x\n")
+            .unwrap_err();
+        assert_eq!(err.message(), "Plugin 'p' is missing a 'url' entry.");
+    }
+
+    #[test]
+    fn missing_run_is_reported() {
+        let err =
+            parse("plugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n")
+                .unwrap_err();
+        assert_eq!(err.message(), "Step 'a' is missing a 'run' entry.");
+    }
+
+    #[test]
+    fn non_mapping_plugin_entry_is_expected_mapping() {
+        let err = parse("plugins:\n  - not-a-map\nstages:\n  s:\n    - name: a\n      run: p.x\n")
+            .unwrap_err();
+        assert_eq!(err.message(), "Expected a mapping for a plugin.");
+    }
+
+    #[test]
+    fn non_mapping_step_is_expected_mapping() {
+        let err = parse(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - not-a-map\n",
+        )
+        .unwrap_err();
+        assert_eq!(err.message(), "Expected a mapping for a step.");
+    }
+
+    #[test]
+    fn non_scalar_argument_value_is_expected_string() {
+        let err = parse(
+            "arguments:\n  a: [1, 2]\nplugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: p.x\n",
+        )
+        .unwrap_err();
+        assert_eq!(err.message(), "Expected a string value in arguments.");
+    }
+
+    #[test]
+    fn non_scalar_variable_value_is_expected_string() {
+        let err = parse(
+            "variables:\n  v:\n    nested: true\nplugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: p.x\n",
+        )
+        .unwrap_err();
+        assert_eq!(err.message(), "Expected a string value in variables.");
     }
 }

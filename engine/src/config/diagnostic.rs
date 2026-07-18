@@ -105,6 +105,17 @@ impl<'a> Source<'a> {
         )
     }
 
+    /// A `filesystem:` permission value that isn't one of the recognized access levels.
+    pub fn invalid_filesystem(&self, value: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!(
+                "Invalid filesystem access: {value}. Expected one of: none, read-only, read-write."
+            ),
+            Some(span),
+            "unrecognized filesystem access level",
+        )
+    }
+
     /// A non-boolean value where a bool is required (engine-chosen; spec mandates shape only).
     pub fn invalid_bool(&self, field: &str, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(

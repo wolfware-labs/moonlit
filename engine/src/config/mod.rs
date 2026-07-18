@@ -90,4 +90,22 @@ stages:
             "At least one plugin configuration must be provided."
         );
     }
+
+    #[test]
+    fn end_to_end_non_ascii_key_before_error_has_correct_byte_span() {
+        // The `café` stage name is a non-ASCII map key (verbatim, not schema-matched) whose
+        // extra UTF-8 byte (`é` = 2 bytes, 1 char) precedes the bad `run:` value below it. If
+        // the parser's char-index spans were used as byte offsets directly (instead of being
+        // mapped through `char_to_byte`, see `tree.rs`), the diagnostic's span would land one
+        // byte short and this substring check would fail.
+        let yaml = "plugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  café:\n    - name: a\n      run: nodot\n";
+        let err = parse_config(yaml, "release.yml").unwrap_err();
+        assert_eq!(
+            err.message(),
+            "Invalid run format: nodot. Expected format: 'plugin.middleware'"
+        );
+        let span = err.span().expect("has a span");
+        let (start, len) = (span.offset(), span.len());
+        assert_eq!(&yaml[start..start + len], "nodot");
+    }
 }
