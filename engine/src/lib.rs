@@ -12,3 +12,5 @@
 //! - `config` — YAML model, deserializers, cleanup, validation (Phase 2)
 //! - `expr`   — `$()` substitution, layering, coercion, `rhai` conditions (Phase 3)
 //! - `resolve` / `host` / `pipeline` / `cache` — wasm host + executor (M2+)
+
+pub mod config;

@@ -12,3 +12,7 @@ rust-version = "1.97"
 
 [workspace.dependencies]
 wit-parser = "0.253"
+saphyr-parser = "=0.0.11"
+miette = "7.6"
+thiserror = "2.0"
+indexmap = "2.14"

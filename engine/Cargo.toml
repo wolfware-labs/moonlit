@@ -10,5 +10,11 @@ description = "Moonlit 2.0 engine: WASM component host, pipeline executor, and c
 
 [lib]
 
+[dependencies]
+saphyr-parser.workspace = true
+miette.workspace = true
+thiserror.workspace = true
+indexmap.workspace = true
+
 [dev-dependencies]
 wit-parser.workspace = true
