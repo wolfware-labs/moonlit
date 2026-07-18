@@ -14,3 +14,4 @@
 //! - `resolve` / `host` / `pipeline` / `cache` — wasm host + executor (M2+)
 
 pub mod config;
+pub mod expr;
