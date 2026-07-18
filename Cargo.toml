@@ -19,3 +19,4 @@ indexmap = "2.14"
 dotenvy = "0.15"
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
+rhai = "1"

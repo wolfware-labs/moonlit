@@ -18,6 +18,7 @@ indexmap.workspace = true
 dotenvy.workspace = true
 regex.workspace = true
 chrono.workspace = true
+rhai.workspace = true
 
 [dev-dependencies]
 wit-parser.workspace = true
