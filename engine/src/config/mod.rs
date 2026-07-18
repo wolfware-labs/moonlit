@@ -1,6 +1,8 @@
-//! Pipeline configuration parsing (§4): YAML → validated [`PipelineConfig`].
+//! Pipeline configuration parsing (§4): YAML → validated [`PipelineConfig`] or [`ConfigDiagnostic`].
 //!
-//! Grows across Phase 2 tasks: model → diagnostic → tree → convert → cleanup/validate/wiring.
+//! Four hand-rolled stages over the `saphyr-parser` event stream: parse → convert → cleanup →
+//! validate. No `$()` substitution, layering, coercion, or conditions — those are Phase 3;
+//! `$(...)` text is preserved verbatim as raw strings.
 
 // The spec (§7.2) fixes the fallible surface as `Result<_, ConfigDiagnostic>` (unboxed).
 // `ConfigDiagnostic` carries the source text + labels and so trips clippy's
@@ -10,12 +12,82 @@
 
 pub mod diagnostic;
 pub mod model;
-// `tree` is internal and currently consumed only by its own tests; Task 5 (`parse_config`) makes
-// it used in the library build, at which point this `allow(dead_code)` is removed. `convert`
-// uses `tree::Node`/`NodeValue` but does not call `build_tree`, so `build_tree` itself stays dead
-// until Task 5.
-#[allow(dead_code)]
-mod tree;
-// `convert` is consumed only by its own tests until Task 5's `parse_config` wires it in.
-#[allow(dead_code)]
+
+mod cleanup;
 mod convert;
+mod tree;
+mod validate;
+
+pub use diagnostic::ConfigDiagnostic;
+pub use model::PipelineConfig;
+
+use diagnostic::Source;
+
+/// Parse a Moonlit pipeline configuration file.
+///
+/// `source_name` labels the source in diagnostics (e.g. `release.yml`). Runs parse → convert →
+/// cleanup → validate, short-circuiting to a [`ConfigDiagnostic`] on the first failure.
+pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
+    let src = Source::new(yaml, source_name);
+    let tree = tree::build_tree(&src)?;
+    let config = convert::convert(tree, &src)?;
+    let config = cleanup::cleanup(config);
+    validate::validate(&config, &src)?;
+    Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GOOD: &str = "\
+name: demo
+plugins:
+  - name: git
+    url: oci://reg.example.com/wolfware/git:2.0.0
+stages:
+  build:
+    - name: tag
+      run: git.tag
+";
+
+    #[test]
+    fn end_to_end_happy_path() {
+        let c = parse_config(GOOD, "release.yml").expect("valid");
+        assert_eq!(c.name, "demo");
+        assert_eq!(c.plugins.value.len(), 1);
+        assert_eq!(c.stages.value[0].steps[0].run.value.middleware, "tag");
+    }
+
+    #[test]
+    fn end_to_end_trims_name() {
+        let c = parse_config("name: '  spaced  '\nplugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: p.x\n", "release.yml").unwrap();
+        assert_eq!(c.name, "spaced");
+    }
+
+    #[test]
+    fn end_to_end_no_stages_error() {
+        let err = parse_config(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "release.yml",
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.message(),
+            "No stages found in the release configuration."
+        );
+    }
+
+    #[test]
+    fn end_to_end_no_plugins_error() {
+        let err = parse_config(
+            "stages:\n  s:\n    - name: a\n      run: p.x\n",
+            "release.yml",
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.message(),
+            "At least one plugin configuration must be provided."
+        );
+    }
+}
