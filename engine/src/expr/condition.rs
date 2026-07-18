@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use crate::expr::accumulator::Accumulator;
 use crate::expr::coerce::{Scalar, coerce};
+use crate::expr::substitute::substitute_with;
 use crate::expr::value::Value;
 
 /// The result of evaluating a `condition` (never fails — errors degrade to `false` + a warning).
@@ -68,13 +69,41 @@ pub fn evaluate_halt(expr: &str, acc: &Accumulator) -> Result<bool, EvalError> {
 /// mechanism (§5.3), not an arbitrary-code `eval()`.
 fn eval(expr: &str, acc: &Accumulator) -> Result<bool, String> {
     let engine = build_engine();
-    let normalized = normalize_identifiers(expr);
+    let substituted = substitute_condition(expr, acc);
+    let normalized = normalize_identifiers(&substituted);
     let mut scope = Scope::new();
     scope.push_constant("output", build_output_scope(acc));
     match engine.eval_expression_with_scope::<Dynamic>(&mut scope, &normalized) {
         Ok(d) => Ok(d.as_bool().unwrap_or(false)),
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// Replace each `$(...)` in a condition with a rhai literal: bool/number bare, else quoted string.
+fn substitute_condition(expr: &str, acc: &Accumulator) -> String {
+    substitute_with(expr, acc, |v| match v {
+        Some(value) => value_to_literal(&value),
+        None => "''".to_string(),
+    })
+}
+
+fn value_to_literal(v: &Value) -> String {
+    match v {
+        Value::Null => "''".to_string(),
+        Value::Str(s) => match coerce(s) {
+            Scalar::Bool(b) => b.to_string(),
+            Scalar::Int(i) => i.to_string(),
+            Scalar::Float(f) => f.to_string(),
+            Scalar::DateTime(_) => quote_rhai(s),
+            Scalar::Str(s) => quote_rhai(&s),
+        },
+        _ => quote_rhai(&v.to_json_string()),
+    }
+}
+
+fn quote_rhai(s: &str) -> String {
+    let escaped = s.replace('\\', "\\\\").replace('\'', "\\'");
+    format!("'{escaped}'")
 }
 
 /// A sandboxed rhai engine: bounded operations/depth/sizes, no `eval`, datetime comparisons.
@@ -316,5 +345,39 @@ mod tests {
         assert!(evaluate_condition("output.repo.branch == 'main'", &acc).value);
         assert!(evaluate_condition("output.repo.branch == \"main\"", &acc).value);
         assert!(!evaluate_condition("output.repo.branch == 'dev'", &acc).value);
+    }
+
+    #[test]
+    fn substitutes_string_value_as_quoted_literal() {
+        let mut acc = Accumulator::new();
+        acc.push(map(vec![(
+            "output",
+            map(vec![("repo", map(vec![("branch", s("main"))]))]),
+        )]));
+        assert!(evaluate_condition("$(output:repo:branch) == 'main'", &acc).value);
+    }
+
+    #[test]
+    fn substitutes_bool_value_as_bare_literal() {
+        let mut acc = Accumulator::new();
+        acc.push(map(vec![("args", map(vec![("skipPush", s("false"))]))]));
+        assert!(evaluate_condition("$(args:skipPush) == false", &acc).value);
+    }
+
+    #[test]
+    fn unresolved_substitution_becomes_empty_string_literal() {
+        let acc = acc_with_output(Value::Map(Default::default()));
+        // $(args:missing) -> '' , so '' == 'main' is false (and does not error).
+        let out = evaluate_condition("$(args:missing) == 'main'", &acc);
+        assert!(!out.value);
+        assert!(out.warning.is_none());
+    }
+
+    #[test]
+    fn literal_quote_in_substituted_value_is_escaped() {
+        let mut acc = Accumulator::new();
+        acc.push(map(vec![("args", map(vec![("msg", s("it's"))]))]));
+        // If escaping were wrong the expression would fail to parse; here it must compare true.
+        assert!(evaluate_condition("$(args:msg) == 'it\\'s'", &acc).value);
     }
 }
