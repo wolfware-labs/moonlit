@@ -154,32 +154,57 @@ fn scalar_to_dynamic(s: Scalar) -> Dynamic {
     }
 }
 
-/// Lowercase every character outside string literals, so identifiers/keywords are
-/// case-insensitive while `'Main'` / `"Main"` literal contents are preserved verbatim.
+/// Lowercase every character outside string literals so identifiers/keywords are case-insensitive,
+/// and rewrite single-quoted string literals (`'main'`) into rhai's double-quoted form (`"main"`) —
+/// rhai treats `'...'` as a single-char literal, but the spec (§5.3) requires single-quoted strings.
+/// String-literal contents keep their case; escape sequences are preserved (with `\'` mapped to a
+/// bare `'` and a literal `"` escaped to `\"` when moving into double quotes).
 fn normalize_identifiers(expr: &str) -> String {
     let mut out = String::with_capacity(expr.len());
     let mut chars = expr.chars();
+    // None = outside a string; Some('"') = inside a verbatim double-quoted string;
+    // Some('\'') = inside a source single-quoted string being rewritten to double quotes.
     let mut quote: Option<char> = None;
     while let Some(c) = chars.next() {
         match quote {
-            Some(q) => {
+            Some('\'') => match c {
+                '\\' => match chars.next() {
+                    Some('\'') => out.push('\''),
+                    Some('"') => out.push_str("\\\""),
+                    Some(other) => {
+                        out.push('\\');
+                        out.push(other);
+                    }
+                    None => out.push('\\'),
+                },
+                '\'' => {
+                    out.push('"');
+                    quote = None;
+                }
+                '"' => out.push_str("\\\""),
+                other => out.push(other),
+            },
+            Some(_) => {
                 out.push(c);
                 if c == '\\' {
                     if let Some(next) = chars.next() {
                         out.push(next);
                     }
-                } else if c == q {
+                } else if c == '"' {
                     quote = None;
                 }
             }
-            None => {
-                if c == '\'' || c == '"' {
-                    quote = Some(c);
-                    out.push(c);
-                } else {
-                    out.extend(c.to_lowercase());
+            None => match c {
+                '\'' => {
+                    out.push('"');
+                    quote = Some('\'');
                 }
-            }
+                '"' => {
+                    out.push('"');
+                    quote = Some('"');
+                }
+                _ => out.extend(c.to_lowercase()),
+            },
         }
     }
     out
@@ -217,10 +242,9 @@ mod tests {
     #[test]
     fn identifiers_are_case_insensitive_but_string_literals_are_not() {
         let acc = acc_with_output(map(vec![("repo", map(vec![("branch", s("main"))]))]));
-        // Mixed-case identifiers resolve; the "main" literal keeps its case. rhai reserves
-        // single quotes for single-character literals, so string literals use double quotes.
-        assert!(evaluate_condition("output.Repo.Branch == \"main\"", &acc).value);
-        assert!(!evaluate_condition("output.repo.branch == \"MAIN\"", &acc).value);
+        // Mixed-case identifiers resolve; the 'main' literal keeps its case.
+        assert!(evaluate_condition("output.Repo.Branch == 'main'", &acc).value);
+        assert!(!evaluate_condition("output.repo.branch == 'MAIN'", &acc).value);
     }
 
     #[test]
@@ -284,5 +308,13 @@ mod tests {
         let out = evaluate_condition(&expr, &acc);
         assert!(!out.value);
         assert!(out.warning.is_some());
+    }
+
+    #[test]
+    fn single_and_double_quoted_strings_are_equivalent() {
+        let acc = acc_with_output(map(vec![("repo", map(vec![("branch", s("main"))]))]));
+        assert!(evaluate_condition("output.repo.branch == 'main'", &acc).value);
+        assert!(evaluate_condition("output.repo.branch == \"main\"", &acc).value);
+        assert!(!evaluate_condition("output.repo.branch == 'dev'", &acc).value);
     }
 }
