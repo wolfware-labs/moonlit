@@ -12,3 +12,7 @@ pub use accumulator::{Accumulator, Resolve};
 pub mod substitute;
 
 pub use substitute::substitute;
+
+pub mod coerce;
+
+pub use coerce::{Scalar, coerce};
