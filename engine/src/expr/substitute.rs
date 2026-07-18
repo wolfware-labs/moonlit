@@ -46,7 +46,10 @@ pub(crate) fn substitute_with(
         .into_owned()
 }
 
-/// The `:default` fallback: full path, then split-on-last-`:` left path, then literal default.
+/// The `:default` fallback (§5.1): resolve the full inner path first; if that fails and `inner`
+/// contains a `:`, resolve the segment before the LAST `:` and — if it resolves — return ITS value;
+/// only when that left segment also fails to resolve is the trailing segment used as a literal
+/// default. Returns `None` when nothing resolves and there is no `:` to split on.
 pub(crate) fn resolve_inner(inner: &str, resolver: &dyn Resolve) -> Option<Value> {
     let inner = inner.trim();
     if inner.is_empty() {
@@ -57,11 +60,9 @@ pub(crate) fn resolve_inner(inner: &str, resolver: &dyn Resolve) -> Option<Value
     }
     if let Some(idx) = inner.rfind(':') {
         let (left, right) = (&inner[..idx], &inner[idx + 1..]);
-        if resolver.resolve(left).is_some() {
-            // Left part resolved, so this is not a default fallback situation
-            return None;
+        if let Some(v) = resolver.resolve(left) {
+            return Some(v);
         }
-        // Left part didn't resolve, so treat the right part as a literal default
         return Some(Value::Str(right.to_string()));
     }
     None
@@ -116,7 +117,8 @@ mod tests {
 
     #[test]
     fn whole_string_missing_is_null() {
-        assert_eq!(substitute("$(output:missing)", &acc()), Value::Null);
+        // No `:` to split on and nothing resolves -> Null.
+        assert_eq!(substitute("$(missingkey)", &acc()), Value::Null);
     }
 
     #[test]
@@ -125,7 +127,7 @@ mod tests {
             substitute("v$(output:version:nextVersion)", &acc()),
             s("v1.2.0")
         );
-        assert_eq!(substitute("x$(output:missing)y", &acc()), s("xy"));
+        assert_eq!(substitute("x$(missingkey)y", &acc()), s("xy"));
     }
 
     #[test]
@@ -137,5 +139,25 @@ mod tests {
         );
         // full path resolves -> `name` is NOT treated as a default
         assert_eq!(substitute("$(output:tag:name)", &acc()), s("v1.2.0"));
+    }
+
+    #[test]
+    fn default_ignored_when_left_resolves() {
+        // Full path unresolved (can't descend into the `nextVersion` scalar), but the left segment
+        // `output:version:nextVersion` resolves -> its value is used and `fallback` is ignored.
+        assert_eq!(
+            substitute("$(output:version:nextVersion:fallback)", &acc()),
+            s("1.2.0")
+        );
+    }
+
+    #[test]
+    fn absent_leaf_returns_resolved_parent_map() {
+        // Documented corner: `output:tag:absent` is unresolved, but `output:tag` resolves to a map,
+        // so rule 2 returns that map rather than treating `absent` as a default.
+        assert_eq!(
+            substitute("$(output:tag:absent)", &acc()),
+            map(vec![("name", s("v1.2.0"))])
+        );
     }
 }
