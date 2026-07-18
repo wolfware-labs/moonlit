@@ -367,10 +367,19 @@ mod tests {
     #[test]
     fn unresolved_substitution_becomes_empty_string_literal() {
         let acc = acc_with_output(Value::Map(Default::default()));
-        // $(args:missing) -> '' , so '' == 'main' is false (and does not error).
-        let out = evaluate_condition("$(args:missing) == 'main'", &acc);
+        // `$(nosuchkey)` has no `:` fallback segment, so it genuinely resolves to nothing and the
+        // pre-pass injects an empty string literal: `'' == 'main'` -> false, with no error/warning.
+        let out = evaluate_condition("$(nosuchkey) == 'main'", &acc);
         assert!(!out.value);
         assert!(out.warning.is_none());
+    }
+
+    #[test]
+    fn condition_substitution_applies_default_fallback() {
+        let acc = acc_with_output(Value::Map(Default::default()));
+        // `$(args:missing:main)`: the full path and `args:missing` are both unresolved, so `main`
+        // is used as the literal default -> `'main' == 'main'` -> true.
+        assert!(evaluate_condition("$(args:missing:main) == 'main'", &acc).value);
     }
 
     #[test]
