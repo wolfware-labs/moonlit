@@ -115,11 +115,21 @@ async fn resolve_failure_is_exit_3_plugin_load() {
     assert!(matches!(err, EngineError::PluginLoad { .. }));
 }
 
-// NOTE: the init-domain-error → exit-3 test lives in Task 7, not here. The loader serializes
-// plugin config as JSON strings (§4.2 scalars are strings), but the current fixture's `init` only
-// fails on the JSON boolean `"failInit":true`. Task 7 rebuilds the fixture (for the ABI version
-// bump) and enhances `init` to also fail on the string form `"failInit":"true"` — the form the
-// loader actually delivers — and adds the `init_domain_error_is_exit_3_plugin_load` test there.
+#[tokio::test(flavor = "multi_thread")]
+async fn init_domain_error_is_exit_3_plugin_load() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(64);
+    let yaml = format!(
+        "name: d\nplugins:\n  - name: tp\n    url: {}\n    config:\n      failInit: 'true'\nstages:\n  b:\n    - name: s\n      run: tp.log-and-output\n",
+        fixture_url()
+    );
+    let err = match eng.load_pipeline(&yaml, opts(), &tx).await {
+        Ok(_) => panic!("must fail"),
+        Err(e) => e,
+    };
+    assert_eq!(err.exit_code(), 3);
+    assert!(matches!(err, EngineError::PluginLoad { .. }));
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn zero_plugins_is_exit_2_config_error() {

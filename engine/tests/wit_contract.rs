@@ -20,14 +20,14 @@ fn load() -> (Resolve, PackageId, WorldId) {
 }
 
 #[test]
-fn package_is_moonlit_plugin_2_0_0() {
+fn package_is_moonlit_plugin_0_1_0() {
     let (resolve, package_id, _) = load();
     let name = &resolve.packages[package_id].name;
     assert_eq!(name.namespace, "moonlit");
     assert_eq!(name.name, "plugin");
     assert_eq!(
         name.version.as_ref().map(ToString::to_string).as_deref(),
-        Some("2.0.0")
+        Some("0.1.0")
     );
 }
 

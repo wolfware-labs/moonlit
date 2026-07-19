@@ -1,4 +1,4 @@
-package moonlit:plugin@2.0.0;
+package moonlit:plugin@0.1.0;
 
 /// Core data types shared across the plugin ABI.
 interface types {

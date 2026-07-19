@@ -1,4 +1,4 @@
-//! Test fixture plugin implementing `world plugin` from moonlit:plugin@2.0.0.
+//! Test fixture plugin implementing `world plugin` from moonlit:plugin@0.1.0.
 //! Built to wasm32-wasip2 -> a real component. It is a TEST INSTRUMENT: each
 //! middleware exercises a specific host path the engine's tests assert on.
 
@@ -20,7 +20,10 @@ struct Component;
 
 impl Guest for Component {
     fn init(plugin_config: String) -> Result<PluginMetadata, String> {
-        if plugin_config.contains("\"failInit\":true") || plugin_config.contains("\"failInit\": true")
+        if plugin_config.contains("\"failInit\":true")
+            || plugin_config.contains("\"failInit\": true")
+            || plugin_config.contains("\"failInit\":\"true\"")
+            || plugin_config.contains("\"failInit\": \"true\"")
         {
             return Err("init failed on request (failInit=true)".to_string());
         }

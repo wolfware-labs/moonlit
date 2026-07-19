@@ -1,4 +1,4 @@
-//! wasmtime component host for `moonlit:plugin@2.0.0` (Phase 5): instantiate one
+//! wasmtime component host for `moonlit:plugin@0.1.0` (Phase 5): instantiate one
 //! resolved plugin and call its exports, with the full host ABI + permission
 //! enforcement, including live-streaming `process` spawn/run. Pipeline event
 //! wiring (Phase 6) arrives in a later task.

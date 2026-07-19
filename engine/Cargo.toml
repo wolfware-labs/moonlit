@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Moonlit 2.0 engine: WASM component host, pipeline executor, and config/expression engine."
+description = "Moonlit engine: WASM component host, pipeline executor, and config/expression engine."
 
 [lib]
 
