@@ -3,6 +3,7 @@
 //! error/option/result types; the per-scheme resolvers live in sibling modules.
 
 pub(crate) mod file;
+pub(crate) mod http;
 
 use std::path::PathBuf;
 use std::time::Duration;
