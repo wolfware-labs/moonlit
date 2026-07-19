@@ -37,10 +37,6 @@ struct MoonlitRegistryCred {
 }
 
 /// Resolve credentials for `host`, reading credential files under `home`.
-///
-/// `pub(crate)` with no non-test caller until Task 8's dispatcher wires it in; the allow below
-/// suppresses the interim dead-code lint (same pattern as `resolve_file`/`resolve_http`).
-#[allow(dead_code)]
 pub(crate) fn resolve_auth(host: &str, home: &Path) -> RegistryAuth {
     if let Some(auth) = docker_auth(host, home) {
         return auth;

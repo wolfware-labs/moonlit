@@ -6,7 +6,6 @@ use std::path::Path;
 use crate::resolve::{ResolveError, ResolvedPlugin};
 
 /// Resolve a `file://` source to its direct path. The file must exist.
-#[allow(dead_code)]
 pub(crate) fn resolve_file(path: &Path) -> Result<ResolvedPlugin, ResolveError> {
     if !path.is_file() {
         return Err(ResolveError::NotFound(format!(

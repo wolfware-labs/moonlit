@@ -5,8 +5,6 @@ use crate::cache::{Cache, PluginMeta};
 use crate::resolve::{ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin, sha256_hex};
 
 /// Resolve an `http`/`https` source to a cached component path.
-// No non-test caller until Task 8 wires up the scheme dispatcher.
-#[allow(dead_code)]
 pub(crate) async fn resolve_http(
     url: &str,
     opts: &ResolveOptions,

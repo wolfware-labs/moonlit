@@ -1,6 +1,5 @@
 //! `oci://` resolution (§8). This file holds the [`RegistryClient`] seam over `oci-client` (so the
 //! orchestration in `resolve_oci` is unit-tested against a mock) plus artifact verification helpers.
-#![allow(dead_code)] // TODO(Task 8): remove once the public resolve() dispatcher wires the OCI resolver.
 
 use oci_client::manifest::{OciDescriptor, OciImageManifest};
 use oci_client::secrets::RegistryAuth;

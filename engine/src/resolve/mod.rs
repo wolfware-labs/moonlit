@@ -141,6 +141,32 @@ pub(crate) fn sha256_hex(input: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+use crate::cache::Cache;
+
+/// Resolve ONE plugin source to verified component bytes on disk (§8). Dispatches by scheme; OCI
+/// credentials are read from the user's home config. This never instantiates a component and never
+/// emits pipeline events — the host/pipeline phase adapts the [`ProgressFn`] into `PluginPullProgress`.
+pub async fn resolve(
+    source: &PluginSource,
+    opts: &ResolveOptions,
+    cache: &Cache,
+    progress: Option<ProgressFn<'_>>,
+) -> Result<ResolvedPlugin, ResolveError> {
+    match source {
+        PluginSource::File(path) => file::resolve_file(path),
+        PluginSource::Http(url) => http::resolve_http(url, opts, cache, progress).await,
+        PluginSource::Oci(raw_ref) => {
+            let reference: oci_client::Reference = raw_ref
+                .parse()
+                .map_err(|e| ResolveError::InvalidReference(format!("'{raw_ref}': {e}")))?;
+            let home = dirs::home_dir().unwrap_or_default();
+            let auth = auth::resolve_auth(reference.registry(), &home);
+            let client = oci::new_client();
+            oci::resolve_oci(raw_ref, opts, cache, &client, auth, progress).await
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -222,5 +248,75 @@ mod tests {
             sha256_hex("abc"),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+
+    // dispatcher tests — added to the existing tests module
+    use crate::cache::{Cache, Clock};
+
+    struct ZeroClock;
+    impl Clock for ZeroClock {
+        fn now_unix(&self) -> u64 {
+            0
+        }
+    }
+    fn tmp_cache() -> (Cache, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        (
+            Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(ZeroClock)),
+            dir,
+        )
+    }
+
+    #[tokio::test]
+    async fn dispatches_file_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm = dir.path().join("p.wasm");
+        std::fs::write(&wasm, b"\0asm").unwrap();
+        let (cache, _c) = tmp_cache();
+        let source = PluginSource::File(wasm.clone());
+        let resolved = resolve(&source, &ResolveOptions::default(), &cache, None)
+            .await
+            .unwrap();
+        assert_eq!(resolved.wasm_path, wasm);
+        assert!(resolved.cached);
+    }
+
+    #[tokio::test]
+    async fn dispatches_http_source_offline_miss() {
+        let (cache, _c) = tmp_cache();
+        let source = PluginSource::Http("http://127.0.0.1:1/p.wasm".to_string());
+        let opts = ResolveOptions {
+            offline: true,
+            ..Default::default()
+        };
+        let err = resolve(&source, &opts, &cache, None).await.unwrap_err();
+        assert!(matches!(err, ResolveError::OfflineMiss(_)));
+    }
+
+    #[tokio::test]
+    async fn dispatches_oci_source_offline_miss() {
+        let (cache, _c) = tmp_cache();
+        let source = PluginSource::Oci("reg.example.com/x/y:1".to_string());
+        let opts = ResolveOptions {
+            offline: true,
+            ..Default::default()
+        };
+        let err = resolve(&source, &opts, &cache, None).await.unwrap_err();
+        assert!(matches!(err, ResolveError::OfflineMiss(_)));
+    }
+
+    /// Live smoke test against a real public wasm OCI artifact. Ignored by default (network + TLS).
+    /// Run manually with: `cargo test -p moonlit-engine live_oci -- --ignored --nocapture`.
+    #[tokio::test]
+    #[ignore = "network: pulls a real public OCI wasm artifact"]
+    async fn live_oci_pull_smoke() {
+        let (cache, _c) = tmp_cache();
+        // A small, public wasm component artifact. Replace with a Moonlit-published plugin once one exists.
+        let source = PluginSource::Oci("ghcr.io/webassembly/wasi/hello-world:latest".to_string());
+        let resolved = resolve(&source, &ResolveOptions::default(), &cache, None)
+            .await
+            .unwrap();
+        assert!(resolved.wasm_path.is_file());
+        assert!(resolved.digest.is_some());
     }
 }
