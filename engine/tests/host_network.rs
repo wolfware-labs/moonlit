@@ -94,4 +94,10 @@ async fn denied_host_is_blocked_before_the_socket() {
         .await
         .unwrap();
     assert!(!r.successful, "denied host must fail the middleware");
+    let received = server.received_requests().await.unwrap();
+    assert!(
+        received.is_empty(),
+        "denied request must never reach the server (filter blocks before the socket), but server saw {} request(s)",
+        received.len()
+    );
 }
