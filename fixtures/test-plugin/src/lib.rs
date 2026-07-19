@@ -41,6 +41,9 @@ impl Guest for Component {
             MiddlewareInfo { name: "spawn-stream".to_string(), description: "process::spawn streaming".to_string() },
             MiddlewareInfo { name: "http-get".to_string(), description: "wasi:http GET".to_string() },
             MiddlewareInfo { name: "boom".to_string(), description: "panics".to_string() },
+            MiddlewareInfo { name: "fail".to_string(), description: "returns successful=false".to_string() },
+            MiddlewareInfo { name: "dup-output".to_string(), description: "two outputs, same key".to_string() },
+            MiddlewareInfo { name: "sleep".to_string(), description: "blocks for config ms".to_string() },
         ]
     }
 
@@ -144,6 +147,35 @@ impl Guest for Component {
                         warnings: vec![],
                         output: vec![],
                     },
+                }
+            }
+            "fail" => MiddlewareResult {
+                successful: false,
+                error_message: Some("intentional failure".to_string()),
+                warnings: vec!["fail warning".to_string()],
+                output: vec![],
+            },
+            "dup-output" => MiddlewareResult {
+                successful: true,
+                error_message: None,
+                warnings: vec![],
+                // Two entries under the same key — the runner must reject this.
+                // Values are JSON-encoded json-value strings.
+                output: vec![
+                    ("k".to_string(), "\"one\"".to_string()),
+                    ("k".to_string(), "\"two\"".to_string()),
+                ],
+            },
+            "sleep" => {
+                let ms: u64 = json_field(&config, "ms")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(10_000);
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+                MiddlewareResult {
+                    successful: true,
+                    error_message: None,
+                    warnings: vec![],
+                    output: vec![],
                 }
             }
             "boom" => panic!("boom: intentional guest panic to prove trap"),

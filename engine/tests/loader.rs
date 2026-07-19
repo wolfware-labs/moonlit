@@ -165,6 +165,18 @@ async fn loads_multiple_plugins_concurrently() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn new_fixture_middlewares_are_registered() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(64);
+    // Each of these loads only if build-time middleware validation finds the middleware.
+    for mw in ["tp.fail", "tp.dup-output", "tp.sleep"] {
+        eng.load_pipeline(&one_plugin_yaml(mw), opts(), &tx)
+            .await
+            .unwrap_or_else(|_| panic!("{mw} must be a registered middleware"));
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn first_failure_aborts_without_panicking() {
     let eng = Engine::new(EngineSettings::default()).unwrap();
     let (tx, _rx) = channel(256);
