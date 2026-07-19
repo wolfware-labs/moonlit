@@ -1,8 +1,6 @@
 //! Permission primitives: allowlist globsets (exec/network), the env-view filter,
 //! the filesystem-grant -> preopen-perms mapping, and the WASI context builder.
 
-#![allow(dead_code)] // Public APIs consumed by Phase 6+ tasks
-
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxBuilder};
 

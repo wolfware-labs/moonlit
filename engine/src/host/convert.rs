@@ -94,6 +94,42 @@ pub fn json_str_to_value(s: &str, context: &str) -> Result<serde_json::Value, Ho
     })
 }
 
+use crate::host::moonlit::plugin::types as raw;
+
+pub(crate) fn metadata(m: raw::PluginMetadata) -> PluginMetadata {
+    PluginMetadata {
+        name: m.name,
+        version: m.version,
+        description: m.description,
+    }
+}
+
+pub(crate) fn middleware_info(m: raw::MiddlewareInfo) -> MiddlewareInfo {
+    MiddlewareInfo {
+        name: m.name,
+        description: m.description,
+    }
+}
+
+pub(crate) fn log_level(l: raw::LogLevel) -> LogLevel {
+    match l {
+        raw::LogLevel::Trace => LogLevel::Trace,
+        raw::LogLevel::Debug => LogLevel::Debug,
+        raw::LogLevel::Info => LogLevel::Info,
+        raw::LogLevel::Warn => LogLevel::Warn,
+        raw::LogLevel::Error => LogLevel::Error,
+    }
+}
+
+// Called by `PluginInstance::execute`, landing in Task 6.
+#[allow(dead_code)]
+pub(crate) fn release_context_to_raw(ctx: &ReleaseContext) -> raw::ReleaseContext {
+    raw::ReleaseContext {
+        working_directory: ctx.working_directory.clone(),
+        step_name: ctx.step_name.clone(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{HostError, json_str_to_value, value_to_json};
