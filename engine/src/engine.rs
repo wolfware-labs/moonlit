@@ -12,12 +12,13 @@ use std::time::Duration;
 
 use indexmap::IndexMap;
 use tokio::sync::mpsc::Sender;
+use tokio_util::sync::CancellationToken;
 
 use crate::cache::{Cache, SystemClock};
 use crate::config::model::{Permissions, PluginUrl};
 use crate::expr::{Accumulator, substitute_config};
 use crate::host::{HostEventSink, InstanceConfig, PluginInstance, PluginMetadata, value_to_json};
-use crate::pipeline::{ChannelSink, FlatStep, Pipeline, PipelineEvent};
+use crate::pipeline::{ChannelSink, FlatStep, Pipeline, PipelineEvent, PipelineSummary};
 use crate::resolve::{self, PluginSource, ResolveOptions};
 
 /// Engine-wide settings fixed at construction.
@@ -363,7 +364,20 @@ impl Engine {
             plugins,
             steps,
             acc,
+            working_directory: opts.working_directory,
+            step_timeout: opts.step_timeout,
             plugin_meta,
         })
+    }
+
+    /// Run a loaded pipeline: execute steps sequentially, stream events, return the summary.
+    /// See MVP_SPEC §3.1. Owns `events` so the channel closes when the run ends.
+    pub async fn run(
+        &self,
+        pipeline: Pipeline,
+        events: Sender<PipelineEvent>,
+        cancel: CancellationToken,
+    ) -> Result<PipelineSummary, EngineError> {
+        crate::pipeline::run_pipeline(pipeline, events, cancel).await
     }
 }

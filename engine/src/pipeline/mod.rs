@@ -1,5 +1,6 @@
 //! Shared pipeline data types (the run loop lands here in Phase 7).
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use indexmap::IndexMap;
@@ -110,19 +111,12 @@ impl HostEventSink for ChannelSink {
 /// which trips clippy's dead-code lint under `-D warnings`.
 pub(crate) struct FlatStep {
     pub(crate) stage: String,
-    #[allow(dead_code)]
     pub(crate) name: String,
-    #[allow(dead_code)]
     pub(crate) plugin: String,
-    #[allow(dead_code)]
     pub(crate) middleware: String,
-    #[allow(dead_code)]
     pub(crate) condition: Option<String>,
-    #[allow(dead_code)]
     pub(crate) halt_if: Option<String>,
-    #[allow(dead_code)]
     pub(crate) continue_on_error: bool,
-    #[allow(dead_code)]
     pub(crate) config: ConfigMap,
 }
 
@@ -131,13 +125,13 @@ pub(crate) struct FlatStep {
 pub struct Pipeline {
     pub(crate) plugins: IndexMap<String, PluginInstance>,
     pub(crate) steps: Vec<FlatStep>,
-    // `load_pipeline` (Task 4) populates `acc` from layered config; the Phase-7 runner reads it
-    // during substitution. Dormant until then, which trips clippy's dead-code lint under
-    // `-D warnings`.
-    #[allow(dead_code)]
     pub(crate) acc: Accumulator,
-    // `load_pipeline` (Task 4) populates `plugin_meta`; the Phase-7 runner reads it (e.g. for
-    // step logging). Dormant until then, which trips clippy's dead-code lint under `-D warnings`.
+    // Read by the Phase-7 runner (ReleaseContext).
+    pub(crate) working_directory: PathBuf,
+    // Populated by `load_pipeline`; the Task-4 timeout logic reads it. Dormant until then.
+    #[allow(dead_code)]
+    pub(crate) step_timeout: Option<Duration>,
+    // `plugin_meta` stays write-only for now (a later feature reads it).
     #[allow(dead_code)]
     pub(crate) plugin_meta: IndexMap<String, PluginMetadata>,
 }
@@ -152,3 +146,7 @@ impl Pipeline {
         self.plugins.keys().map(String::as_str).collect()
     }
 }
+
+mod runner;
+
+pub(crate) use runner::run_pipeline;

@@ -44,6 +44,7 @@ impl Guest for Component {
             MiddlewareInfo { name: "fail".to_string(), description: "returns successful=false".to_string() },
             MiddlewareInfo { name: "dup-output".to_string(), description: "two outputs, same key".to_string() },
             MiddlewareInfo { name: "sleep".to_string(), description: "blocks for config ms".to_string() },
+            MiddlewareInfo { name: "bad-output".to_string(), description: "successful=true but invalid-JSON output".to_string() },
         ]
     }
 
@@ -178,6 +179,14 @@ impl Guest for Component {
                     output: vec![],
                 }
             }
+            "bad-output" => MiddlewareResult {
+                // successful call, but the output value is not valid JSON -> host returns
+                // HostError::BadJson (an Ok-path error). The Store is NOT trapped.
+                successful: true,
+                error_message: None,
+                warnings: vec![],
+                output: vec![("k".to_string(), "not valid json".to_string())],
+            },
             "boom" => panic!("boom: intentional guest panic to prove trap"),
             other => MiddlewareResult {
                 successful: false,
