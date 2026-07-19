@@ -175,10 +175,17 @@ pub(crate) async fn resolve_oci<C: RegistryClient>(
     if opts.offline {
         return Err(ResolveError::OfflineMiss(source));
     }
-    let (manifest, _digest) = match fetched {
+    let (manifest, fetched_digest) = match fetched {
         Some(pair) => pair,
         None => client.pull_image_manifest(&reference, &auth).await?,
     };
+    // The freshly-pulled manifest's digest is authoritative for what we are about to store and
+    // return: a within-TTL refs-cache hit whose plugin bytes were evicted could resolve a tag that
+    // has since moved, making the Step-A digest stale. Re-key on the pulled digest so bytes are
+    // stored under — and the caller receives — the digest that actually matches these bytes. For
+    // digest-pinned refs and the tag-miss path this equals the Step-A digest (a no-op).
+    let manifest_digest = fetched_digest;
+    let cache_key = manifest_digest.replace(':', "-");
 
     // Step D — verify it is a wasm/Moonlit artifact.
     let layer = manifest
@@ -493,6 +500,34 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, ResolveError::OfflineMiss(_)));
         assert_eq!(client.manifest_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn refs_hit_but_plugin_evicted_rekeys_on_freshly_pulled_digest() {
+        let (cache, _d) = cache();
+        let opts = ResolveOptions::default();
+        let client = mock(br#"{"moonlit":{"middlewares":["build"]}}"#, b"\0asm-fresh");
+        // Simulate a stale-but-within-TTL refs entry pointing at an OLD digest, with NO plugin bytes
+        // cached under it (external eviction). The mock's manifest digest is "sha256:manifest".
+        cache.write_ref("reg/x:1", "sha256:oldstale").unwrap();
+
+        let resolved = resolve_oci(
+            "reg/x:1",
+            &opts,
+            &cache,
+            &client,
+            RegistryAuth::Anonymous,
+            None,
+        )
+        .await
+        .unwrap();
+
+        // The caller must receive the freshly-pulled digest, not the stale refs digest.
+        assert_eq!(resolved.digest.as_deref(), Some("sha256:manifest"));
+        // Bytes stored under the fresh (sanitized) digest key, not the stale one.
+        assert!(cache.has_plugin("sha256-manifest"));
+        assert!(!cache.has_plugin("sha256-oldstale"));
+        assert_eq!(std::fs::read(&resolved.wasm_path).unwrap(), b"\0asm-fresh");
     }
 
     #[tokio::test]
