@@ -46,7 +46,10 @@ impl Guest for Component {
             "log-and-output" => {
                 host::log(LogLevel::Info, &format!("executing in {}", ctx.working_directory));
                 host::report_progress("halfway there");
-                let cfg_seen = host::get_config("plugin:name").unwrap_or_default();
+                // host::get_config already returns a JSON-encoded json-value string
+                // (e.g. `"test-plugin"` for a string config value); pass it through
+                // as-is instead of re-wrapping it in another layer of quotes.
+                let cfg_seen = host::get_config("plugin:name").unwrap_or_else(|| "null".to_string());
                 MiddlewareResult {
                     successful: true,
                     error_message: None,
@@ -54,7 +57,7 @@ impl Guest for Component {
                     output: vec![
                         ("step".to_string(), format!("\"{}\"", ctx.step_name)),
                         ("echoed_config".to_string(), config.clone()),
-                        ("cfg_seen".to_string(), format!("\"{cfg_seen}\"")),
+                        ("cfg_seen".to_string(), cfg_seen),
                     ],
                 }
             }
