@@ -1,7 +1,7 @@
 //! wasmtime component host for `moonlit:plugin@2.0.0` (Phase 5): instantiate one
 //! resolved plugin and call its exports, with the full host ABI + permission
-//! enforcement. `process` streaming (Task 6) and pipeline event wiring (Phase 6)
-//! arrive in later tasks.
+//! enforcement, including live-streaming `process` spawn/run. Pipeline event
+//! wiring (Phase 6) arrives in a later task.
 
 mod convert;
 mod imports;
@@ -67,9 +67,15 @@ pub trait HostEventSink: Send + Sync {
     fn progress(&self, step: &str, message: &str);
 }
 
-/// Host representation of the `child` resource. Task 6 replaces this unit type
-/// with the streaming implementation; until then `process` is stubbed.
-pub struct ChildProc;
+/// Host representation of the `child` resource. The `tokio::process::Child` is NOT
+/// stored here — it lives in the background reader task; `ChildProc` holds only
+/// `Send` channel endpoints so `HostState` (hence the `Store`) stays `Send`.
+pub struct ChildProc {
+    rx: tokio::sync::mpsc::Receiver<moonlit::plugin::process::OutputChunk>,
+    exit_rx: Option<tokio::sync::oneshot::Receiver<i32>>,
+    exit_cached: Option<i32>,
+    kill_tx: Option<tokio::sync::oneshot::Sender<()>>,
+}
 
 /// Per-store host state: WASI, WASI-HTTP, the network filter, the event sink, the
 /// served config view, the exec allowlist, and the current step name.
@@ -80,8 +86,6 @@ pub struct HostState {
     hooks: AllowlistHooks,
     events: Arc<dyn HostEventSink>,
     config_view: serde_json::Value,
-    // Read by the real `process::spawn`/`run` impl landing in Task 6.
-    #[allow(dead_code)]
     exec_allow: globset::GlobSet,
     current_step: String,
 }

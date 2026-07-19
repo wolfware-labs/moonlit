@@ -111,7 +111,7 @@ impl Guest for Component {
                             error_message: None,
                             warnings: vec![],
                             output: vec![
-                                ("lines".to_string(), lines.join(",")),
+                                ("lines".to_string(), format!("{:?}", lines.join(","))),
                                 ("exit_code".to_string(), code.to_string()),
                             ],
                         }
