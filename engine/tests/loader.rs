@@ -133,3 +133,39 @@ async fn zero_plugins_is_exit_2_config_error() {
     assert_eq!(err.exit_code(), 2);
     assert!(matches!(err, EngineError::Config(_)));
 }
+
+fn two_plugin_yaml(url_a: &str, url_b: &str) -> String {
+    format!(
+        "name: demo\nplugins:\n  - name: a\n    url: {url_a}\n  - name: b\n    url: {url_b}\nstages:\n  build:\n    - name: s1\n      run: a.log-and-output\n    - name: s2\n      run: b.log-and-output\n"
+    )
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn loads_multiple_plugins_concurrently() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(256);
+    let url = fixture_url();
+    let pipeline = eng
+        .load_pipeline(&two_plugin_yaml(&url, &url), opts(), &tx)
+        .await
+        .expect("both load");
+    // Declaration order preserved despite concurrent completion.
+    assert_eq!(pipeline.plugin_names(), vec!["a", "b"]);
+    assert_eq!(pipeline.step_count(), 2);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn first_failure_aborts_without_panicking() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(256);
+    let good = fixture_url();
+    let err = match eng
+        .load_pipeline(&two_plugin_yaml(&good, "file:///no/such.wasm"), opts(), &tx)
+        .await
+    {
+        Ok(_) => panic!("one bad url fails the load"),
+        Err(e) => e,
+    };
+    assert_eq!(err.exit_code(), 3);
+    assert!(matches!(err, EngineError::PluginLoad { .. }));
+}

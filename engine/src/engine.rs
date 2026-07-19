@@ -106,10 +106,8 @@ impl Engine {
 
 /// A successfully loaded plugin (task result).
 struct Loaded {
-    // Unread by Task 4's serial loop (the `loaded: IndexMap<String, Loaded>` key already carries
-    // the name); Task 5's `JoinSet`-based parallel loader reads it to attribute a completed task
-    // back to its plugin.
-    #[allow(dead_code)]
+    // Read by the `JoinSet`-based parallel loader in `load_pipeline` to attribute a completed
+    // task back to its plugin (tasks complete out of declaration order).
     name: String,
     instance: PluginInstance,
     meta: PluginMetadata,
@@ -214,7 +212,8 @@ async fn resolve_instantiate_init(
 
 impl Engine {
     /// Load a pipeline: parse → config layers → load+init all plugins → validate middleware refs at
-    /// build time → build a `Pipeline`. Plugins load serially here (Task 5 parallelizes).
+    /// build time → build a `Pipeline`. Plugins load concurrently via a `JoinSet`; the first
+    /// failure aborts the rest (§7.4).
     pub async fn load_pipeline(
         &self,
         yaml: &str,
@@ -236,32 +235,72 @@ impl Engine {
         subst_acc.push(base.clone());
         subst_acc.push(release.clone());
 
-        // 3. Substitute each plugin config (declaration order) + load serially.
+        // 3. Substitute each plugin config (serial, declaration order), then load in PARALLEL.
+        let mut set: tokio::task::JoinSet<Result<Loaded, EngineError>> =
+            tokio::task::JoinSet::new();
         let mut plugin_layers = Vec::new();
-        let mut loaded: IndexMap<String, Loaded> = IndexMap::new();
         for plugin in &cfg.plugins.value {
             let cfg_value = substitute_config(&plugin.config, &subst_acc);
             let config_view = value_to_json(&cfg_value);
             plugin_layers.push(cfg_value);
 
-            let l = resolve_instantiate_init(
-                self.wasmtime.clone(),
-                self.cache.clone(),
-                opts.offline,
-                self.tag_ttl,
-                opts.working_directory.clone(),
-                env.clone(),
-                plugin.name.clone(),
-                plugin_url_string(&plugin.url.value),
-                plugin
-                    .permissions
-                    .clone()
-                    .unwrap_or_else(Permissions::full_trust),
-                config_view,
-                events.clone(),
-            )
-            .await?;
-            loaded.insert(plugin.name.clone(), l);
+            let wasmtime = self.wasmtime.clone();
+            let cache = self.cache.clone();
+            let offline = opts.offline;
+            let tag_ttl = self.tag_ttl;
+            let wd = opts.working_directory.clone();
+            let env2 = env.clone();
+            let name = plugin.name.clone();
+            let url = plugin_url_string(&plugin.url.value);
+            let permissions = plugin
+                .permissions
+                .clone()
+                .unwrap_or_else(Permissions::full_trust);
+            let ev = events.clone();
+            set.spawn(async move {
+                resolve_instantiate_init(
+                    wasmtime,
+                    cache,
+                    offline,
+                    tag_ttl,
+                    wd,
+                    env2,
+                    name,
+                    url,
+                    permissions,
+                    config_view,
+                    ev,
+                )
+                .await
+            });
+        }
+
+        let mut loaded_map: std::collections::HashMap<String, Loaded> =
+            std::collections::HashMap::new();
+        while let Some(joined) = set.join_next().await {
+            match joined {
+                Ok(Ok(l)) => {
+                    loaded_map.insert(l.name.clone(), l);
+                }
+                Ok(Err(e)) => {
+                    set.shutdown().await; // first failure aborts the rest (§7.4)
+                    return Err(e);
+                }
+                Err(join_err) => {
+                    set.shutdown().await;
+                    return Err(EngineError::Internal(anyhow::anyhow!(
+                        "plugin load task failed: {join_err}"
+                    )));
+                }
+            }
+        }
+
+        // Reassemble in declaration order (JoinSet completes out of order).
+        let mut loaded: IndexMap<String, Loaded> = IndexMap::new();
+        for plugin in &cfg.plugins.value {
+            if let Some(l) = loaded_map.remove(&plugin.name) {
+                loaded.insert(plugin.name.clone(), l);
+            }
         }
 
         // 4. Seed the run accumulator: base + release + per-plugin config layers (declaration order).
