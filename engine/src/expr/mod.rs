@@ -20,3 +20,7 @@ pub use coerce::{Scalar, coerce};
 pub mod condition;
 
 pub use condition::{ConditionOutcome, EvalError, evaluate_condition, evaluate_halt};
+
+pub mod config_subst;
+
+pub use config_subst::substitute_config;
