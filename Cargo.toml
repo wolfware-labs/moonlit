@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["engine"]
+exclude = ["fixtures/test-plugin"]
 
 [workspace.package]
 version = "0.1.0"
