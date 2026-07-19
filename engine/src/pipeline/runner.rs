@@ -1,6 +1,6 @@
 //! The pipeline runner (§3.1): drives a loaded `Pipeline` step-by-step, streams events, and
-//! returns a `PipelineSummary`. Boundary cancellation is handled here; the during-execute
-//! interruption and step-timeout land in a follow-up. See the Phase-7 design doc.
+//! returns a `PipelineSummary`. Boundary cancellation, during-execute cancellation, and
+//! step-timeout (a fatal abort) are all handled here. See the Phase-7 design doc.
 
 use std::time::{Duration, Instant};
 
@@ -16,6 +16,12 @@ use crate::pipeline::{Pipeline, PipelineEvent, PipelineSummary, StepResult};
 
 const SEED_WARNING: &str = "No middlewares registered in the pipeline.";
 
+enum ExecOutcome {
+    Completed(Result<crate::host::MiddlewareResult, crate::host::HostError>),
+    Cancelled,
+    TimedOut,
+}
+
 pub(crate) async fn run_pipeline(
     pipeline: Pipeline,
     events: Sender<PipelineEvent>,
@@ -26,8 +32,8 @@ pub(crate) async fn run_pipeline(
         steps,
         mut acc,
         working_directory,
+        step_timeout,
         plugin_meta: _,
-        step_timeout: _,
     } = pipeline;
 
     let started = Instant::now();
@@ -140,7 +146,55 @@ pub(crate) async fn run_pipeline(
         let instance = plugins
             .get_mut(&step.plugin)
             .expect("plugin present (validated at load)");
-        let exec = instance.execute(&step.middleware, ctx, &cfg_json).await;
+        let outcome = {
+            let fut = instance.execute(&step.middleware, ctx, &cfg_json);
+            match step_timeout {
+                Some(to) => tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => ExecOutcome::Cancelled,
+                    r = fut => ExecOutcome::Completed(r),
+                    _ = tokio::time::sleep(to) => ExecOutcome::TimedOut,
+                },
+                None => tokio::select! {
+                    biased;
+                    _ = cancel.cancelled() => ExecOutcome::Cancelled,
+                    r = fut => ExecOutcome::Completed(r),
+                },
+            }
+        };
+        let exec = match outcome {
+            ExecOutcome::Completed(r) => r,
+            ExecOutcome::Cancelled => {
+                // In-flight cancel: drop the future (poisons the store, never reused) and stop.
+                terminal_err = Some(EngineError::Execution(
+                    "Pipeline execution was cancelled by the user.".to_string(),
+                ));
+                break;
+            }
+            ExecOutcome::TimedOut => {
+                // Fatal abort regardless of continueOnError (poisoned store, never reused).
+                overall_success = false;
+                let to = step_timeout.expect("timeout branch only runs when Some");
+                let msg = format!("Step '{}' timed out after {:?}", step.name, to);
+                let result = StepResult {
+                    name: step.name.clone(),
+                    successful: false,
+                    skipped: false,
+                    duration: step_started.elapsed(),
+                    error_message: Some(msg.clone()),
+                    warnings: Vec::new(),
+                };
+                let _ = events
+                    .send(PipelineEvent::StepFinished {
+                        step: step.name.clone(),
+                        result: result.clone(),
+                    })
+                    .await;
+                results.push(result);
+                terminal_err = Some(EngineError::Execution(msg));
+                break;
+            }
+        };
 
         // 6. Classify.
         let mut successful;

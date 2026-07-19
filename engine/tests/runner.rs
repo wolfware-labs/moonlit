@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::Duration;
 
 use moonlit_engine::{Engine, EngineError, EngineSettings, PipelineEvent, PipelineOptions};
 use tokio::sync::mpsc::{Receiver, channel};
@@ -259,4 +260,78 @@ async fn all_steps_filtered_out_yields_seed_warning_and_success() {
         summary.warnings,
         vec!["No middlewares registered in the pipeline.".to_string()]
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn step_timeout_is_a_fatal_abort_even_with_continue_on_error() {
+    let mut o = opts();
+    o.step_timeout = Some(Duration::from_millis(150));
+    let yaml = format!(
+        "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: slow\n      run: tp.sleep\n      continueOnError: \"true\"\n      config:\n        ms: \"600000\"\n    - name: after\n      run: tp.log-and-output\n",
+        url = fixture_url()
+    );
+    let (result, _events) = load_and_run(&yaml, o).await;
+    let err = match result {
+        Ok(_) => panic!("timeout must abort"),
+        Err(e) => e,
+    };
+    assert_eq!(err.exit_code(), 4);
+    match err {
+        EngineError::Execution(msg) => assert!(msg.contains("timed out"), "got {msg}"),
+        other => panic!("expected Execution, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancel_before_a_step_stops_with_the_boundary_message() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(1024);
+    let yaml = format!(
+        "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n",
+        url = fixture_url()
+    );
+    let pipeline = eng
+        .load_pipeline(&yaml, opts(), &tx)
+        .await
+        .expect("load ok");
+    let cancel = CancellationToken::new();
+    cancel.cancel(); // already cancelled before the first boundary check
+    let err = match eng.run(pipeline, tx, cancel).await {
+        Ok(_) => panic!("must stop"),
+        Err(e) => e,
+    };
+    match err {
+        EngineError::Execution(msg) => assert_eq!(msg, "Pipeline execution was cancelled."),
+        other => panic!("expected Execution, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancel_during_execute_stops_with_the_user_message() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(1024);
+    let yaml = format!(
+        "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: slow\n      run: tp.sleep\n      config:\n        ms: \"600000\"\n",
+        url = fixture_url()
+    );
+    let pipeline = eng
+        .load_pipeline(&yaml, opts(), &tx)
+        .await
+        .expect("load ok");
+    let cancel = CancellationToken::new();
+    let canceller = cancel.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        canceller.cancel();
+    });
+    let err = match eng.run(pipeline, tx, cancel).await {
+        Ok(_) => panic!("must be cancelled"),
+        Err(e) => e,
+    };
+    match err {
+        EngineError::Execution(msg) => {
+            assert_eq!(msg, "Pipeline execution was cancelled by the user.")
+        }
+        other => panic!("expected Execution, got {other:?}"),
+    }
 }

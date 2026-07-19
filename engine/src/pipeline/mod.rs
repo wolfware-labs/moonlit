@@ -128,8 +128,7 @@ pub struct Pipeline {
     pub(crate) acc: Accumulator,
     // Read by the Phase-7 runner (ReleaseContext).
     pub(crate) working_directory: PathBuf,
-    // Populated by `load_pipeline`; the Task-4 timeout logic reads it. Dormant until then.
-    #[allow(dead_code)]
+    // Populated by `load_pipeline`; read by the runner (during-execute timeout, Task 4).
     pub(crate) step_timeout: Option<Duration>,
     // `plugin_meta` stays write-only for now (a later feature reads it).
     #[allow(dead_code)]
