@@ -191,3 +191,28 @@ async fn first_failure_aborts_without_panicking() {
     assert_eq!(err.exit_code(), 3);
     assert!(matches!(err, EngineError::PluginLoad { .. }));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn middleware_validation_covers_stages_excluded_by_the_filter() {
+    let eng = Engine::new(EngineSettings::default()).unwrap();
+    let (tx, _rx) = channel(64);
+    // The bad `run:` sits in the `other` stage, which the filter excludes — it must STILL fail,
+    // because middleware validation runs over all steps before the stage filter (§7.4).
+    let mut o = opts();
+    o.stages_filter = vec!["build".to_string()];
+    let yaml = format!(
+        "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: ok\n      run: tp.log-and-output\n  other:\n    - name: bad\n      run: tp.nosuch\n",
+        url = fixture_url()
+    );
+    let err = match eng.load_pipeline(&yaml, o, &tx).await {
+        Ok(_) => panic!("must fail on the excluded stage's bad middleware"),
+        Err(e) => e,
+    };
+    assert_eq!(err.exit_code(), 2);
+    match err {
+        EngineError::Config(d) => {
+            assert_eq!(d.message(), "Middleware with name 'nosuch' not found.")
+        }
+        other => panic!("expected Config, got {other:?}"),
+    }
+}

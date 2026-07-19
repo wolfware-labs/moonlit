@@ -13,6 +13,12 @@ pub fn validate(config: &PipelineConfig, src: &Source) -> Result<(), ConfigDiagn
     if config.plugins.value.is_empty() {
         return Err(src.no_plugins(Some(config.plugins.span)));
     }
+    let mut seen = std::collections::HashSet::new();
+    for plugin in &config.plugins.value {
+        if !seen.insert(plugin.name.as_str()) {
+            return Err(src.duplicate_plugin(&plugin.name, config.plugins.span));
+        }
+    }
     Ok(())
 }
 
@@ -52,6 +58,18 @@ mod tests {
         }
     }
 
+    fn named_plugin(name: &str) -> Plugin {
+        Plugin {
+            name: name.to_string(),
+            url: Spanned::new(
+                PluginUrl::File("file:///p.wasm".to_string()),
+                Span::point(0),
+            ),
+            config: IndexMap::new(),
+            permissions: None,
+        }
+    }
+
     #[test]
     fn zero_stages_is_an_error() {
         let c = config(vec![a_plugin()], Vec::new());
@@ -76,5 +94,18 @@ mod tests {
     fn valid_config_passes() {
         let c = config(vec![a_plugin()], vec![a_stage()]);
         assert!(validate(&c, &Source::new("", "release.yml")).is_ok());
+    }
+
+    #[test]
+    fn duplicate_plugin_names_are_rejected() {
+        let c = config(
+            vec![named_plugin("tp"), named_plugin("tp")],
+            vec![a_stage()],
+        );
+        let err = validate(&c, &Source::new("", "release.yml")).unwrap_err();
+        assert_eq!(
+            err.message(),
+            "Duplicate plugin name 'tp'. Plugin names must be unique."
+        );
     }
 }

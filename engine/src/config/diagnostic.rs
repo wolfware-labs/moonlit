@@ -181,6 +181,16 @@ impl<'a> Source<'a> {
             "unknown middleware",
         )
     }
+
+    /// Two plugins declared with the same alias (engine-chosen message; the C# engine silently
+    /// dropped one — we reject instead).
+    pub fn duplicate_plugin(&self, name: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Duplicate plugin name '{name}'. Plugin names must be unique."),
+            Some(span),
+            "duplicate plugin name",
+        )
+    }
 }
 
 #[cfg(test)]
@@ -232,6 +242,14 @@ mod tests {
         assert_eq!(
             src().middleware_not_found("tag", Span::new(0, 3)).message(),
             "Middleware with name 'tag' not found."
+        );
+    }
+
+    #[test]
+    fn duplicate_plugin_is_verbatim() {
+        assert_eq!(
+            src().duplicate_plugin("gh", Span::new(0, 2)).message(),
+            "Duplicate plugin name 'gh'. Plugin names must be unique."
         );
     }
 }
