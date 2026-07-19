@@ -35,8 +35,8 @@ wasmtime-wasi-http.workspace = true
 anyhow.workspace = true
 hyper.workspace = true
 globset.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies]
 wit-parser.workspace = true
 wiremock.workspace = true
-tempfile.workspace = true

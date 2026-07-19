@@ -157,12 +157,16 @@ impl Cache {
 /// Write `bytes` to `path`, creating parent directories. Writes to a temp sibling then renames so a
 /// crash mid-write never leaves a partial file at `path`.
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("cache path has no parent directory"))?;
+    std::fs::create_dir_all(parent)?;
+    // A uniquely-named temp in the SAME directory (O_EXCL), so the rename is atomic on one
+    // filesystem and two concurrent writers to the same key never share a temp path.
+    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+    std::io::Write::write_all(&mut tmp, bytes)?;
+    tmp.persist(path).map_err(|e| e.error)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -269,5 +273,32 @@ mod tests {
             cache.read_ref("reg/never:tag", Duration::from_secs(900)),
             None
         );
+    }
+
+    #[test]
+    fn write_atomic_is_concurrency_safe_for_one_key() {
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = Arc::new(dir.path().join("blob.bin"));
+        let payload = vec![7u8; 4096];
+        let mut handles = Vec::new();
+        for _ in 0..16 {
+            let p = Arc::clone(&path);
+            let bytes = payload.clone();
+            handles.push(std::thread::spawn(move || {
+                super::write_atomic(&p, &bytes).unwrap()
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+        // Final file is intact (exactly the payload), and no stray *.tmp sibling leaked.
+        assert_eq!(std::fs::read(&*path).unwrap(), payload);
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map(|x| x == "tmp").unwrap_or(false))
+            .collect();
+        assert!(leftovers.is_empty(), "leaked temp files: {leftovers:?}");
     }
 }
