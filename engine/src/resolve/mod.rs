@@ -130,8 +130,6 @@ pub enum ResolveError {
 }
 
 /// Lowercase hex SHA-256 of a string. Used for content-addressing cache keys.
-// Not yet called outside tests: `cache`/`http`/`oci` (later Phase 4 tasks) will call this.
-#[allow(dead_code)]
 pub(crate) fn sha256_hex(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
