@@ -109,7 +109,7 @@ impl WasiHttpView for HostState {
     }
 }
 
-fn build_engine() -> anyhow::Result<Engine> {
+pub(crate) fn build_engine() -> anyhow::Result<Engine> {
     let mut config = Config::new();
     // Deprecated no-op in v46 (async is selected by the *_async APIs); kept behind
     // allow to match the verified build without a deprecation warning under -D warnings.
