@@ -121,13 +121,27 @@ pub(crate) fn log_level(l: raw::LogLevel) -> LogLevel {
     }
 }
 
-// Called by `PluginInstance::execute`, landing in Task 6.
-#[allow(dead_code)]
 pub(crate) fn release_context_to_raw(ctx: &ReleaseContext) -> raw::ReleaseContext {
     raw::ReleaseContext {
         working_directory: ctx.working_directory.clone(),
         step_name: ctx.step_name.clone(),
     }
+}
+
+pub(crate) fn middleware_result(
+    r: crate::host::moonlit::plugin::types::MiddlewareResult,
+) -> Result<MiddlewareResult, HostError> {
+    let mut output = Vec::with_capacity(r.output.len());
+    for (k, json) in r.output {
+        let value = json_str_to_value(&json, &format!("output key '{k}'"))?;
+        output.push((k, value));
+    }
+    Ok(MiddlewareResult {
+        successful: r.successful,
+        error_message: r.error_message,
+        warnings: r.warnings,
+        output,
+    })
 }
 
 #[cfg(test)]

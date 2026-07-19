@@ -179,6 +179,28 @@ impl PluginInstance {
         }
     }
 
+    pub async fn execute(
+        &mut self,
+        middleware: &str,
+        ctx: ReleaseContext,
+        config: &serde_json::Value,
+    ) -> Result<MiddlewareResult, HostError> {
+        self.store.data_mut().current_step = ctx.step_name.clone();
+        let raw_ctx = convert::release_context_to_raw(&ctx);
+        let json = config.to_string();
+        match self
+            .bindings
+            .call_execute(&mut self.store, middleware, &raw_ctx, &json)
+            .await
+        {
+            Ok(raw) => convert::middleware_result(raw),
+            Err(e) => Err(HostError::Trap {
+                op: format!("execute {middleware}"),
+                message: format!("{e:?}"),
+            }),
+        }
+    }
+
     pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, HostError> {
         match self.bindings.call_list_middlewares(&mut self.store).await {
             Ok(list) => Ok(list.into_iter().map(convert::middleware_info).collect()),
