@@ -20,7 +20,7 @@ dotenvy = "0.15"
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 rhai = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process", "sync"] }
 oci-client = { version = "0.17", default-features = false, features = ["rustls-tls"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream"] }
 serde = { version = "1", features = ["derive"] }
@@ -32,3 +32,9 @@ dirs = "6"
 base64 = "0.22"
 wiremock = "0.6"
 tempfile = "3"
+wasmtime = { version = "46.0.1", features = ["component-model", "async"] }
+wasmtime-wasi = "46.0.1"
+wasmtime-wasi-http = "46.0.1"
+anyhow = "1"
+hyper = "1"
+globset = "0.4"

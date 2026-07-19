@@ -16,4 +16,5 @@
 pub mod cache;
 pub mod config;
 pub mod expr;
+pub mod host;
 pub mod resolve;

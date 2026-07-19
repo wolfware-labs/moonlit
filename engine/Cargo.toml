@@ -29,6 +29,12 @@ sha2.workspace = true
 hex.workspace = true
 dirs.workspace = true
 base64.workspace = true
+wasmtime.workspace = true
+wasmtime-wasi.workspace = true
+wasmtime-wasi-http.workspace = true
+anyhow.workspace = true
+hyper.workspace = true
+globset.workspace = true
 
 [dev-dependencies]
 wit-parser.workspace = true
