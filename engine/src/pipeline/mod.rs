@@ -105,17 +105,24 @@ impl HostEventSink for ChannelSink {
 }
 
 /// One flattened, executable step (stages flattened in declaration order; §3.1 step 3).
-// TODO(Task 4): remove once `load_pipeline` constructs `FlatStep` and the Phase-7 runner reads
-// these fields; both are dormant until then, which trips clippy's dead-code lint under `-D warnings`.
-#[allow(dead_code)]
+/// `load_pipeline` (Task 4) constructs these and reads `stage` for the stage filter; the
+/// Phase-7 runner reads the rest (dispatch, conditions, halt, step config) — dormant until then,
+/// which trips clippy's dead-code lint under `-D warnings`.
 pub(crate) struct FlatStep {
     pub(crate) stage: String,
+    #[allow(dead_code)]
     pub(crate) name: String,
+    #[allow(dead_code)]
     pub(crate) plugin: String,
+    #[allow(dead_code)]
     pub(crate) middleware: String,
+    #[allow(dead_code)]
     pub(crate) condition: Option<String>,
+    #[allow(dead_code)]
     pub(crate) halt_if: Option<String>,
+    #[allow(dead_code)]
     pub(crate) continue_on_error: bool,
+    #[allow(dead_code)]
     pub(crate) config: ConfigMap,
 }
 
@@ -124,14 +131,13 @@ pub(crate) struct FlatStep {
 pub struct Pipeline {
     pub(crate) plugins: IndexMap<String, PluginInstance>,
     pub(crate) steps: Vec<FlatStep>,
-    // TODO(Task 4/Phase 7): remove once `load_pipeline` populates `acc` from layered config and
-    // the Phase-7 runner reads it during substitution; dormant until then, which trips clippy's
-    // dead-code lint under `-D warnings`.
+    // `load_pipeline` (Task 4) populates `acc` from layered config; the Phase-7 runner reads it
+    // during substitution. Dormant until then, which trips clippy's dead-code lint under
+    // `-D warnings`.
     #[allow(dead_code)]
     pub(crate) acc: Accumulator,
-    // TODO(Task 4/Phase 7): remove once `load_pipeline` populates `plugin_meta` and the
-    // Phase-7 runner reads it (e.g. for step logging); dormant until then, which trips clippy's
-    // dead-code lint under `-D warnings`.
+    // `load_pipeline` (Task 4) populates `plugin_meta`; the Phase-7 runner reads it (e.g. for
+    // step logging). Dormant until then, which trips clippy's dead-code lint under `-D warnings`.
     #[allow(dead_code)]
     pub(crate) plugin_meta: IndexMap<String, PluginMetadata>,
 }

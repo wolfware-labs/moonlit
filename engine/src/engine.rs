@@ -10,7 +10,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use indexmap::IndexMap;
+use tokio::sync::mpsc::Sender;
+
 use crate::cache::{Cache, SystemClock};
+use crate::config::model::{Permissions, PluginUrl};
+use crate::expr::{Accumulator, substitute_config};
+use crate::host::{HostEventSink, InstanceConfig, PluginInstance, PluginMetadata, value_to_json};
+use crate::pipeline::{ChannelSink, FlatStep, Pipeline, PipelineEvent};
+use crate::resolve::{self, PluginSource, ResolveOptions};
 
 /// Engine-wide settings fixed at construction.
 pub struct EngineSettings {
@@ -75,10 +83,6 @@ impl EngineError {
 }
 
 /// The Moonlit engine: a shared `wasmtime::Engine`, the plugin cache, and settings.
-// TODO(Task 4): remove once `load_pipeline` reads `wasmtime`/`cache`/`tag_ttl` to resolve and
-// instantiate plugins; all three are dormant until then, which trips clippy's dead-code lint
-// under `-D warnings`.
-#[allow(dead_code)]
 pub struct Engine {
     pub(crate) wasmtime: wasmtime::Engine,
     pub(crate) cache: Arc<Cache>,
@@ -96,6 +100,231 @@ impl Engine {
             wasmtime,
             cache: Arc::new(cache),
             tag_ttl: settings.tag_ttl,
+        })
+    }
+}
+
+/// A successfully loaded plugin (task result).
+struct Loaded {
+    // Unread by Task 4's serial loop (the `loaded: IndexMap<String, Loaded>` key already carries
+    // the name); Task 5's `JoinSet`-based parallel loader reads it to attribute a completed task
+    // back to its plugin.
+    #[allow(dead_code)]
+    name: String,
+    instance: PluginInstance,
+    meta: PluginMetadata,
+    middlewares: Vec<String>,
+}
+
+/// The full URL string a `PluginUrl` was built from.
+fn plugin_url_string(u: &PluginUrl) -> String {
+    match u {
+        PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => {
+            s.clone()
+        }
+    }
+}
+
+/// Resolve → instantiate → init → list-middlewares for ONE plugin. All args are owned so this is
+/// `Send + 'static` (Task 5 spawns it on a `JoinSet`). Emits Resolving/PullProgress/Ready.
+#[allow(clippy::too_many_arguments)]
+async fn resolve_instantiate_init(
+    wasmtime: wasmtime::Engine,
+    cache: Arc<Cache>,
+    offline: bool,
+    tag_ttl: Duration,
+    working_directory: PathBuf,
+    env_snapshot: Vec<(String, String)>,
+    name: String,
+    url: String,
+    permissions: Permissions,
+    config_view: serde_json::Value,
+    events: Sender<PipelineEvent>,
+) -> Result<Loaded, EngineError> {
+    let load_err = |message: String| EngineError::PluginLoad {
+        plugin: name.clone(),
+        message,
+    };
+
+    let _ = events
+        .send(PipelineEvent::PluginResolving {
+            name: name.clone(),
+            url: url.clone(),
+        })
+        .await;
+
+    let source = PluginSource::parse(&url).map_err(|e| load_err(e.to_string()))?;
+    let ropts = ResolveOptions { offline, tag_ttl };
+
+    let ev = events.clone();
+    let nm = name.clone();
+    let progress = move |received: u64, total: Option<u64>| {
+        let _ = ev.try_send(PipelineEvent::PluginPullProgress {
+            name: nm.clone(),
+            received,
+            total,
+        });
+    };
+    let progress_fn: &(dyn Fn(u64, Option<u64>) + Send + Sync) = &progress;
+
+    let resolved = resolve::resolve(&source, &ropts, cache.as_ref(), Some(progress_fn))
+        .await
+        .map_err(|e| load_err(e.to_string()))?;
+
+    let bytes = std::fs::read(&resolved.wasm_path)
+        .map_err(|e| load_err(format!("reading {}: {e}", resolved.wasm_path.display())))?;
+
+    let inst_cfg = InstanceConfig {
+        working_directory,
+        permissions,
+        config_view: config_view.clone(),
+        env_snapshot,
+    };
+    let sink: Arc<dyn HostEventSink> = Arc::new(ChannelSink {
+        events: events.clone(),
+    });
+
+    let mut instance = PluginInstance::instantiate(&wasmtime, &bytes, inst_cfg, sink)
+        .await
+        .map_err(|e| load_err(e.to_string()))?;
+    let meta = instance.init(&config_view).await.map_err(load_err)?;
+    let middlewares = instance
+        .list_middlewares()
+        .await
+        .map_err(|e| load_err(e.to_string()))?
+        .into_iter()
+        .map(|m| m.name)
+        .collect();
+
+    let _ = events
+        .send(PipelineEvent::PluginReady {
+            name: name.clone(),
+            version: meta.version.clone(),
+            cached: resolved.cached,
+        })
+        .await;
+
+    Ok(Loaded {
+        name,
+        instance,
+        meta,
+        middlewares,
+    })
+}
+
+impl Engine {
+    /// Load a pipeline: parse → config layers → load+init all plugins → validate middleware refs at
+    /// build time → build a `Pipeline`. Plugins load serially here (Task 5 parallelizes).
+    pub async fn load_pipeline(
+        &self,
+        yaml: &str,
+        opts: PipelineOptions,
+        events: &Sender<PipelineEvent>,
+    ) -> Result<Pipeline, EngineError> {
+        // 1. Parse (ConfigDiagnostic -> EngineError::Config via #[from], exit 2).
+        let cfg = crate::config::parse_config(yaml, "release.yml")?;
+
+        // 2. Base + release layers.
+        let env: Vec<(String, String)> = std::env::vars().collect();
+        let dotenv = std::fs::read_to_string(opts.working_directory.join(".env")).ok();
+        let base = Accumulator::build_base_layer(&env, dotenv.as_deref());
+        let release =
+            Accumulator::build_release_layer(&cfg.variables, &cfg.arguments, &opts.cli_args);
+
+        // Resolver for plugin-config substitution: base + release only (§5.2 step 3).
+        let mut subst_acc = Accumulator::new();
+        subst_acc.push(base.clone());
+        subst_acc.push(release.clone());
+
+        // 3. Substitute each plugin config (declaration order) + load serially.
+        let mut plugin_layers = Vec::new();
+        let mut loaded: IndexMap<String, Loaded> = IndexMap::new();
+        for plugin in &cfg.plugins.value {
+            let cfg_value = substitute_config(&plugin.config, &subst_acc);
+            let config_view = value_to_json(&cfg_value);
+            plugin_layers.push(cfg_value);
+
+            let l = resolve_instantiate_init(
+                self.wasmtime.clone(),
+                self.cache.clone(),
+                opts.offline,
+                self.tag_ttl,
+                opts.working_directory.clone(),
+                env.clone(),
+                plugin.name.clone(),
+                plugin_url_string(&plugin.url.value),
+                plugin
+                    .permissions
+                    .clone()
+                    .unwrap_or_else(Permissions::full_trust),
+                config_view,
+                events.clone(),
+            )
+            .await?;
+            loaded.insert(plugin.name.clone(), l);
+        }
+
+        // 4. Seed the run accumulator: base + release + per-plugin config layers (declaration order).
+        let mut acc = Accumulator::new();
+        acc.push(base);
+        acc.push(release);
+        for layer in plugin_layers {
+            acc.push(layer);
+        }
+
+        // 5. Flatten stages (declaration order) + validate middleware refs over ALL steps (§7.4).
+        let src = crate::config::diagnostic::Source::new(yaml, "release.yml");
+        let mut flat = Vec::new();
+        for stage in &cfg.stages.value {
+            for step in &stage.steps {
+                let run = &step.run.value;
+                let l = loaded.get(&run.plugin).ok_or_else(|| {
+                    EngineError::Config(src.plugin_not_found(&run.plugin, step.run.span))
+                })?;
+                if !l.middlewares.iter().any(|m| m == &run.middleware) {
+                    return Err(EngineError::Config(
+                        src.middleware_not_found(&run.middleware, step.run.span),
+                    ));
+                }
+                flat.push(FlatStep {
+                    stage: stage.name.clone(),
+                    name: step.name.clone(),
+                    plugin: run.plugin.clone(),
+                    middleware: run.middleware.clone(),
+                    condition: step.condition.clone(),
+                    halt_if: step.halt_if.clone(),
+                    continue_on_error: step.continue_on_error,
+                    config: step.config.clone(),
+                });
+            }
+        }
+
+        // 6. Apply the case-insensitive stage filter -> executable steps.
+        let steps = if opts.stages_filter.is_empty() {
+            flat
+        } else {
+            let wanted: Vec<String> = opts
+                .stages_filter
+                .iter()
+                .map(|s| s.to_lowercase())
+                .collect();
+            flat.into_iter()
+                .filter(|f| wanted.contains(&f.stage.to_lowercase()))
+                .collect()
+        };
+
+        // 7. Build the Pipeline (declaration order preserved by the IndexMap).
+        let mut plugins = IndexMap::new();
+        let mut plugin_meta = IndexMap::new();
+        for (name, l) in loaded {
+            plugin_meta.insert(name.clone(), l.meta);
+            plugins.insert(name, l.instance);
+        }
+        Ok(Pipeline {
+            plugins,
+            steps,
+            acc,
+            plugin_meta,
         })
     }
 }

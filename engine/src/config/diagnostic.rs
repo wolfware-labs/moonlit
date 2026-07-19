@@ -174,6 +174,24 @@ impl<'a> Source<'a> {
             "define at least one plugin",
         )
     }
+
+    /// A `run:` referencing a plugin alias that was not declared (verbatim parity string, §7.4).
+    pub fn plugin_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Plugin '{name}' not found."),
+            Some(span),
+            "unknown plugin",
+        )
+    }
+
+    /// A `run:` naming a middleware the plugin does not export (verbatim parity string, §7.4).
+    pub fn middleware_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Middleware with name '{name}' not found."),
+            Some(span),
+            "unknown middleware",
+        )
+    }
 }
 
 #[cfg(test)]
@@ -221,5 +239,17 @@ mod tests {
         let d = src().nuget_removed(Span::new(0, 5));
         assert!(d.message().contains("nuget://"));
         assert!(d.message().contains("oci://"));
+    }
+
+    #[test]
+    fn plugin_and_middleware_not_found_are_verbatim() {
+        assert_eq!(
+            src().plugin_not_found("gh", Span::new(0, 2)).message(),
+            "Plugin 'gh' not found."
+        );
+        assert_eq!(
+            src().middleware_not_found("tag", Span::new(0, 3)).message(),
+            "Middleware with name 'tag' not found."
+        );
     }
 }
