@@ -2,6 +2,7 @@
 //! ready-to-instantiate WebAssembly component bytes. This module owns scheme parsing and the shared
 //! error/option/result types; the per-scheme resolvers live in sibling modules.
 
+pub(crate) mod auth;
 pub(crate) mod file;
 pub(crate) mod http;
 
