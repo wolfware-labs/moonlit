@@ -2,6 +2,8 @@
 //! ready-to-instantiate WebAssembly component bytes. This module owns scheme parsing and the shared
 //! error/option/result types; the per-scheme resolvers live in sibling modules.
 
+pub(crate) mod file;
+
 use std::path::PathBuf;
 use std::time::Duration;
 
