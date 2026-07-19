@@ -86,6 +86,23 @@ pub fn value_to_json(v: &Value) -> serde_json::Value {
     }
 }
 
+/// Inverse of [`value_to_json`]: fold a `serde_json::Value` into the engine's runtime `Value`
+/// (all scalars become strings, preserving the accumulator's "scalars are strings" invariant).
+pub fn json_to_value(j: &serde_json::Value) -> Value {
+    match j {
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(b) => Value::Str(b.to_string()),
+        serde_json::Value::Number(n) => Value::Str(n.to_string()),
+        serde_json::Value::String(s) => Value::Str(s.clone()),
+        serde_json::Value::Array(a) => Value::List(a.iter().map(json_to_value).collect()),
+        serde_json::Value::Object(o) => Value::Map(
+            o.iter()
+                .map(|(k, v)| (k.clone(), json_to_value(v)))
+                .collect(),
+        ),
+    }
+}
+
 /// Parse a guest-supplied `json-value` string, attributing failures to `context`.
 pub fn json_str_to_value(s: &str, context: &str) -> Result<serde_json::Value, HostError> {
     serde_json::from_str(s).map_err(|source| HostError::BadJson {
@@ -146,7 +163,7 @@ pub(crate) fn middleware_result(
 
 #[cfg(test)]
 mod tests {
-    use super::{HostError, json_str_to_value, value_to_json};
+    use super::{HostError, json_str_to_value, json_to_value, value_to_json};
     use crate::expr::value::Value;
     use indexmap::IndexMap;
 
@@ -172,5 +189,31 @@ mod tests {
         assert_eq!(ok["a"], serde_json::json!(1));
         let err = json_str_to_value("{not json", "cfg").unwrap_err();
         assert!(matches!(err, HostError::BadJson { .. }));
+    }
+
+    #[test]
+    fn json_to_value_round_trips_string_scalars() {
+        let json = serde_json::json!({
+            "name": "demo",
+            "nested": { "sha": "abc" },
+            "list": ["x", "y"]
+        });
+        let v = json_to_value(&json);
+        // value_to_json is the inverse for string-only scalar trees (§5.2 lossless).
+        assert_eq!(value_to_json(&v), json);
+    }
+
+    #[test]
+    fn json_to_value_stringifies_non_string_scalars() {
+        use crate::expr::value::Value;
+        assert_eq!(
+            json_to_value(&serde_json::json!(3)),
+            Value::Str("3".to_string())
+        );
+        assert_eq!(
+            json_to_value(&serde_json::json!(true)),
+            Value::Str("true".to_string())
+        );
+        assert_eq!(json_to_value(&serde_json::json!(null)), Value::Null);
     }
 }

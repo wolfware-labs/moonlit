@@ -20,6 +20,7 @@ regex.workspace = true
 chrono.workspace = true
 rhai.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 oci-client.workspace = true
 reqwest.workspace = true
 serde.workspace = true

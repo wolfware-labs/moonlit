@@ -19,7 +19,7 @@ use wasmtime_wasi_http::p2::{WasiHttpCtxView, WasiHttpView};
 
 use net::AllowlistHooks;
 
-pub use convert::{HostError, json_str_to_value, value_to_json};
+pub use convert::{HostError, json_str_to_value, json_to_value, value_to_json};
 pub use convert::{LogLevel, MiddlewareInfo, MiddlewareResult, PluginMetadata, ReleaseContext};
 
 /// Everything needed to instantiate one plugin (Phase 6 fills these from the run).
