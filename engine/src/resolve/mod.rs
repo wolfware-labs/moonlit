@@ -25,8 +25,8 @@ pub enum PluginSource {
 }
 
 impl PluginSource {
-    /// Parse a plugin URL (§4.3). `nuget://` and unknown schemes produce [`ResolveError::UnsupportedScheme`];
-    /// a URL with no scheme produces [`ResolveError::InvalidReference`].
+    /// Parse a plugin URL (§4.3). Unknown schemes produce [`ResolveError::UnsupportedScheme`]; a URL
+    /// with no scheme produces [`ResolveError::InvalidReference`].
     pub fn parse(url: &str) -> Result<Self, ResolveError> {
         let url = url.trim();
         if let Some(rest) = url.strip_prefix("oci://") {
@@ -40,12 +40,6 @@ impl PluginSource {
             return Ok(PluginSource::Http(url.to_string()));
         }
         if let Some(scheme) = url.split_once("://").map(|(s, _)| s) {
-            if scheme == "nuget" {
-                return Err(ResolveError::UnsupportedScheme {
-                    scheme: "nuget".to_string(),
-                    hint: "The 'nuget://' plugin scheme was removed in Moonlit 2.0. Publish the plugin to an OCI registry and reference it as 'oci://<host>/<namespace>/<name>:<tag>'.".to_string(),
-                });
-            }
             return Err(ResolveError::UnsupportedScheme {
                 scheme: scheme.to_string(),
                 hint: "Supported schemes are: oci, file, http, https.".to_string(),
@@ -203,14 +197,15 @@ mod tests {
     }
 
     #[test]
-    fn nuget_scheme_is_a_hard_error_with_migration_hint() {
+    fn nuget_scheme_is_now_a_generic_unsupported_scheme() {
         let err = PluginSource::parse("nuget://Some.Plugin/1.0.0").unwrap_err();
         match err {
             ResolveError::UnsupportedScheme { scheme, hint } => {
                 assert_eq!(scheme, "nuget");
-                assert_eq!(
-                    hint,
-                    "The 'nuget://' plugin scheme was removed in Moonlit 2.0. Publish the plugin to an OCI registry and reference it as 'oci://<host>/<namespace>/<name>:<tag>'."
+                assert!(hint.contains("oci"), "hint lists supported schemes: {hint}");
+                assert!(
+                    !hint.to_lowercase().contains("removed"),
+                    "no migration/legacy language"
                 );
             }
             other => panic!("expected UnsupportedScheme, got {other:?}"),

@@ -125,17 +125,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A plugin `url:` using the removed `nuget://` scheme.
-    pub fn nuget_removed(&self, span: Span) -> ConfigDiagnostic {
-        self.make(
-            "The 'nuget://' plugin URL scheme was removed in Moonlit 2.0. \
-             Publish the plugin to an OCI registry and use 'oci://' instead."
-                .to_string(),
-            Some(span),
-            "migrate to 'oci://'",
-        )
-    }
-
     /// A plugin `url:` that is not an absolute URL with a supported scheme.
     pub fn invalid_url(&self, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
@@ -232,13 +221,6 @@ mod tests {
             "At least one plugin configuration must be provided."
         );
         assert!(d.span().is_some());
-    }
-
-    #[test]
-    fn nuget_is_rejected_with_migration_hint() {
-        let d = src().nuget_removed(Span::new(0, 5));
-        assert!(d.message().contains("nuget://"));
-        assert!(d.message().contains("oci://"));
     }
 
     #[test]

@@ -157,7 +157,6 @@ fn convert_url(node: &Node, src: &Source) -> Result<Spanned<PluginUrl>, ConfigDi
         Some("file") => PluginUrl::File(raw.clone()),
         Some("http") => PluginUrl::Http(raw.clone()),
         Some("https") => PluginUrl::Https(raw.clone()),
-        Some("nuget") => return Err(src.nuget_removed(node.span)),
         _ => return Err(src.invalid_url(&raw, node.span)),
     };
     Ok(Spanned::new(url, node.span))
@@ -429,16 +428,20 @@ stages:
     }
 
     #[test]
-    fn url_schemes_classified_and_nuget_rejected() {
+    fn url_schemes_classified() {
         let c = ok(
             "plugins:\n  - name: a\n    url: oci://r/x:1\n  - name: b\n    url: file:///p.wasm\n  - name: c\n    url: https://h/p.wasm\nstages:\n  s:\n    - name: s1\n      run: a.x\n",
         );
         assert!(matches!(c.plugins.value[0].url.value, PluginUrl::Oci(_)));
         assert!(matches!(c.plugins.value[1].url.value, PluginUrl::File(_)));
         assert!(matches!(c.plugins.value[2].url.value, PluginUrl::Https(_)));
+    }
 
+    #[test]
+    fn nuget_scheme_is_a_generic_invalid_url() {
         let err = parse("plugins:\n  - name: a\n    url: nuget://old/pkg\nstages:\n  s:\n    - name: s1\n      run: a.x\n").unwrap_err();
-        assert!(err.message().contains("nuget://") && err.message().contains("oci://"));
+        assert!(err.message().contains("Invalid plugin url"));
+        assert!(!err.message().to_lowercase().contains("removed"));
     }
 
     #[test]
