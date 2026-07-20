@@ -22,6 +22,13 @@ pub use result::{MiddlewareResult, Output};
 
 pub mod config;
 
+mod context;
+#[cfg(target_arch = "wasm32")]
+pub use context::RealHost;
+pub use context::{Context, Host, LogLevel};
+
+pub mod testing;
+
 #[cfg(test)]
 mod wit_drift {
     /// The vendored canonical WIT must match the engine's source of truth when
