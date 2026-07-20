@@ -7,22 +7,17 @@ use moonlit_engine::{LogLevel, PipelineEvent, StepResult};
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer};
 
-// Not yet constructed: the run command instantiates a renderer via `render::for_mode` in a
-// later task.
-#[allow(dead_code)]
 pub struct PlainRenderer<W: Write + Send> {
     out: W,
     verbose: bool,
 }
 
 impl<W: Write + Send> PlainRenderer<W> {
-    #[allow(dead_code)]
     pub fn new(out: W, verbose: bool) -> Self {
         Self { out, verbose }
     }
 }
 
-#[allow(dead_code)]
 fn level_tag(level: LogLevel) -> &'static str {
     match level {
         LogLevel::Trace => "TRACE",
@@ -125,7 +120,6 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
 }
 
 impl<W: Write + Send> PlainRenderer<W> {
-    #[allow(dead_code)]
     fn step_finished(&mut self, result: &StepResult) {
         if result.skipped {
             return; // the `↷` line was already printed on StepSkipped

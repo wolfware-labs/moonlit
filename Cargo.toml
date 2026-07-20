@@ -21,7 +21,7 @@ dotenvy = "0.15"
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 rhai = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process", "sync", "time", "signal"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 oci-client = { version = "0.17", default-features = false, features = ["rustls-tls"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream"] }

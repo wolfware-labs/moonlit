@@ -21,9 +21,6 @@ pub struct PrettyRenderer {
 }
 
 impl PrettyRenderer {
-    // Not yet constructed outside `for_mode`, which is itself not yet wired to `main` (a later
-    // task).
-    #[allow(dead_code)]
     pub fn new(verbose: bool) -> Self {
         Self {
             mp: MultiProgress::new(),

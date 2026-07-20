@@ -5,11 +5,14 @@ use moonlit_engine::{Engine, EngineError, PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+use moonlit_engine::EngineSettings;
+
+use crate::cli::{OutputMode, RunArgs};
 use crate::render::{Header, Renderer};
+use crate::{input, render, signal};
 
 /// Run (or, when `load_only`, just load/validate) a pipeline, rendering the event stream.
 /// Returns `Ok(Some(summary))` on a completed run, `Ok(None)` for `load_only`, or the engine error.
-#[allow(dead_code)]
 pub async fn execute(
     engine: &Engine,
     yaml: &str,
@@ -59,12 +62,95 @@ pub async fn execute(
 }
 
 /// Map an outcome to a process exit code: success 0, otherwise the engine's category code.
-#[allow(dead_code)]
 pub fn exit_code(outcome: &Result<Option<PipelineSummary>, EngineError>) -> i32 {
     match outcome {
         Ok(_) => 0,
         Err(e) => e.exit_code(),
     }
+}
+
+/// Build a `Header` from resolved inputs and the active stage filter.
+fn build_header(resolved: &input::ResolvedInput, stages_filter: &[String]) -> Header {
+    let peeked = input::peek_stages(&resolved.yaml);
+    let stages = if stages_filter.is_empty() {
+        peeked
+    } else {
+        stages_filter.to_vec()
+    };
+    Header {
+        version: env!("CARGO_PKG_VERSION"),
+        name: input::peek_name(&resolved.yaml),
+        working_dir: resolved.working_directory.display().to_string(),
+        config_file: resolved.chosen_name.clone(),
+        stages,
+    }
+}
+
+/// Render an owned error: a miette report (pretty/plain, spans intact) or a json error object.
+/// Generic so it serves both `input::InputError` and `EngineError` — both are
+/// `miette::Diagnostic + Send + Sync + 'static`. `code` is precomputed by the caller because
+/// the error is consumed here (miette::Report::new takes ownership).
+fn report<E>(err: E, code: i32, json: bool)
+where
+    E: miette::Diagnostic + Send + Sync + 'static,
+{
+    if json {
+        let obj =
+            serde_json::json!({ "type": "error", "message": err.to_string(), "exit_code": code });
+        println!("{obj}");
+    } else {
+        eprintln!("{:?}", miette::Report::new(err));
+    }
+}
+
+/// `moonlit run` / `moonlit release` (and `--dry-run`, which loads only).
+pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_run: bool) -> i32 {
+    let stderr_tty = render::stderr_is_tty();
+    let json = render::resolve_mode(output, stderr_tty) == OutputMode::Json;
+
+    let resolved = match input::resolve(args.file, args.working_dir) {
+        Ok(r) => r,
+        Err(e) => {
+            let code = e.exit_code();
+            report(e, code, json);
+            return code;
+        }
+    };
+    let header = build_header(&resolved, &args.stages);
+    let opts = PipelineOptions {
+        working_directory: resolved.working_directory.clone(),
+        stages_filter: args.stages.clone(),
+        cli_args: args.args.clone(),
+        step_timeout: args.step_timeout,
+        offline: args.offline,
+    };
+    let engine = match Engine::new(EngineSettings::default()) {
+        Ok(e) => e,
+        Err(e) => {
+            let code = e.exit_code();
+            report(e, code, json);
+            return code;
+        }
+    };
+    let cancel = CancellationToken::new();
+    signal::spawn_watcher(cancel.clone());
+    let renderer = render::for_mode(output, stderr_tty, verbose);
+
+    let outcome = execute(
+        &engine,
+        &resolved.yaml,
+        opts,
+        header,
+        renderer,
+        cancel,
+        dry_run,
+    )
+    .await;
+    let code = exit_code(&outcome); // free fn from Step 1, exercised in production here
+    if let Err(e) = outcome {
+        report(e, code, json);
+    }
+    code
 }
 
 #[cfg(test)]

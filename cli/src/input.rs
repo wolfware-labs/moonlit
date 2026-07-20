@@ -13,15 +13,12 @@ use serde::Deserialize;
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("{0}")]
 #[diagnostic(code(moonlit::cli::input))]
-#[allow(dead_code)]
 pub struct InputError(pub String);
 
 impl InputError {
-    #[allow(dead_code)]
     fn new(message: impl Into<String>) -> Self {
         Self(message.into())
     }
-    #[allow(dead_code)]
     pub fn exit_code(&self) -> i32 {
         2
     }
@@ -29,25 +26,17 @@ impl InputError {
 
 /// The resolved inputs handed to the engine and header.
 pub struct ResolvedInput {
-    /// Read by Task 7 (run/build_header); unread until then.
-    #[allow(dead_code)]
     pub working_directory: PathBuf,
     /// File name actually used (e.g. `release.yml`), for the header line.
-    /// Read by Task 1 (init); currently only by tests pending integration.
-    #[allow(dead_code)]
     pub chosen_name: String,
-    /// Pipeline YAML content. Read by Task 1 (init); currently only by tests pending integration.
-    #[allow(dead_code)]
+    /// Pipeline YAML content.
     pub yaml: String,
 }
 
 /// Candidate file names tried, in order, when `-f` is not given.
-#[allow(dead_code)]
 const DEFAULT_NAMES: [&str; 2] = ["release.yml", "moonlit.yml"];
 
 /// Resolve CLI inputs from file and working directory arguments.
-/// Used by Task 1 (init) and Task 7 (run); integration pending.
-#[allow(dead_code)]
 pub fn resolve(
     file: Option<PathBuf>,
     working_dir: Option<PathBuf>,
@@ -121,7 +110,6 @@ pub fn resolve(
     })
 }
 
-#[allow(dead_code)]
 fn file_name_of(p: &Path) -> String {
     p.file_name()
         .and_then(|n| n.to_str())
@@ -130,20 +118,16 @@ fn file_name_of(p: &Path) -> String {
 }
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 struct Peek {
     name: Option<String>,
     stages: Option<indexmap::IndexMap<String, serde::de::IgnoredAny>>,
 }
 
-#[allow(dead_code)]
 fn peek(yaml: &str) -> Option<Peek> {
     serde_yaml_ng::from_str(yaml).ok()
 }
 
 /// Best-effort pipeline name for the header (non-authoritative; `None` on any parse failure).
-/// Used by Task 1 (init); integration pending.
-#[allow(dead_code)]
 pub fn peek_name(yaml: &str) -> Option<String> {
     peek(yaml)
         .and_then(|p| p.name)
@@ -151,8 +135,6 @@ pub fn peek_name(yaml: &str) -> Option<String> {
 }
 
 /// Best-effort configured stage names, in order (empty on any parse failure).
-/// Used by Task 1 (init); integration pending.
-#[allow(dead_code)]
 pub fn peek_stages(yaml: &str) -> Vec<String> {
     peek(yaml)
         .and_then(|p| p.stages)

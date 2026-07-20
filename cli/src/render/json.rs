@@ -7,15 +7,11 @@ use moonlit_engine::PipelineEvent;
 
 use super::{Header, Renderer};
 
-// Not yet constructed: the run command instantiates a renderer via `render::for_mode` in a
-// later task.
-#[allow(dead_code)]
 pub struct JsonRenderer<W: Write + Send> {
     out: W,
 }
 
 impl<W: Write + Send> JsonRenderer<W> {
-    #[allow(dead_code)]
     pub fn new(out: W) -> Self {
         Self { out }
     }

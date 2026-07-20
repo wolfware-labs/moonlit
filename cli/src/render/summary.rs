@@ -7,9 +7,6 @@ use comfy_table::{ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
 use moonlit_engine::{PipelineSummary, StepResult};
 
 /// `210ms` under a second, else `3.1s`.
-// Not yet called from `main`: consumed by the plain/pretty renderers once the run command is
-// wired in a later task.
-#[allow(dead_code)]
 pub fn fmt_duration(d: Duration) -> String {
     let ms = d.as_millis();
     if ms < 1000 {
@@ -19,7 +16,6 @@ pub fn fmt_duration(d: Duration) -> String {
     }
 }
 
-#[allow(dead_code)]
 fn status(step: &StepResult) -> &'static str {
     if step.skipped {
         "SKIPPED"
@@ -31,9 +27,6 @@ fn status(step: &StepResult) -> &'static str {
 }
 
 /// Build the `Execution Summary` table: Step · Status · Duration · Error.
-// Not yet called from `main`: consumed by the plain/pretty renderers once the run command is
-// wired in a later task.
-#[allow(dead_code)]
 pub fn build_table(summary: &PipelineSummary) -> Table {
     let mut table = Table::new();
     table

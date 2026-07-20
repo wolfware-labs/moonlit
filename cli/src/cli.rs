@@ -1,5 +1,8 @@
 //! Command-line surface: the `clap` derive tree and shared value types.
 
+use std::path::PathBuf;
+use std::time::Duration;
+
 use clap::{Parser, Subcommand, ValueEnum};
 
 /// The `moonlit` CLI. With no subcommand, behaves like `version` (C# parity).
@@ -27,8 +30,65 @@ pub enum OutputMode {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Run a release pipeline.
+    Run(RunArgs),
+    /// Alias of `run` (docs compatibility).
+    Release(RunArgs),
+    /// Parse, resolve plugins, and verify middleware refs without executing.
+    Validate(ValidateArgs),
     /// Print the banner, version, author, and license.
     Version,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct RunArgs {
+    /// Pipeline file (default: release.yml, then moonlit.yml).
+    #[arg(short = 'f', long = "file")]
+    pub file: Option<PathBuf>,
+
+    /// Working directory (default: current).
+    #[arg(short = 'w', visible_short_alias = 'd', long = "working-dir")]
+    pub working_dir: Option<PathBuf>,
+
+    /// Stage(s) to run; repeatable and comma-separated.
+    #[arg(short = 's', long = "stage", value_delimiter = ',')]
+    pub stages: Vec<String>,
+
+    /// Pipeline argument(s), `key=value`; repeatable.
+    #[arg(short = 'a', long = "arg", value_parser = parse_kv)]
+    pub args: Vec<(String, String)>,
+
+    /// Fail instead of pulling on a cache miss.
+    #[arg(long)]
+    pub offline: bool,
+
+    /// Per-step timeout (e.g. `300s`, `1m30s`).
+    #[arg(long = "step-timeout", value_parser = parse_step_timeout)]
+    pub step_timeout: Option<Duration>,
+
+    /// Load and validate only; do not execute.
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ValidateArgs {
+    #[arg(short = 'f', long = "file")]
+    pub file: Option<PathBuf>,
+    #[arg(short = 'w', visible_short_alias = 'd', long = "working-dir")]
+    pub working_dir: Option<PathBuf>,
+}
+
+/// Parse a `key=value` argument (split on the first `=`).
+pub fn parse_kv(s: &str) -> Result<(String, String), String> {
+    match s.split_once('=') {
+        Some((k, v)) if !k.is_empty() => Ok((k.to_string(), v.to_string())),
+        _ => Err(format!("expected key=value, got '{s}'")),
+    }
+}
+
+fn parse_step_timeout(s: &str) -> Result<Duration, String> {
+    humantime::parse_duration(s).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -57,5 +117,44 @@ mod tests {
             let cli = Cli::try_parse_from(["moonlit", "--output", s]).unwrap();
             assert_eq!(cli.output, Some(want));
         }
+    }
+
+    #[test]
+    fn working_dir_short_alias_d_matches_w() {
+        let a = Cli::try_parse_from(["moonlit", "run", "-w", "/x"]).unwrap();
+        let b = Cli::try_parse_from(["moonlit", "run", "-d", "/x"]).unwrap();
+        let wd = |c: &Cli| match &c.command {
+            Some(Command::Run(r)) => r.working_dir.clone(),
+            _ => None,
+        };
+        assert_eq!(wd(&a), Some(PathBuf::from("/x")));
+        assert_eq!(wd(&a), wd(&b));
+    }
+
+    #[test]
+    fn stages_accept_repeat_and_comma() {
+        let c = Cli::try_parse_from(["moonlit", "run", "-s", "a,b", "-s", "c"]).unwrap();
+        let stages = match c.command {
+            Some(Command::Run(r)) => r.stages,
+            _ => vec![],
+        };
+        assert_eq!(stages, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn parse_kv_splits_first_equals() {
+        assert_eq!(parse_kv("k=v=w"), Ok(("k".into(), "v=w".into())));
+        assert!(parse_kv("noeq").is_err());
+        assert!(parse_kv("=v").is_err());
+    }
+
+    #[test]
+    fn step_timeout_parses_humantime() {
+        let c = Cli::try_parse_from(["moonlit", "run", "--step-timeout", "90s"]).unwrap();
+        let t = match c.command {
+            Some(Command::Run(r)) => r.step_timeout,
+            _ => None,
+        };
+        assert_eq!(t, Some(Duration::from_secs(90)));
     }
 }

@@ -8,9 +8,6 @@ pub mod summary;
 use moonlit_engine::PipelineEvent;
 
 /// Startup header data (MVP_SPEC §9.4.1). `version` is the CLI's own version.
-// Not yet constructed: the run command that builds a `Header` and drives a `Renderer` lands in
-// a later task.
-#[allow(dead_code)]
 pub struct Header {
     pub version: &'static str,
     pub name: Option<String>,
@@ -21,8 +18,6 @@ pub struct Header {
 }
 
 /// Consumes the event stream. One renderer instance handles a whole run.
-// Not yet used: no caller drives a `Renderer` until the run command is wired in a later task.
-#[allow(dead_code)]
 pub trait Renderer: Send {
     fn header(&mut self, header: &Header);
     fn handle(&mut self, event: &PipelineEvent);
@@ -32,8 +27,6 @@ pub trait Renderer: Send {
 use crate::cli::OutputMode;
 
 /// Choose the effective mode: explicit flag wins; otherwise pretty on a TTY, else plain.
-// Not yet called from `main`: wired into the run command's mode factory in a later task.
-#[allow(dead_code)]
 pub fn resolve_mode(opt: Option<OutputMode>, stderr_is_tty: bool) -> OutputMode {
     match opt {
         Some(m) => m,
@@ -45,8 +38,6 @@ pub fn resolve_mode(opt: Option<OutputMode>, stderr_is_tty: bool) -> OutputMode 
 use std::io::IsTerminal;
 
 /// Build the renderer for the resolved mode. Pretty/plain go to stderr; json to stdout.
-// Not yet called from `main`: the run command wires this up in a later task.
-#[allow(dead_code)]
 pub fn for_mode(opt: Option<OutputMode>, stderr_is_tty: bool, verbose: bool) -> Box<dyn Renderer> {
     match resolve_mode(opt, stderr_is_tty) {
         OutputMode::Pretty => Box::new(pretty::PrettyRenderer::new(verbose)),
@@ -56,8 +47,6 @@ pub fn for_mode(opt: Option<OutputMode>, stderr_is_tty: bool, verbose: bool) -> 
 }
 
 /// Whether stderr is a terminal (used to auto-select pretty vs plain).
-// Not yet called from `main`: the run command wires this up in a later task.
-#[allow(dead_code)]
 pub fn stderr_is_tty() -> bool {
     std::io::stderr().is_terminal()
 }
