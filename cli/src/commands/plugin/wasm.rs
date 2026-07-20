@@ -6,8 +6,6 @@ use wasmparser::{Encoding, Parser, Payload, Validator, WasmFeatures};
 // The header (magic + version) is always the first payload of a valid binary,
 // so this loop only ever runs once; suppress clippy's structural lint for it.
 #[allow(clippy::never_loop)]
-// Consumed by `plugin inspect` (Task 2) and `plugin build` (Task 7).
-#[allow(dead_code)]
 pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
     for payload in Parser::new(0).parse_all(bytes) {
         match payload.map_err(|e| format!("not a valid wasm binary: {e}"))? {
@@ -19,8 +17,6 @@ pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
 }
 
 /// Full structural validation; catches truncated or malformed components.
-// Consumed by `plugin inspect` (Task 2) and `plugin build` (Task 7).
-#[allow(dead_code)]
 pub fn validate(bytes: &[u8]) -> Result<(), String> {
     let mut v = Validator::new_with_features(WasmFeatures::all());
     v.validate_all(bytes)

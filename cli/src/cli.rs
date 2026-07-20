@@ -36,8 +36,23 @@ pub enum Command {
     Release(RunArgs),
     /// Parse, resolve plugins, and verify middleware refs without executing.
     Validate(ValidateArgs),
+    /// Scaffold, build, and inspect plugins.
+    #[command(subcommand)]
+    Plugin(PluginCommand),
     /// Print the banner, version, author, and license.
     Version,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PluginCommand {
+    /// Print a component's metadata and middlewares.
+    Inspect(PluginInspectArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct PluginInspectArgs {
+    /// Path to a built `.wasm` component.
+    pub path: PathBuf,
 }
 
 #[derive(Debug, clap::Args)]
