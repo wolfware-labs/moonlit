@@ -1,6 +1,12 @@
 //! `moonlit plugin` — author-facing plugin lifecycle commands.
 
 mod inspect;
+// Pure scaffold logic for the upcoming `plugin new` command; not yet wired
+// into `run`, so its items are unused until that task lands.
+#[allow(dead_code)]
+mod scaffold;
+#[allow(dead_code)]
+mod templates;
 mod wasm;
 
 use crate::cli::{OutputMode, PluginCommand};
