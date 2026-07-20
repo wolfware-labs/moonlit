@@ -43,3 +43,11 @@ impl Host for MockHost {
         self.progress.borrow_mut().push(message.to_string());
     }
 }
+
+use crate::middleware::Middleware;
+use crate::{Context, MiddlewareResult};
+
+/// Run a middleware natively for unit tests.
+pub fn run<M: Middleware>(mw: &M, ctx: &Context, cfg: M::Config) -> MiddlewareResult {
+    mw.execute(ctx, cfg)
+}

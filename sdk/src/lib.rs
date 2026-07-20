@@ -29,6 +29,16 @@ pub use context::{Context, Host, LogLevel};
 
 pub mod testing;
 
+mod middleware;
+pub use middleware::Middleware;
+
+pub mod prelude {
+    pub use crate::config::from_json_value;
+    pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, Output};
+    pub use serde::Deserialize;
+    // `moonlit_plugin!` is re-exported here in Task 6.
+}
+
 #[cfg(test)]
 mod wit_drift {
     /// The vendored canonical WIT must match the engine's source of truth when
