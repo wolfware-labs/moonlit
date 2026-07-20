@@ -65,6 +65,24 @@ impl MiddlewareResult {
         self
     }
 
+    /// Whether the middleware succeeded. Useful in `sdk::testing` unit tests.
+    #[must_use]
+    pub fn is_success(&self) -> bool {
+        self.successful
+    }
+
+    /// The failure message, if this result is a failure.
+    #[must_use]
+    pub fn error_message(&self) -> Option<&str> {
+        self.error_message.as_deref()
+    }
+
+    /// Warnings attached to this result.
+    #[must_use]
+    pub fn warnings(&self) -> &[String] {
+        &self.warnings
+    }
+
     /// Convert to the WIT record. Any captured output-serialization error turns
     /// the whole result into a failure naming the offending key.
     pub fn into_wit(self) -> crate::bindings::MiddlewareResult {
@@ -134,6 +152,19 @@ mod tests {
         let map: std::collections::HashMap<_, _> = w.output.into_iter().collect();
         assert_eq!(map["tag"], "\"v1.2.3\"");
         assert_eq!(map["count"], "7");
+    }
+
+    #[test]
+    fn accessors_expose_outcome() {
+        let ok = MiddlewareResult::success_with(|o| o.set("k", 1)).with_warning("w");
+        assert!(ok.is_success());
+        assert_eq!(ok.error_message(), None);
+        assert_eq!(ok.warnings(), &["w".to_string()]);
+
+        let bad = MiddlewareResult::failure("boom");
+        assert!(!bad.is_success());
+        assert_eq!(bad.error_message(), Some("boom"));
+        assert!(bad.warnings().is_empty());
     }
 
     #[test]
