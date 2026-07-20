@@ -17,6 +17,9 @@ pub mod bindings {
 
 pub use bindings::export;
 
+mod result;
+pub use result::{MiddlewareResult, Output};
+
 #[cfg(test)]
 mod wit_drift {
     /// The vendored canonical WIT must match the engine's source of truth when
