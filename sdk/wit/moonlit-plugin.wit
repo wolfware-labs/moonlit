@@ -1,0 +1,106 @@
+package moonlit:plugin@0.1.0;
+
+/// Core data types shared across the plugin ABI.
+interface types {
+  /// A JSON-encoded dynamic value. The WebAssembly component model forbids
+  /// recursive types, so structured config and output values cross the ABI
+  /// boundary as UTF-8 JSON text and are (de)serialized to a typed value on
+  /// the Rust side (engine host and plugin SDK).
+  type json-value = string;
+
+  enum log-level { trace, debug, info, warn, error }
+
+  record release-context {
+    working-directory: string,
+    /// step name currently executing (for log correlation)
+    step-name: string,
+  }
+
+  record middleware-result {
+    successful: bool,
+    error-message: option<string>,
+    warnings: list<string>,
+    /// step outputs: key -> JSON-encoded value
+    output: list<tuple<string, json-value>>,
+  }
+
+  record middleware-info {
+    name: string,
+    description: string,
+  }
+
+  record plugin-metadata {
+    name: string,
+    version: string,
+    description: string,
+  }
+}
+
+/// Host-provided capabilities beyond standard WASI.
+interface host {
+  use types.{log-level, json-value};
+
+  /// Structured logging routed to the CLI renderer (§9.4).
+  log: func(level: log-level, message: string);
+
+  /// Read a value from the accumulated configuration visible to this step
+  /// (already $()-substituted and permission-filtered). Path uses `:` separators.
+  get-config: func(path: string) -> option<json-value>;
+
+  /// Live sub-step progress shown under the step spinner, e.g. "pushing layer 3/7".
+  report-progress: func(message: string);
+}
+
+/// Subprocess execution -- WASI p2 has no process API; this is the Moonlit
+/// extension. Calls are permission-checked against the plugin's `exec` allowlist.
+interface process {
+  record command {
+    program: string,
+    args: list<string>,
+    cwd: option<string>,
+    env: list<tuple<string, string>>,
+    stdin: option<string>,
+  }
+
+  enum stdio-stream { stdout, stderr }
+
+  record output-chunk { %stream: stdio-stream, line: string }
+
+  resource child {
+    /// Blocking read of the next output line; none = process exited.
+    next-line: func() -> option<output-chunk>;
+    /// Wait for exit; returns exit code.
+    wait: func() -> s32;
+    kill: func();
+  }
+
+  /// Spawn; error string if program not found / not permitted.
+  spawn: func(cmd: command) -> result<child, string>;
+
+  /// Convenience: run to completion, capturing everything.
+  run: func(cmd: command) -> result<tuple<s32, list<output-chunk>>, string>;
+}
+
+world plugin {
+  import host;
+  import process;
+  import wasi:http/outgoing-handler@0.2.3;
+  import wasi:filesystem/types@0.2.3;
+  import wasi:filesystem/preopens@0.2.3;
+  import wasi:cli/environment@0.2.3;
+  import wasi:clocks/wall-clock@0.2.3;
+  import wasi:random/random@0.2.3;
+
+  use types.{json-value, release-context, middleware-result, middleware-info, plugin-metadata};
+
+  /// Called once after instantiation with the plugin-level config block (JSON).
+  /// Returning err aborts the pipeline with a plugin-load diagnostic (exit 3).
+  export init: func(plugin-config: json-value) -> result<plugin-metadata, string>;
+
+  /// Middleware discovery (used by `moonlit plugin inspect` and load-time validation
+  /// of every `run:` reference -- unknown middleware fails fast BEFORE running, exit 2).
+  export list-middlewares: func() -> list<middleware-info>;
+
+  /// Execute one middleware. `config` is the fully-substituted step config (JSON).
+  export execute: func(middleware: string, ctx: release-context, config: json-value) -> middleware-result;
+}

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["engine", "cli"]
+members = ["engine", "cli", "sdk"]
 exclude = ["fixtures/test-plugin"]
 
 [workspace.package]
@@ -13,6 +13,7 @@ rust-version = "1.97"
 
 [workspace.dependencies]
 wit-parser = "0.253"
+wit-bindgen = "0.59.0"
 saphyr-parser = "=0.0.11"
 miette = "7.6"
 thiserror = "2.0"
