@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["engine", "cli", "sdk"]
+members = ["engine", "cli", "sdk", "sdk-macros"]
 exclude = ["fixtures/test-plugin"]
 
 [workspace.package]
@@ -48,3 +48,6 @@ console = "0.16"
 serde_yaml_ng = "0.10"
 humantime = "2"
 assert_cmd = "2"
+syn = "2"
+quote = "1"
+proc-macro2 = "1"

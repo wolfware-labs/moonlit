@@ -1,0 +1,17 @@
+[package]
+name = "moonlit-plugin-sdk-macros"
+version.workspace = true
+edition = "2021"
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Procedural macro for moonlit-plugin-sdk (moonlit_plugin!)."
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true, features = ["full"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }

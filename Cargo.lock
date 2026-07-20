@@ -2058,9 +2058,19 @@ name = "moonlit-plugin-sdk"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "moonlit-plugin-sdk-macros",
  "serde",
  "serde_json",
  "wit-bindgen 0.59.0",
+]
+
+[[package]]
+name = "moonlit-plugin-sdk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

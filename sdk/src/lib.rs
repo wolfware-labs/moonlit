@@ -17,6 +17,8 @@ pub mod bindings {
 
 pub use bindings::export;
 
+pub use moonlit_plugin_sdk_macros::moonlit_plugin;
+
 mod result;
 pub use result::{MiddlewareResult, Output};
 
@@ -34,9 +36,9 @@ pub use middleware::Middleware;
 
 pub mod prelude {
     pub use crate::config::from_json_value;
+    pub use crate::moonlit_plugin;
     pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, Output};
     pub use serde::Deserialize;
-    // `moonlit_plugin!` is re-exported here in Task 6.
 }
 
 #[cfg(test)]
