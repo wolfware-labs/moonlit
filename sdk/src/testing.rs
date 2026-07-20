@@ -12,6 +12,7 @@ pub struct MockHost {
     logs: RefCell<Vec<(LogLevel, String)>>,
     progress: RefCell<Vec<String>>,
     config: HashMap<String, String>,
+    env: HashMap<String, String>,
 }
 
 impl MockHost {
@@ -22,6 +23,12 @@ impl MockHost {
     #[must_use]
     pub fn with_config(mut self, path: &str, json_value: &str) -> Self {
         self.config.insert(path.to_string(), json_value.to_string());
+        self
+    }
+    /// Serve `value` for env var `key`.
+    #[must_use]
+    pub fn with_env(mut self, key: &str, value: &str) -> Self {
+        self.env.insert(key.to_string(), value.to_string());
         self
     }
     pub fn logs(&self) -> Vec<(LogLevel, String)> {
@@ -41,6 +48,15 @@ impl Host for MockHost {
     }
     fn report_progress(&self, message: &str) {
         self.progress.borrow_mut().push(message.to_string());
+    }
+    fn env_var(&self, name: &str) -> Option<String> {
+        self.env.get(name).cloned()
+    }
+    fn env_vars(&self) -> Vec<(String, String)> {
+        self.env
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 }
 

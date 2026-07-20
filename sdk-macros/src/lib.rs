@@ -209,6 +209,8 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             fn log(&self, _l: ::moonlit_plugin_sdk::LogLevel, _m: &str) {}
             fn get_config(&self, _p: &str) -> ::core::option::Option<::std::string::String> { None }
             fn report_progress(&self, _m: &str) {}
+            fn env_var(&self, _n: &str) -> ::core::option::Option<::std::string::String> { None }
+            fn env_vars(&self) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> { ::std::vec::Vec::new() }
         }
 
         ::moonlit_plugin_sdk::export!(MoonlitComponent with_types_in ::moonlit_plugin_sdk::bindings);

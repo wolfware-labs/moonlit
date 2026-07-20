@@ -25,9 +25,14 @@ pub use result::{MiddlewareResult, Output};
 pub mod config;
 
 mod context;
-#[cfg(target_arch = "wasm32")]
-pub use context::RealHost;
 pub use context::{Context, Host, LogLevel};
+
+#[cfg(target_arch = "wasm32")]
+mod real_host;
+#[cfg(target_arch = "wasm32")]
+pub use real_host::RealHost;
+
+pub mod env;
 
 pub mod testing;
 

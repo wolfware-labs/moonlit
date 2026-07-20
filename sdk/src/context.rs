@@ -19,6 +19,11 @@ pub trait Host {
     fn log(&self, level: LogLevel, message: &str);
     fn get_config(&self, path: &str) -> Option<String>;
     fn report_progress(&self, message: &str);
+    /// Read an environment variable (routes to `wasi:cli/environment`, already
+    /// permission-filtered by the engine). `None` if unset or filtered out.
+    fn env_var(&self, name: &str) -> Option<String>;
+    /// All visible environment variables.
+    fn env_vars(&self) -> Vec<(String, String)>;
 }
 
 /// Execution context handed to every middleware.
@@ -85,6 +90,11 @@ impl<'a> Context<'a> {
         crate::config::from_json_value(&raw).ok()
     }
 
+    /// Environment access.
+    pub fn env(&self) -> crate::env::Env<'a> {
+        crate::env::Env::new(self.host)
+    }
+
     /// The plugin's shared state. Panics if the plugin declared no `state:`.
     pub fn state<T: 'static>(&self) -> &T {
         self.state
@@ -98,31 +108,6 @@ impl<'a> Context<'a> {
             .expect("this plugin declared no `config:` in moonlit_plugin!")
             .downcast_ref::<T>()
             .expect("plugin config type mismatch")
-    }
-}
-
-/// The real host, backed by the wit-bindgen imports. wasm-only: the native
-/// import stubs abort if called, so this type does not exist off-wasm.
-#[cfg(target_arch = "wasm32")]
-pub struct RealHost;
-
-#[cfg(target_arch = "wasm32")]
-impl Host for RealHost {
-    fn log(&self, level: LogLevel, message: &str) {
-        use crate::bindings::moonlit::plugin::types::LogLevel as W;
-        let w = match level {
-            LogLevel::Debug => W::Debug,
-            LogLevel::Info => W::Info,
-            LogLevel::Warn => W::Warn,
-            LogLevel::Error => W::Error,
-        };
-        crate::bindings::moonlit::plugin::host::log(w, message);
-    }
-    fn get_config(&self, path: &str) -> Option<String> {
-        crate::bindings::moonlit::plugin::host::get_config(path)
-    }
-    fn report_progress(&self, message: &str) {
-        crate::bindings::moonlit::plugin::host::report_progress(message);
     }
 }
 
