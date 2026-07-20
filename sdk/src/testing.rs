@@ -2,9 +2,10 @@
 //! no wasm build. `run()` is added alongside the Middleware trait (Task 5).
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::context::{Host, LogLevel};
+use crate::process::{ChildHandle, OutputChunk, ProcessCommand, ProcessOutput};
 
 /// A recording, configurable host for native unit tests.
 #[derive(Default)]
@@ -13,6 +14,8 @@ pub struct MockHost {
     progress: RefCell<Vec<String>>,
     config: HashMap<String, String>,
     env: HashMap<String, String>,
+    process_results: RefCell<VecDeque<Result<ProcessOutput, String>>>,
+    recorded_commands: RefCell<Vec<ProcessCommand>>,
 }
 
 impl MockHost {
@@ -37,6 +40,26 @@ impl MockHost {
     pub fn progress(&self) -> Vec<String> {
         self.progress.borrow().clone()
     }
+    /// Enqueue a successful process result (also used as a `spawn` line script).
+    #[must_use]
+    pub fn with_process_result(self, exit_code: i32, chunks: Vec<OutputChunk>) -> Self {
+        self.process_results
+            .borrow_mut()
+            .push_back(Ok(ProcessOutput { exit_code, chunks }));
+        self
+    }
+    /// Enqueue a spawn/run failure.
+    #[must_use]
+    pub fn with_process_error(self, msg: &str) -> Self {
+        self.process_results
+            .borrow_mut()
+            .push_back(Err(msg.to_string()));
+        self
+    }
+    /// Commands passed to `process_run`/`process_spawn`, in order.
+    pub fn recorded_commands(&self) -> Vec<ProcessCommand> {
+        self.recorded_commands.borrow().clone()
+    }
 }
 
 impl Host for MockHost {
@@ -48,6 +71,24 @@ impl Host for MockHost {
     }
     fn report_progress(&self, message: &str) {
         self.progress.borrow_mut().push(message.to_string());
+    }
+    fn process_run(&self, cmd: &ProcessCommand) -> Result<ProcessOutput, String> {
+        self.recorded_commands.borrow_mut().push(cmd.clone());
+        self.process_results
+            .borrow_mut()
+            .pop_front()
+            .unwrap_or_else(|| Err("MockHost: no process result configured".to_string()))
+    }
+    fn process_spawn(&self, cmd: &ProcessCommand) -> Result<Box<dyn ChildHandle>, String> {
+        self.recorded_commands.borrow_mut().push(cmd.clone());
+        match self.process_results.borrow_mut().pop_front() {
+            Some(Ok(out)) => Ok(Box::new(MockChild {
+                lines: out.chunks.into(),
+                exit_code: out.exit_code,
+            })),
+            Some(Err(e)) => Err(e),
+            None => Err("MockHost: no process result configured".to_string()),
+        }
     }
     fn env_var(&self, name: &str) -> Option<String> {
         self.env.get(name).cloned()
@@ -66,4 +107,19 @@ use crate::{Context, MiddlewareResult};
 /// Run a middleware natively for unit tests.
 pub fn run<M: Middleware>(mw: &M, ctx: &Context, cfg: M::Config) -> MiddlewareResult {
     mw.execute(ctx, cfg)
+}
+
+struct MockChild {
+    lines: VecDeque<OutputChunk>,
+    exit_code: i32,
+}
+
+impl ChildHandle for MockChild {
+    fn next_line(&mut self) -> Option<OutputChunk> {
+        self.lines.pop_front()
+    }
+    fn wait(&mut self) -> i32 {
+        self.exit_code
+    }
+    fn kill(&mut self) {}
 }

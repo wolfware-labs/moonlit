@@ -19,6 +19,16 @@ pub trait Host {
     fn log(&self, level: LogLevel, message: &str);
     fn get_config(&self, path: &str) -> Option<String>;
     fn report_progress(&self, message: &str);
+    /// Run a subprocess to completion, capturing output.
+    fn process_run(
+        &self,
+        cmd: &crate::process::ProcessCommand,
+    ) -> Result<crate::process::ProcessOutput, String>;
+    /// Spawn a subprocess for streaming.
+    fn process_spawn(
+        &self,
+        cmd: &crate::process::ProcessCommand,
+    ) -> Result<Box<dyn crate::process::ChildHandle>, String>;
     /// Read an environment variable (routes to `wasi:cli/environment`, already
     /// permission-filtered by the engine). `None` if unset or filtered out.
     fn env_var(&self, name: &str) -> Option<String>;
@@ -93,6 +103,11 @@ impl<'a> Context<'a> {
     /// Environment access.
     pub fn env(&self) -> crate::env::Env<'a> {
         crate::env::Env::new(self.host)
+    }
+
+    /// Subprocess builder for `program`.
+    pub fn command(&self, program: impl Into<String>) -> crate::process::Command<'a> {
+        crate::process::Command::new(self.host, program)
     }
 
     /// The plugin's shared state. Panics if the plugin declared no `state:`.

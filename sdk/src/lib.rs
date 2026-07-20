@@ -34,6 +34,8 @@ pub use real_host::RealHost;
 
 pub mod env;
 
+pub mod process;
+
 pub mod testing;
 
 mod middleware;
@@ -42,6 +44,7 @@ pub use middleware::Middleware;
 pub mod prelude {
     pub use crate::config::from_json_value;
     pub use crate::moonlit_plugin;
+    pub use crate::process::LineHandler;
     pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, Output};
     pub use serde::Deserialize;
 }
