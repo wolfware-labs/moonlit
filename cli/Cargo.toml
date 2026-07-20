@@ -1,0 +1,31 @@
+[package]
+name = "moonlit-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Moonlit CLI: run release pipelines and render their execution."
+
+[[bin]]
+name = "moonlit"
+path = "src/main.rs"
+
+[dependencies]
+moonlit-engine = { path = "../engine" }
+clap.workspace = true
+indicatif.workspace = true
+comfy-table.workspace = true
+console.workspace = true
+miette = { workspace = true, features = ["fancy"] }
+thiserror.workspace = true
+serde_yaml_ng.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+humantime.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+tempfile.workspace = true
