@@ -41,3 +41,4 @@ tempfile.workspace = true
 [dev-dependencies]
 wit-parser.workspace = true
 wiremock.workspace = true
+flate2.workspace = true

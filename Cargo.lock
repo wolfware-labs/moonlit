@@ -2039,6 +2039,7 @@ dependencies = [
  "chrono",
  "dirs",
  "dotenvy",
+ "flate2",
  "globset",
  "hex",
  "hyper",
