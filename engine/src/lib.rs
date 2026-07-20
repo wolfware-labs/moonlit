@@ -16,4 +16,5 @@ pub mod pipeline;
 pub mod resolve;
 
 pub use engine::{Engine, EngineError, EngineSettings, PipelineOptions};
+pub use host::LogLevel;
 pub use pipeline::{Pipeline, PipelineEvent, PipelineSummary, StepResult};

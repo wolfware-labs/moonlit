@@ -4,16 +4,29 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use indexmap::IndexMap;
+use serde::Serialize;
 use tokio::sync::mpsc::Sender;
 
 use crate::config::model::ConfigMap;
 use crate::expr::Accumulator;
 use crate::host::{HostEventSink, LogLevel, PluginInstance, PluginMetadata};
 
+/// Serialize a `Duration` as integer milliseconds (stable json contract; matches the
+/// human `210ms` rendering). Used via `#[serde(serialize_with = ...)]` on duration fields.
+mod duration_ms {
+    use serde::Serializer;
+    use std::time::Duration;
+
+    pub fn serialize<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_u64(d.as_millis() as u64)
+    }
+}
+
 /// Events streamed to the CLI over an mpsc channel. Phase 6 emits the plugin-load events (and
 /// `StepLog`/`StepProgress` while a plugin's `init` runs); the `Step*`/halt/finish events are
 /// produced by the Phase-7 runner.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum PipelineEvent {
     PluginResolving {
         name: String,
@@ -63,22 +76,27 @@ pub enum PipelineEvent {
 }
 
 /// The outcome of one executed step (produced by the Phase-7 runner).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct StepResult {
     pub name: String,
     pub successful: bool,
     pub skipped: bool,
+    #[serde(rename = "duration_ms", serialize_with = "duration_ms::serialize")]
     pub duration: Duration,
     pub error_message: Option<String>,
     pub warnings: Vec<String>,
 }
 
 /// The pipeline run summary (finalized/produced in Phase 7).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct PipelineSummary {
     pub steps: Vec<StepResult>,
     pub successful: bool,
     pub halted: bool,
+    #[serde(
+        rename = "total_duration_ms",
+        serialize_with = "duration_ms::serialize"
+    )]
     pub total_duration: Duration,
     pub warnings: Vec<String>,
 }
@@ -149,3 +167,55 @@ impl Pipeline {
 mod runner;
 
 pub(crate) use runner::run_pipeline;
+
+#[cfg(test)]
+mod serde_tests {
+    use super::*;
+    use crate::host::LogLevel;
+    use std::time::Duration;
+
+    #[test]
+    fn step_log_serializes_tagged_with_lowercase_level() {
+        let ev = PipelineEvent::StepLog {
+            step: "s".into(),
+            level: LogLevel::Warn,
+            message: "m".into(),
+        };
+        let j = serde_json::to_string(&ev).unwrap();
+        assert_eq!(
+            j,
+            r#"{"type":"step_log","step":"s","level":"warn","message":"m"}"#
+        );
+    }
+
+    #[test]
+    fn step_result_duration_serializes_as_milliseconds() {
+        let sr = StepResult {
+            name: "s".into(),
+            successful: true,
+            skipped: false,
+            duration: Duration::from_millis(210),
+            error_message: None,
+            warnings: vec![],
+        };
+        let v = serde_json::to_value(&sr).unwrap();
+        assert_eq!(v["duration_ms"], 210);
+        assert!(v.get("duration").is_none());
+    }
+
+    #[test]
+    fn summary_and_finished_event_are_tagged() {
+        let summary = PipelineSummary {
+            steps: vec![],
+            successful: true,
+            halted: false,
+            total_duration: Duration::from_millis(12340),
+            warnings: vec![],
+        };
+        let ev = PipelineEvent::PipelineFinished { summary };
+        let v = serde_json::to_value(&ev).unwrap();
+        assert_eq!(v["type"], "pipeline_finished");
+        assert_eq!(v["summary"]["total_duration_ms"], 12340);
+        assert_eq!(v["summary"]["successful"], true);
+    }
+}
