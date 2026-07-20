@@ -36,6 +36,8 @@ pub mod env;
 
 pub mod process;
 
+pub mod http;
+
 pub mod testing;
 
 mod middleware;

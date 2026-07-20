@@ -29,6 +29,11 @@ pub trait Host {
         &self,
         cmd: &crate::process::ProcessCommand,
     ) -> Result<Box<dyn crate::process::ChildHandle>, String>;
+    /// Perform a blocking HTTP round-trip.
+    fn http_send(
+        &self,
+        req: &crate::http::HttpRequestData,
+    ) -> Result<crate::http::HttpResponseData, String>;
     /// Read an environment variable (routes to `wasi:cli/environment`, already
     /// permission-filtered by the engine). `None` if unset or filtered out.
     fn env_var(&self, name: &str) -> Option<String>;
@@ -108,6 +113,11 @@ impl<'a> Context<'a> {
     /// Subprocess builder for `program`.
     pub fn command(&self, program: impl Into<String>) -> crate::process::Command<'a> {
         crate::process::Command::new(self.host, program)
+    }
+
+    /// Blocking HTTP client.
+    pub fn http(&self) -> crate::http::Http<'a> {
+        crate::http::Http::new(self.host)
     }
 
     /// The plugin's shared state. Panics if the plugin declared no `state:`.

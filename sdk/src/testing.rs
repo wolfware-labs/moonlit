@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 
 use crate::context::{Host, LogLevel};
+use crate::http::{HttpRequestData, HttpResponseData};
 use crate::process::{ChildHandle, OutputChunk, ProcessCommand, ProcessOutput};
 
 /// A recording, configurable host for native unit tests.
@@ -16,6 +17,8 @@ pub struct MockHost {
     env: HashMap<String, String>,
     process_results: RefCell<VecDeque<Result<ProcessOutput, String>>>,
     recorded_commands: RefCell<Vec<ProcessCommand>>,
+    http_responses: RefCell<VecDeque<Result<HttpResponseData, String>>>,
+    recorded_requests: RefCell<Vec<HttpRequestData>>,
 }
 
 impl MockHost {
@@ -60,6 +63,47 @@ impl MockHost {
     pub fn recorded_commands(&self) -> Vec<ProcessCommand> {
         self.recorded_commands.borrow().clone()
     }
+    /// Enqueue a successful response with no headers.
+    #[must_use]
+    pub fn with_http_response(self, status: u16, body: &[u8]) -> Self {
+        self.http_responses
+            .borrow_mut()
+            .push_back(Ok(HttpResponseData {
+                status,
+                headers: Vec::new(),
+                body: body.to_vec(),
+            }));
+        self
+    }
+    /// Enqueue a successful response with explicit headers.
+    #[must_use]
+    pub fn with_http_response_headers(
+        self,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: &[u8],
+    ) -> Self {
+        self.http_responses
+            .borrow_mut()
+            .push_back(Ok(HttpResponseData {
+                status,
+                headers,
+                body: body.to_vec(),
+            }));
+        self
+    }
+    /// Enqueue a transport failure.
+    #[must_use]
+    pub fn with_http_error(self, msg: &str) -> Self {
+        self.http_responses
+            .borrow_mut()
+            .push_back(Err(msg.to_string()));
+        self
+    }
+    /// Requests passed to `http_send`, in order.
+    pub fn recorded_requests(&self) -> Vec<HttpRequestData> {
+        self.recorded_requests.borrow().clone()
+    }
 }
 
 impl Host for MockHost {
@@ -89,6 +133,13 @@ impl Host for MockHost {
             Some(Err(e)) => Err(e),
             None => Err("MockHost: no process result configured".to_string()),
         }
+    }
+    fn http_send(&self, req: &HttpRequestData) -> Result<HttpResponseData, String> {
+        self.recorded_requests.borrow_mut().push(req.clone());
+        self.http_responses
+            .borrow_mut()
+            .pop_front()
+            .unwrap_or_else(|| Err("MockHost: no http response configured".to_string()))
     }
     fn env_var(&self, name: &str) -> Option<String> {
         self.env.get(name).cloned()

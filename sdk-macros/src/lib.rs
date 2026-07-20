@@ -211,6 +211,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             fn report_progress(&self, _m: &str) {}
             fn process_run(&self, _cmd: &::moonlit_plugin_sdk::process::ProcessCommand) -> ::core::result::Result<::moonlit_plugin_sdk::process::ProcessOutput, ::std::string::String> { Err("process unavailable".to_string()) }
             fn process_spawn(&self, _cmd: &::moonlit_plugin_sdk::process::ProcessCommand) -> ::core::result::Result<::std::boxed::Box<dyn ::moonlit_plugin_sdk::process::ChildHandle>, ::std::string::String> { Err("process unavailable".to_string()) }
+            fn http_send(&self, _req: &::moonlit_plugin_sdk::http::HttpRequestData) -> ::core::result::Result<::moonlit_plugin_sdk::http::HttpResponseData, ::std::string::String> { Err("http unavailable".to_string()) }
             fn env_var(&self, _n: &str) -> ::core::option::Option<::std::string::String> { None }
             fn env_vars(&self) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> { ::std::vec::Vec::new() }
         }
