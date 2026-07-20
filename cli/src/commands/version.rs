@@ -1,5 +1,4 @@
-//! `moonlit version` — figlet-style banner + metadata. License is Elastic-2.0 (constraint
-//! override of MVP_SPEC §9.2's stale `MIT`).
+//! `moonlit version` — figlet-style banner plus name, version, author, and license.
 
 const BANNER: &str = r"
  __  __                _ _ _
