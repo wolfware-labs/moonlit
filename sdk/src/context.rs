@@ -172,4 +172,22 @@ mod tests {
         let ctx = Context::new(&host, "/w".into(), "s".into()).with_state(&s);
         assert_eq!(ctx.state::<S>().n, 7);
     }
+
+    #[test]
+    #[should_panic(expected = "this plugin declared no `state:` in moonlit_plugin!")]
+    fn state_panics_when_plugin_declared_none() {
+        struct S;
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        ctx.state::<S>();
+    }
+
+    #[test]
+    #[should_panic(expected = "this plugin declared no `config:` in moonlit_plugin!")]
+    fn plugin_config_panics_when_plugin_declared_none() {
+        struct C;
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        ctx.plugin_config::<C>();
+    }
 }
