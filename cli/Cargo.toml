@@ -27,6 +27,7 @@ indexmap.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 humantime.workspace = true
+wasmparser.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true

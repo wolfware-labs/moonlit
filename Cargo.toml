@@ -38,6 +38,7 @@ tempfile = "3"
 wasmtime = { version = "46.0.1", features = ["component-model", "async"] }
 wasmtime-wasi = "46.0.1"
 wasmtime-wasi-http = "46.0.1"
+wasmparser = "0.251"
 anyhow = "1"
 hyper = "1"
 globset = "0.4"
