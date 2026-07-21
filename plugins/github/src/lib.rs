@@ -6,3 +6,4 @@ mod config;
 mod context;
 mod create_release;
 mod related_items;
+mod write_variables;
