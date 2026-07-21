@@ -51,7 +51,9 @@ pub fn resolve_context(ctx: &Context) -> Result<GithubContext, MiddlewareResult>
         owner: caps["owner"].to_string(),
         repo: caps["repo"].to_string(),
     };
-    ctx.state::<GithubShared>().context.set(Some(context.clone()));
+    ctx.state::<GithubShared>()
+        .context
+        .set(Some(context.clone()));
     Ok(context)
 }
 
@@ -62,19 +64,26 @@ mod tests {
     use moonlit_plugin_sdk::testing::MockHost;
 
     fn out(text: &str) -> OutputChunk {
-        OutputChunk { stream: StdioStream::Stdout, text: text.to_string() }
+        OutputChunk {
+            stream: StdioStream::Stdout,
+            text: text.to_string(),
+        }
     }
 
     #[test]
     fn parses_https_url() {
-        let host = MockHost::new().with_process_result(0, vec![out("https://github.com/octo/Hello-World.git")]);
+        let host = MockHost::new()
+            .with_process_result(0, vec![out("https://github.com/octo/Hello-World.git")]);
         let shared = GithubShared::default();
         let ctx = Context::new(&host, "/repo".into(), "s".into()).with_state(&shared);
         let c = resolve_context(&ctx).unwrap_or_else(|_| panic!("must resolve"));
         assert_eq!(c.owner, "octo");
         assert_eq!(c.repo, "Hello-World");
         assert_eq!(c.repo_url(), "https://github.com/octo/Hello-World");
-        assert_eq!(c.commit_url_prefix(), "https://github.com/octo/Hello-World/commit/");
+        assert_eq!(
+            c.commit_url_prefix(),
+            "https://github.com/octo/Hello-World/commit/"
+        );
         let cmds = host.recorded_commands();
         assert_eq!(cmds[0].program, "git");
         assert_eq!(cmds[0].cwd.as_deref(), Some("/repo"));
@@ -93,7 +102,8 @@ mod tests {
 
     #[test]
     fn non_github_url_fails_with_exact_message() {
-        let host = MockHost::new().with_process_result(0, vec![out("https://gitlab.com/me/repo.git")]);
+        let host =
+            MockHost::new().with_process_result(0, vec![out("https://gitlab.com/me/repo.git")]);
         let shared = GithubShared::default();
         let ctx = Context::new(&host, "/repo".into(), "s".into()).with_state(&shared);
         let msg = match resolve_context(&ctx) {
@@ -125,6 +135,10 @@ mod tests {
         let a = resolve_context(&ctx).unwrap_or_else(|_| panic!("first resolve"));
         let b = resolve_context(&ctx).unwrap_or_else(|_| panic!("cached resolve"));
         assert_eq!(a.owner, b.owner);
-        assert_eq!(host.recorded_commands().len(), 1, "git must run exactly once");
+        assert_eq!(
+            host.recorded_commands().len(),
+            1,
+            "git must run exactly once"
+        );
     }
 }

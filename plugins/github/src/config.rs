@@ -32,6 +32,10 @@ mod tests {
 
     #[test]
     fn present_token_passes() {
-        assert!((GithubPluginConfig { token: "ghp_x".into() }).validate().is_ok());
+        assert!((GithubPluginConfig {
+            token: "ghp_x".into()
+        })
+        .validate()
+        .is_ok());
     }
 }
