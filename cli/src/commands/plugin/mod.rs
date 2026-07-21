@@ -1,6 +1,5 @@
 //! `moonlit plugin` — author-facing plugin lifecycle commands.
 
-#[allow(dead_code)] // transient: consumed by `plugin build` command in Task 7
 mod build;
 mod inspect;
 mod new;
@@ -14,5 +13,6 @@ pub async fn run(output: Option<OutputMode>, _verbose: bool, cmd: PluginCommand)
     match cmd {
         PluginCommand::Inspect(args) => inspect::run(output, args).await,
         PluginCommand::New(args) => new::run(args),
+        PluginCommand::Build(args) => build::run(args),
     }
 }

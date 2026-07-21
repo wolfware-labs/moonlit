@@ -63,6 +63,91 @@ pub fn wasm_target_installed() -> bool {
         .is_dir()
 }
 
+use crate::cli::PluginBuildArgs;
+
+pub fn run(args: PluginBuildArgs) -> i32 {
+    let crate_dir = args
+        .manifest_path
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    let manifest_file = crate_dir.join("Cargo.toml");
+    let text = match std::fs::read_to_string(&manifest_file) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("error: cannot read {}: {e}", manifest_file.display());
+            return 2;
+        }
+    };
+    let manifest = match parse_manifest(&text) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 2;
+        }
+    };
+    if !manifest.is_cdylib {
+        eprintln!(
+            "error: {} is not a plugin crate (needs [lib] crate-type = [\"cdylib\"])",
+            crate_dir.display()
+        );
+        return 2;
+    }
+
+    if !wasm_target_installed() {
+        eprintln!("error: the wasm32-wasip2 target is not installed");
+        eprintln!("  fix: rustup target add wasm32-wasip2");
+        return 2;
+    }
+
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.current_dir(&crate_dir)
+        .args(["build", "--target", "wasm32-wasip2"]);
+    if args.release {
+        cmd.arg("--release");
+    }
+    let status = match cmd.status() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: failed to run cargo: {e}");
+            return 1;
+        }
+    };
+    if !status.success() {
+        eprintln!("error: cargo build failed");
+        return 4;
+    }
+
+    let artifact = artifact_path(&crate_dir, &manifest.name, args.release);
+    let bytes = match std::fs::read(&artifact) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!(
+                "error: build produced no artifact at {}: {e}",
+                artifact.display()
+            );
+            return 1;
+        }
+    };
+    match super::wasm::is_component(&bytes) {
+        Ok(true) => {}
+        Ok(false) => {
+            eprintln!(
+                "error: {} is a core module, not a component",
+                artifact.display()
+            );
+            return 1;
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 1;
+        }
+    }
+
+    println!("✔ built {} → {}", manifest.name, artifact.display());
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

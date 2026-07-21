@@ -49,6 +49,8 @@ pub enum PluginCommand {
     Inspect(PluginInspectArgs),
     /// Scaffold a new plugin crate.
     New(PluginNewArgs),
+    /// Build the plugin in the current directory to a WASI-P2 component.
+    Build(PluginBuildArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -73,6 +75,16 @@ pub struct PluginNewArgs {
     /// Emit a `path = …` SDK dependency (local dev) instead of a crates.io version.
     #[arg(long)]
     pub sdk_path: Option<PathBuf>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct PluginBuildArgs {
+    /// Build in release mode (optimized, smaller component).
+    #[arg(long)]
+    pub release: bool,
+    /// Directory of the plugin crate (default: current directory).
+    #[arg(long)]
+    pub manifest_path: Option<PathBuf>,
 }
 
 #[derive(Debug, clap::Args)]
