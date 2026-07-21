@@ -4,4 +4,5 @@
 mod api;
 mod config;
 mod context;
+mod create_release;
 mod related_items;
