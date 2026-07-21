@@ -80,8 +80,13 @@ fn map_pr(v: &Value) -> PrOut {
     }
 }
 
-/// Issue numbers referenced by a PR body via `close/fix/resolve #N` (proposed
-/// linkage; pin against 1.x). Case-insensitive.
+/// Issue numbers referenced by a PR body via `close/fix/resolve #N`. Case-insensitive.
+///
+/// Deliberate, verified divergence from 1.x: the C#/.NET plugin derives issues from
+/// `Issue.GetAllForRepository` filtered by `issue.PullRequest.Number ∈ merged-PR set`.
+/// That endpoint returns PRs-as-issues and does not populate `PullRequest.Number`, so
+/// 1.x's issue linkage yields nothing in practice. Parsing the PR body for closing
+/// keywords is the mechanism that actually produces linked issues, so we keep it.
 fn referenced_issues(body: &str) -> Vec<i64> {
     let re =
         regex::Regex::new(r"(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)").unwrap();
