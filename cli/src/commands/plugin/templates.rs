@@ -128,14 +128,43 @@ fn substitute(template: &str, vars: &[(&str, &str)]) -> String {
     out
 }
 
+/// Escape a string for use inside a TOML basic (double-quoted) string body.
+/// The free-form scaffold fields (`namespace`/`description`/`license`) land only
+/// in `moonlit-plugin.toml`; without this a value containing `"` or a newline
+/// would produce invalid TOML. (`name` is crate-name-validated, so it needs none.)
+fn toml_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{08}' => out.push_str("\\b"),
+            '\u{0c}' => out.push_str("\\f"),
+            c if (c < '\u{20}') || c == '\u{7f}' => {
+                out.push_str(&format!("\\u{:04X}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 /// Render every scaffold file as (relative path, contents).
 pub fn render_all(v: &ScaffoldValues) -> Vec<(PathBuf, String)> {
     let artifact = v.name.replace('-', "_");
+    // The three free-form fields are TOML-only tokens; escape them so arbitrary
+    // flag values can never break `moonlit-plugin.toml`'s syntax.
+    let namespace = toml_escape(&v.namespace);
+    let description = toml_escape(&v.description);
+    let license = toml_escape(&v.license);
     let vars = [
         ("{name}", v.name.as_str()),
-        ("{namespace}", v.namespace.as_str()),
-        ("{description}", v.description.as_str()),
-        ("{license}", v.license.as_str()),
+        ("{namespace}", namespace.as_str()),
+        ("{description}", description.as_str()),
+        ("{license}", license.as_str()),
         ("{sdk_dep}", v.sdk_dep.as_str()),
         ("{artifact}", artifact.as_str()),
     ];
@@ -217,6 +246,28 @@ mod tests {
     fn substitute_passes_unknown_brace_tokens_through() {
         // Unknown tokens (e.g. Rust format args in a template body) are untouched.
         assert_eq!(substitute("x {who} y", &[("{name}", "n")]), "x {who} y");
+    }
+
+    #[test]
+    fn plugin_toml_escapes_hostile_field_values() {
+        // A description containing quotes and a newline must still yield valid TOML
+        // that round-trips back to the exact original string.
+        let mut v = values();
+        v.description = "a \"great\" plugin\nsecond line".to_string();
+        v.license = "weird\\license".to_string();
+        let files = render_all(&v);
+        let toml_src = &files
+            .iter()
+            .find(|(p, _)| p.to_str() == Some("moonlit-plugin.toml"))
+            .unwrap()
+            .1;
+        let parsed: toml::Value = toml::from_str(toml_src).expect("scaffolded TOML must be valid");
+        assert_eq!(
+            parsed["description"].as_str().unwrap(),
+            "a \"great\" plugin\nsecond line"
+        );
+        assert_eq!(parsed["license"].as_str().unwrap(), "weird\\license");
+        assert_eq!(parsed["name"].as_str().unwrap(), "my-plugin");
     }
 
     #[test]
