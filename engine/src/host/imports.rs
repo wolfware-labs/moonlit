@@ -3,7 +3,7 @@
 
 use std::process::Stdio;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 use wasmtime::component::Resource;
 
@@ -127,13 +127,31 @@ fn spawn_streaming(cmd: &Command) -> Result<ChildProc, String> {
     for (k, v) in &cmd.env {
         c.env(k, v);
     }
-    c.stdin(Stdio::null());
+    // Pipe stdin only when the command carries a payload; otherwise leave it
+    // closed so children that read stdin see EOF immediately.
+    c.stdin(if cmd.stdin.is_some() {
+        Stdio::piped()
+    } else {
+        Stdio::null()
+    });
     c.stdout(Stdio::piped());
     c.stderr(Stdio::piped());
 
     let mut child = c
         .spawn()
         .map_err(|e| format!("failed to spawn {}: {e}", cmd.program))?;
+
+    // Feed the stdin payload, then close the pipe so the child reads EOF. Done
+    // in a detached task: a payload larger than the pipe buffer would block the
+    // write until the child drains it, so it must run concurrently with the
+    // reader task rather than before we start draining stdout/stderr.
+    if let (Some(input), Some(mut stdin)) = (cmd.stdin.clone(), child.stdin.take()) {
+        tokio::spawn(async move {
+            let _ = stdin.write_all(input.as_bytes()).await;
+            let _ = stdin.shutdown().await;
+        });
+    }
+
     let stdout = child
         .stdout
         .take()
@@ -192,4 +210,48 @@ async fn reader_task(
     drop(tx);
     let code = child.wait().await.ok().and_then(|s| s.code()).unwrap_or(-1);
     let _ = exit_tx.send(code);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `cat` with no args echoes stdin to stdout, so a non-empty output proves
+    /// the host actually feeds `command.stdin` to the child. Regression guard:
+    /// `spawn_streaming` used to hard-wire `Stdio::null()`, silently dropping
+    /// stdin — which left `github write-variables`'s `sh` append writing nothing.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn spawn_streaming_pipes_stdin_to_child() {
+        let cmd = Command {
+            program: "cat".to_string(),
+            args: vec![],
+            cwd: None,
+            env: vec![],
+            stdin: Some("hello from stdin\n".to_string()),
+        };
+        let mut child = spawn_streaming(&cmd).expect("spawn cat");
+        let mut lines = Vec::new();
+        while let Some(chunk) = child.rx.recv().await {
+            lines.push(chunk.line);
+        }
+        assert_eq!(lines, vec!["hello from stdin".to_string()]);
+    }
+
+    /// Absent stdin stays closed: `cat` sees immediate EOF and produces nothing.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn spawn_streaming_without_stdin_reads_eof() {
+        let cmd = Command {
+            program: "cat".to_string(),
+            args: vec![],
+            cwd: None,
+            env: vec![],
+            stdin: None,
+        };
+        let mut child = spawn_streaming(&cmd).expect("spawn cat");
+        let mut lines = Vec::new();
+        while let Some(chunk) = child.rx.recv().await {
+            lines.push(chunk.line);
+        }
+        assert!(lines.is_empty(), "expected no output, got: {lines:?}");
+    }
 }
