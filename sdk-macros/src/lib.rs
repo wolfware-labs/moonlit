@@ -134,6 +134,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             quote! {
                 let parsed: #ty = ::moonlit_plugin_sdk::config::from_json_value(&plugin_config)
                     .map_err(|e| ::std::format!("invalid plugin config: {}", e))?;
+                ::moonlit_plugin_sdk::PluginConfig::validate(&parsed)?;
                 let _ = __MOONLIT_PLUGIN_CONFIG.set(parsed);
             },
             quote! {

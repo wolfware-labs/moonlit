@@ -26,6 +26,15 @@ struct PluginCfg {
     token: String,
 }
 
+impl PluginConfig for PluginCfg {
+    fn validate(&self) -> Result<(), String> {
+        if self.token.trim().is_empty() {
+            return Err("token is required.".to_string());
+        }
+        Ok(())
+    }
+}
+
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
 struct NoCfg {}
@@ -66,8 +75,14 @@ fn state_and_config_flow_through_generated_code() {
         Err(_) => (),
     }
 
+    // Blank token: parses, then `validate()` fails — verbatim message, no `.set`.
+    match <MoonlitComponent as Guest>::init(r#"{"token":""}"#.to_string()) {
+        Ok(_) => panic!("blank token must fail init"),
+        Err(e) => assert_eq!(e, "token is required."),
+    }
+
     // Valid plugin-config: init succeeds and stores it (the earlier failed
-    // attempt returned before calling `.set`, so this `.set` is the first and
+    // attempts returned before calling `.set`, so this `.set` is the first and
     // only successful one for the process-global OnceLock).
     let meta = <MoonlitComponent as Guest>::init(r#"{"token":"abc"}"#.to_string())
         .expect("valid plugin config must init successfully");

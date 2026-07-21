@@ -45,11 +45,15 @@ pub mod testing;
 mod middleware;
 pub use middleware::Middleware;
 
+mod plugin_config;
+pub use plugin_config::PluginConfig;
+
 pub mod prelude {
     pub use crate::config::from_json_value;
     pub use crate::moonlit_plugin;
     pub use crate::process::LineHandler;
     pub use crate::state::Shared;
+    pub use crate::PluginConfig;
     pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, Output};
     pub use serde::Deserialize;
 }
