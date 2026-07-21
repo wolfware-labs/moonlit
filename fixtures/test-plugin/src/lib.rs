@@ -19,6 +19,14 @@ use crate::moonlit::plugin::types::LogLevel;
 struct Component;
 
 impl Guest for Component {
+    fn describe() -> PluginMetadata {
+        PluginMetadata {
+            name: "test-plugin".to_string(),
+            version: "0.1.0".to_string(),
+            description: "Moonlit host test fixture".to_string(),
+        }
+    }
+
     fn init(plugin_config: String) -> Result<PluginMetadata, String> {
         if plugin_config.contains("\"failInit\":true")
             || plugin_config.contains("\"failInit\": true")
@@ -27,11 +35,7 @@ impl Guest for Component {
         {
             return Err("init failed on request (failInit=true)".to_string());
         }
-        Ok(PluginMetadata {
-            name: "test-plugin".to_string(),
-            version: "0.1.0".to_string(),
-            description: "Moonlit host test fixture".to_string(),
-        })
+        Ok(Self::describe())
     }
 
     fn list_middlewares() -> Vec<MiddlewareInfo> {

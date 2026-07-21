@@ -32,7 +32,7 @@ fn package_is_moonlit_plugin_0_1_0() {
 }
 
 #[test]
-fn world_exports_exactly_the_three_entrypoints() {
+fn world_exports_exactly_the_four_entrypoints() {
     let (resolve, _, world_id) = load();
     let world = &resolve.worlds[world_id];
     let mut exports: Vec<&str> = world
@@ -44,7 +44,7 @@ fn world_exports_exactly_the_three_entrypoints() {
         })
         .collect();
     exports.sort_unstable();
-    assert_eq!(exports, ["execute", "init", "list-middlewares"]);
+    assert_eq!(exports, ["describe", "execute", "init", "list-middlewares"]);
 }
 
 #[test]

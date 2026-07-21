@@ -170,6 +170,19 @@ impl PluginInstance {
     }
 
     /// A trap during init folds into the returned `String` (both are exit-3 load failures).
+    /// Static metadata, no config required. `moonlit plugin inspect` uses this
+    /// (with `list_middlewares`) so it never has to validate a config to
+    /// describe a component.
+    pub async fn describe(&mut self) -> Result<PluginMetadata, HostError> {
+        match self.bindings.call_describe(&mut self.store).await {
+            Ok(meta) => Ok(convert::metadata(meta)),
+            Err(e) => Err(HostError::Trap {
+                op: "describe".to_string(),
+                message: format!("{e:?}"),
+            }),
+        }
+    }
+
     pub async fn init(
         &mut self,
         plugin_config: &serde_json::Value,

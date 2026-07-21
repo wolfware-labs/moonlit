@@ -16,6 +16,7 @@ world plugin-host {
 
   use types.{json-value, release-context, middleware-result, middleware-info, plugin-metadata};
 
+  export describe: func() -> plugin-metadata;
   export init: func(plugin-config: json-value) -> result<plugin-metadata, string>;
   export list-middlewares: func() -> list<middleware-info>;
   export execute: func(middleware: string, ctx: release-context, config: json-value) -> middleware-result;

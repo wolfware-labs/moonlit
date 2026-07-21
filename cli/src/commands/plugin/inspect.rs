@@ -85,7 +85,9 @@ async fn introspect(bytes: &[u8]) -> Result<(PluginMetadata, Vec<MiddlewareInfo>
     let mut inst = PluginInstance::instantiate(&engine, bytes, cfg, Arc::new(SilentSink))
         .await
         .map_err(|e| e.to_string())?;
-    let meta = inst.init(&serde_json::json!({})).await?;
+    // `describe` (not `init`): inspection must not validate config — a plugin
+    // with a required config (e.g. github's token) still describes cleanly.
+    let meta = inst.describe().await.map_err(|e| e.to_string())?;
     let mws = inst.list_middlewares().await.map_err(|e| e.to_string())?;
     Ok((meta, mws))
 }

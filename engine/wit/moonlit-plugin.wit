@@ -93,6 +93,11 @@ world plugin {
 
   use types.{json-value, release-context, middleware-result, middleware-info, plugin-metadata};
 
+  /// Static plugin metadata, independent of config. `moonlit plugin inspect`
+  /// uses this (plus `list-middlewares`) so it never needs a valid config to
+  /// describe a component -- unlike `init`, which validates.
+  export describe: func() -> plugin-metadata;
+
   /// Called once after instantiation with the plugin-level config block (JSON).
   /// Returning err aborts the pipeline with a plugin-load diagnostic (exit 3).
   export init: func(plugin-config: json-value) -> result<plugin-metadata, string>;

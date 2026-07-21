@@ -104,3 +104,14 @@ fn state_and_config_flow_through_generated_code() {
     assert_eq!(output["token"], "\"abc\"");
     assert_eq!(output["hits"], "1");
 }
+
+#[test]
+fn describe_returns_metadata_without_validating_config() {
+    // `describe` is the config-free metadata path (`moonlit plugin inspect` uses
+    // it): it must return name/version even though this plugin's `validate()`
+    // rejects the blank config `init` would be handed. It never touches the
+    // plugin-config `OnceLock`, so it is independent of init ordering.
+    let meta = <MoonlitComponent as Guest>::describe();
+    assert_eq!(meta.name, "stateful");
+    assert_eq!(meta.version, env!("CARGO_PKG_VERSION"));
+}

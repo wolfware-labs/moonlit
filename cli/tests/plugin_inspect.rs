@@ -5,6 +5,14 @@ const FIXTURE: &str = concat!(
     "/../engine/tests/fixtures/sdk_sample.wasm"
 );
 
+/// A plugin whose config validation rejects the empty config; inspect must
+/// still describe it. Regression: inspect used to `init({})`, so the
+/// `PluginConfig::validate` hook made this fail with a token error.
+const REQUIRED_CONFIG_FIXTURE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../engine/tests/fixtures/github.wasm"
+);
+
 #[test]
 fn inspect_prints_metadata_and_middlewares() {
     Command::cargo_bin("moonlit")
@@ -36,6 +44,19 @@ fn inspect_json_emits_structured_output() {
         .map(|m| m["name"].as_str().unwrap().to_string())
         .collect();
     assert!(names.contains(&"echo".to_string()));
+}
+
+#[test]
+fn inspect_succeeds_for_required_config_plugin() {
+    Command::cargo_bin("moonlit")
+        .unwrap()
+        .args(["plugin", "inspect", REQUIRED_CONFIG_FIXTURE])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("github"))
+        .stdout(predicates::str::contains("related-items"))
+        .stdout(predicates::str::contains("create-release"))
+        .stdout(predicates::str::contains("write-variables"));
 }
 
 #[test]

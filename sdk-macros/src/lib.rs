@@ -155,6 +155,15 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
         #config_static
 
         impl ::moonlit_plugin_sdk::bindings::Guest for MoonlitComponent {
+            fn describe() -> ::moonlit_plugin_sdk::bindings::PluginMetadata {
+                ::moonlit_plugin_sdk::bindings::PluginMetadata {
+                    name: #name.to_string(),
+                    version: ::core::env!("CARGO_PKG_VERSION").to_string(),
+                    description: ::core::option_env!("CARGO_PKG_DESCRIPTION")
+                        .unwrap_or("").to_string(),
+                }
+            }
+
             fn init(
                 plugin_config: ::std::string::String,
             ) -> ::core::result::Result<
@@ -162,12 +171,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
                 ::std::string::String,
             > {
                 #config_init
-                ::core::result::Result::Ok(::moonlit_plugin_sdk::bindings::PluginMetadata {
-                    name: #name.to_string(),
-                    version: ::core::env!("CARGO_PKG_VERSION").to_string(),
-                    description: ::core::option_env!("CARGO_PKG_DESCRIPTION")
-                        .unwrap_or("").to_string(),
-                })
+                ::core::result::Result::Ok(<Self as ::moonlit_plugin_sdk::bindings::Guest>::describe())
             }
 
             fn list_middlewares(
