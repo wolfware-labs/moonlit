@@ -7,3 +7,18 @@ mod context;
 mod create_release;
 mod related_items;
 mod write_variables;
+
+use moonlit_plugin_sdk::prelude::*;
+
+use config::GithubPluginConfig;
+use context::GithubShared;
+use create_release::CreateRelease;
+use related_items::RelatedItems;
+use write_variables::WriteVariables;
+
+moonlit_plugin! {
+    name: "github",
+    config: GithubPluginConfig,
+    state: GithubShared,
+    middlewares: [RelatedItems, CreateRelease, WriteVariables],
+}
