@@ -7,9 +7,6 @@ use moonlit_plugin_sdk::process::Command;
 #[derive(Default)]
 pub struct GitShared {
     /// Commit SHA of the tag `latest-tag` matched; read by `commits`.
-    // `latest-tag`/`commits` land in a later task; until then no middleware in
-    // this crate reads the field, so silence the premature dead-code lint.
-    #[allow(dead_code)]
     pub latest_tag_sha: Shared<Option<String>>,
 }
 
