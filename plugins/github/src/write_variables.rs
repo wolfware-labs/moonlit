@@ -13,16 +13,25 @@ pub struct WriteVariablesConfig {
     environment: BTreeMap<String, String>,
 }
 
-fn render_lines(map: &BTreeMap<String, String>) -> String {
+fn render_lines(map: &BTreeMap<String, String>) -> Result<String, String> {
     let mut s = String::new();
     for (k, v) in map {
         if v.contains('\n') {
+            // Refuse heredoc delimiter smuggling: a value line equal to the
+            // delimiter would close the heredoc early, letting the remaining
+            // lines inject arbitrary $GITHUB_OUTPUT/$GITHUB_ENV directives into
+            // the runner. Reject rather than silently truncate.
+            if v.lines().any(|l| l.trim() == "EOF") {
+                return Err(format!(
+                    "Refusing to write '{k}': value contains a line equal to the heredoc delimiter 'EOF'."
+                ));
+            }
             s.push_str(&format!("{k}<<EOF\n{v}\nEOF\n"));
         } else {
             s.push_str(&format!("{k}={v}\n"));
         }
     }
-    s
+    Ok(s)
 }
 
 fn append(
@@ -34,7 +43,10 @@ fn append(
         Some(p) if !p.is_empty() => p,
         _ => return Err(MiddlewareResult::failure(format!("{var} is not set."))),
     };
-    let content = render_lines(map);
+    let content = match render_lines(map) {
+        Ok(c) => c,
+        Err(e) => return Err(MiddlewareResult::failure(e)),
+    };
     match ctx
         .command("sh")
         .arg("-c")
@@ -137,5 +149,26 @@ mod tests {
             cmds[0].stdin.as_deref(),
             Some("notes<<EOF\nline1\nline2\nEOF\n")
         );
+    }
+
+    #[test]
+    fn value_with_eof_delimiter_line_is_refused() {
+        // A multiline value whose content contains a bare `EOF` line would close
+        // the heredoc early and smuggle `PATH=/evil` in as a new directive.
+        let host = MockHost::new().with_env("GITHUB_OUTPUT", "/tmp/out");
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let w = run(
+            &WriteVariables,
+            &ctx,
+            cfg_out(&[("notes", "safe\nEOF\nPATH=/evil")]),
+        )
+        .into_wit();
+        assert!(!w.successful);
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("Refusing to write 'notes': value contains a line equal to the heredoc delimiter 'EOF'.")
+        );
+        // Refused before any host command ran.
+        assert!(host.recorded_commands().is_empty());
     }
 }
