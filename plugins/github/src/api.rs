@@ -64,9 +64,18 @@ pub fn get_paginated(ctx: &Context, token: &str, path: &str) -> Result<Vec<Value
 /// POST `body` to `path` (relative to the API base).
 pub fn post_json(ctx: &Context, token: &str, path: &str, body: &Value) -> Result<Response, String> {
     let url = format!("{BASE}{path}");
-    let resp = auth(ctx.http().post(url.as_str()), token).json(body).send()?;
+    let resp = auth(ctx.http().post(url.as_str()), token)
+        .json(body)
+        .send()?;
     check_status(&resp)?;
     Ok(resp)
+}
+
+/// GET a single JSON object (not paginated).
+pub fn get_json(ctx: &Context, token: &str, path: &str) -> Result<Value, String> {
+    let resp = auth(ctx.http().get(format!("{BASE}{path}")), token).send()?;
+    check_status(&resp)?;
+    resp.json::<Value>()
 }
 
 #[cfg(test)]
@@ -81,8 +90,16 @@ mod tests {
         let _ = get_paginated(&ctx, "tok", "/repos/o/r/pulls?state=all").unwrap();
         let reqs = host.recorded_requests();
         assert_eq!(reqs[0].authority, "api.github.com");
-        assert_eq!(reqs[0].path_with_query, "/repos/o/r/pulls?state=all&per_page=100");
-        let has = |k: &str, v: &str| reqs[0].headers.iter().any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v);
+        assert_eq!(
+            reqs[0].path_with_query,
+            "/repos/o/r/pulls?state=all&per_page=100"
+        );
+        let has = |k: &str, v: &str| {
+            reqs[0]
+                .headers
+                .iter()
+                .any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v)
+        };
         assert!(has("authorization", "Bearer tok"));
         assert!(has("user-agent", "moonlit"));
         assert!(has("accept", "application/vnd.github+json"));
@@ -94,7 +111,10 @@ mod tests {
         let host = MockHost::new()
             .with_http_response_headers(
                 200,
-                vec![("link".into(), "<https://api.github.com/x?page=2>; rel=\"next\"".into())],
+                vec![(
+                    "link".into(),
+                    "<https://api.github.com/x?page=2>; rel=\"next\"".into(),
+                )],
                 b"[{\"number\":1}]",
             )
             .with_http_response(200, b"[{\"number\":2}]");
@@ -120,7 +140,13 @@ mod tests {
     fn post_sends_json_body() {
         let host = MockHost::new().with_http_response(201, br#"{"html_url":"u"}"#);
         let ctx = Context::new(&host, "/w".into(), "s".into());
-        let r = post_json(&ctx, "tok", "/repos/o/r/releases", &serde_json::json!({"name":"1.0"})).unwrap();
+        let r = post_json(
+            &ctx,
+            "tok",
+            "/repos/o/r/releases",
+            &serde_json::json!({"name":"1.0"}),
+        )
+        .unwrap();
         assert!(r.is_success());
         let reqs = host.recorded_requests();
         assert_eq!(reqs[0].path_with_query, "/repos/o/r/releases");
