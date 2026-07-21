@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["engine", "cli", "sdk", "sdk-macros"]
-exclude = ["fixtures/test-plugin", "fixtures/sdk-sample"]
+exclude = ["fixtures/test-plugin", "fixtures/sdk-sample", "plugins/git"]
 
 [workspace.package]
 version = "0.1.0"
