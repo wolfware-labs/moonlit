@@ -1,5 +1,7 @@
 //! `moonlit plugin` — author-facing plugin lifecycle commands.
 
+#[allow(dead_code)] // transient: consumed by `plugin build` command in Task 7
+mod build;
 mod inspect;
 mod new;
 mod scaffold;
