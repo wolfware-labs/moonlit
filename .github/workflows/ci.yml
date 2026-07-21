@@ -30,3 +30,7 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: test
         run: cargo test --all
+      - name: git plugin (native, wasm-free)
+        run: |
+          cargo clippy --manifest-path plugins/git/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path plugins/git/Cargo.toml
