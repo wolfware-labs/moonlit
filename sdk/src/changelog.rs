@@ -20,26 +20,27 @@ pub struct Category {
 
 /// Render categories to markdown. Empty categories are skipped. A commit links
 /// to `{commit_url_prefix}{sha}`; the visible short SHA is the first 7 chars.
-/// Categories are separated by one blank line; output ends with a single `\n`.
+/// Each category is followed by one blank line — including the last — so the
+/// output ends with `\n\n` (byte-for-byte with 1.x's per-category `AppendLine()`).
+/// An empty changelog renders to the empty string.
 pub fn render(categories: &[Category], commit_url_prefix: &str) -> String {
-    let mut blocks: Vec<String> = Vec::new();
+    let mut out = String::new();
     for cat in categories {
         if cat.entries.is_empty() {
             continue;
         }
-        let mut block = String::new();
-        block.push_str(&format!("## {} {}\n", cat.icon, cat.name));
-        block.push_str(&format!("#### {}\n", cat.summary));
+        out.push_str(&format!("## {} {}\n", cat.icon, cat.name));
+        out.push_str(&format!("#### {}\n", cat.summary));
         for e in &cat.entries {
             let sha7 = &e.sha[..e.sha.len().min(7)];
-            block.push_str(&format!(
+            out.push_str(&format!(
                 "- {} ([{}]({}{}))\n",
                 e.description, sha7, commit_url_prefix, e.sha
             ));
         }
-        blocks.push(block);
+        out.push('\n');
     }
-    blocks.join("\n")
+    out
 }
 
 #[cfg(test)]
@@ -86,19 +87,22 @@ mod tests {
              \n\
              ## :bug: Bug Fixes\n\
              #### Fixes\n\
-             - fix crash ([def5678](https://github.com/o/r/commit/def5678abc))\n"
+             - fix crash ([def5678](https://github.com/o/r/commit/def5678abc))\n\
+             \n"
         );
     }
 
     #[test]
-    fn single_category_has_no_leading_or_trailing_blank() {
+    fn single_category_ends_with_trailing_blank_line() {
+        // 1.x emits `AppendLine()` after every category, so even a single category
+        // ends with a trailing blank line (`\n\n`).
         let md = render(
             &[cat("Features", ":sparkles:", "New", &[("0123456789", "x")])],
             "https://github.com/o/r/commit/",
         );
         assert_eq!(
             md,
-            "## :sparkles: Features\n#### New\n- x ([0123456](https://github.com/o/r/commit/0123456789))\n"
+            "## :sparkles: Features\n#### New\n- x ([0123456](https://github.com/o/r/commit/0123456789))\n\n"
         );
     }
 
@@ -111,5 +115,11 @@ mod tests {
         let md = render(&cats, "https://github.com/o/r/commit/");
         assert!(!md.contains("Empty"));
         assert!(md.starts_with("## :sparkles: Features\n"));
+    }
+
+    #[test]
+    fn all_empty_categories_render_to_empty_string() {
+        let md = render(&[cat("Empty", ":ghost:", "none", &[])], "https://x/commit/");
+        assert_eq!(md, "");
     }
 }

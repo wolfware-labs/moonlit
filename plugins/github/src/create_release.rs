@@ -83,8 +83,11 @@ impl Middleware for CreateRelease {
         let out_url = created["html_url"].as_str().unwrap_or("").to_string();
 
         // Comment + optional label on each related PR/issue (warn-and-continue).
+        // Byte-for-byte 1.x `GetReleaseComment` text (no trailing newline).
         let comment = format!(
-            ":rocket: **New Release Published!**\n\nThis was included in release [{}]({}).",
+            ":rocket: **New Release Published!**\n\n\
+             :tada: A new version of the project has just been released!\n\n\
+             **:bookmark: Link:** [`{}`]({})",
             out_name, out_url
         );
         let numbers: Vec<i64> = cfg
@@ -246,7 +249,7 @@ mod tests {
             serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
         assert_eq!(
             body["body"],
-            "## :sparkles: Features\n#### New\n- y ([abcdef1](https://github.com/o/r/commit/abcdef1234))\n"
+            "## :sparkles: Features\n#### New\n- y ([abcdef1](https://github.com/o/r/commit/abcdef1234))\n\n"
         );
     }
 
@@ -278,7 +281,7 @@ mod tests {
             serde_json::from_slice(reqs[1].body.as_deref().unwrap()).unwrap();
         assert_eq!(
             cbody["body"],
-            ":rocket: **New Release Published!**\n\nThis was included in release [1.0.0](https://github.com/o/r/releases/1)."
+            ":rocket: **New Release Published!**\n\n:tada: A new version of the project has just been released!\n\n**:bookmark: Link:** [`1.0.0`](https://github.com/o/r/releases/1)"
         );
     }
 }
