@@ -31,7 +31,14 @@ impl Middleware for Push {
         if let Err(f) = ensure_repo(ctx) {
             return f;
         }
-        match git(ctx).arg("remote").arg("get-url").arg(&cfg.remote).run() {
+        // `--end-of-options` keeps a `-`-leading remote name out of git's flag parser.
+        match git(ctx)
+            .arg("remote")
+            .arg("get-url")
+            .arg("--end-of-options")
+            .arg(&cfg.remote)
+            .run()
+        {
             Ok(o) if o.success() => {}
             _ => return MiddlewareResult::failure(format!("Remote '{}' not found.", cfg.remote)),
         }
@@ -51,11 +58,14 @@ impl Middleware for Push {
             result = result.with_warning("current branch has no upstream configured");
         }
 
-        if let Err(f) = run_push(ctx, &["push", &cfg.remote, "HEAD"]) {
+        // `--end-of-options` precedes the remote positional so a `-`-leading remote
+        // cannot be read as a flag. For the tags push, `--tags` is our own option and
+        // must stay *before* the marker; the remote follows it.
+        if let Err(f) = run_push(ctx, &["push", "--end-of-options", &cfg.remote, "HEAD"]) {
             return f;
         }
         if cfg.push_tags {
-            if let Err(f) = run_push(ctx, &["push", &cfg.remote, "--tags"]) {
+            if let Err(f) = run_push(ctx, &["push", "--tags", "--end-of-options", &cfg.remote]) {
                 return f;
             }
         }
@@ -119,8 +129,14 @@ mod tests {
         assert!(result.is_success());
         assert!(result.warnings().is_empty());
         let cmds = host.recorded_commands();
-        assert_eq!(cmds[3].args, vec!["push", "origin", "HEAD"]);
-        assert_eq!(cmds[4].args, vec!["push", "origin", "--tags"]);
+        assert_eq!(
+            cmds[3].args,
+            vec!["push", "--end-of-options", "origin", "HEAD"]
+        );
+        assert_eq!(
+            cmds[4].args,
+            vec!["push", "--tags", "--end-of-options", "origin"]
+        );
     }
 
     #[test]

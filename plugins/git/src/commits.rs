@@ -69,7 +69,16 @@ impl Middleware for Commits {
         let boundary: Option<String> = if let Some(s) = cfg.since_sha.filter(|s| !s.is_empty()) {
             Some(s)
         } else if let Some(since) = cfg.since.filter(|s| !s.is_empty()) {
-            match git(ctx).arg("rev-parse").arg(&since).run() {
+            // `--verify --end-of-options` forces `since` to be read as a revision:
+            // `--verify` yields a single clean SHA on stdout, and `--end-of-options`
+            // stops a `-`-leading value from being parsed as a git flag.
+            match git(ctx)
+                .arg("rev-parse")
+                .arg("--verify")
+                .arg("--end-of-options")
+                .arg(&since)
+                .run()
+            {
                 Ok(o) if o.success() => Some(o.stdout().trim().to_string()),
                 _ => {
                     return MiddlewareResult::failure(format!(
@@ -88,7 +97,16 @@ impl Middleware for Commits {
             None => cfg.until.clone(),
         };
 
-        let out = match git(ctx).arg("log").arg(&range).arg(LOG_FORMAT).run() {
+        // `--end-of-options` after the format option forces `range` to be read as a
+        // revision range even if a config-supplied boundary/until starts with `-`
+        // (so e.g. `--output=…` cannot smuggle a git flag past us).
+        let out = match git(ctx)
+            .arg("log")
+            .arg(LOG_FORMAT)
+            .arg("--end-of-options")
+            .arg(&range)
+            .run()
+        {
             Ok(o) if o.success() => o,
             Ok(o) => {
                 return MiddlewareResult::failure(format!(
@@ -151,7 +169,10 @@ mod tests {
         assert_eq!(details[0]["date"], "2026-01-02T00:00:00Z");
         // range was plain HEAD (no boundary)
         let cmds = host.recorded_commands();
-        assert_eq!(cmds[1].args, vec!["log", "HEAD", LOG_FORMAT]);
+        assert_eq!(
+            cmds[1].args,
+            vec!["log", LOG_FORMAT, "--end-of-options", "HEAD"]
+        );
     }
 
     #[test]
@@ -170,7 +191,10 @@ mod tests {
         let w = run(&Commits, &ctx, CommitsConfig::default()).into_wit();
         assert!(w.successful);
         let cmds = host.recorded_commands();
-        assert_eq!(cmds[1].args, vec!["log", "tagsha..HEAD", LOG_FORMAT]);
+        assert_eq!(
+            cmds[1].args,
+            vec!["log", LOG_FORMAT, "--end-of-options", "tagsha..HEAD"]
+        );
     }
 
     #[test]
@@ -194,7 +218,10 @@ mod tests {
             .collect();
         assert_eq!(map["count"], serde_json::json!(0));
         let cmds = host.recorded_commands();
-        assert_eq!(cmds[1].args, vec!["log", "explicit..HEAD", LOG_FORMAT]);
+        assert_eq!(
+            cmds[1].args,
+            vec!["log", LOG_FORMAT, "--end-of-options", "explicit..HEAD"]
+        );
     }
 
     #[test]
@@ -231,7 +258,13 @@ mod tests {
         let w = run(&Commits, &ctx, cfg).into_wit();
         assert!(w.successful);
         let cmds = host.recorded_commands();
-        assert_eq!(cmds[1].args, vec!["rev-parse", "main"]);
-        assert_eq!(cmds[2].args, vec!["log", "resolvedsha..HEAD", LOG_FORMAT]);
+        assert_eq!(
+            cmds[1].args,
+            vec!["rev-parse", "--verify", "--end-of-options", "main"]
+        );
+        assert_eq!(
+            cmds[2].args,
+            vec!["log", LOG_FORMAT, "--end-of-options", "resolvedsha..HEAD"]
+        );
     }
 }

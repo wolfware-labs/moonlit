@@ -25,7 +25,15 @@ impl Middleware for Tag {
         if let Err(f) = ensure_repo(ctx) {
             return f;
         }
-        match git(ctx).arg("tag").arg("-l").arg(&cfg.tag_name).run() {
+        // `--end-of-options` before the tag name keeps a `-`-leading name (e.g. `-d`)
+        // from being parsed as a git flag; git then rejects it as an invalid tag name.
+        match git(ctx)
+            .arg("tag")
+            .arg("-l")
+            .arg("--end-of-options")
+            .arg(&cfg.tag_name)
+            .run()
+        {
             Ok(o) if o.success() && !o.stdout().trim().is_empty() => {
                 return MiddlewareResult::success()
                     .with_warning(format!("Tag '{}' already exists.", cfg.tag_name));
@@ -34,14 +42,20 @@ impl Middleware for Tag {
             Err(e) => return MiddlewareResult::failure(e),
         }
         let created = match cfg.message.as_deref().filter(|m| !m.is_empty()) {
+            // Options (`-a`, `-m <msg>`) precede `--end-of-options`; the tag name follows it.
             Some(m) => git(ctx)
                 .arg("tag")
                 .arg("-a")
-                .arg(&cfg.tag_name)
                 .arg("-m")
                 .arg(m)
+                .arg("--end-of-options")
+                .arg(&cfg.tag_name)
                 .run(),
-            None => git(ctx).arg("tag").arg(&cfg.tag_name).run(),
+            None => git(ctx)
+                .arg("tag")
+                .arg("--end-of-options")
+                .arg(&cfg.tag_name)
+                .run(),
         };
         match created {
             Ok(o) if o.success() => MiddlewareResult::success(),
@@ -115,7 +129,7 @@ mod tests {
         };
         assert!(run(&Tag, &ctx, cfg).is_success());
         let cmds = host.recorded_commands();
-        assert_eq!(cmds[2].args, vec!["tag", "v2.0.0"]);
+        assert_eq!(cmds[2].args, vec!["tag", "--end-of-options", "v2.0.0"]);
     }
 
     #[test]
@@ -133,7 +147,33 @@ mod tests {
         let cmds = host.recorded_commands();
         assert_eq!(
             cmds[2].args,
-            vec!["tag", "-a", "v2.0.0", "-m", "release 2.0.0"]
+            vec![
+                "tag",
+                "-a",
+                "-m",
+                "release 2.0.0",
+                "--end-of-options",
+                "v2.0.0"
+            ]
         );
+    }
+
+    #[test]
+    fn dash_leading_tag_name_is_guarded_by_end_of_options() {
+        // A config value like "-d" must reach git as a positional (after the
+        // end-of-options marker), never as the `-d`/`--delete` flag.
+        let host = MockHost::new()
+            .with_process_result(0, vec![out(".git")]) // ensure_repo
+            .with_process_result(0, vec![]) // tag -l: not found
+            .with_process_result(0, vec![]); // tag <name>
+        let ctx = Context::new(&host, "/repo".into(), "s".into());
+        let cfg = TagConfig {
+            tag_name: "-d".to_string(),
+            ..Default::default()
+        };
+        assert!(run(&Tag, &ctx, cfg).is_success());
+        let cmds = host.recorded_commands();
+        assert_eq!(cmds[1].args, vec!["tag", "-l", "--end-of-options", "-d"]);
+        assert_eq!(cmds[2].args, vec!["tag", "--end-of-options", "-d"]);
     }
 }
