@@ -40,6 +40,8 @@ pub mod state;
 
 pub mod http;
 
+pub mod changelog;
+
 pub mod testing;
 
 mod middleware;
