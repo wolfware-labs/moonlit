@@ -47,12 +47,32 @@ pub enum Command {
 pub enum PluginCommand {
     /// Print a component's metadata and middlewares.
     Inspect(PluginInspectArgs),
+    /// Scaffold a new plugin crate.
+    New(PluginNewArgs),
 }
 
 #[derive(Debug, clap::Args)]
 pub struct PluginInspectArgs {
     /// Path to a built `.wasm` component.
     pub path: PathBuf,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct PluginNewArgs {
+    /// Crate name for the new plugin (also the directory created).
+    pub name: String,
+    /// Publish namespace (org). Prompted on a TTY; defaults to git user or "my-org".
+    #[arg(long)]
+    pub namespace: Option<String>,
+    /// One-line description. Prompted on a TTY; defaults to empty.
+    #[arg(long)]
+    pub description: Option<String>,
+    /// SPDX license. Prompted on a TTY; defaults to "Apache-2.0".
+    #[arg(long)]
+    pub license: Option<String>,
+    /// Emit a `path = …` SDK dependency (local dev) instead of a crates.io version.
+    #[arg(long)]
+    pub sdk_path: Option<PathBuf>,
 }
 
 #[derive(Debug, clap::Args)]
