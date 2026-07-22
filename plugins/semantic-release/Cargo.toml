@@ -1,0 +1,24 @@
+[package]
+name = "moonlit-plugin-semantic-release"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.97"
+license = "Elastic-2.0"
+publish = false
+description = "Moonlit first-party semantic-release plugin."
+
+[lib]
+name = "semantic_release"
+crate-type = ["cdylib"]
+
+[dependencies]
+moonlit-plugin-sdk = { path = "../../sdk" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+semver = "1"
+globset = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+
+[profile.release]
+opt-level = "s"
