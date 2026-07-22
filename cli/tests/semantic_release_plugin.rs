@@ -1,5 +1,6 @@
 //! Black-box: run the semantic-release trio through `moonlit run` via a file:// ref,
-//! asserting the calculate-version output lands in the plain renderer.
+//! asserting `moonlit run` drives the analyze -> calculate-version trio end-to-end
+//! and exits successfully.
 
 use std::fs;
 use std::path::Path;

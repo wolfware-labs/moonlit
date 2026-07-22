@@ -79,6 +79,19 @@ mod tests {
     }
 
     #[test]
+    fn refine_commits_summary_flag_fails_fast() {
+        let shared = SrShared::default();
+        let host = MockHost::new();
+        let c = cfg(serde_json::json!({ "refineCommitsSummary": true }));
+        let w = run_it(&shared, &host, c);
+        assert!(!w.successful);
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("AI-assisted changelog refinement is not available in this build; set filterNonUserFacingCommits and refineCommitsSummary to false.")
+        );
+    }
+
+    #[test]
     fn empty_commits_succeed_without_output_and_warn() {
         let shared = SrShared::default();
         let host = MockHost::new();
