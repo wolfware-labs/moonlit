@@ -3,6 +3,7 @@
 //! changelog categories. One component instance per run holds `SrShared`.
 
 mod analyze;
+mod calculate_version;
 mod convert;
 mod models;
 mod version;
