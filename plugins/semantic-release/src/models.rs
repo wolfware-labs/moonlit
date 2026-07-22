@@ -5,7 +5,7 @@ use serde::Serialize;
 
 /// A raw commit as produced by the `git` plugin's `commits.details` output.
 /// Only `sha`, `date`, and `message` participate in the algorithm.
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Commit {
     pub sha: String,
@@ -13,18 +13,6 @@ pub struct Commit {
     pub email: String,
     pub date: String,
     pub message: String,
-}
-
-impl Default for Commit {
-    fn default() -> Self {
-        Self {
-            sha: String::new(),
-            author: String::new(),
-            email: String::new(),
-            date: String::new(),
-            message: String::new(),
-        }
-    }
 }
 
 /// A parsed conventional commit. Emitted by `analyze`, stored in `SrShared`, and
@@ -69,16 +57,23 @@ pub struct ReleaseRule {
 
 impl ReleaseRule {
     pub fn new(kind: &str, release: VersionBumpType) -> Self {
-        Self { kind: Some(kind.to_string()), scope: None, release }
+        Self {
+            kind: Some(kind.to_string()),
+            scope: None,
+            release,
+        }
     }
 
     pub fn matches(&self, c: &ConventionalCommit) -> bool {
         let type_ok = self
             .kind
             .as_deref()
-            .map_or(true, |t| t.is_empty() || t.eq_ignore_ascii_case(&c.kind));
-        let scope_ok = self.scope.as_deref().map_or(true, |s| {
-            s.is_empty() || c.scope.as_deref().map_or(false, |cs| cs.eq_ignore_ascii_case(s))
+            .is_none_or(|t| t.is_empty() || t.eq_ignore_ascii_case(&c.kind));
+        let scope_ok = self.scope.as_deref().is_none_or(|s| {
+            s.is_empty()
+                || c.scope
+                    .as_deref()
+                    .is_some_and(|cs| cs.eq_ignore_ascii_case(s))
         });
         type_ok && scope_ok
     }
@@ -106,7 +101,7 @@ impl ChangelogRule {
         }
         self.kind
             .as_deref()
-            .map_or(false, |t| t.eq_ignore_ascii_case(&c.kind))
+            .is_some_and(|t| t.eq_ignore_ascii_case(&c.kind))
             && c.is_breaking_change == self.is_breaking_change
     }
 }
@@ -147,7 +142,11 @@ mod tests {
 
     #[test]
     fn release_rule_with_scope_requires_scope_match() {
-        let r = ReleaseRule { kind: Some("feat".into()), scope: Some("cli".into()), release: VersionBumpType::Minor };
+        let r = ReleaseRule {
+            kind: Some("feat".into()),
+            scope: Some("cli".into()),
+            release: VersionBumpType::Minor,
+        };
         assert!(r.matches(&commit("feat", Some("CLI"), false)));
         assert!(!r.matches(&commit("feat", None, false)));
         assert!(!r.matches(&commit("feat", Some("api"), false)));
@@ -155,11 +154,29 @@ mod tests {
 
     #[test]
     fn changelog_rule_breaking_commit_matches_only_breaking_rule() {
-        let feat = ChangelogRule { kind: Some("feat".into()), is_breaking_change: false, icon: ":sparkles:".into(), section: "Features".into(), summary: "New features".into() };
-        let breaking = ChangelogRule { kind: Some("breaking".into()), is_breaking_change: true, icon: ":boom:".into(), section: "Breaking Changes".into(), summary: "Breaking changes".into() };
+        let feat = ChangelogRule {
+            kind: Some("feat".into()),
+            is_breaking_change: false,
+            icon: ":sparkles:".into(),
+            section: "Features".into(),
+            summary: "New features".into(),
+        };
+        let breaking = ChangelogRule {
+            kind: Some("breaking".into()),
+            is_breaking_change: true,
+            icon: ":boom:".into(),
+            section: "Breaking Changes".into(),
+            summary: "Breaking changes".into(),
+        };
         let breaking_feat = commit("feat", None, true);
-        assert!(!feat.matches(&breaking_feat), "breaking feat must NOT land in Features");
-        assert!(breaking.matches(&breaking_feat), "breaking feat lands in Breaking Changes");
+        assert!(
+            !feat.matches(&breaking_feat),
+            "breaking feat must NOT land in Features"
+        );
+        assert!(
+            breaking.matches(&breaking_feat),
+            "breaking feat lands in Breaking Changes"
+        );
         let plain_feat = commit("feat", None, false);
         assert!(feat.matches(&plain_feat));
         assert!(!breaking.matches(&plain_feat));

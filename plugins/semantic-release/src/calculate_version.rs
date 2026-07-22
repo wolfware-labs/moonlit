@@ -59,7 +59,7 @@ impl Middleware for CalculateVersion {
         let next: Option<Version> = if cfg
             .base_version
             .as_deref()
-            .map_or(true, |b| b.trim().is_empty())
+            .is_none_or(|b| b.trim().is_empty())
         {
             let mut v = match Version::parse(&cfg.initial_version) {
                 Ok(v) => v,
@@ -82,8 +82,13 @@ impl Middleware for CalculateVersion {
                     return MiddlewareResult::failure(format!("Invalid baseVersion '{raw}': {e}"))
                 }
             };
-            calculate_next(&base, &commits, suffix.as_deref(), &cfg.conventional_commit_rules)
-                .map(|v| with_metadata(v, &metadata))
+            calculate_next(
+                &base,
+                &commits,
+                suffix.as_deref(),
+                &cfg.conventional_commit_rules,
+            )
+            .map(|v| with_metadata(v, &metadata))
         };
 
         match next {
@@ -150,10 +155,18 @@ mod tests {
     fn cfg(json: Value) -> CalculateVersionConfig {
         moonlit_plugin_sdk::config::from_json_value(&json.to_string()).unwrap()
     }
-    fn outputs(w: moonlit_plugin_sdk::bindings::MiddlewareResult) -> std::collections::HashMap<String, Value> {
-        w.output.into_iter().map(|(k, v)| (k, serde_json::from_str(&v).unwrap())).collect()
+    fn outputs(
+        w: moonlit_plugin_sdk::bindings::MiddlewareResult,
+    ) -> std::collections::HashMap<String, Value> {
+        w.output
+            .into_iter()
+            .map(|(k, v)| (k, serde_json::from_str(&v).unwrap()))
+            .collect()
     }
-    fn ctx_run(shared: &SrShared, c: CalculateVersionConfig) -> moonlit_plugin_sdk::bindings::MiddlewareResult {
+    fn ctx_run(
+        shared: &SrShared,
+        c: CalculateVersionConfig,
+    ) -> moonlit_plugin_sdk::bindings::MiddlewareResult {
         let host = MockHost::new();
         let ctx = Context::new(&host, "/w".into(), "s".into()).with_state(shared);
         run(&CalculateVersion, &ctx, c).into_wit()
@@ -167,13 +180,18 @@ mod tests {
         let shared = SrShared::default();
         let w = ctx_run(&shared, CalculateVersionConfig::default());
         assert!(!w.successful);
-        assert_eq!(w.error_message.as_deref(), Some("No commits provided for version calculation."));
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("No commits provided for version calculation.")
+        );
     }
 
     #[test]
     fn first_release_stable_emits_initial_version() {
         let shared = SrShared::default();
-        let c = cfg(serde_json::json!({ "commits": [commit("abc1234def", "chore", "2026-01-01T00:00:00Z")] }));
+        let c = cfg(
+            serde_json::json!({ "commits": [commit("abc1234def", "chore", "2026-01-01T00:00:00Z")] }),
+        );
         let w = ctx_run(&shared, c);
         let out = outputs(w);
         assert_eq!(out["hasNewVersion"], serde_json::json!(true));
@@ -224,7 +242,10 @@ mod tests {
     fn commits_fall_back_to_shared_state() {
         let shared = SrShared::default();
         shared.commits.set(vec![crate::models::ConventionalCommit {
-            sha: "deadbee".into(), kind: "feat".into(), date: "2026-01-01T00:00:00Z".into(), ..Default::default()
+            sha: "deadbee".into(),
+            kind: "feat".into(),
+            date: "2026-01-01T00:00:00Z".into(),
+            ..Default::default()
         }]);
         let c = cfg(serde_json::json!({ "baseVersion": "1.2.3" }));
         let out = outputs(ctx_run(&shared, c));
