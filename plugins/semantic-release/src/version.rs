@@ -117,6 +117,39 @@ pub fn without_metadata(mut v: Version) -> Version {
     v
 }
 
+/// Port of 1.x `SemanticVersionCalculator.CalculateNextVersion`. `suffix == None`
+/// is the stable channel; `Some(label)` is a prerelease channel. Returns `None`
+/// when the commit set implies no bump. Callers guarantee `commits` is non-empty.
+pub fn calculate_next(
+    base: &Version,
+    commits: &[ConventionalCommit],
+    suffix: Option<&str>,
+    analyzer: &AnalyzerConfig,
+) -> Option<Version> {
+    let bump = analyzer.analyze(commits);
+    if bump == VersionBumpType::None {
+        return None;
+    }
+
+    match suffix {
+        None => Some(if base.pre.is_empty() {
+            bumped(base, bump)
+        } else {
+            without_prerelease(base.clone())
+        }),
+        Some(sfx) => {
+            let (label, iteration) = prerelease_info(base);
+            let level = version_level(base);
+            if label == sfx && bump <= level {
+                let v = Version::new(base.major, base.minor, base.patch);
+                Some(with_prerelease(v, &label, iteration + 1))
+            } else {
+                Some(with_prerelease(bumped(base, bump), sfx, 1))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,5 +204,59 @@ mod tests {
         let pre = Version::parse("1.2.3-beta.1+sha-x").unwrap();
         assert_eq!(without_prerelease(pre.clone()).to_string(), "1.2.3+sha-x");
         assert_eq!(without_metadata(pre).to_string(), "1.2.3-beta.1");
+    }
+
+    fn feats(n: usize) -> Vec<ConventionalCommit> {
+        (0..n).map(|_| c("feat", false)).collect()
+    }
+
+    fn one(kind: &str, breaking: bool) -> Vec<ConventionalCommit> {
+        vec![c(kind, breaking)]
+    }
+
+    fn calc(base: &str, suffix: Option<&str>, commits: &[ConventionalCommit]) -> Option<String> {
+        let a = AnalyzerConfig::create_default();
+        calculate_next(&Version::parse(base).unwrap(), commits, suffix, &a).map(|v| v.to_string())
+    }
+
+    #[test]
+    fn no_bump_returns_none() {
+        assert_eq!(calc("1.2.3", None, &one("chore", false)), None);
+    }
+
+    #[test]
+    fn stable_channel_numeric_bumps() {
+        assert_eq!(calc("1.2.3", None, &one("feat", false)).as_deref(), Some("1.3.0"));
+        assert_eq!(calc("1.2.3", None, &one("fix", false)).as_deref(), Some("1.2.4"));
+        assert_eq!(calc("1.2.3", None, &one("feat", true)).as_deref(), Some("2.0.0"));
+    }
+
+    #[test]
+    fn stable_channel_promotes_prerelease_without_numeric_bump() {
+        // base is a prerelease, target is stable -> strip prerelease, no numeric bump
+        assert_eq!(calc("1.3.0-beta.2", None, &one("feat", false)).as_deref(), Some("1.3.0"));
+    }
+
+    #[test]
+    fn prerelease_iterates_when_bump_within_level() {
+        // base 2.0.0-beta.1 (level Major), feat (Minor) <= Major -> iterate
+        assert_eq!(calc("2.0.0-beta.1", Some("beta"), &one("feat", false)).as_deref(), Some("2.0.0-beta.2"));
+    }
+
+    #[test]
+    fn prerelease_numeric_bumps_and_restarts_when_bump_exceeds_level() {
+        // base 1.2.0-beta.3 (level Minor), feat! (Major) > Minor -> bump to 2.0.0, restart .1
+        assert_eq!(calc("1.2.0-beta.3", Some("beta"), &one("feat", true)).as_deref(), Some("2.0.0-beta.1"));
+    }
+
+    #[test]
+    fn channel_switch_bumps_and_restarts_at_one() {
+        // base 1.2.0-alpha.2, target label beta (differs) -> numeric bump + beta.1
+        assert_eq!(calc("1.2.0-alpha.2", Some("beta"), &one("feat", false)).as_deref(), Some("1.3.0-beta.1"));
+    }
+
+    #[test]
+    fn multiple_commits_use_highest_bump() {
+        assert_eq!(calc("1.2.3", None, &feats(3)).as_deref(), Some("1.3.0"));
     }
 }
