@@ -240,4 +240,28 @@ mod tests {
     fn default_file_is_moonlit_env() {
         assert_eq!(WriteVariablesConfig::default().file, "moonlit.env");
     }
+
+    #[test]
+    fn second_write_appends_rather_than_truncates() {
+        // Two invocations against the same file must accumulate — proves
+        // OpenOptions uses append(true), not truncate.
+        let dir = tempfile::tempdir().unwrap();
+        let host = MockHost::new();
+        let ctx = Context::new(&host, dir.path().to_str().unwrap().into(), "s".into());
+        run(
+            &WriteVariables,
+            &ctx,
+            cfg(&[("A", "1")], &[], "moonlit.env"),
+        )
+        .into_wit();
+        let w = run(
+            &WriteVariables,
+            &ctx,
+            cfg(&[("B", "2")], &[], "moonlit.env"),
+        )
+        .into_wit();
+        assert!(w.successful);
+        let written = std::fs::read_to_string(dir.path().join("moonlit.env")).unwrap();
+        assert_eq!(written, "A=1\nB=2\n");
+    }
 }

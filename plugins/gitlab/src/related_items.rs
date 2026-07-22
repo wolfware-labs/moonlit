@@ -324,4 +324,67 @@ mod tests {
         assert!(!cfg.include_merge_requests);
         assert!(!cfg.include_issues);
     }
+
+    #[test]
+    fn sorts_mrs_by_created_at_desc() {
+        // Two matching MRs, older listed first by the API; output must be newest-first.
+        let mrs = br#"[
+            {"iid":1,"title":"old","description":"","state":"merged","created_at":"2026-01-01T00:00:00Z","updated_at":"x","merged_at":"y","merge_commit_sha":"aaa"},
+            {"iid":2,"title":"new","description":"","state":"merged","created_at":"2026-05-01T00:00:00Z","updated_at":"x","merged_at":"y","merge_commit_sha":"bbb"}
+        ]"#;
+        let host = MockHost::new()
+            .with_process_result(0, vec![origin()])
+            .with_http_response(200, mrs);
+        let sh = GitlabShared::default();
+        let cfg = pc();
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let config = RelatedItemsConfig {
+            commits: vec![
+                CommitRef { sha: "aaa".into() },
+                CommitRef { sha: "bbb".into() },
+            ],
+            include_merge_requests: true,
+            include_issues: false,
+        };
+        let w = run(&RelatedItems, &ctx, config).into_wit();
+        assert!(w.successful);
+        let m: std::collections::HashMap<_, _> = w.output.into_iter().collect();
+        let out: serde_json::Value = serde_json::from_str(&m["mrs"]).unwrap();
+        assert_eq!(out[0]["iid"], 2, "newest MR first");
+        assert_eq!(out[1]["iid"], 1);
+    }
+
+    #[test]
+    fn dedups_issue_closed_by_multiple_mrs() {
+        // Two matched MRs whose closes_issues both return issue 42 → one issue out.
+        let mrs = br#"[
+            {"iid":7,"title":"a","description":"","state":"merged","created_at":"2026-02-01T00:00:00Z","updated_at":"x","merged_at":"y","merge_commit_sha":"aaa"},
+            {"iid":8,"title":"b","description":"","state":"merged","created_at":"2026-03-01T00:00:00Z","updated_at":"x","merged_at":"y","merge_commit_sha":"bbb"}
+        ]"#;
+        let closes = br#"[
+            {"iid":42,"title":"bug","description":"b","state":"closed","created_at":"2026-01-01T00:00:00Z","updated_at":"x","closed_at":"z"}
+        ]"#;
+        let host = MockHost::new()
+            .with_process_result(0, vec![origin()])
+            .with_http_response(200, mrs) // merge_requests
+            .with_http_response(200, closes) // MR 8 closes_issues (newest-first) → 42
+            .with_http_response(200, closes); // MR 7 closes_issues → 42 again (deduped)
+        let sh = GitlabShared::default();
+        let cfg = pc();
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let config = RelatedItemsConfig {
+            commits: vec![
+                CommitRef { sha: "aaa".into() },
+                CommitRef { sha: "bbb".into() },
+            ],
+            include_merge_requests: true,
+            include_issues: true,
+        };
+        let w = run(&RelatedItems, &ctx, config).into_wit();
+        assert!(w.successful);
+        let m: std::collections::HashMap<_, _> = w.output.into_iter().collect();
+        let issues: serde_json::Value = serde_json::from_str(&m["issues"]).unwrap();
+        assert_eq!(issues.as_array().unwrap().len(), 1, "issue 42 appears once");
+        assert_eq!(issues[0]["iid"], 42);
+    }
 }

@@ -455,4 +455,53 @@ mod tests {
         let r: ItemRef = serde_json::from_str(r#"{"number":5}"#).unwrap();
         assert_eq!(r.iid, 5);
     }
+
+    #[test]
+    fn blank_tag_fails_with_exact_message() {
+        let host = MockHost::new();
+        let sh = GitlabShared::default();
+        let cfg = pc();
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let config = CreateReleaseConfig {
+            name: "1.0".into(),
+            body: Some("x".into()),
+            ..Default::default()
+        };
+        let w = run(&CreateRelease, &ctx, config).into_wit();
+        assert!(!w.successful);
+        assert_eq!(w.error_message.as_deref(), Some("Release tag is required."));
+        assert!(host.recorded_requests().is_empty());
+    }
+
+    #[test]
+    fn labels_merge_request_with_url_encoded_label() {
+        let host = MockHost::new()
+            .with_process_result(0, vec![origin()])
+            .with_http_response(201, br#"{"name":"1.0.0","_links":{"self":"u"}}"#) // release POST
+            .with_http_response(201, b"{}") // MR note POST
+            .with_http_response(200, b"{}"); // MR label PUT
+        let sh = GitlabShared::default();
+        let cfg = pc();
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let config = CreateReleaseConfig {
+            name: "1.0.0".into(),
+            tag: "v1.0.0".into(),
+            body: Some("notes".into()),
+            label: Some("to release".into()),
+            merge_requests: vec![ItemRef { iid: 7 }],
+            ..Default::default()
+        };
+        let w = run(&CreateRelease, &ctx, config).into_wit();
+        assert!(w.successful);
+        let reqs = host.recorded_requests();
+        assert_eq!(
+            reqs[1].path_with_query,
+            "/api/v4/projects/o%2Fr/merge_requests/7/notes"
+        );
+        // The space in the label is percent-encoded in the add_labels query param.
+        assert_eq!(
+            reqs[2].path_with_query,
+            "/api/v4/projects/o%2Fr/merge_requests/7?add_labels=to%20release"
+        );
+    }
 }
