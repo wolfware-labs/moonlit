@@ -4,6 +4,7 @@
 
 mod analyze;
 mod calculate_version;
+mod changelog;
 mod convert;
 mod models;
 mod version;

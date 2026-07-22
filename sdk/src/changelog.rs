@@ -1,15 +1,15 @@
 //! Shared release-notes markdown generator. github (§11.2) is the first
 //! consumer; gitlab (§11.3) reuses it with a different `commit_url_prefix`.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Entry {
     pub sha: String,
     pub description: String,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Category {
     pub name: String,
     pub icon: String,
@@ -121,5 +121,21 @@ mod tests {
     fn all_empty_categories_render_to_empty_string() {
         let md = render(&[cat("Empty", ":ghost:", "none", &[])], "https://x/commit/");
         assert_eq!(md, "");
+    }
+
+    #[test]
+    fn category_serializes_to_the_generate_changelog_shape() {
+        let value = serde_json::to_value(cat(
+            "Features",
+            ":sparkles:",
+            "New features",
+            &[("abc1234def", "**cli**: add flag")],
+        ))
+        .unwrap();
+        assert_eq!(value["name"], "Features");
+        assert_eq!(value["icon"], ":sparkles:");
+        assert_eq!(value["summary"], "New features");
+        assert_eq!(value["entries"][0]["sha"], "abc1234def");
+        assert_eq!(value["entries"][0]["description"], "**cli**: add flag");
     }
 }
