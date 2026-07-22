@@ -36,7 +36,9 @@ fn render(map: &BTreeMap<String, String>) -> Result<String, String> {
     let mut s = String::new();
     for (k, v) in map {
         if !key_re.is_match(k) {
-            return Err(format!("Invalid variable name '{k}' (must match [A-Za-z_][A-Za-z0-9_]*)."));
+            return Err(format!(
+                "Invalid variable name '{k}' (must match [A-Za-z_][A-Za-z0-9_]*)."
+            ));
         }
         let escaped = v.replace('\r', "\\r").replace('\n', "\\n");
         s.push_str(&format!("{k}={escaped}\n"));
@@ -60,7 +62,8 @@ pub struct WriteVariables;
 
 impl Middleware for WriteVariables {
     const NAME: &'static str = "write-variables";
-    const DESCRIPTION: &'static str = "write step outputs / env to a dotenv file for artifacts:reports:dotenv";
+    const DESCRIPTION: &'static str =
+        "write step outputs / env to a dotenv file for artifacts:reports:dotenv";
     type Config = WriteVariablesConfig;
 
     fn execute(&self, ctx: &Context, cfg: WriteVariablesConfig) -> MiddlewareResult {
@@ -79,7 +82,9 @@ impl Middleware for WriteVariables {
         }
         // Path hardening: relative, within the working directory.
         if Path::new(&cfg.file).is_absolute()
-            || Path::new(&cfg.file).components().any(|c| matches!(c, Component::ParentDir))
+            || Path::new(&cfg.file)
+                .components()
+                .any(|c| matches!(c, Component::ParentDir))
         {
             return MiddlewareResult::failure(format!(
                 "Invalid file path '{}' (must be a relative path within the working directory).",
@@ -91,9 +96,15 @@ impl Middleware for WriteVariables {
             Err(e) => return MiddlewareResult::failure(e),
         };
         let path = resolve_path(ctx.working_dir(), &cfg.file);
-        let mut f = match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        let mut f = match std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
             Ok(f) => f,
-            Err(e) => return MiddlewareResult::failure(format!("Failed to write '{}': {e}", cfg.file)),
+            Err(e) => {
+                return MiddlewareResult::failure(format!("Failed to write '{}': {e}", cfg.file))
+            }
         };
         if let Err(e) = f.write_all(content.as_bytes()) {
             return MiddlewareResult::failure(format!("Failed to write '{}': {e}", cfg.file));
@@ -107,10 +118,20 @@ mod tests {
     use super::*;
     use moonlit_plugin_sdk::testing::{run, MockHost};
 
-    fn cfg(output: &[(&str, &str)], environment: &[(&str, &str)], file: &str) -> WriteVariablesConfig {
+    fn cfg(
+        output: &[(&str, &str)],
+        environment: &[(&str, &str)],
+        file: &str,
+    ) -> WriteVariablesConfig {
         WriteVariablesConfig {
-            output: output.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-            environment: environment.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+            output: output
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            environment: environment
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
             file: file.to_string(),
         }
     }
@@ -120,7 +141,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let host = MockHost::new();
         let ctx = Context::new(&host, dir.path().to_str().unwrap().into(), "s".into());
-        let w = run(&WriteVariables, &ctx, cfg(&[("VERSION", "1.2.3"), ("NAME", "app")], &[], "moonlit.env")).into_wit();
+        let w = run(
+            &WriteVariables,
+            &ctx,
+            cfg(&[("VERSION", "1.2.3"), ("NAME", "app")], &[], "moonlit.env"),
+        )
+        .into_wit();
         assert!(w.successful);
         let written = std::fs::read_to_string(dir.path().join("moonlit.env")).unwrap();
         assert_eq!(written, "NAME=app\nVERSION=1.2.3\n"); // BTreeMap sorts keys
@@ -131,11 +157,18 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let host = MockHost::new();
         let ctx = Context::new(&host, dir.path().to_str().unwrap().into(), "s".into());
-        let w = run(&WriteVariables, &ctx, cfg(&[("A", "1")], &[("A", "2"), ("B", "3")], "moonlit.env")).into_wit();
+        let w = run(
+            &WriteVariables,
+            &ctx,
+            cfg(&[("A", "1")], &[("A", "2"), ("B", "3")], "moonlit.env"),
+        )
+        .into_wit();
         assert!(w.successful);
         let written = std::fs::read_to_string(dir.path().join("moonlit.env")).unwrap();
         assert_eq!(written, "A=2\nB=3\n");
-        assert!(host.logs().iter().any(|(_, m)| m == "Variable 'A' defined in both output and environment; using the environment value."));
+        assert!(host.logs().iter().any(|(_, m)| {
+            m == "Variable 'A' defined in both output and environment; using the environment value."
+        }));
     }
 
     #[test]
@@ -143,7 +176,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let host = MockHost::new();
         let ctx = Context::new(&host, dir.path().to_str().unwrap().into(), "s".into());
-        let w = run(&WriteVariables, &ctx, cfg(&[("NOTES", "line1\nline2\r")], &[], "moonlit.env")).into_wit();
+        let w = run(
+            &WriteVariables,
+            &ctx,
+            cfg(&[("NOTES", "line1\nline2\r")], &[], "moonlit.env"),
+        )
+        .into_wit();
         assert!(w.successful);
         let written = std::fs::read_to_string(dir.path().join("moonlit.env")).unwrap();
         assert_eq!(written, "NOTES=line1\\nline2\\r\n");
@@ -154,9 +192,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let host = MockHost::new();
         let ctx = Context::new(&host, dir.path().to_str().unwrap().into(), "s".into());
-        let w = run(&WriteVariables, &ctx, cfg(&[("bad key", "x")], &[], "moonlit.env")).into_wit();
+        let w = run(
+            &WriteVariables,
+            &ctx,
+            cfg(&[("bad key", "x")], &[], "moonlit.env"),
+        )
+        .into_wit();
         assert!(!w.successful);
-        assert_eq!(w.error_message.as_deref(), Some("Invalid variable name 'bad key' (must match [A-Za-z_][A-Za-z0-9_]*)."));
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("Invalid variable name 'bad key' (must match [A-Za-z_][A-Za-z0-9_]*).")
+        );
         assert!(!dir.path().join("moonlit.env").exists());
     }
 

@@ -110,7 +110,10 @@ impl Middleware for RelatedItems {
                 ctx,
                 &api_base,
                 &token,
-                &format!("/projects/{}/merge_requests?state=merged", context.project_id),
+                &format!(
+                    "/projects/{}/merge_requests?state=merged",
+                    context.project_id
+                ),
             ) {
                 Ok(v) => v,
                 Err(e) => return MiddlewareResult::failure(e),
@@ -118,8 +121,14 @@ impl Middleware for RelatedItems {
             mrs = raw
                 .iter()
                 .filter(|v| {
-                    let merged = v["merge_commit_sha"].as_str().map(|s| shas.contains(s)).unwrap_or(false);
-                    let squashed = v["squash_commit_sha"].as_str().map(|s| shas.contains(s)).unwrap_or(false);
+                    let merged = v["merge_commit_sha"]
+                        .as_str()
+                        .map(|s| shas.contains(s))
+                        .unwrap_or(false);
+                    let squashed = v["squash_commit_sha"]
+                        .as_str()
+                        .map(|s| shas.contains(s))
+                        .unwrap_or(false);
                     merged || squashed
                 })
                 .map(map_mr)
@@ -136,7 +145,10 @@ impl Middleware for RelatedItems {
                     ctx,
                     &api_base,
                     &token,
-                    &format!("/projects/{}/merge_requests/{}/closes_issues", context.project_id, mr.iid),
+                    &format!(
+                        "/projects/{}/merge_requests/{}/closes_issues",
+                        context.project_id, mr.iid
+                    ),
                 ) {
                     Ok(v) => v,
                     Err(e) => return MiddlewareResult::failure(e),
@@ -181,13 +193,25 @@ mod tests {
     use moonlit_plugin_sdk::testing::{run, MockHost};
 
     fn origin() -> OutputChunk {
-        OutputChunk { stream: StdioStream::Stdout, text: "https://gitlab.com/o/r.git".into() }
+        OutputChunk {
+            stream: StdioStream::Stdout,
+            text: "https://gitlab.com/o/r.git".into(),
+        }
     }
     fn pc() -> GitlabPluginConfig {
-        GitlabPluginConfig { token: "t".into(), base_url: "https://gitlab.com".into() }
+        GitlabPluginConfig {
+            token: "t".into(),
+            base_url: "https://gitlab.com".into(),
+        }
     }
-    fn ctx_with<'a>(host: &'a MockHost, sh: &'a GitlabShared, cfg: &'a GitlabPluginConfig) -> Context<'a> {
-        Context::new(host, "/repo".into(), "s".into()).with_state(sh).with_plugin_config(cfg)
+    fn ctx_with<'a>(
+        host: &'a MockHost,
+        sh: &'a GitlabShared,
+        cfg: &'a GitlabPluginConfig,
+    ) -> Context<'a> {
+        Context::new(host, "/repo".into(), "s".into())
+            .with_state(sh)
+            .with_plugin_config(cfg)
     }
 
     #[test]
@@ -226,7 +250,7 @@ mod tests {
         assert_eq!(out[0]["iid"], 7);
         assert_eq!(out[0]["mergeCommitSha"], "aaa");
         assert_eq!(m["mrs"], m["prs"]); // alias identical
-        // GitLab MR API path with URL-encoded project id.
+                                        // GitLab MR API path with URL-encoded project id.
         assert_eq!(
             host.recorded_requests()[0].path_with_query,
             "/api/v4/projects/o%2Fr/merge_requests?state=merged&per_page=100"
@@ -267,8 +291,8 @@ mod tests {
         ]"#;
         let host = MockHost::new()
             .with_process_result(0, vec![origin()])
-            .with_http_response(200, mrs)      // merge_requests?state=merged
-            .with_http_response(200, closes);  // merge_requests/7/closes_issues
+            .with_http_response(200, mrs) // merge_requests?state=merged
+            .with_http_response(200, closes); // merge_requests/7/closes_issues
         let sh = GitlabShared::default();
         let cfg = pc();
         let ctx = ctx_with(&host, &sh, &cfg);
@@ -293,8 +317,10 @@ mod tests {
     #[test]
     fn include_pull_requests_alias_is_accepted() {
         // The camelCase alias `includePullRequests` must deserialize into include_merge_requests.
-        let cfg: RelatedItemsConfig =
-            serde_json::from_str(r#"{"commits":[],"includePullRequests":false,"includeIssues":false}"#).unwrap();
+        let cfg: RelatedItemsConfig = serde_json::from_str(
+            r#"{"commits":[],"includePullRequests":false,"includeIssues":false}"#,
+        )
+        .unwrap();
         assert!(!cfg.include_merge_requests);
         assert!(!cfg.include_issues);
     }

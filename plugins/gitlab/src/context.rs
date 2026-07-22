@@ -45,7 +45,10 @@ fn encode_project_path(path: &str) -> String {
 
 /// Host part of a base URL like `https://gitlab.example.com` -> `gitlab.example.com`.
 fn host_of(base_url: &str) -> &str {
-    let after_scheme = base_url.split_once("://").map(|(_, r)| r).unwrap_or(base_url);
+    let after_scheme = base_url
+        .split_once("://")
+        .map(|(_, r)| r)
+        .unwrap_or(base_url);
     after_scheme.split('/').next().unwrap_or(after_scheme)
 }
 
@@ -90,7 +93,9 @@ pub fn resolve_context(ctx: &Context) -> Result<GitlabContext, MiddlewareResult>
         project_path,
         base_url,
     };
-    ctx.state::<GitlabShared>().context.set(Some(context.clone()));
+    ctx.state::<GitlabShared>()
+        .context
+        .set(Some(context.clone()));
     Ok(context)
 }
 
@@ -102,24 +107,42 @@ mod tests {
     use moonlit_plugin_sdk::testing::MockHost;
 
     fn out(text: &str) -> OutputChunk {
-        OutputChunk { stream: StdioStream::Stdout, text: text.to_string() }
+        OutputChunk {
+            stream: StdioStream::Stdout,
+            text: text.to_string(),
+        }
     }
     fn pc(base_url: &str) -> GitlabPluginConfig {
-        GitlabPluginConfig { token: "t".into(), base_url: base_url.into() }
+        GitlabPluginConfig {
+            token: "t".into(),
+            base_url: base_url.into(),
+        }
     }
-    fn ctx_with<'a>(host: &'a MockHost, sh: &'a GitlabShared, cfg: &'a GitlabPluginConfig) -> Context<'a> {
-        Context::new(host, "/repo".into(), "s".into()).with_state(sh).with_plugin_config(cfg)
+    fn ctx_with<'a>(
+        host: &'a MockHost,
+        sh: &'a GitlabShared,
+        cfg: &'a GitlabPluginConfig,
+    ) -> Context<'a> {
+        Context::new(host, "/repo".into(), "s".into())
+            .with_state(sh)
+            .with_plugin_config(cfg)
     }
 
     #[test]
     fn encode_project_path_encodes_slashes_and_specials() {
-        assert_eq!(encode_project_path("group/sub/project"), "group%2Fsub%2Fproject");
+        assert_eq!(
+            encode_project_path("group/sub/project"),
+            "group%2Fsub%2Fproject"
+        );
         assert_eq!(encode_project_path("a b/c"), "a%20b%2Fc");
     }
 
     #[test]
     fn parses_https_nested_group_url() {
-        let host = MockHost::new().with_process_result(0, vec![out("https://gitlab.com/group/subgroup/project.git")]);
+        let host = MockHost::new().with_process_result(
+            0,
+            vec![out("https://gitlab.com/group/subgroup/project.git")],
+        );
         let sh = GitlabShared::default();
         let cfg = pc("https://gitlab.com");
         let ctx = ctx_with(&host, &sh, &cfg);
@@ -127,7 +150,10 @@ mod tests {
         assert_eq!(c.project_path, "group/subgroup/project");
         assert_eq!(c.project_id, "group%2Fsubgroup%2Fproject");
         assert_eq!(c.web_url(), "https://gitlab.com/group/subgroup/project");
-        assert_eq!(c.commit_url_prefix(), "https://gitlab.com/group/subgroup/project/-/commit/");
+        assert_eq!(
+            c.commit_url_prefix(),
+            "https://gitlab.com/group/subgroup/project/-/commit/"
+        );
         assert_eq!(c.api_base(), "https://gitlab.com/api/v4");
         let cmds = host.recorded_commands();
         assert_eq!(cmds[0].program, "git");
@@ -148,7 +174,8 @@ mod tests {
 
     #[test]
     fn custom_base_url_matches_self_hosted_host() {
-        let host = MockHost::new().with_process_result(0, vec![out("https://gitlab.example.com/team/app.git")]);
+        let host = MockHost::new()
+            .with_process_result(0, vec![out("https://gitlab.example.com/team/app.git")]);
         let sh = GitlabShared::default();
         let cfg = pc("https://gitlab.example.com/");
         let ctx = ctx_with(&host, &sh, &cfg);
@@ -159,7 +186,8 @@ mod tests {
 
     #[test]
     fn non_gitlab_url_fails_with_exact_message() {
-        let host = MockHost::new().with_process_result(0, vec![out("https://github.com/me/repo.git")]);
+        let host =
+            MockHost::new().with_process_result(0, vec![out("https://github.com/me/repo.git")]);
         let sh = GitlabShared::default();
         let cfg = pc("https://gitlab.com");
         let ctx = ctx_with(&host, &sh, &cfg);
@@ -194,6 +222,10 @@ mod tests {
         let a = resolve_context(&ctx).unwrap_or_else(|_| panic!("first resolve"));
         let b = resolve_context(&ctx).unwrap_or_else(|_| panic!("cached resolve"));
         assert_eq!(a.project_id, b.project_id);
-        assert_eq!(host.recorded_commands().len(), 1, "git must run exactly once");
+        assert_eq!(
+            host.recorded_commands().len(),
+            1,
+            "git must run exactly once"
+        );
     }
 }

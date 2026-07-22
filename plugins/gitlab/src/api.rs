@@ -42,7 +42,12 @@ fn next_link(resp: &Response) -> Option<String> {
 
 /// GET `path` (relative to `api_base`), following pagination. Accumulates each
 /// page's JSON array.
-pub fn get_paginated(ctx: &Context, api_base: &str, token: &str, path: &str) -> Result<Vec<Value>, String> {
+pub fn get_paginated(
+    ctx: &Context,
+    api_base: &str,
+    token: &str,
+    path: &str,
+) -> Result<Vec<Value>, String> {
     let sep = if path.contains('?') { '&' } else { '?' };
     let mut url = format!("{api_base}{path}{sep}per_page=100");
     let mut out = Vec::new();
@@ -59,15 +64,14 @@ pub fn get_paginated(ctx: &Context, api_base: &str, token: &str, path: &str) -> 
     Ok(out)
 }
 
-/// GET a single JSON object (not paginated).
-pub fn get_json(ctx: &Context, api_base: &str, token: &str, path: &str) -> Result<Value, String> {
-    let resp = auth(ctx.http().get(format!("{api_base}{path}")), token).send()?;
-    check_status(&resp)?;
-    resp.json::<Value>()
-}
-
 /// POST `body` to `path` (relative to `api_base`).
-pub fn post_json(ctx: &Context, api_base: &str, token: &str, path: &str, body: &Value) -> Result<Response, String> {
+pub fn post_json(
+    ctx: &Context,
+    api_base: &str,
+    token: &str,
+    path: &str,
+    body: &Value,
+) -> Result<Response, String> {
     let resp = auth(ctx.http().post(format!("{api_base}{path}")), token)
         .json(body)
         .send()?;
@@ -94,7 +98,13 @@ mod tests {
     fn get_attaches_private_token_and_per_page() {
         let host = MockHost::new().with_http_response(200, b"[]");
         let ctx = Context::new(&host, "/w".into(), "s".into());
-        let _ = get_paginated(&ctx, BASE, "tok", "/projects/o%2Fr/merge_requests?state=merged").unwrap();
+        let _ = get_paginated(
+            &ctx,
+            BASE,
+            "tok",
+            "/projects/o%2Fr/merge_requests?state=merged",
+        )
+        .unwrap();
         let reqs = host.recorded_requests();
         assert_eq!(reqs[0].authority, "gitlab.com");
         assert_eq!(
@@ -102,7 +112,10 @@ mod tests {
             "/api/v4/projects/o%2Fr/merge_requests?state=merged&per_page=100"
         );
         let has = |k: &str, v: &str| {
-            reqs[0].headers.iter().any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v)
+            reqs[0]
+                .headers
+                .iter()
+                .any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v)
         };
         assert!(has("private-token", "tok"));
         assert!(has("user-agent", "moonlit"));
@@ -114,7 +127,10 @@ mod tests {
         let host = MockHost::new()
             .with_http_response_headers(
                 200,
-                vec![("link".into(), "<https://gitlab.com/api/v4/x?page=2>; rel=\"next\"".into())],
+                vec![(
+                    "link".into(),
+                    "<https://gitlab.com/api/v4/x?page=2>; rel=\"next\"".into(),
+                )],
                 b"[{\"iid\":1}]",
             )
             .with_http_response(200, b"[{\"iid\":2}]");
@@ -122,7 +138,10 @@ mod tests {
         let items = get_paginated(&ctx, BASE, "tok", "/x").unwrap();
         assert_eq!(items.len(), 2);
         assert_eq!(host.recorded_requests().len(), 2);
-        assert_eq!(host.recorded_requests()[1].path_with_query, "/api/v4/x?page=2");
+        assert_eq!(
+            host.recorded_requests()[1].path_with_query,
+            "/api/v4/x?page=2"
+        );
     }
 
     #[test]
@@ -133,14 +152,17 @@ mod tests {
             Ok(_) => panic!("401 must be an error"),
             Err(e) => e,
         };
-        assert_eq!(e, "GitLab authentication failed (HTTP 401). Check the configured token.");
+        assert_eq!(
+            e,
+            "GitLab authentication failed (HTTP 401). Check the configured token."
+        );
     }
 
     #[test]
     fn server_error_maps_with_body() {
         let host = MockHost::new().with_http_response(500, b"boom");
         let ctx = Context::new(&host, "/w".into(), "s".into());
-        let e = match get_json(&ctx, BASE, "tok", "/x") {
+        let e = match put(&ctx, BASE, "tok", "/x") {
             Ok(_) => panic!("500 must be an error"),
             Err(e) => e,
         };
@@ -151,7 +173,14 @@ mod tests {
     fn post_sends_json_body() {
         let host = MockHost::new().with_http_response(201, br#"{"name":"1.0"}"#);
         let ctx = Context::new(&host, "/w".into(), "s".into());
-        let r = post_json(&ctx, BASE, "tok", "/projects/o%2Fr/releases", &serde_json::json!({"name":"1.0"})).unwrap();
+        let r = post_json(
+            &ctx,
+            BASE,
+            "tok",
+            "/projects/o%2Fr/releases",
+            &serde_json::json!({"name":"1.0"}),
+        )
+        .unwrap();
         assert!(r.is_success());
         let reqs = host.recorded_requests();
         assert_eq!(reqs[0].method, HttpMethod::Post);
@@ -163,10 +192,19 @@ mod tests {
     fn put_sends_request_to_path() {
         let host = MockHost::new().with_http_response(200, b"{}");
         let ctx = Context::new(&host, "/w".into(), "s".into());
-        let r = put(&ctx, BASE, "tok", "/projects/o%2Fr/issues/9?add_labels=released").unwrap();
+        let r = put(
+            &ctx,
+            BASE,
+            "tok",
+            "/projects/o%2Fr/issues/9?add_labels=released",
+        )
+        .unwrap();
         assert!(r.is_success());
         let reqs = host.recorded_requests();
         assert_eq!(reqs[0].method, HttpMethod::Put);
-        assert_eq!(reqs[0].path_with_query, "/api/v4/projects/o%2Fr/issues/9?add_labels=released");
+        assert_eq!(
+            reqs[0].path_with_query,
+            "/api/v4/projects/o%2Fr/issues/9?add_labels=released"
+        );
     }
 }

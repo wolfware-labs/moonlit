@@ -92,7 +92,10 @@ impl Middleware for CreateRelease {
             Ok(v) => v,
             Err(e) => return MiddlewareResult::failure(e),
         };
-        let out_name = created["name"].as_str().unwrap_or(&release_name).to_string();
+        let out_name = created["name"]
+            .as_str()
+            .unwrap_or(&release_name)
+            .to_string();
         let out_url = created["_links"]["self"]
             .as_str()
             .map(String::from)
@@ -106,8 +109,28 @@ impl Middleware for CreateRelease {
              **:bookmark: Link:** [`{}`]({})",
             out_name, out_url
         );
-        annotate(ctx, &api_base, &token, &context, "merge_requests", "merge request", &cfg.merge_requests, &comment, cfg.label.as_deref());
-        annotate(ctx, &api_base, &token, &context, "issues", "issue", &cfg.issues, &comment, cfg.label.as_deref());
+        annotate(
+            ctx,
+            &api_base,
+            &token,
+            &context,
+            "merge_requests",
+            "merge request",
+            &cfg.merge_requests,
+            &comment,
+            cfg.label.as_deref(),
+        );
+        annotate(
+            ctx,
+            &api_base,
+            &token,
+            &context,
+            "issues",
+            "issue",
+            &cfg.issues,
+            &comment,
+            cfg.label.as_deref(),
+        );
 
         MiddlewareResult::success_with(|o| {
             o.set("name", out_name);
@@ -132,8 +155,17 @@ fn annotate(
     label: Option<&str>,
 ) {
     for item in items {
-        let note_path = format!("/projects/{}/{}/{}/notes", context.project_id, collection, item.iid);
-        if let Err(e) = api::post_json(ctx, api_base, token, &note_path, &json!({ "body": comment })) {
+        let note_path = format!(
+            "/projects/{}/{}/{}/notes",
+            context.project_id, collection, item.iid
+        );
+        if let Err(e) = api::post_json(
+            ctx,
+            api_base,
+            token,
+            &note_path,
+            &json!({ "body": comment }),
+        ) {
             ctx.log_warn(&format!("Failed to comment on {kind} {}: {e}", item.iid));
         }
         if let Some(label) = label {
@@ -157,7 +189,9 @@ fn encode_query(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for &b in s.as_bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }
@@ -173,13 +207,25 @@ mod tests {
     use moonlit_plugin_sdk::testing::{run, MockHost};
 
     fn origin() -> OutputChunk {
-        OutputChunk { stream: StdioStream::Stdout, text: "https://gitlab.com/o/r.git".into() }
+        OutputChunk {
+            stream: StdioStream::Stdout,
+            text: "https://gitlab.com/o/r.git".into(),
+        }
     }
     fn pc() -> GitlabPluginConfig {
-        GitlabPluginConfig { token: "t".into(), base_url: "https://gitlab.com".into() }
+        GitlabPluginConfig {
+            token: "t".into(),
+            base_url: "https://gitlab.com".into(),
+        }
     }
-    fn ctx_with<'a>(host: &'a MockHost, sh: &'a GitlabShared, cfg: &'a GitlabPluginConfig) -> Context<'a> {
-        Context::new(host, "/repo".into(), "s".into()).with_state(sh).with_plugin_config(cfg)
+    fn ctx_with<'a>(
+        host: &'a MockHost,
+        sh: &'a GitlabShared,
+        cfg: &'a GitlabPluginConfig,
+    ) -> Context<'a> {
+        Context::new(host, "/repo".into(), "s".into())
+            .with_state(sh)
+            .with_plugin_config(cfg)
     }
 
     #[test]
@@ -188,10 +234,17 @@ mod tests {
         let sh = GitlabShared::default();
         let cfg = pc();
         let ctx = ctx_with(&host, &sh, &cfg);
-        let config = CreateReleaseConfig { tag: "v1".into(), body: Some("x".into()), ..Default::default() };
+        let config = CreateReleaseConfig {
+            tag: "v1".into(),
+            body: Some("x".into()),
+            ..Default::default()
+        };
         let w = run(&CreateRelease, &ctx, config).into_wit();
         assert!(!w.successful);
-        assert_eq!(w.error_message.as_deref(), Some("Release name is required."));
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("Release name is required.")
+        );
         assert!(host.recorded_requests().is_empty());
     }
 
@@ -201,17 +254,27 @@ mod tests {
         let sh = GitlabShared::default();
         let cfg = pc();
         let ctx = ctx_with(&host, &sh, &cfg);
-        let config = CreateReleaseConfig { name: "1.0".into(), tag: "v1".into(), ..Default::default() };
+        let config = CreateReleaseConfig {
+            name: "1.0".into(),
+            tag: "v1".into(),
+            ..Default::default()
+        };
         let w = run(&CreateRelease, &ctx, config).into_wit();
         assert!(!w.successful);
-        assert_eq!(w.error_message.as_deref(), Some("Release body or changelog is required."));
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("Release body or changelog is required.")
+        );
     }
 
     #[test]
     fn creates_release_and_emits_name_and_url() {
         let host = MockHost::new()
             .with_process_result(0, vec![origin()])
-            .with_http_response(201, br#"{"name":"1.0.0","_links":{"self":"https://gitlab.com/o/r/-/releases/v1.0.0"}}"#);
+            .with_http_response(
+                201,
+                br#"{"name":"1.0.0","_links":{"self":"https://gitlab.com/o/r/-/releases/v1.0.0"}}"#,
+            );
         let sh = GitlabShared::default();
         let cfg = pc();
         let ctx = ctx_with(&host, &sh, &cfg);
@@ -228,7 +291,8 @@ mod tests {
         assert_eq!(m["url"], "\"https://gitlab.com/o/r/-/releases/v1.0.0\"");
         let reqs = host.recorded_requests();
         assert_eq!(reqs[0].path_with_query, "/api/v4/projects/o%2Fr/releases");
-        let body: serde_json::Value = serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
         assert_eq!(body["tag_name"], "v1.0.0");
         assert_eq!(body["ref"], "HEAD");
         assert_eq!(body["name"], "1.0.0");
@@ -239,7 +303,10 @@ mod tests {
     fn prerelease_appends_marker_to_name() {
         let host = MockHost::new()
             .with_process_result(0, vec![origin()])
-            .with_http_response(201, br#"{"name":"1.0.0 (pre-release)","_links":{"self":"u"}}"#);
+            .with_http_response(
+                201,
+                br#"{"name":"1.0.0 (pre-release)","_links":{"self":"u"}}"#,
+            );
         let sh = GitlabShared::default();
         let cfg = pc();
         let ctx = ctx_with(&host, &sh, &cfg);
@@ -253,7 +320,8 @@ mod tests {
         let w = run(&CreateRelease, &ctx, config).into_wit();
         assert!(w.successful);
         let reqs = host.recorded_requests();
-        let body: serde_json::Value = serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
         assert_eq!(body["name"], "1.0.0 (pre-release)");
         let m: std::collections::HashMap<_, _> = w.output.into_iter().collect();
         assert_eq!(m["name"], "\"1.0.0 (pre-release)\"");
@@ -276,7 +344,10 @@ mod tests {
         };
         let w = run(&CreateRelease, &ctx, config).into_wit();
         assert!(w.successful);
-        assert!(host.logs().iter().any(|(_, m)| m == "GitLab does not support draft releases; ignoring the draft flag."));
+        assert!(host
+            .logs()
+            .iter()
+            .any(|(_, m)| m == "GitLab does not support draft releases; ignoring the draft flag."));
     }
 
     #[test]
@@ -295,14 +366,18 @@ mod tests {
                 name: "Features".into(),
                 icon: ":sparkles:".into(),
                 summary: "New".into(),
-                entries: vec![Entry { sha: "abcdef1234".into(), description: "y".into() }],
+                entries: vec![Entry {
+                    sha: "abcdef1234".into(),
+                    description: "y".into(),
+                }],
             }],
             ..Default::default()
         };
         let w = run(&CreateRelease, &ctx, config).into_wit();
         assert!(w.successful);
         let reqs = host.recorded_requests();
-        let body: serde_json::Value = serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(reqs[0].body.as_deref().unwrap()).unwrap();
         assert_eq!(
             body["description"],
             "## :sparkles: Features\n#### New\n- y ([abcdef1](https://gitlab.com/o/r/-/commit/abcdef1234))\n\n"
@@ -313,7 +388,10 @@ mod tests {
     fn comments_on_related_merge_request() {
         let host = MockHost::new()
             .with_process_result(0, vec![origin()])
-            .with_http_response(201, br#"{"name":"1.0.0","_links":{"self":"https://gitlab.com/o/r/-/releases/v1.0.0"}}"#) // release POST
+            .with_http_response(
+                201,
+                br#"{"name":"1.0.0","_links":{"self":"https://gitlab.com/o/r/-/releases/v1.0.0"}}"#,
+            ) // release POST
             .with_http_response(201, b"{}"); // MR note POST
         let sh = GitlabShared::default();
         let cfg = pc();
@@ -329,8 +407,12 @@ mod tests {
         assert!(w.successful);
         let reqs = host.recorded_requests();
         assert_eq!(reqs.len(), 2);
-        assert_eq!(reqs[1].path_with_query, "/api/v4/projects/o%2Fr/merge_requests/7/notes");
-        let cbody: serde_json::Value = serde_json::from_slice(reqs[1].body.as_deref().unwrap()).unwrap();
+        assert_eq!(
+            reqs[1].path_with_query,
+            "/api/v4/projects/o%2Fr/merge_requests/7/notes"
+        );
+        let cbody: serde_json::Value =
+            serde_json::from_slice(reqs[1].body.as_deref().unwrap()).unwrap();
         assert_eq!(
             cbody["body"],
             ":rocket: **New Release Published!**\n\n:tada: A new version of the project has just been released!\n\n**:bookmark: Link:** [`1.0.0`](https://gitlab.com/o/r/-/releases/v1.0.0)"
@@ -358,8 +440,14 @@ mod tests {
         let w = run(&CreateRelease, &ctx, config).into_wit();
         assert!(w.successful);
         let reqs = host.recorded_requests();
-        assert_eq!(reqs[1].path_with_query, "/api/v4/projects/o%2Fr/issues/9/notes");
-        assert_eq!(reqs[2].path_with_query, "/api/v4/projects/o%2Fr/issues/9?add_labels=released");
+        assert_eq!(
+            reqs[1].path_with_query,
+            "/api/v4/projects/o%2Fr/issues/9/notes"
+        );
+        assert_eq!(
+            reqs[2].path_with_query,
+            "/api/v4/projects/o%2Fr/issues/9?add_labels=released"
+        );
     }
 
     #[test]

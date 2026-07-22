@@ -33,7 +33,12 @@ mod tests {
 
     #[test]
     fn blank_token_fails_with_exact_message() {
-        let msg = match (GitlabPluginConfig { token: "  ".into(), base_url: "https://gitlab.com".into() }).validate() {
+        let msg = match (GitlabPluginConfig {
+            token: "  ".into(),
+            base_url: "https://gitlab.com".into(),
+        })
+        .validate()
+        {
             Ok(()) => panic!("blank token must fail"),
             Err(e) => e,
         };
@@ -42,9 +47,12 @@ mod tests {
 
     #[test]
     fn present_token_passes() {
-        assert!((GitlabPluginConfig { token: "glpat_x".into(), base_url: "https://gitlab.com".into() })
-            .validate()
-            .is_ok());
+        assert!((GitlabPluginConfig {
+            token: "glpat_x".into(),
+            base_url: "https://gitlab.com".into()
+        })
+        .validate()
+        .is_ok());
     }
 
     #[test]
@@ -61,7 +69,8 @@ mod tests {
 
     #[test]
     fn base_url_override_is_read() {
-        let c: GitlabPluginConfig = serde_json::from_str(r#"{"token":"t","baseUrl":"https://gl.example.com"}"#).unwrap();
+        let c: GitlabPluginConfig =
+            serde_json::from_str(r#"{"token":"t","baseUrl":"https://gl.example.com"}"#).unwrap();
         assert_eq!(c.base_url, "https://gl.example.com");
     }
 }
