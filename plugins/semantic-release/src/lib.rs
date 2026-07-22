@@ -5,3 +5,4 @@
 mod analyze;
 mod convert;
 mod models;
+mod version;
