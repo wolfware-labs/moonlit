@@ -81,13 +81,24 @@ pub fn resolve_context(ctx: &Context) -> Result<GitlabContext, MiddlewareResult>
         _ => return Err(MiddlewareResult::failure("Remote 'origin' not found.")),
     };
     let host = host_of(&base_url);
-    let pattern = format!(r"{}[/:](?P<path>.+?)(?:\.git)?$", regex::escape(host));
+    let esc = regex::escape(host);
+    // Anchor the host on a start/`/`/`@` boundary so a look-alike host such as
+    // `evilgitlab.com` (where the real host is only a substring) cannot match.
+    // URL form (a scheme is present) separates the path with `/` after an
+    // optional `:port`; scp form (`user@host:path`) separates with `:` and never
+    // carries a port — so `git@host:22/repo` keeps `22/repo` as the path rather
+    // than mis-reading `22` as a port. A single trailing `/` is tolerated.
+    let pattern = if url.contains("://") {
+        format!(r"(?:^|[/@]){esc}(?::\d+)?/(?P<path>.+?)(?:\.git)?/?$")
+    } else {
+        format!(r"(?:^|@){esc}:(?P<path>.+?)(?:\.git)?/?$")
+    };
     let re = Regex::new(&pattern).unwrap();
     let caps = match re.captures(&url) {
         Some(c) => c,
         None => return Err(MiddlewareResult::failure("Not a valid GitLab URL.")),
     };
-    let project_path = caps["path"].trim_end_matches('/').to_string();
+    let project_path = caps["path"].to_string();
     let context = GitlabContext {
         project_id: encode_project_path(&project_path),
         project_path,
@@ -227,5 +238,74 @@ mod tests {
             1,
             "git must run exactly once"
         );
+    }
+
+    #[test]
+    fn ssh_url_with_port_is_parsed() {
+        // Self-hosted GitLab on a custom SSH port: the `:2222` is a port, not a
+        // path segment — the very case the `baseUrl` feature targets.
+        let host = MockHost::new()
+            .with_process_result(0, vec![out("ssh://git@gitlab.com:2222/group/project.git")]);
+        let sh = GitlabShared::default();
+        let cfg = pc("https://gitlab.com");
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let c = resolve_context(&ctx).unwrap_or_else(|_| panic!("must resolve"));
+        assert_eq!(c.project_path, "group/project");
+        assert_eq!(c.project_id, "group%2Fproject");
+    }
+
+    #[test]
+    fn scp_syntax_with_numeric_group_keeps_it_in_path() {
+        // scp form has no port, so `:22` starts the path (a group literally named
+        // "22") — it must NOT be mistaken for a port.
+        let host = MockHost::new().with_process_result(0, vec![out("git@gitlab.com:22/repo.git")]);
+        let sh = GitlabShared::default();
+        let cfg = pc("https://gitlab.com");
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let c = resolve_context(&ctx).unwrap_or_else(|_| panic!("must resolve"));
+        assert_eq!(c.project_path, "22/repo");
+    }
+
+    #[test]
+    fn lookalike_host_is_rejected() {
+        // The real host appears only as a substring of `evilgitlab.com`; the host
+        // boundary must reject it rather than POST the token to a foreign project.
+        let host =
+            MockHost::new().with_process_result(0, vec![out("https://evilgitlab.com/o/r.git")]);
+        let sh = GitlabShared::default();
+        let cfg = pc("https://gitlab.com");
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let msg = match resolve_context(&ctx) {
+            Ok(_) => panic!("look-alike host must fail"),
+            Err(f) => f.error_message().unwrap().to_string(),
+        };
+        assert_eq!(msg, "Not a valid GitLab URL.");
+    }
+
+    #[test]
+    fn subdomain_suffix_host_is_rejected() {
+        // `gitlab.com` is a prefix of the authority `gitlab.com.evil.com`, but the
+        // char after it is `.`, not `/` — so no match.
+        let host = MockHost::new()
+            .with_process_result(0, vec![out("https://gitlab.com.evil.com/o/r.git")]);
+        let sh = GitlabShared::default();
+        let cfg = pc("https://gitlab.com");
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let msg = match resolve_context(&ctx) {
+            Ok(_) => panic!("suffix host must fail"),
+            Err(f) => f.error_message().unwrap().to_string(),
+        };
+        assert_eq!(msg, "Not a valid GitLab URL.");
+    }
+
+    #[test]
+    fn trailing_slash_after_git_is_stripped() {
+        let host = MockHost::new().with_process_result(0, vec![out("https://gitlab.com/o/r.git/")]);
+        let sh = GitlabShared::default();
+        let cfg = pc("https://gitlab.com");
+        let ctx = ctx_with(&host, &sh, &cfg);
+        let c = resolve_context(&ctx).unwrap_or_else(|_| panic!("must resolve"));
+        assert_eq!(c.project_path, "o/r");
+        assert_eq!(c.project_id, "o%2Fr");
     }
 }
