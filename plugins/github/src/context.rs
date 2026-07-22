@@ -10,9 +10,6 @@ pub struct GithubContext {
 }
 
 impl GithubContext {
-    pub fn repo_url(&self) -> String {
-        format!("https://github.com/{}/{}", self.owner, self.repo)
-    }
     pub fn commit_url_prefix(&self) -> String {
         format!("https://github.com/{}/{}/commit/", self.owner, self.repo)
     }
@@ -42,7 +39,10 @@ pub fn resolve_context(ctx: &Context) -> Result<GithubContext, MiddlewareResult>
         Ok(o) if o.success() => o.stdout().trim().to_string(),
         _ => return Err(MiddlewareResult::failure("Remote 'origin' not found.")),
     };
-    let re = Regex::new(r"github\.com[/:](?P<owner>[^/]+?)/(?P<repo>[^/.]+)(\.git)?$").unwrap();
+    // Anchor the host on a start/`/`/`@` boundary so a look-alike host such as
+    // `evilgithub.com` (where the real host is only a substring) cannot match.
+    let re = Regex::new(r"(?:^|[/@])github\.com[/:](?P<owner>[^/]+?)/(?P<repo>[^/.]+)(\.git)?$")
+        .unwrap();
     let caps = match re.captures(&url) {
         Some(c) => c,
         None => return Err(MiddlewareResult::failure("Not a valid GitHub URL.")),
@@ -79,7 +79,6 @@ mod tests {
         let c = resolve_context(&ctx).unwrap_or_else(|_| panic!("must resolve"));
         assert_eq!(c.owner, "octo");
         assert_eq!(c.repo, "Hello-World");
-        assert_eq!(c.repo_url(), "https://github.com/octo/Hello-World");
         assert_eq!(
             c.commit_url_prefix(),
             "https://github.com/octo/Hello-World/commit/"
@@ -123,6 +122,21 @@ mod tests {
             Err(f) => f.error_message().unwrap().to_string(),
         };
         assert_eq!(msg, "Remote 'origin' not found.");
+    }
+
+    #[test]
+    fn lookalike_host_is_rejected() {
+        // The real host appears only as a substring of `evilgithub.com`; the host
+        // boundary must reject it rather than derive owner/repo from a foreign host.
+        let host =
+            MockHost::new().with_process_result(0, vec![out("https://evilgithub.com/me/repo.git")]);
+        let shared = GithubShared::default();
+        let ctx = Context::new(&host, "/repo".into(), "s".into()).with_state(&shared);
+        let msg = match resolve_context(&ctx) {
+            Ok(_) => panic!("look-alike host must fail"),
+            Err(f) => f.error_message().unwrap().to_string(),
+        };
+        assert_eq!(msg, "Not a valid GitHub URL.");
     }
 
     #[test]
