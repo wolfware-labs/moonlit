@@ -5,5 +5,6 @@ mod build;
 mod config;
 mod dotnet;
 mod pack;
+mod push;
 mod trx;
 mod version;
