@@ -26,6 +26,18 @@ pub fn exit_phrase(code: i32) -> String {
     format!("Dotnet command failed with exit code {code}")
 }
 
+/// Create a fresh (wiped) output directory `rel` under the working dir. Wiping gives
+/// clock-free per-run isolation (no stale artifacts from a prior run). Returns the
+/// resolved path used for the readback scan; pass `rel` itself as the `dotnet` argv.
+pub fn prepare_output_dir(working_dir: &str, rel: &str) -> std::io::Result<PathBuf> {
+    let dir = resolve(working_dir, rel);
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir)?;
+    }
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,5 +63,21 @@ mod tests {
     #[test]
     fn resolve_joins_working_dir_on_native() {
         assert_eq!(resolve("/wd", "a.csproj"), PathBuf::from("/wd/a.csproj"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn prepare_output_dir_wipes_existing_contents() {
+        let d = tempfile::tempdir().unwrap();
+        let wd = d.path().to_str().unwrap();
+        let first = prepare_output_dir(wd, ".moonlit/dotnet/App").unwrap();
+        std::fs::write(first.join("stale.nupkg"), b"x").unwrap();
+        let second = prepare_output_dir(wd, ".moonlit/dotnet/App").unwrap();
+        assert_eq!(first, second);
+        assert!(second.is_dir());
+        assert!(
+            !second.join("stale.nupkg").exists(),
+            "prepare must wipe prior contents"
+        );
     }
 }

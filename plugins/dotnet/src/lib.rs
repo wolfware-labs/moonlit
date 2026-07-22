@@ -4,4 +4,5 @@
 mod build;
 mod config;
 mod dotnet;
+mod pack;
 mod version;
