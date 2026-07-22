@@ -2,3 +2,4 @@
 //! HTTP capability; one component instance per pipeline run holds `GitlabShared`.
 
 mod config;
+mod context;
