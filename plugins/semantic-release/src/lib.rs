@@ -2,5 +2,6 @@
 //! conventional commits, computes the next semantic version, and produces structured
 //! changelog categories. One component instance per run holds `SrShared`.
 
+mod analyze;
 mod convert;
 mod models;
