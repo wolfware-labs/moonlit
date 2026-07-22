@@ -47,14 +47,16 @@ mod tests {
     #[test]
     fn nuget_api_key_preferred_over_alias() {
         let c: DotnetConfig =
-            serde_json::from_value(serde_json::json!({ "nugetApiKey": "A", "apiKey": "B" })).unwrap();
+            serde_json::from_value(serde_json::json!({ "nugetApiKey": "A", "apiKey": "B" }))
+                .unwrap();
         assert_eq!(c.resolved_api_key(), "A");
     }
 
     #[test]
     fn alias_used_when_nuget_api_key_blank() {
         let c: DotnetConfig =
-            serde_json::from_value(serde_json::json!({ "nugetApiKey": "  ", "apiKey": "B" })).unwrap();
+            serde_json::from_value(serde_json::json!({ "nugetApiKey": "  ", "apiKey": "B" }))
+                .unwrap();
         assert_eq!(c.resolved_api_key(), "B");
     }
 

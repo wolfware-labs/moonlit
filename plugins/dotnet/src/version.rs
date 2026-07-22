@@ -42,16 +42,24 @@ pub fn package_version(over: &Option<String>, version: &Option<String>) -> Optio
 mod tests {
     use super::*;
 
-    fn s(x: &str) -> Option<String> { Some(x.to_string()) }
+    fn s(x: &str) -> Option<String> {
+        Some(x.to_string())
+    }
 
     #[test]
     fn assembly_strips_prerelease_from_version() {
-        assert_eq!(assembly_or_file_version(&None, &s("1.2.3-rc.1")), s("1.2.3"));
+        assert_eq!(
+            assembly_or_file_version(&None, &s("1.2.3-rc.1")),
+            s("1.2.3")
+        );
     }
 
     #[test]
     fn assembly_override_used_verbatim_without_split() {
-        assert_eq!(assembly_or_file_version(&s("9.9.9-beta"), &s("1.2.3")), s("9.9.9-beta"));
+        assert_eq!(
+            assembly_or_file_version(&s("9.9.9-beta"), &s("1.2.3")),
+            s("9.9.9-beta")
+        );
     }
 
     #[test]
@@ -66,7 +74,10 @@ mod tests {
 
     #[test]
     fn informational_uses_full_version() {
-        assert_eq!(informational_version(&None, &s("1.2.3-rc.1+abc")), s("1.2.3-rc.1+abc"));
+        assert_eq!(
+            informational_version(&None, &s("1.2.3-rc.1+abc")),
+            s("1.2.3-rc.1+abc")
+        );
     }
 
     #[test]
