@@ -3,3 +3,4 @@
 
 mod config;
 mod dotnet;
+mod version;
