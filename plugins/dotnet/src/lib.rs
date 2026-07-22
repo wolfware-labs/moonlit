@@ -2,3 +2,4 @@
 //! build / pack / push / test. One component instance per pipeline run.
 
 mod config;
+mod dotnet;
