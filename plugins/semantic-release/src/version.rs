@@ -1,8 +1,8 @@
 //! The pure version engine: bump analysis + semver arithmetic helpers +
 //! `calculate_next`. No I/O — the golden tests exercise every branch.
 
-use semver::{BuildMetadata, Prerelease, Version};
 use moonlit_plugin_sdk::prelude::Deserialize;
+use semver::{BuildMetadata, Prerelease, Version};
 
 use crate::models::{ConventionalCommit, ReleaseRule, VersionBumpType};
 
@@ -157,7 +157,11 @@ mod tests {
     use semver::Version;
 
     fn c(kind: &str, breaking: bool) -> ConventionalCommit {
-        ConventionalCommit { kind: kind.into(), is_breaking_change: breaking, ..Default::default() }
+        ConventionalCommit {
+            kind: kind.into(),
+            is_breaking_change: breaking,
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -176,21 +180,42 @@ mod tests {
     fn breaking_forces_major_and_highest_bump_wins() {
         let a = AnalyzerConfig::create_default();
         assert_eq!(a.analyze(&[c("fix", true)]), VersionBumpType::Major);
-        assert_eq!(a.analyze(&[c("chore", false), c("feat", false), c("fix", false)]), VersionBumpType::Minor);
+        assert_eq!(
+            a.analyze(&[c("chore", false), c("feat", false), c("fix", false)]),
+            VersionBumpType::Minor
+        );
     }
 
     #[test]
     fn version_level_classifies_base() {
-        assert_eq!(version_level(&Version::parse("2.0.0").unwrap()), VersionBumpType::Major);
-        assert_eq!(version_level(&Version::parse("1.2.0").unwrap()), VersionBumpType::Minor);
-        assert_eq!(version_level(&Version::parse("1.2.3").unwrap()), VersionBumpType::Patch);
+        assert_eq!(
+            version_level(&Version::parse("2.0.0").unwrap()),
+            VersionBumpType::Major
+        );
+        assert_eq!(
+            version_level(&Version::parse("1.2.0").unwrap()),
+            VersionBumpType::Minor
+        );
+        assert_eq!(
+            version_level(&Version::parse("1.2.3").unwrap()),
+            VersionBumpType::Patch
+        );
     }
 
     #[test]
     fn prerelease_info_extracts_label_and_iteration() {
-        assert_eq!(prerelease_info(&Version::parse("1.0.0-beta.3").unwrap()), ("beta".to_string(), 3));
-        assert_eq!(prerelease_info(&Version::parse("1.0.0").unwrap()), (String::new(), 0));
-        assert_eq!(prerelease_info(&Version::parse("1.0.0-rc").unwrap()), (String::new(), 0));
+        assert_eq!(
+            prerelease_info(&Version::parse("1.0.0-beta.3").unwrap()),
+            ("beta".to_string(), 3)
+        );
+        assert_eq!(
+            prerelease_info(&Version::parse("1.0.0").unwrap()),
+            (String::new(), 0)
+        );
+        assert_eq!(
+            prerelease_info(&Version::parse("1.0.0-rc").unwrap()),
+            (String::new(), 0)
+        );
     }
 
     #[test]
@@ -199,8 +224,14 @@ mod tests {
         assert_eq!(bumped(&v, VersionBumpType::Major).to_string(), "2.0.0");
         assert_eq!(bumped(&v, VersionBumpType::Minor).to_string(), "1.3.0");
         assert_eq!(bumped(&v, VersionBumpType::Patch).to_string(), "1.2.4");
-        assert_eq!(with_prerelease(v.clone(), "beta", 1).to_string(), "1.2.3-beta.1");
-        assert_eq!(with_metadata(v.clone(), "sha-abc1234").to_string(), "1.2.3+sha-abc1234");
+        assert_eq!(
+            with_prerelease(v.clone(), "beta", 1).to_string(),
+            "1.2.3-beta.1"
+        );
+        assert_eq!(
+            with_metadata(v.clone(), "sha-abc1234").to_string(),
+            "1.2.3+sha-abc1234"
+        );
         let pre = Version::parse("1.2.3-beta.1+sha-x").unwrap();
         assert_eq!(without_prerelease(pre.clone()).to_string(), "1.2.3+sha-x");
         assert_eq!(without_metadata(pre).to_string(), "1.2.3-beta.1");
@@ -226,33 +257,54 @@ mod tests {
 
     #[test]
     fn stable_channel_numeric_bumps() {
-        assert_eq!(calc("1.2.3", None, &one("feat", false)).as_deref(), Some("1.3.0"));
-        assert_eq!(calc("1.2.3", None, &one("fix", false)).as_deref(), Some("1.2.4"));
-        assert_eq!(calc("1.2.3", None, &one("feat", true)).as_deref(), Some("2.0.0"));
+        assert_eq!(
+            calc("1.2.3", None, &one("feat", false)).as_deref(),
+            Some("1.3.0")
+        );
+        assert_eq!(
+            calc("1.2.3", None, &one("fix", false)).as_deref(),
+            Some("1.2.4")
+        );
+        assert_eq!(
+            calc("1.2.3", None, &one("feat", true)).as_deref(),
+            Some("2.0.0")
+        );
     }
 
     #[test]
     fn stable_channel_promotes_prerelease_without_numeric_bump() {
         // base is a prerelease, target is stable -> strip prerelease, no numeric bump
-        assert_eq!(calc("1.3.0-beta.2", None, &one("feat", false)).as_deref(), Some("1.3.0"));
+        assert_eq!(
+            calc("1.3.0-beta.2", None, &one("feat", false)).as_deref(),
+            Some("1.3.0")
+        );
     }
 
     #[test]
     fn prerelease_iterates_when_bump_within_level() {
         // base 2.0.0-beta.1 (level Major), feat (Minor) <= Major -> iterate
-        assert_eq!(calc("2.0.0-beta.1", Some("beta"), &one("feat", false)).as_deref(), Some("2.0.0-beta.2"));
+        assert_eq!(
+            calc("2.0.0-beta.1", Some("beta"), &one("feat", false)).as_deref(),
+            Some("2.0.0-beta.2")
+        );
     }
 
     #[test]
     fn prerelease_numeric_bumps_and_restarts_when_bump_exceeds_level() {
         // base 1.2.0-beta.3 (level Minor), feat! (Major) > Minor -> bump to 2.0.0, restart .1
-        assert_eq!(calc("1.2.0-beta.3", Some("beta"), &one("feat", true)).as_deref(), Some("2.0.0-beta.1"));
+        assert_eq!(
+            calc("1.2.0-beta.3", Some("beta"), &one("feat", true)).as_deref(),
+            Some("2.0.0-beta.1")
+        );
     }
 
     #[test]
     fn channel_switch_bumps_and_restarts_at_one() {
         // base 1.2.0-alpha.2, target label beta (differs) -> numeric bump + beta.1
-        assert_eq!(calc("1.2.0-alpha.2", Some("beta"), &one("feat", false)).as_deref(), Some("1.3.0-beta.1"));
+        assert_eq!(
+            calc("1.2.0-alpha.2", Some("beta"), &one("feat", false)).as_deref(),
+            Some("1.3.0-beta.1")
+        );
     }
 
     #[test]

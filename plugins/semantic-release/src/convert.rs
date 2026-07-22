@@ -7,8 +7,9 @@ use crate::models::{Commit, ConventionalCommit};
 
 /// Convert every raw commit. Compiles the regex once per call.
 pub fn convert_all(commits: &[Commit]) -> Vec<ConventionalCommit> {
-    let re = Regex::new(r"^(?P<type>\w+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<body>.*)$")
-        .expect("valid conventional-commit regex");
+    let re =
+        Regex::new(r"^(?P<type>\w+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<body>.*)$")
+            .expect("valid conventional-commit regex");
     commits.iter().map(|c| convert_one(&re, c)).collect()
 }
 
@@ -26,7 +27,9 @@ fn first_line(message: &str) -> String {
 }
 
 fn contains_ci(haystack: &str, needle: &str) -> bool {
-    haystack.to_ascii_uppercase().contains(&needle.to_ascii_uppercase())
+    haystack
+        .to_ascii_uppercase()
+        .contains(&needle.to_ascii_uppercase())
 }
 
 fn convert_one(re: &Regex, c: &Commit) -> ConventionalCommit {
@@ -48,7 +51,10 @@ fn convert_one(re: &Regex, c: &Commit) -> ConventionalCommit {
                 || contains_ci(&c.message, "BREAKING-CHANGE:");
             ConventionalCommit {
                 sha: short_sha(&c.sha),
-                summary: caps.name("body").map(|m| m.as_str().trim().to_string()).unwrap_or_default(),
+                summary: caps
+                    .name("body")
+                    .map(|m| m.as_str().trim().to_string())
+                    .unwrap_or_default(),
                 kind: caps["type"].to_lowercase(),
                 scope: caps.name("scope").map(|m| m.as_str().to_string()),
                 body: c.message.clone(),
@@ -66,7 +72,12 @@ mod tests {
     use crate::models::Commit;
 
     fn c(sha: &str, message: &str) -> Commit {
-        Commit { sha: sha.into(), message: message.into(), date: "2026-01-01T00:00:00Z".into(), ..Default::default() }
+        Commit {
+            sha: sha.into(),
+            message: message.into(),
+            date: "2026-01-01T00:00:00Z".into(),
+            ..Default::default()
+        }
     }
 
     #[test]

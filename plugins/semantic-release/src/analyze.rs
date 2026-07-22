@@ -75,8 +75,13 @@ mod tests {
         moonlit_plugin_sdk::config::from_json_value(&json.to_string()).unwrap()
     }
 
-    fn outputs(w: moonlit_plugin_sdk::bindings::MiddlewareResult) -> std::collections::HashMap<String, Value> {
-        w.output.into_iter().map(|(k, v)| (k, serde_json::from_str(&v).unwrap())).collect()
+    fn outputs(
+        w: moonlit_plugin_sdk::bindings::MiddlewareResult,
+    ) -> std::collections::HashMap<String, Value> {
+        w.output
+            .into_iter()
+            .map(|(k, v)| (k, serde_json::from_str(&v).unwrap()))
+            .collect()
     }
 
     #[test]

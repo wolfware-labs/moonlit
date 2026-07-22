@@ -22,14 +22,19 @@ impl Default for ChangelogGeneratorConfig {
 
 impl ChangelogGeneratorConfig {
     pub fn create_default() -> Self {
-        Self { rules: default_rules() }
+        Self {
+            rules: default_rules(),
+        }
     }
 
     pub fn generate(&self, commits: &[ConventionalCommit]) -> Vec<Category> {
         let mut categories = Vec::new();
         for rule in &self.rules {
-            let entries: Vec<Entry> =
-                commits.iter().filter(|c| rule.matches(c)).map(entry_from).collect();
+            let entries: Vec<Entry> = commits
+                .iter()
+                .filter(|c| rule.matches(c))
+                .map(entry_from)
+                .collect();
             if !entries.is_empty() {
                 categories.push(Category {
                     name: rule.section.clone(),
@@ -48,7 +53,10 @@ fn entry_from(c: &ConventionalCommit) -> Entry {
         Some(s) if !s.trim().is_empty() => format!("**{s}**: {}", c.summary),
         _ => c.summary.clone(),
     };
-    Entry { sha: c.sha.clone(), description }
+    Entry {
+        sha: c.sha.clone(),
+        description,
+    }
 }
 
 fn rule(kind: &str, section: &str, icon: &str, summary: &str) -> ChangelogRule {
@@ -66,7 +74,12 @@ fn default_rules() -> Vec<ChangelogRule> {
     vec![
         rule("feat", "Features", ":sparkles:", "New features"),
         rule("fix", "Bug Fixes", ":bug:", "Bug fixes"),
-        rule("perf", "Performance Improvements", ":zap:", "Performance improvements"),
+        rule(
+            "perf",
+            "Performance Improvements",
+            ":zap:",
+            "Performance improvements",
+        ),
         rule("refactor", "Code Refactoring", ":art:", "Code refactoring"),
         rule(
             "style",
@@ -74,9 +87,24 @@ fn default_rules() -> Vec<ChangelogRule> {
             ":lipstick:",
             "Code style changes (formatting, missing semi-colons, etc.)",
         ),
-        rule("test", "Tests", ":white_check_mark:", "Adding missing tests or correcting existing tests"),
-        rule("chore", "Chores", ":wrench:", "Other changes that don't modify src or test files"),
-        rule("docs", "Documentation", ":book:", "Documentation only changes"),
+        rule(
+            "test",
+            "Tests",
+            ":white_check_mark:",
+            "Adding missing tests or correcting existing tests",
+        ),
+        rule(
+            "chore",
+            "Chores",
+            ":wrench:",
+            "Other changes that don't modify src or test files",
+        ),
+        rule(
+            "docs",
+            "Documentation",
+            ":book:",
+            "Documentation only changes",
+        ),
         rule(
             "build",
             "Build System",
@@ -111,7 +139,13 @@ mod tests {
     use super::*;
     use crate::models::ConventionalCommit;
 
-    fn commit(kind: &str, scope: Option<&str>, breaking: bool, summary: &str, sha: &str) -> ConventionalCommit {
+    fn commit(
+        kind: &str,
+        scope: Option<&str>,
+        breaking: bool,
+        summary: &str,
+        sha: &str,
+    ) -> ConventionalCommit {
         ConventionalCommit {
             kind: kind.into(),
             scope: scope.map(str::to_string),
@@ -128,13 +162,21 @@ mod tests {
             .generate(&[commit("feat", None, true, "drop v1", "aaaaaaa")]);
         let names: Vec<&str> = cats.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"Breaking Changes"));
-        assert!(!names.contains(&"Features"), "breaking feat must not appear under Features");
+        assert!(
+            !names.contains(&"Features"),
+            "breaking feat must not appear under Features"
+        );
     }
 
     #[test]
     fn scoped_entry_description_is_bolded() {
-        let cats = ChangelogGeneratorConfig::create_default()
-            .generate(&[commit("feat", Some("cli"), false, "add flag", "bbbbbbb")]);
+        let cats = ChangelogGeneratorConfig::create_default().generate(&[commit(
+            "feat",
+            Some("cli"),
+            false,
+            "add flag",
+            "bbbbbbb",
+        )]);
         let feat = cats.iter().find(|c| c.name == "Features").unwrap();
         assert_eq!(feat.entries[0].description, "**cli**: add flag");
         assert_eq!(feat.entries[0].sha, "bbbbbbb");
