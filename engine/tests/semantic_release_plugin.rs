@@ -80,7 +80,11 @@ async fn analyze_then_calculate_then_changelog() {
         )
         .await
         .unwrap();
-    assert!(v.successful, "calculate-version failed: {:?}", v.error_message);
+    assert!(
+        v.successful,
+        "calculate-version failed: {:?}",
+        v.error_message
+    );
     let v_out: std::collections::HashMap<String, serde_json::Value> =
         v.output.into_iter().collect();
     assert_eq!(v_out["hasNewVersion"], serde_json::json!(true));
@@ -96,7 +100,11 @@ async fn analyze_then_calculate_then_changelog() {
         )
         .await
         .unwrap();
-    assert!(g.successful, "generate-changelog failed: {:?}", g.error_message);
+    assert!(
+        g.successful,
+        "generate-changelog failed: {:?}",
+        g.error_message
+    );
     let g_out: std::collections::HashMap<String, serde_json::Value> =
         g.output.into_iter().collect();
     let cats = g_out["categories"].as_array().unwrap();
@@ -117,5 +125,8 @@ async fn calculate_version_empty_fails_with_exact_message() {
         .await
         .unwrap();
     assert!(!v.successful);
-    assert_eq!(v.error_message.as_deref(), Some("No commits provided for version calculation."));
+    assert_eq!(
+        v.error_message.as_deref(),
+        Some("No commits provided for version calculation.")
+    );
 }
