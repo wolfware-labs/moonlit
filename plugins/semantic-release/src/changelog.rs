@@ -10,7 +10,7 @@ use crate::models::{ChangelogRule, ConventionalCommit};
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangelogGeneratorConfig {
-    #[serde(default)]
+    #[serde(default = "default_rules")]
     pub rules: Vec<ChangelogRule>,
 }
 
@@ -206,6 +206,26 @@ mod tests {
     #[test]
     fn no_matching_commits_yields_empty_vec() {
         let cats = ChangelogGeneratorConfig::create_default().generate(&[]);
+        assert!(cats.is_empty());
+    }
+
+    #[test]
+    fn omitted_rules_preserve_default_rule_set() {
+        let cfg: ChangelogGeneratorConfig =
+            moonlit_plugin_sdk::config::from_json_value(&serde_json::json!({}).to_string())
+                .unwrap();
+        let cats = cfg.generate(&[commit("feat", None, false, "add flag", "abc1234")]);
+        let names: Vec<&str> = cats.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"Features"));
+    }
+
+    #[test]
+    fn explicit_empty_rules_yield_no_categories() {
+        let cfg: ChangelogGeneratorConfig = moonlit_plugin_sdk::config::from_json_value(
+            &serde_json::json!({ "rules": [] }).to_string(),
+        )
+        .unwrap();
+        let cats = cfg.generate(&[commit("feat", None, false, "add flag", "abc1234")]);
         assert!(cats.is_empty());
     }
 }

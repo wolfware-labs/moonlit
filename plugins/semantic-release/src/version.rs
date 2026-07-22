@@ -16,8 +16,28 @@ fn default_true() -> bool {
 pub struct AnalyzerConfig {
     #[serde(default = "default_true")]
     pub breaking_changes_always_major: bool,
-    #[serde(default)]
+    #[serde(default = "default_release_rules")]
     pub rules: Vec<ReleaseRule>,
+}
+
+/// The 1.x default release-rule set, in match order. Extracted so an omitted
+/// `rules` key on a partial config override still gets the full default set
+/// (`#[serde(default = "default_release_rules")]`), matching 1.x's binder
+/// semantics where a partial nested override kept `CreateDefault()`'s rules.
+fn default_release_rules() -> Vec<ReleaseRule> {
+    vec![
+        ReleaseRule::new("feat", VersionBumpType::Minor),
+        ReleaseRule::new("fix", VersionBumpType::Patch),
+        ReleaseRule::new("perf", VersionBumpType::Patch),
+        ReleaseRule::new("revert", VersionBumpType::Patch),
+        ReleaseRule::new("docs", VersionBumpType::None),
+        ReleaseRule::new("style", VersionBumpType::None),
+        ReleaseRule::new("chore", VersionBumpType::None),
+        ReleaseRule::new("refactor", VersionBumpType::None),
+        ReleaseRule::new("test", VersionBumpType::None),
+        ReleaseRule::new("build", VersionBumpType::None),
+        ReleaseRule::new("ci", VersionBumpType::None),
+    ]
 }
 
 impl Default for AnalyzerConfig {
@@ -30,19 +50,7 @@ impl AnalyzerConfig {
     pub fn create_default() -> Self {
         Self {
             breaking_changes_always_major: true,
-            rules: vec![
-                ReleaseRule::new("feat", VersionBumpType::Minor),
-                ReleaseRule::new("fix", VersionBumpType::Patch),
-                ReleaseRule::new("perf", VersionBumpType::Patch),
-                ReleaseRule::new("revert", VersionBumpType::Patch),
-                ReleaseRule::new("docs", VersionBumpType::None),
-                ReleaseRule::new("style", VersionBumpType::None),
-                ReleaseRule::new("chore", VersionBumpType::None),
-                ReleaseRule::new("refactor", VersionBumpType::None),
-                ReleaseRule::new("test", VersionBumpType::None),
-                ReleaseRule::new("build", VersionBumpType::None),
-                ReleaseRule::new("ci", VersionBumpType::None),
-            ],
+            rules: default_release_rules(),
         }
     }
 
@@ -310,5 +318,24 @@ mod tests {
     #[test]
     fn multiple_commits_use_highest_bump() {
         assert_eq!(calc("1.2.3", None, &feats(3)).as_deref(), Some("1.3.0"));
+    }
+
+    #[test]
+    fn partial_override_preserves_default_rules() {
+        let cfg: AnalyzerConfig = moonlit_plugin_sdk::config::from_json_value(
+            &serde_json::json!({ "breakingChangesAlwaysMajor": false }).to_string(),
+        )
+        .unwrap();
+        assert_eq!(cfg.analyze(&[c("feat", false)]), VersionBumpType::Minor);
+        assert!(!cfg.breaking_changes_always_major);
+    }
+
+    #[test]
+    fn explicit_empty_rules_are_honored() {
+        let cfg: AnalyzerConfig = moonlit_plugin_sdk::config::from_json_value(
+            &serde_json::json!({ "rules": [] }).to_string(),
+        )
+        .unwrap();
+        assert_eq!(cfg.analyze(&[c("feat", false)]), VersionBumpType::None);
     }
 }
