@@ -52,7 +52,10 @@ mod tests {
         assert_eq!(reqs[0].authority, "slack.com");
         assert_eq!(reqs[0].path_with_query, "/api/chat.postMessage");
         let has = |k: &str, v: &str| {
-            reqs[0].headers.iter().any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v)
+            reqs[0]
+                .headers
+                .iter()
+                .any(|(hk, hv)| hk.eq_ignore_ascii_case(k) && hv == v)
         };
         assert!(has("authorization", "Bearer xoxb-tok"));
         let body: serde_json::Value =
@@ -63,7 +66,8 @@ mod tests {
 
     #[test]
     fn ok_false_surfaces_error_code() {
-        let host = MockHost::new().with_http_response(200, br#"{"ok":false,"error":"channel_not_found"}"#);
+        let host =
+            MockHost::new().with_http_response(200, br#"{"ok":false,"error":"channel_not_found"}"#);
         let ctx = Context::new(&host, "/w".into(), "s".into());
         let e = match post_message(&ctx, "t", "#x", "m") {
             Ok(()) => panic!("ok:false must fail"),

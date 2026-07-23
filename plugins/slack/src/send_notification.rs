@@ -41,7 +41,10 @@ mod tests {
     use moonlit_plugin_sdk::testing::{run, MockHost};
 
     fn cfg(channel: &str, message: &str) -> SendNotificationConfig {
-        SendNotificationConfig { channel: channel.into(), message: message.into() }
+        SendNotificationConfig {
+            channel: channel.into(),
+            message: message.into(),
+        }
     }
 
     #[test]
@@ -73,7 +76,9 @@ mod tests {
     #[test]
     fn happy_path_posts_and_succeeds() {
         let host = MockHost::new().with_http_response(200, br#"{"ok":true}"#);
-        let pc = SlackPluginConfig { token: "xoxb-t".into() };
+        let pc = SlackPluginConfig {
+            token: "xoxb-t".into(),
+        };
         let ctx = Context::new(&host, "/w".into(), "s".into()).with_plugin_config(&pc);
         assert!(run(&SendNotification, &ctx, cfg("#general", "hello")).is_success());
         assert_eq!(host.recorded_requests().len(), 1);

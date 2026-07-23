@@ -32,6 +32,10 @@ mod tests {
 
     #[test]
     fn present_token_passes() {
-        assert!((SlackPluginConfig { token: "xoxb-x".into() }).validate().is_ok());
+        assert!((SlackPluginConfig {
+            token: "xoxb-x".into()
+        })
+        .validate()
+        .is_ok());
     }
 }
