@@ -64,14 +64,14 @@ impl Middleware for Pack {
         }
         // `npm_dest` is relative to npm's cwd (the directory); `wd_rel` is the same path
         // made working-dir-relative for readback + the emitted packagePath.
-        let npm_dest = cfg
-            .destination
-            .clone()
+        let user_dest = cfg.destination.as_deref().filter(|s| !s.trim().is_empty());
+        let npm_dest = user_dest
+            .map(str::to_string)
             .unwrap_or_else(|| ".moonlit/npm-pack".to_string());
         let wd_rel = dest_wd_rel(&cfg.directory, &npm_dest);
         // Default dir is wiped per run; a user-provided destination is create-if-missing
         // only (never delete user files).
-        let prep = if cfg.destination.is_some() {
+        let prep = if user_dest.is_some() {
             std::fs::create_dir_all(resolve(ctx.working_dir(), &wd_rel)).map(|_| ())
         } else {
             prepare_output_dir(ctx.working_dir(), &wd_rel).map(|_| ())
@@ -245,5 +245,44 @@ mod tests {
             .unwrap()
             .starts_with("package.json not found in directory:"));
         assert!(host.recorded_commands().is_empty());
+    }
+
+    #[test]
+    fn pack_user_destination_is_not_wiped() {
+        use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
+        let d = proj_dir();
+        // Seed a user file in the destination; pack must NOT delete it (create-only, no wipe).
+        let dest = d.path().join("out/tarballs");
+        std::fs::create_dir_all(&dest).unwrap();
+        std::fs::write(dest.join("keep.txt"), b"important").unwrap();
+        let json_chunk = OutputChunk {
+            stream: StdioStream::Stdout,
+            text: r#"[{"filename":"pkg-1.0.0.tgz"}]"#.to_string(),
+        };
+        let host = MockHost::new().with_process_result(0, vec![json_chunk]);
+        let cfg = PackConfig {
+            destination: Some("out/tarballs".into()),
+            ..Default::default()
+        };
+        let _ = run(&Pack, &ctx(&host, d.path()), cfg);
+        assert!(
+            dest.join("keep.txt").exists(),
+            "user destination must not be wiped"
+        );
+    }
+
+    #[test]
+    fn pack_blank_destination_falls_back_to_default() {
+        let d = proj_dir();
+        let host = MockHost::new().with_process_result(0, vec![]);
+        let cfg = PackConfig {
+            destination: Some("".into()),
+            ..Default::default()
+        };
+        let _ = run(&Pack, &ctx(&host, d.path()), cfg);
+        assert_eq!(
+            host.recorded_commands()[0].args,
+            vec!["pack", "--pack-destination", ".moonlit/npm-pack", "--json"]
+        );
     }
 }

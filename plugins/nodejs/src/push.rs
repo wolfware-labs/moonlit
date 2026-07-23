@@ -104,11 +104,13 @@ impl Middleware for Push {
         args.push("--userconfig".to_string());
         args.push(".moonlit/npm-push/.npmrc".to_string());
 
-        match npm(ctx, ".").args(args).stream(LineHandler::severity()) {
+        let result = match npm(ctx, ".").args(args).stream(LineHandler::severity()) {
             Ok(o) if o.success() => MiddlewareResult::success(),
             Ok(o) => {
                 let combined = format!("{}\n{}", o.stdout(), o.stderr()).to_ascii_lowercase();
                 if combined.contains("epublishconflict")
+                    || combined.contains("e409")
+                    || combined.contains("409 conflict")
                     || combined.contains("cannot publish over")
                     || combined.contains("previously published versions")
                     || (combined.contains("403")
@@ -134,7 +136,11 @@ impl Middleware for Push {
                 }
             }
             Err(e) => MiddlewareResult::failure(format!("Failed to push package: {e}")),
-        }
+        };
+        // Best-effort: drop the scoped .npmrc so the auth token does not linger in the
+        // working tree after the run (a later broad `git add` could otherwise capture it).
+        let _ = std::fs::remove_dir_all(resolve(ctx.working_dir(), ".moonlit/npm-push"));
+        result
     }
 }
 
@@ -216,9 +222,8 @@ mod tests {
             !args.iter().any(|a| a == "SECRET"),
             "token must not be on argv"
         );
-        // The token lives in the written .npmrc instead.
-        let npmrc = std::fs::read_to_string(d.path().join(".moonlit/npm-push/.npmrc")).unwrap();
-        assert!(npmrc.contains("//feed/:_authToken=SECRET"));
+        // The scoped .npmrc (which held the token) is cleaned up after the run.
+        assert!(!d.path().join(".moonlit/npm-push/.npmrc").exists());
     }
 
     #[test]
@@ -237,8 +242,7 @@ mod tests {
         let args = &host.recorded_commands()[0].args;
         assert_eq!(args[2], "--registry");
         assert_eq!(args[3], "https://plug");
-        let npmrc = std::fs::read_to_string(d.path().join(".moonlit/npm-push/.npmrc")).unwrap();
-        assert!(npmrc.contains("//plug/:_authToken=PTOK"));
+        assert!(!d.path().join(".moonlit/npm-push/.npmrc").exists());
     }
 
     #[test]
@@ -318,12 +322,34 @@ mod tests {
     }
 
     #[test]
+    fn http_409_maps_to_already_published() {
+        let d = pkg_dir();
+        let host = MockHost::new().with_process_result(
+            1,
+            vec![err(
+                "npm error code E409\nnpm error 409 Conflict - PUT https://registry/app",
+            )],
+        );
+        let plugin: NodeConfig =
+            serde_json::from_value(serde_json::json!({ "token": "T" })).unwrap();
+        let cfg = PushConfig {
+            package: "app-1.0.0.tgz".into(),
+            ..Default::default()
+        };
+        let w = run(&Push, &ctx_with(&host, d.path(), &plugin), cfg).into_wit();
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("Version already published.")
+        );
+    }
+
+    #[test]
     fn bare_401_in_filename_is_not_auth() {
         // A `401` only inside a token (a version) must fall through to generic, not auth.
         let d = pkg_dir();
         let host = MockHost::new().with_process_result(
             1,
-            vec![err("npm error publishing app-4.0.1.tgz: network reset")],
+            vec![err("npm error publishing app-1.401.0.tgz: network reset")],
         );
         let plugin: NodeConfig =
             serde_json::from_value(serde_json::json!({ "token": "T" })).unwrap();

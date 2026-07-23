@@ -29,6 +29,8 @@ Requires: `rustup target add wasm32-wasip2`. Verify with
   wiped). The emitted `packagePath` is **working-dir-relative** so it chains into `push`.
   A wasm component has no clock and can only read files inside its preopen, so the
   spec's `<tmp>/npm-packs/<name>/<timestamp>/` default is replaced by this scheme.
+  `destination` is interpreted as a working-dir-relative path; an absolute path is out
+  of contract under the wasm filesystem sandbox.
 - **`push` auth** — the token is written to a scoped `.npmrc` under `.moonlit/npm-push/`
   (wiped per run) and passed via `--userconfig`; it never appears on the argv, so it is
   not visible in the host process listing (`/proc/<pid>/cmdline`). A blank token (local

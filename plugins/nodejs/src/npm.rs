@@ -8,8 +8,16 @@ use std::path::PathBuf;
 
 /// An `npm` command pre-seeded with `directory` (resolved against the working dir) as cwd.
 pub fn npm<'a>(ctx: &Context<'a>, directory: &str) -> Command<'a> {
-    let cwd = resolve(ctx.working_dir(), directory);
-    ctx.command("npm").cwd(cwd.to_string_lossy().into_owned())
+    // The spawn cwd is a HOST path — the engine passes it straight to the OS process's
+    // `current_dir` — so it must always include the working dir. This differs from
+    // `resolve`, which is preopen-relative under wasm for the plugin's own filesystem
+    // access; using `resolve` here would drop the working dir on wasm and spawn npm in
+    // the engine's cwd instead of the project's.
+    let cwd = std::path::Path::new(ctx.working_dir())
+        .join(directory)
+        .to_string_lossy()
+        .into_owned();
+    ctx.command("npm").cwd(cwd)
 }
 
 /// Resolve a path against the working dir. Under wasm the preopen IS the working dir
@@ -107,6 +115,19 @@ mod tests {
     }
 
     #[test]
+    fn npm_cwd_prepends_working_dir_for_subdirectory() {
+        // The spawn cwd is a host path: it must include the working dir, not just the
+        // relative `directory` — regression guard for the wasm cwd bug.
+        let host = MockHost::new().with_process_result(0, vec![]);
+        let ctx = Context::new(&host, "/wd".into(), "s".into());
+        let _ = npm(&ctx, "packages/app").arg("ci").run();
+        assert_eq!(
+            host.recorded_commands()[0].cwd.as_deref(),
+            Some("/wd/packages/app")
+        );
+    }
+
+    #[test]
     fn exit_phrase_formats_code() {
         assert_eq!(exit_phrase(7), "Npm command failed with exit code 7");
     }
@@ -116,10 +137,10 @@ mod tests {
     fn require_package_json_ok_and_missing() {
         let d = tempfile::tempdir().unwrap();
         let wd = d.path().to_str().unwrap();
-        let miss = require_package_json(wd, ".");
-        assert!(miss
-            .unwrap_err()
-            .starts_with("package.json not found in directory:"));
+        match require_package_json(wd, ".") {
+            Ok(()) => panic!("expected missing package.json"),
+            Err(m) => assert!(m.starts_with("package.json not found in directory:")),
+        }
         std::fs::write(d.path().join("package.json"), b"{}").unwrap();
         assert!(require_package_json(wd, ".").is_ok());
     }
