@@ -18,8 +18,8 @@ Requires: `rustup target add wasm32-wasip2`. Verify with
 ## Design notes
 
 - **Randomness** — where a value must be generated (the default buildx builder name in
-  `setup-buildx`), it comes from the SDK's `ctx.uuid()`, which is itself backed by
-  `Host::random_bytes`. A wasm component has no OS entropy source of its own, so all
+  `setup-buildx`), it comes from the SDK's `ctx.random().uuid()`, which is itself backed
+  by `Host::random_bytes`. A wasm component has no OS entropy source of its own, so all
   randomness is routed through the host.
 - **Shared state** — `DockerShared.builder` is a `Shared<Option<String>>` set by
   `setup-buildx` (when `setBuilderVariable` is true) and read by `build-and-push`.

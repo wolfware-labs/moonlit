@@ -41,7 +41,7 @@ impl Middleware for SetupBuildx {
     fn execute(&self, ctx: &Context, cfg: SetupBuildxConfig) -> MiddlewareResult {
         let name = match cfg.name.as_deref().filter(|n| !n.trim().is_empty()) {
             Some(n) => n.to_string(),
-            None => format!("moonlit-builder-{}", ctx.uuid()),
+            None => format!("moonlit-builder-{}", ctx.random().uuid()),
         };
         let mut c = docker(ctx)
             .arg("buildx")
