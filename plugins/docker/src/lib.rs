@@ -3,4 +3,5 @@
 //! name). `moonlit_plugin!` wiring is added once every middleware exists.
 
 mod docker;
+mod login;
 mod state;
