@@ -48,6 +48,9 @@ impl Middleware for Deploy {
         {
             return MiddlewareResult::failure("Swarm deploys are not supported yet.");
         }
+        if cfg.host.trim().is_empty() {
+            return MiddlewareResult::failure("A host is required for a compose deployment.");
+        }
         let compose_file = match cfg.compose_file.as_deref().filter(|f| !f.trim().is_empty()) {
             Some(f) => f,
             None => {
@@ -57,7 +60,6 @@ impl Middleware for Deploy {
             }
         };
         let mut c = docker(ctx)
-            .env("DOCKER_HOST", &cfg.host)
             .arg("compose")
             .arg("-f")
             .arg(compose_file)
@@ -69,6 +71,7 @@ impl Middleware for Deploy {
         for (k, v) in &cfg.environment {
             c = c.env(k, v);
         }
+        c = c.env("DOCKER_HOST", &cfg.host);
         match c.stream(LineHandler::severity()) {
             Ok(o) if o.success() => MiddlewareResult::success(),
             Ok(o) => fail("deploy with docker compose", o.exit_code),
@@ -117,6 +120,43 @@ mod tests {
             Some("A compose file is required for a compose deployment.")
         );
         assert!(host.recorded_commands().is_empty());
+    }
+
+    #[test]
+    fn blank_host_fails_before_spawn() {
+        let host = MockHost::new();
+        let cfg = DeployConfig {
+            compose_file: Some("c.yml".into()),
+            ..Default::default()
+        };
+        let w = run(&Deploy, &ctx(&host), cfg).into_wit();
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("A host is required for a compose deployment.")
+        );
+        assert!(host.recorded_commands().is_empty());
+    }
+
+    #[test]
+    fn host_config_wins_over_environment_docker_host() {
+        let host = MockHost::new().with_process_result(0, vec![]);
+        let mut environment = BTreeMap::new();
+        environment.insert("DOCKER_HOST".into(), "ssh://evil".into());
+        let cfg = DeployConfig {
+            host: "ssh://good".into(),
+            compose_file: Some("c.yml".into()),
+            environment,
+            ..Default::default()
+        };
+        assert!(run(&Deploy, &ctx(&host), cfg).is_success());
+        let cmd = &host.recorded_commands()[0];
+        let last_docker_host = cmd
+            .env
+            .iter()
+            .rev()
+            .find(|(k, _)| k == "DOCKER_HOST")
+            .map(|(_, v)| v.as_str());
+        assert_eq!(last_docker_host, Some("ssh://good"));
     }
 
     #[test]
