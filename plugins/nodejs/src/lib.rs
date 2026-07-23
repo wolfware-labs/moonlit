@@ -4,3 +4,4 @@
 mod config;
 mod install;
 mod npm;
+mod run_script;
