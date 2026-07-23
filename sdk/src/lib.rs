@@ -42,6 +42,8 @@ pub mod http;
 
 pub mod changelog;
 
+pub mod clock;
+
 pub mod testing;
 
 mod middleware;

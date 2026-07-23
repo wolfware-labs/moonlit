@@ -42,6 +42,10 @@ pub trait Host {
     /// Cryptographically-strong random bytes (routes to `wasi:random` on the
     /// real host; a deterministic mock in tests). Returns at least `n` bytes.
     fn random_bytes(&self, n: usize) -> Vec<u8>;
+    /// Monotonic clock reading in nanoseconds (routes to
+    /// `wasi:clocks/monotonic-clock` on the real host; a controllable mock in
+    /// tests). Never decreases.
+    fn monotonic_nanos(&self) -> u64;
 }
 
 /// Execution context handed to every middleware.
@@ -111,6 +115,11 @@ impl<'a> Context<'a> {
     /// Environment access.
     pub fn env(&self) -> crate::env::Env<'a> {
         crate::env::Env::new(self.host)
+    }
+
+    /// Monotonic clock access.
+    pub fn clock(&self) -> crate::clock::Clock<'a> {
+        crate::clock::Clock::new(self.host)
     }
 
     /// `n` random bytes from the host.

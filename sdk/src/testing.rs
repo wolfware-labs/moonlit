@@ -20,6 +20,8 @@ pub struct MockHost {
     http_responses: RefCell<VecDeque<Result<HttpResponseData, String>>>,
     recorded_requests: RefCell<Vec<HttpRequestData>>,
     random: Vec<u8>,
+    clock: Vec<u64>,
+    cursor: RefCell<usize>,
 }
 
 impl MockHost {
@@ -42,6 +44,14 @@ impl MockHost {
     #[must_use]
     pub fn with_random(mut self, bytes: &[u8]) -> Self {
         self.random = bytes.to_vec();
+        self
+    }
+    /// Script successive monotonic readings (nanoseconds), returned in order;
+    /// the last value repeats once the script is exhausted (extra reads never
+    /// panic). Empty script → always 0.
+    #[must_use]
+    pub fn with_clock(mut self, nanos: &[u64]) -> Self {
+        self.clock = nanos.to_vec();
         self
     }
     pub fn logs(&self) -> Vec<(LogLevel, String)> {
@@ -163,6 +173,15 @@ impl Host for MockHost {
         } else {
             (0..n).map(|i| self.random[i % self.random.len()]).collect()
         }
+    }
+    fn monotonic_nanos(&self) -> u64 {
+        if self.clock.is_empty() {
+            return 0;
+        }
+        let mut c = self.cursor.borrow_mut();
+        let v = self.clock[(*c).min(self.clock.len() - 1)];
+        *c += 1;
+        v
     }
 }
 
