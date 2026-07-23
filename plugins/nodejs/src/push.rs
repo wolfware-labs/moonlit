@@ -5,6 +5,7 @@ use crate::config::NodeConfig;
 use crate::npm::{exit_phrase, npm, prepare_output_dir, resolve};
 use moonlit_plugin_sdk::prelude::*;
 use moonlit_plugin_sdk::process::LineHandler;
+use std::path::Path;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -40,6 +41,30 @@ fn npmrc_line(registry: &str, token: &str) -> String {
 
 fn non_blank(s: &str) -> bool {
     !s.trim().is_empty()
+}
+
+/// Write the scoped `.npmrc` (`dir/.npmrc`). On Unix the file is created owner-only
+/// (`0o600`) *before* the token is written, so the credential is never briefly
+/// world-readable. On the wasm target — WASI preview 2 has no Unix mode bits, so the
+/// file's permissions are the host's responsibility — this degrades to a plain write.
+fn write_npmrc(dir: &Path, contents: &str) -> std::io::Result<()> {
+    let path = dir.join(".npmrc");
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&path)?;
+        f.write_all(contents.as_bytes())
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(&path, contents)
+    }
 }
 
 #[derive(Default)]
@@ -82,10 +107,13 @@ impl Middleware for Push {
                 return MiddlewareResult::failure(format!("Failed to prepare npm config: {e}"))
             }
         };
-        if let Err(e) = std::fs::write(
-            npmrc_dir.join(".npmrc"),
-            format!("{}\n", npmrc_line(registry, token)),
-        ) {
+        // Best-effort owner-only dir on Unix (the token file below is created 0o600).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&npmrc_dir, std::fs::Permissions::from_mode(0o700));
+        }
+        if let Err(e) = write_npmrc(&npmrc_dir, &format!("{}\n", npmrc_line(registry, token))) {
             return MiddlewareResult::failure(format!("Failed to write npm config: {e}"));
         }
 
@@ -186,6 +214,20 @@ mod tests {
             npmrc_line("https://registry.npmjs.org/", "TOK"),
             "//registry.npmjs.org/:_authToken=TOK"
         );
+    }
+
+    // --- write_npmrc permissions (Unix) ---
+    #[cfg(unix)]
+    #[test]
+    fn write_npmrc_creates_owner_only_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        write_npmrc(d.path(), "//r/:_authToken=SECRET\n").unwrap();
+        let mode = std::fs::metadata(d.path().join(".npmrc"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "token file must be owner-only");
     }
 
     // --- Push middleware ---

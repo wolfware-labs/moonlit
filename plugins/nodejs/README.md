@@ -37,5 +37,10 @@ Requires: `rustup target add wasm32-wasip2`. Verify with
   and plugin config) fails fast with a branded message. Non-zero exits classify to
   `Version already published.` (`EPUBLISHCONFLICT` / cannot-publish-over) or an
   authentication error (`401 (`/`403 (`, `E401`, `ENEEDAUTH`, unauthorized/forbidden);
-  everything else is a generic exit-code failure.
+  everything else is a generic exit-code failure. The `.npmrc` is removed immediately after
+  the publish attempt (success or failure), so the token does not linger in the working tree.
+  On a native/Unix run it is created owner-only (`0o600`); on the `wasm32-wasip2` artifact,
+  WASI has no Unix mode bits, so the file's permissions are set by the **host** — operators
+  on shared machines should run the engine with a restrictive `umask` and keep
+  `.moonlit/npm-push/` unreadable to other users for the duration of a publish.
 - **`test`** is new in 2.0 (spec's optional stretch), mirroring `dotnet.test`.
