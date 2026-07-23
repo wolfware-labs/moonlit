@@ -1,6 +1,6 @@
 //! `dotnet pack` — pack a project into a `.nupkg`, scanning the output dir for the result.
 
-use crate::dotnet::{dotnet, exit_phrase, prepare_output_dir, resolve};
+use crate::dotnet::{dotnet, exit_phrase, prepare_output_dir, project_slug, resolve};
 use crate::version::{assembly_or_file_version, informational_version, package_version};
 use moonlit_plugin_sdk::prelude::*;
 use moonlit_plugin_sdk::process::LineHandler;
@@ -86,11 +86,7 @@ impl Middleware for Pack {
                 proj_path.display()
             ));
         }
-        let stem = Path::new(&cfg.project)
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let out_rel = format!(".moonlit/dotnet/{stem}");
+        let out_rel = format!(".moonlit/dotnet/{}", project_slug(&cfg.project));
         let out_dir = match prepare_output_dir(ctx.working_dir(), &out_rel) {
             Ok(d) => d,
             Err(e) => {

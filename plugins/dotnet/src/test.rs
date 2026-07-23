@@ -1,10 +1,9 @@
 //! `dotnet test` — run tests, parse TRX counters into pass/fail/skip/total outputs.
 
-use crate::dotnet::{dotnet, exit_phrase, prepare_output_dir, resolve};
+use crate::dotnet::{dotnet, exit_phrase, prepare_output_dir, project_slug, resolve};
 use crate::trx::{parse_counters, TrxCounters};
 use moonlit_plugin_sdk::prelude::*;
 use moonlit_plugin_sdk::process::LineHandler;
-use std::path::Path;
 
 /// Decide the middleware result from the process exit code and the parsed TRX counters
 /// (`None` = results file absent/unparseable). Pure — unit-testable without a subprocess.
@@ -78,11 +77,7 @@ impl Middleware for Test {
                 proj_path.display()
             ));
         }
-        let stem = Path::new(&cfg.project)
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let results_rel = format!(".moonlit/dotnet-test/{stem}");
+        let results_rel = format!(".moonlit/dotnet-test/{}", project_slug(&cfg.project));
         let results_dir = match prepare_output_dir(ctx.working_dir(), &results_rel) {
             Ok(d) => d,
             Err(e) => {

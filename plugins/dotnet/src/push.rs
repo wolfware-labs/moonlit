@@ -72,8 +72,10 @@ impl Middleware for Push {
             Ok(o) if o.success() => MiddlewareResult::success(),
             Ok(o) => {
                 let combined = format!("{}\n{}", o.stdout(), o.stderr()).to_ascii_lowercase();
-                if combined.contains("401")
-                    || combined.contains("403")
+                // Anchor on the `NNN (` status form (`401 (Unauthorized)`) or the words
+                // themselves, so a bare `401` in a filename/hash can't trip the auth arm.
+                if combined.contains("401 (")
+                    || combined.contains("403 (")
                     || combined.contains("unauthorized")
                     || combined.contains("forbidden")
                 {
@@ -249,6 +251,31 @@ mod tests {
     fn other_non_zero_maps_to_generic() {
         let d = pkg_dir();
         let host = MockHost::new().with_process_result(1, vec![err("error: connection reset")]);
+        let plugin = DotnetConfig::default();
+        let ctx = ctx_with(&host, d.path(), &plugin);
+        let cfg = PushConfig {
+            package: "App.1.0.0.nupkg".into(),
+            source: Some("s".into()),
+            api_key: Some("k".into()),
+        };
+        let w = run(&Push, &ctx, cfg).into_wit();
+        assert_eq!(
+            w.error_message.as_deref(),
+            Some("Failed to push package: Dotnet command failed with exit code 1")
+        );
+    }
+
+    #[test]
+    fn bare_401_in_output_is_not_misclassified_as_auth() {
+        // A `401` appearing only inside an unrelated token (a package filename) must not
+        // trip the auth arm — the anchored `401 (` / word matching should fall through.
+        let d = pkg_dir();
+        let host = MockHost::new().with_process_result(
+            1,
+            vec![err(
+                "error: push of App.1.401.0.nupkg failed: connection reset",
+            )],
+        );
         let plugin = DotnetConfig::default();
         let ctx = ctx_with(&host, d.path(), &plugin);
         let cfg = PushConfig {

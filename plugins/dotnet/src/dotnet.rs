@@ -3,7 +3,7 @@
 
 use moonlit_plugin_sdk::process::Command;
 use moonlit_plugin_sdk::Context;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A `dotnet` command pre-seeded with the working directory as cwd.
 pub fn dotnet<'a>(ctx: &Context<'a>) -> Command<'a> {
@@ -24,6 +24,19 @@ pub fn resolve(working_dir: &str, p: &str) -> PathBuf {
 /// The uniform non-zero-exit failure phrase (matches 1.x `DotnetClient`).
 pub fn exit_phrase(code: i32) -> String {
     format!("Dotnet command failed with exit code {code}")
+}
+
+/// A filesystem-safe, collision-resistant slug for a project's output directory: the
+/// project's relative path minus its extension, with path separators flattened to `_`.
+/// Keying on the full relative path (not just the file stem) stops same-named projects in
+/// different directories from sharing — and wiping — one output dir within a single run.
+pub fn project_slug(project: &str) -> String {
+    Path::new(project)
+        .with_extension("")
+        .to_string_lossy()
+        .replace(['/', '\\'], "_")
+        .trim_matches('_')
+        .to_string()
 }
 
 /// Create a fresh (wiped) output directory `rel` under the working dir. Wiping gives
@@ -57,6 +70,14 @@ mod tests {
     #[test]
     fn exit_phrase_formats_code() {
         assert_eq!(exit_phrase(2), "Dotnet command failed with exit code 2");
+    }
+
+    #[test]
+    fn project_slug_distinguishes_same_stem_across_dirs() {
+        assert_eq!(project_slug("Lib.csproj"), "Lib");
+        assert_eq!(project_slug("a/Lib.csproj"), "a_Lib");
+        assert_eq!(project_slug("b/Lib.csproj"), "b_Lib");
+        assert_eq!(project_slug("src/MyApp/MyApp.csproj"), "src_MyApp_MyApp");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
