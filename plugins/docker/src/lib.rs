@@ -4,4 +4,5 @@
 
 mod docker;
 mod login;
+mod setup_buildx;
 mod state;
