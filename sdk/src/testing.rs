@@ -19,6 +19,7 @@ pub struct MockHost {
     recorded_commands: RefCell<Vec<ProcessCommand>>,
     http_responses: RefCell<VecDeque<Result<HttpResponseData, String>>>,
     recorded_requests: RefCell<Vec<HttpRequestData>>,
+    random: Vec<u8>,
 }
 
 impl MockHost {
@@ -35,6 +36,12 @@ impl MockHost {
     #[must_use]
     pub fn with_env(mut self, key: &str, value: &str) -> Self {
         self.env.insert(key.to_string(), value.to_string());
+        self
+    }
+    /// Seed the deterministic random source (cycled to fill any request).
+    #[must_use]
+    pub fn with_random(mut self, bytes: &[u8]) -> Self {
+        self.random = bytes.to_vec();
         self
     }
     pub fn logs(&self) -> Vec<(LogLevel, String)> {
@@ -150,6 +157,13 @@ impl Host for MockHost {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect()
     }
+    fn random_bytes(&self, n: usize) -> Vec<u8> {
+        if self.random.is_empty() {
+            (0..n).map(|i| i as u8).collect()
+        } else {
+            (0..n).map(|i| self.random[i % self.random.len()]).collect()
+        }
+    }
 }
 
 use crate::middleware::Middleware;
@@ -173,4 +187,22 @@ impl ChildHandle for MockChild {
         self.exit_code
     }
     fn kill(&mut self) {}
+}
+
+#[cfg(test)]
+mod random_tests {
+    use super::MockHost;
+    use crate::context::Host;
+
+    #[test]
+    fn default_random_is_deterministic_and_sized() {
+        let h = MockHost::new();
+        assert_eq!(h.random_bytes(4), vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn with_random_cycles_the_seed() {
+        let h = MockHost::new().with_random(&[9, 8]);
+        assert_eq!(h.random_bytes(3), vec![9, 8, 9]);
+    }
 }

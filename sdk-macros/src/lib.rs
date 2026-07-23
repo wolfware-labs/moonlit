@@ -219,6 +219,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             fn http_send(&self, _req: &::moonlit_plugin_sdk::http::HttpRequestData) -> ::core::result::Result<::moonlit_plugin_sdk::http::HttpResponseData, ::std::string::String> { Err("http unavailable".to_string()) }
             fn env_var(&self, _n: &str) -> ::core::option::Option<::std::string::String> { None }
             fn env_vars(&self) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> { ::std::vec::Vec::new() }
+            fn random_bytes(&self, n: usize) -> ::std::vec::Vec<u8> { ::std::vec![0u8; n] }
         }
 
         ::moonlit_plugin_sdk::export!(MoonlitComponent with_types_in ::moonlit_plugin_sdk::bindings);

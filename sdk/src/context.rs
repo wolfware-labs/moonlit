@@ -39,6 +39,9 @@ pub trait Host {
     fn env_var(&self, name: &str) -> Option<String>;
     /// All visible environment variables.
     fn env_vars(&self) -> Vec<(String, String)>;
+    /// Cryptographically-strong random bytes (routes to `wasi:random` on the
+    /// real host; a deterministic mock in tests). Returns at least `n` bytes.
+    fn random_bytes(&self, n: usize) -> Vec<u8>;
 }
 
 /// Execution context handed to every middleware.
@@ -108,6 +111,23 @@ impl<'a> Context<'a> {
     /// Environment access.
     pub fn env(&self) -> crate::env::Env<'a> {
         crate::env::Env::new(self.host)
+    }
+
+    /// `n` random bytes from the host.
+    pub fn random_bytes(&self, n: usize) -> Vec<u8> {
+        self.host.random_bytes(n)
+    }
+
+    /// A random UUIDv4 string (`8-4-4-4-12` lowercase hex).
+    pub fn uuid(&self) -> String {
+        let mut b = self.host.random_bytes(16);
+        b.resize(16, 0); // defensive: the contract is >= 16, but never index OOB
+        b[6] = (b[6] & 0x0f) | 0x40; // version 4
+        b[8] = (b[8] & 0x3f) | 0x80; // variant 1 (RFC 4122)
+        format!(
+            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]
+        )
     }
 
     /// Subprocess builder for `program`.
@@ -199,5 +219,24 @@ mod tests {
         let host = MockHost::new();
         let ctx = Context::new(&host, "/w".into(), "s".into());
         ctx.plugin_config::<C>();
+    }
+
+    #[test]
+    fn uuid_is_v4_formatted_and_deterministic_under_mock() {
+        use crate::testing::MockHost;
+        let host = MockHost::new().with_random(&[0xab]); // every byte 0xab
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let u = ctx.uuid();
+        // 0xab: b[6]=(0x0b|0x40)=0x4b (version 4); b[8]=(0x2b|0x80)=0xab (variant 1)
+        assert_eq!(u, "abababab-abab-4bab-abab-abababababab");
+        assert_eq!(u, ctx.uuid(), "deterministic under a fixed mock seed");
+    }
+
+    #[test]
+    fn random_bytes_passthrough_returns_requested_length() {
+        use crate::testing::MockHost;
+        let host = MockHost::new().with_random(&[1, 2, 3]);
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        assert_eq!(ctx.random_bytes(5), vec![1, 2, 3, 1, 2]); // cycles the seed
     }
 }

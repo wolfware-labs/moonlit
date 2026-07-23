@@ -46,6 +46,9 @@ impl Host for RealHost {
     fn env_vars(&self) -> Vec<(String, String)> {
         std::env::vars().collect()
     }
+    fn random_bytes(&self, n: usize) -> Vec<u8> {
+        crate::bindings::wasi::random::random::get_random_bytes(n as u64)
+    }
 }
 
 fn to_wit_command(cmd: &ProcessCommand) -> crate::bindings::moonlit::plugin::process::Command {
