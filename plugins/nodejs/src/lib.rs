@@ -5,4 +5,5 @@ mod build;
 mod config;
 mod install;
 mod npm;
+mod pack;
 mod run_script;
