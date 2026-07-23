@@ -2,6 +2,7 @@
 //! component instance per pipeline run holds `DockerShared` (the buildx builder
 //! name). `moonlit_plugin!` wiring is added once every middleware exists.
 
+mod build_and_push;
 mod docker;
 mod login;
 mod setup_buildx;
