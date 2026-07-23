@@ -3,6 +3,7 @@
 //! name). `moonlit_plugin!` wiring is added once every middleware exists.
 
 mod build_and_push;
+mod deploy;
 mod docker;
 mod login;
 mod setup_buildx;
