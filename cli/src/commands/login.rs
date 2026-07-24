@@ -44,11 +44,25 @@ fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Resu
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(&path, text)?;
+    // Create the file with 0600 from the outset on unix (no world/group-readable window for the
+    // plaintext token); still reset perms afterward so a pre-existing looser file is tightened too.
     #[cfg(unix)]
     {
+        use std::io::Write as _;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&path)?;
+        f.write_all(text.as_bytes())?;
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(&path, text)?;
     }
     Ok(())
 }
