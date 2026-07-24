@@ -1,33 +1,11 @@
 //! `moonlit plugin inspect <path>` — validate a local component and print its
 //! metadata + middlewares by instantiating it with zero capability grants.
 
-use std::sync::Arc;
+use moonlit_engine::host::{MiddlewareInfo, PluginMetadata};
 
-use moonlit_engine::config::model::{FilesystemAccess, Permissions};
-use moonlit_engine::host::{
-    HostEventSink, InstanceConfig, LogLevel, MiddlewareInfo, PluginInstance, PluginMetadata,
-    test_engine,
-};
-
+use super::introspect::introspect;
 use crate::cli::{OutputMode, PluginInspectArgs};
 use crate::render::resolve_mode;
-
-/// Inspect never needs guest logs; discard them.
-struct SilentSink;
-impl HostEventSink for SilentSink {
-    fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-    fn progress(&self, _step: &str, _message: &str) {}
-}
-
-/// Zero grants: `init`/`list-middlewares` require no capabilities.
-fn no_permissions() -> Permissions {
-    Permissions {
-        network: vec![],
-        exec: vec![],
-        env: vec![],
-        filesystem: FilesystemAccess::None,
-    }
-}
 
 pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
     let bytes = match std::fs::read(&args.path) {
@@ -72,24 +50,6 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
         OutputMode::Pretty => print_pretty(&meta, &mws),
     }
     0
-}
-
-async fn introspect(bytes: &[u8]) -> Result<(PluginMetadata, Vec<MiddlewareInfo>), String> {
-    let engine = test_engine();
-    let cfg = InstanceConfig {
-        working_directory: std::env::temp_dir(),
-        permissions: no_permissions(),
-        config_view: serde_json::json!({}),
-        env_snapshot: vec![],
-    };
-    let mut inst = PluginInstance::instantiate(&engine, bytes, cfg, Arc::new(SilentSink))
-        .await
-        .map_err(|e| e.to_string())?;
-    // `describe` (not `init`): inspection must not validate config — a plugin
-    // with a required config (e.g. github's token) still describes cleanly.
-    let meta = inst.describe().await.map_err(|e| e.to_string())?;
-    let mws = inst.list_middlewares().await.map_err(|e| e.to_string())?;
-    Ok((meta, mws))
 }
 
 fn print_pretty(meta: &PluginMetadata, mws: &[MiddlewareInfo]) {

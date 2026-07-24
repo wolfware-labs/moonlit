@@ -30,6 +30,7 @@ tokio-util.workspace = true
 humantime.workspace = true
 wasmparser.workspace = true
 cliclack.workspace = true
+dirs.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true

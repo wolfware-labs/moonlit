@@ -51,6 +51,8 @@ pub enum PluginCommand {
     New(PluginNewArgs),
     /// Build the plugin in the current directory to a WASI-P2 component.
     Build(PluginBuildArgs),
+    /// Publish a built component to an OCI registry.
+    Publish(PluginPublishArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -82,6 +84,19 @@ pub struct PluginBuildArgs {
     /// Build in release mode (optimized, smaller component).
     #[arg(long)]
     pub release: bool,
+    /// Directory of the plugin crate (default: current directory).
+    #[arg(long)]
+    pub manifest_path: Option<PathBuf>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct PluginPublishArgs {
+    /// Target reference, e.g. `oci://ghcr.io/acme/plugin:1.0.0` or `ghcr.io/acme/plugin:1.0.0`.
+    #[arg(value_name = "REF")]
+    pub reference: String,
+    /// Component file to publish (default: the crate's release build output).
+    #[arg(long)]
+    pub file: Option<PathBuf>,
     /// Directory of the plugin crate (default: current directory).
     #[arg(long)]
     pub manifest_path: Option<PathBuf>,

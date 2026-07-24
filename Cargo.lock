@@ -2040,6 +2040,7 @@ dependencies = [
  "cliclack",
  "comfy-table",
  "console",
+ "dirs",
  "humantime",
  "indexmap",
  "indicatif",
