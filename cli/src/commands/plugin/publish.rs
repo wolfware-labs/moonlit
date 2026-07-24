@@ -22,6 +22,12 @@ pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
     None
 }
 
+/// Strip an optional `oci://` scheme, matching the pull side's `PluginSource::parse` convention.
+/// The engine's `publish_plugin` expects a bare OCI reference and re-adds the scheme for display.
+fn strip_oci_scheme(reference: &str) -> &str {
+    reference.strip_prefix("oci://").unwrap_or(reference)
+}
+
 #[derive(serde::Deserialize)]
 struct CrateFacts {
     package: CratePackage,
@@ -125,7 +131,8 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
 
     let home = dirs::home_dir().unwrap_or_default();
     let client = new_push_client();
-    match publish_plugin(&args.reference, bytes, publish_meta, &home, &client).await {
+    let raw_ref = strip_oci_scheme(&args.reference);
+    match publish_plugin(raw_ref, bytes, publish_meta, &home, &client).await {
         Ok(outcome) => {
             let stdout_tty = std::io::IsTerminal::is_terminal(&std::io::stdout());
             match resolve_mode(output, stdout_tty) {
@@ -173,5 +180,21 @@ version = "0.4.1"
     fn missing_sdk_package_yields_none() {
         let lock = "[[package]]\nname = \"x\"\nversion = \"1.0.0\"\n";
         assert_eq!(sdk_version_from_lock(lock), None);
+    }
+
+    #[test]
+    fn strips_oci_scheme_when_present() {
+        assert_eq!(
+            strip_oci_scheme("oci://ghcr.io/acme/p:1.0.0"),
+            "ghcr.io/acme/p:1.0.0"
+        );
+    }
+
+    #[test]
+    fn leaves_bare_reference_untouched() {
+        assert_eq!(
+            strip_oci_scheme("ghcr.io/acme/p:1.0.0"),
+            "ghcr.io/acme/p:1.0.0"
+        );
     }
 }
