@@ -43,6 +43,17 @@ pub enum Command {
     Version,
     /// Store credentials for an OCI registry.
     Login(LoginArgs),
+    /// Inspect or clear the plugin content cache.
+    #[command(subcommand)]
+    Cache(CacheCommand),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CacheCommand {
+    /// List cached plugins.
+    Ls,
+    /// Remove all cached content.
+    Clean,
 }
 
 #[derive(Debug, Subcommand)]
