@@ -1,18 +1,46 @@
 //! `moonlit plugin inspect <path>` — validate a local component and print its
 //! metadata + middlewares by instantiating it with zero capability grants.
 
+use moonlit_engine::cache::Cache;
 use moonlit_engine::host::{MiddlewareInfo, PluginMetadata};
+use moonlit_engine::resolve::{PluginSource, ResolveOptions, resolve};
 
 use super::introspect::introspect;
 use crate::cli::{OutputMode, PluginInspectArgs};
 use crate::render::resolve_mode;
 
 pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
-    let bytes = match std::fs::read(&args.path) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("error: cannot read '{}': {e}", args.path.display());
-            return 2;
+    let bytes = if let Ok(source) = PluginSource::parse(&args.target) {
+        // A recognized scheme (oci/file/http/https) → resolve (and pull if needed).
+        let cache = match Cache::new() {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return 3;
+            }
+        };
+        let resolved = match resolve(&source, &ResolveOptions::default(), &cache, None).await {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return 3;
+            }
+        };
+        match std::fs::read(&resolved.wasm_path) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("error: cannot read resolved plugin: {e}");
+                return 3;
+            }
+        }
+    } else {
+        // Not a scheme → a local filesystem path.
+        match std::fs::read(&args.target) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("error: cannot read '{}': {e}", args.target);
+                return 2;
+            }
         }
     };
 
@@ -21,7 +49,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
         Ok(false) => {
             eprintln!(
                 "error: '{}' is a core wasm module, not a WASI-P2 component (build with `moonlit plugin build`)",
-                args.path.display()
+                args.target
             );
             return 2;
         }

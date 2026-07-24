@@ -60,6 +60,23 @@ fn inspect_succeeds_for_required_config_plugin() {
 }
 
 #[test]
+fn inspects_a_component_by_file_ref() {
+    // Absolute path to a committed component fixture, expressed as a file:// ref.
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../engine/tests/fixtures/sdk_sample.wasm")
+        .canonicalize()
+        .unwrap();
+    let url = format!("file://{}", fixture.display());
+    Command::cargo_bin("moonlit")
+        .unwrap()
+        .args(["plugin", "inspect", &url, "--output", "plain"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("name:"))
+        .stdout(predicates::str::contains("sdk-sample"));
+}
+
+#[test]
 fn inspect_rejects_a_non_component() {
     Command::cargo_bin("moonlit")
         .unwrap()

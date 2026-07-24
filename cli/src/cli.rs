@@ -70,8 +70,9 @@ pub enum PluginCommand {
 
 #[derive(Debug, clap::Args)]
 pub struct PluginInspectArgs {
-    /// Path to a built `.wasm` component.
-    pub path: PathBuf,
+    /// Path to a built `.wasm` component, or a plugin ref (`oci://…`, `file://…`, `http(s)://…`).
+    #[arg(value_name = "PATH|REF")]
+    pub target: String,
 }
 
 #[derive(Debug, clap::Args)]
