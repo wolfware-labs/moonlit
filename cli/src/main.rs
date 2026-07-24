@@ -25,6 +25,7 @@ async fn main() {
         }
         Some(Command::Validate(a)) => commands::validate::run(output, verbose, a).await,
         Some(Command::Plugin(p)) => commands::plugin::run(output, verbose, p).await,
+        Some(Command::Login(a)) => commands::login::run(a),
     };
     std::process::exit(code);
 }

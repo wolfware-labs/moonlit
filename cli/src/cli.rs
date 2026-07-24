@@ -41,6 +41,8 @@ pub enum Command {
     Plugin(PluginCommand),
     /// Print the banner, version, author, and license.
     Version,
+    /// Store credentials for an OCI registry.
+    Login(LoginArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -131,6 +133,18 @@ pub struct RunArgs {
     /// Load and validate only; do not execute.
     #[arg(long = "dry-run")]
     pub dry_run: bool,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct LoginArgs {
+    /// Registry host, e.g. `ghcr.io` or `registry.moonlitbuild.dev`.
+    pub host: String,
+    /// Registry username (Basic auth). Prompted on a TTY when omitted; blank → token-only (Bearer).
+    #[arg(long)]
+    pub username: Option<String>,
+    /// Registry token or password. Prompted (hidden) on a TTY when omitted; required otherwise.
+    #[arg(long)]
+    pub token: Option<String>,
 }
 
 #[derive(Debug, clap::Args)]
