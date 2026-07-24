@@ -51,6 +51,19 @@ struct RefRecord {
     resolved_at: u64,
 }
 
+/// What [`Cache::clean`] removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CleanStats {
+    /// Number of cached plugin directories removed.
+    pub plugins: usize,
+    /// Number of content-addressed blob files removed.
+    pub blobs: usize,
+    /// Number of tag→digest ref records removed.
+    pub refs: usize,
+    /// Total bytes freed across plugins/, oci/, and refs/.
+    pub bytes: u64,
+}
+
 /// The plugin content cache.
 pub struct Cache {
     root: PathBuf,
@@ -152,6 +165,47 @@ impl Cache {
             .join("refs")
             .join(format!("{}.json", sha256_hex(oci_ref)))
     }
+
+    /// Enumerate cached plugins (`plugins/<key>/meta.json`), sorted by key. Entries whose
+    /// meta.json is missing or unparseable are skipped.
+    pub fn list(&self) -> Vec<(String, PluginMeta)> {
+        let mut out = Vec::new();
+        let Ok(entries) = std::fs::read_dir(self.root.join("plugins")) else {
+            return out;
+        };
+        for entry in entries.flatten() {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let key = entry.file_name().to_string_lossy().into_owned();
+            if let Some(meta) = self.read_meta(&key) {
+                out.push((key, meta));
+            }
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    /// Remove all cached content (`plugins/`, `oci/`, `refs/`), returning what was freed.
+    /// A missing directory contributes zero and is not an error.
+    pub fn clean(&self) -> std::io::Result<CleanStats> {
+        let plugins_dir = self.root.join("plugins");
+        let oci_dir = self.root.join("oci");
+        let refs_dir = self.root.join("refs");
+
+        let stats = CleanStats {
+            plugins: count_immediate_dirs(&plugins_dir),
+            blobs: count_files_recursive(&oci_dir),
+            refs: count_files_recursive(&refs_dir),
+            bytes: dir_size(&plugins_dir) + dir_size(&oci_dir) + dir_size(&refs_dir),
+        };
+        for dir in [&plugins_dir, &oci_dir, &refs_dir] {
+            if dir.exists() {
+                std::fs::remove_dir_all(dir)?;
+            }
+        }
+        Ok(stats)
+    }
 }
 
 /// Write `bytes` to `path`, creating parent directories. Writes to a temp sibling then renames so a
@@ -167,6 +221,45 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::io::Write::write_all(&mut tmp, bytes)?;
     tmp.persist(path).map_err(|e| e.error)?;
     Ok(())
+}
+
+/// Recursive total byte size of files under `dir` (0 if `dir` does not exist).
+fn dir_size(dir: &Path) -> u64 {
+    let mut total = 0;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                total += dir_size(&p);
+            } else if let Ok(m) = p.metadata() {
+                total += m.len();
+            }
+        }
+    }
+    total
+}
+
+/// Count immediate subdirectories of `dir` (0 if `dir` does not exist).
+fn count_immediate_dirs(dir: &Path) -> usize {
+    std::fs::read_dir(dir)
+        .map(|it| it.flatten().filter(|e| e.path().is_dir()).count())
+        .unwrap_or(0)
+}
+
+/// Count files recursively under `dir` (0 if `dir` does not exist).
+fn count_files_recursive(dir: &Path) -> usize {
+    let mut n = 0;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                n += count_files_recursive(&p);
+            } else {
+                n += 1;
+            }
+        }
+    }
+    n
 }
 
 #[cfg(test)]
@@ -273,6 +366,87 @@ mod tests {
             cache.read_ref("reg/never:tag", Duration::from_secs(900)),
             None
         );
+    }
+
+    /// A clock that always reports the epoch, for tests that don't care about time.
+    struct TestClock;
+    impl Clock for TestClock {
+        fn now_unix(&self) -> u64 {
+            0
+        }
+    }
+
+    #[test]
+    fn list_returns_sorted_plugins_and_skips_unreadable() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(TestClock));
+        let meta = |src: &str| PluginMeta {
+            source: src.to_string(),
+            digest: Some("sha256:d".to_string()),
+            layer_digest: Some("sha256:l".to_string()),
+            size: 3,
+            pulled_at: 0,
+            middlewares: Some(vec!["build".to_string()]),
+        };
+        cache
+            .store_plugin("sha256-b", &meta("oci://b"), b"bbb")
+            .unwrap();
+        cache
+            .store_plugin("sha256-a", &meta("oci://a"), b"aaa")
+            .unwrap();
+        // A plugin dir with no meta.json is skipped.
+        std::fs::create_dir_all(cache.plugin_dir("sha256-c")).unwrap();
+
+        let listed = cache.list();
+        assert_eq!(listed.len(), 2);
+        assert_eq!(listed[0].0, "sha256-a");
+        assert_eq!(listed[1].0, "sha256-b");
+        assert_eq!(listed[0].1.source, "oci://a");
+    }
+
+    #[test]
+    fn list_on_empty_cache_is_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(TestClock));
+        assert!(cache.list().is_empty());
+    }
+
+    #[test]
+    fn clean_removes_all_content_and_reports_stats() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(TestClock));
+        let meta = PluginMeta {
+            source: "oci://x".to_string(),
+            digest: Some("sha256:d".to_string()),
+            layer_digest: Some("sha256:l".to_string()),
+            size: 3,
+            pulled_at: 0,
+            middlewares: None,
+        };
+        cache.store_plugin("sha256-x", &meta, b"xyz").unwrap();
+        cache.write_blob("sha256:layer", b"\0asm").unwrap();
+        cache.write_ref("reg/x:1", "sha256:d").unwrap();
+
+        let stats = cache.clean().unwrap();
+        assert_eq!(stats.plugins, 1);
+        assert_eq!(stats.refs, 1);
+        assert!(stats.blobs >= 1);
+        assert!(stats.bytes > 0);
+        assert!(cache.list().is_empty());
+        assert!(!dir.path().join("plugins").exists());
+        assert!(!dir.path().join("oci").exists());
+        assert!(!dir.path().join("refs").exists());
+    }
+
+    #[test]
+    fn clean_on_empty_cache_is_ok_and_zero() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(TestClock));
+        let stats = cache.clean().unwrap();
+        assert_eq!(stats.plugins, 0);
+        assert_eq!(stats.blobs, 0);
+        assert_eq!(stats.refs, 0);
+        assert_eq!(stats.bytes, 0);
     }
 
     #[test]
