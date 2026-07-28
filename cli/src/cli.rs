@@ -32,8 +32,6 @@ pub enum OutputMode {
 pub enum Command {
     /// Run a release pipeline.
     Run(RunArgs),
-    /// Alias of `run` (docs compatibility).
-    Release(RunArgs),
     /// Parse, resolve plugins, and verify middleware refs without executing.
     Validate(ValidateArgs),
     /// Scaffold, build, and inspect plugins.

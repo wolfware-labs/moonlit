@@ -19,10 +19,6 @@ async fn main() {
             let dry = a.dry_run;
             commands::run::run(output, verbose, a, dry).await
         }
-        Some(Command::Release(a)) => {
-            let dry = a.dry_run;
-            commands::run::run(output, verbose, a, dry).await
-        }
         Some(Command::Validate(a)) => commands::validate::run(output, verbose, a).await,
         Some(Command::Plugin(p)) => commands::plugin::run(output, verbose, p).await,
         Some(Command::Login(a)) => commands::login::run(a),

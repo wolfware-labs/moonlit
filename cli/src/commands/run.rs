@@ -103,7 +103,7 @@ where
     }
 }
 
-/// `moonlit run` / `moonlit release` (and `--dry-run`, which loads only).
+/// `moonlit run` (and `--dry-run`, which loads only).
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_run: bool) -> i32 {
     let stderr_tty = render::stderr_is_tty();
     let json = render::resolve_mode(output, stderr_tty) == OutputMode::Json;
