@@ -191,7 +191,7 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
 }
 
 fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigDiagnostic> {
-    let mut p = Permissions::full_trust();
+    let mut p = Permissions::deny();
     if let NodeValue::Map(entries) = &node.value {
         for (key, value) in entries {
             match schema_key(key).as_deref() {
@@ -476,6 +476,8 @@ stages:
         let perms = c.plugins.value[0].permissions.as_ref().expect("present");
         assert_eq!(perms.network, vec!["api.github.com".to_string()]);
         assert_eq!(perms.filesystem, FilesystemAccess::ReadOnly);
+        assert_eq!(perms.exec, Vec::<String>::new()); // deny base: unnamed key stays denied
+        assert_eq!(perms.env, Vec::<String>::new()); // deny base: unnamed key stays denied
     }
 
     #[test]

@@ -115,6 +115,11 @@ struct Loaded {
     middlewares: Vec<String>,
 }
 
+/// Resolve a plugin's effective grants: a present block verbatim, else deny-by-default (§3.3).
+fn effective_permissions(p: &Option<Permissions>) -> Permissions {
+    p.clone().unwrap_or_else(Permissions::deny)
+}
+
 /// The full URL string a `PluginUrl` was built from.
 fn plugin_url_string(u: &PluginUrl) -> String {
     match u {
@@ -253,10 +258,7 @@ impl Engine {
             let env2 = env.clone();
             let name = plugin.name.clone();
             let url = plugin_url_string(&plugin.url.value);
-            let permissions = plugin
-                .permissions
-                .clone()
-                .unwrap_or_else(Permissions::full_trust);
+            let permissions = effective_permissions(&plugin.permissions);
             let ev = events.clone();
             set.spawn(async move {
                 resolve_instantiate_init(
@@ -379,5 +381,21 @@ impl Engine {
         cancel: CancellationToken,
     ) -> Result<PipelineSummary, EngineError> {
         crate::pipeline::run_pipeline(pipeline, events, cancel).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn omitted_permissions_defaults_to_deny() {
+        assert_eq!(effective_permissions(&None), Permissions::deny());
+    }
+
+    #[test]
+    fn present_permissions_are_used_verbatim() {
+        let p = Permissions::deny();
+        assert_eq!(effective_permissions(&Some(p.clone())), p);
     }
 }

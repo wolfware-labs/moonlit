@@ -102,7 +102,7 @@ pub struct Run {
     pub middleware: String,
 }
 
-/// Per-plugin sandboxing grants (§3.3). Omitted in YAML → [`Permissions::full_trust`].
+/// Per-plugin sandboxing grants (§3.3). Omitted in YAML → [`Permissions::deny`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Permissions {
     pub network: Vec<String>,
@@ -112,13 +112,25 @@ pub struct Permissions {
 }
 
 impl Permissions {
-    /// The default grant when `permissions` is omitted: full trust (§3.3).
+    /// An explicit full-trust grant, still used by tests. Not the default (§3.3).
     pub fn full_trust() -> Self {
         Self {
             network: vec!["*".to_string()],
             exec: vec!["*".to_string()],
             env: vec!["*".to_string()],
             filesystem: FilesystemAccess::ReadWrite,
+        }
+    }
+
+    /// Deny-by-default grant: the plugin gets no host access unless its `permissions`
+    /// block names it (§3.3). Omitted `permissions`, and any key a present block does
+    /// not name, resolve to these.
+    pub fn deny() -> Self {
+        Self {
+            network: vec![],
+            exec: vec![],
+            env: vec![],
+            filesystem: FilesystemAccess::None,
         }
     }
 }
@@ -141,6 +153,15 @@ mod tests {
         assert_eq!(p.exec, vec!["*".to_string()]);
         assert_eq!(p.env, vec!["*".to_string()]);
         assert_eq!(p.filesystem, FilesystemAccess::ReadWrite);
+    }
+
+    #[test]
+    fn permissions_deny_grants_nothing() {
+        let p = Permissions::deny();
+        assert!(p.network.is_empty());
+        assert!(p.exec.is_empty());
+        assert!(p.env.is_empty());
+        assert_eq!(p.filesystem, FilesystemAccess::None);
     }
 
     #[test]
