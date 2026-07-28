@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use moonlit_engine::config::model::{FilesystemAccess, Permissions};
+use moonlit_engine::config::model::Permissions;
 use moonlit_engine::host::{
     HostEventSink, InstanceConfig, LogLevel, MiddlewareInfo, PluginInstance, PluginMetadata,
     test_engine,
@@ -16,16 +16,6 @@ impl HostEventSink for SilentSink {
     fn progress(&self, _step: &str, _message: &str) {}
 }
 
-/// Zero grants: `describe`/`list-middlewares` require no capabilities.
-fn no_permissions() -> Permissions {
-    Permissions {
-        network: vec![],
-        exec: vec![],
-        env: vec![],
-        filesystem: FilesystemAccess::None,
-    }
-}
-
 /// Instantiate `bytes` and read its metadata + middleware list. `describe` (not `init`) is
 /// used so a plugin with required config still introspects cleanly.
 pub(super) async fn introspect(
@@ -34,7 +24,7 @@ pub(super) async fn introspect(
     let engine = test_engine();
     let cfg = InstanceConfig {
         working_directory: std::env::temp_dir(),
-        permissions: no_permissions(),
+        permissions: Permissions::deny(),
         config_view: serde_json::json!({}),
         env_snapshot: vec![],
     };
