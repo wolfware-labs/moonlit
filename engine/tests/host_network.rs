@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use moonlit_engine::config::model::{FilesystemAccess, Permissions};
 use moonlit_engine::host::{
@@ -12,6 +12,23 @@ const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 struct NullSink;
 impl HostEventSink for NullSink {
     fn log(&self, _s: &str, _l: LogLevel, _m: &str) {}
+    fn progress(&self, _s: &str, _m: &str) {}
+}
+
+/// Records `(step, level, message)` triples so denial-diagnostic tests can
+/// assert on what the host logged.
+#[derive(Default)]
+struct CapturingSink {
+    events: Mutex<Vec<(String, LogLevel, String)>>,
+}
+
+impl HostEventSink for CapturingSink {
+    fn log(&self, step: &str, level: LogLevel, message: &str) {
+        self.events
+            .lock()
+            .unwrap()
+            .push((step.to_string(), level, message.to_string()));
+    }
     fn progress(&self, _s: &str, _m: &str) {}
 }
 
@@ -81,11 +98,12 @@ async fn denied_host_is_blocked_before_the_socket() {
 
     let eng = moonlit_engine::host::test_engine();
     // allowlist a different host -> the request to 127.0.0.1 is denied by the filter.
+    let sink = Arc::new(CapturingSink::default());
     let mut p = PluginInstance::instantiate(
         &eng,
         FIXTURE,
         cfg_with_network(vec!["api.github.com".to_string()]),
-        Arc::new(NullSink),
+        sink.clone(),
     )
     .await
     .unwrap();
@@ -99,5 +117,20 @@ async fn denied_host_is_blocked_before_the_socket() {
         received.is_empty(),
         "denied request must never reach the server (filter blocks before the socket), but server saw {} request(s)",
         received.len()
+    );
+
+    let events = sink.events.lock().unwrap();
+    let host = http_cfg(&server)["authority"]
+        .as_str()
+        .unwrap()
+        .split(':')
+        .next()
+        .unwrap()
+        .to_string();
+    assert!(
+        events.iter().any(|(_, level, msg)| *level == LogLevel::Warn
+            && msg.contains(&host)
+            && msg.contains("permissions.network")),
+        "expected a Warn event naming the denied host and permissions.network, got: {events:?}"
     );
 }

@@ -150,11 +150,22 @@ impl PluginInstance {
         let linker = build_linker(engine).map_err(|e| HostError::Link(e.to_string()))?;
         let wasi =
             perms::build_wasi_ctx(&cfg).map_err(|e| HostError::Instantiate(e.to_string()))?;
+        events.log(
+            "",
+            LogLevel::Debug,
+            &format!(
+                "plugin grants — network={:?} exec={:?} env={:?} filesystem={:?}",
+                cfg.permissions.network,
+                cfg.permissions.exec,
+                cfg.permissions.env,
+                cfg.permissions.filesystem
+            ),
+        );
         let state = HostState {
             table: ResourceTable::new(),
             wasi,
             http: WasiHttpCtx::new(),
-            hooks: AllowlistHooks::from_permissions(&cfg.permissions),
+            hooks: AllowlistHooks::new(&cfg.permissions, events.clone()),
             events,
             config_view: cfg.config_view,
             exec_allow: perms::exec_globset(&cfg.permissions.exec),

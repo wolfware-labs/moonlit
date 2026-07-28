@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use moonlit_engine::config::model::{FilesystemAccess, Permissions};
 use moonlit_engine::host::{
@@ -10,6 +10,23 @@ const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 struct NullSink;
 impl HostEventSink for NullSink {
     fn log(&self, _s: &str, _l: LogLevel, _m: &str) {}
+    fn progress(&self, _s: &str, _m: &str) {}
+}
+
+/// Records `(step, level, message)` triples so denial-diagnostic tests can
+/// assert on what the host logged.
+#[derive(Default)]
+struct CapturingSink {
+    events: Mutex<Vec<(String, LogLevel, String)>>,
+}
+
+impl HostEventSink for CapturingSink {
+    fn log(&self, step: &str, level: LogLevel, message: &str) {
+        self.events
+            .lock()
+            .unwrap()
+            .push((step.to_string(), level, message.to_string()));
+    }
     fn progress(&self, _s: &str, _m: &str) {}
 }
 
@@ -60,11 +77,12 @@ async fn run_process_succeeds_when_program_permitted() {
 async fn run_process_denied_when_program_not_permitted() {
     let eng = moonlit_engine::host::test_engine();
     // allowlist permits only "ls"; the guest runs "echo" -> denied.
+    let sink = Arc::new(CapturingSink::default());
     let mut p = PluginInstance::instantiate(
         &eng,
         FIXTURE,
         cfg_with_exec(vec!["ls".to_string()]),
-        Arc::new(NullSink),
+        sink.clone(),
     )
     .await
     .unwrap();
@@ -74,6 +92,14 @@ async fn run_process_denied_when_program_not_permitted() {
         .unwrap();
     assert!(!r.successful, "denied exec must fail the middleware");
     assert!(r.error_message.unwrap().contains("not permitted"));
+
+    let events = sink.events.lock().unwrap();
+    assert!(
+        events.iter().any(|(_, level, msg)| *level == LogLevel::Warn
+            && msg.contains("echo")
+            && msg.contains("permissions.exec")),
+        "expected a Warn event naming the denied program and permissions.exec, got: {events:?}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -48,6 +48,14 @@ impl ProcessHost for HostState {
         cmd: Command,
     ) -> wasmtime::Result<Result<Resource<ChildProc>, String>> {
         if !self.exec_allow.is_match(&cmd.program) {
+            self.events.log(
+                &self.current_step,
+                crate::host::LogLevel::Warn,
+                &format!(
+                    "blocked from running '{}' — add it to permissions.exec",
+                    cmd.program
+                ),
+            );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
         match spawn_streaming(&cmd) {
@@ -61,6 +69,14 @@ impl ProcessHost for HostState {
         cmd: Command,
     ) -> wasmtime::Result<Result<(i32, Vec<OutputChunk>), String>> {
         if !self.exec_allow.is_match(&cmd.program) {
+            self.events.log(
+                &self.current_step,
+                crate::host::LogLevel::Warn,
+                &format!(
+                    "blocked from running '{}' — add it to permissions.exec",
+                    cmd.program
+                ),
+            );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
         // run-to-completion: spawn, drain all lines, wait.

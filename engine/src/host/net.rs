@@ -9,12 +9,14 @@ use crate::host::perms::network_globset;
 
 pub struct AllowlistHooks {
     allowed: GlobSet,
+    events: std::sync::Arc<dyn crate::host::HostEventSink>,
 }
 
 impl AllowlistHooks {
-    pub fn from_permissions(p: &Permissions) -> Self {
+    pub fn new(p: &Permissions, events: std::sync::Arc<dyn crate::host::HostEventSink>) -> Self {
         Self {
             allowed: network_globset(&p.network),
+            events,
         }
     }
 }
@@ -29,6 +31,13 @@ impl WasiHttpHooks for AllowlistHooks {
         if self.allowed.is_match(&host) {
             Ok(default_send_request(request, config))
         } else {
+            self.events.log(
+                "",
+                crate::host::LogLevel::Warn,
+                &format!(
+                    "blocked from connecting to '{host}' — add it to the plugin's permissions.network"
+                ),
+            );
             Err(wasmtime_wasi_http::p2::bindings::http::types::ErrorCode::HttpRequestDenied.into())
         }
     }
