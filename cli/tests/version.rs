@@ -8,7 +8,8 @@ fn version_prints_brand_and_license() {
         .assert()
         .success();
     let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
-    assert!(stdout.contains("Moonlit v0.1.0"), "stdout: {stdout}");
+    let expected = format!("Moonlit v{}", env!("CARGO_PKG_VERSION"));
+    assert!(stdout.contains(&expected), "stdout: {stdout}");
     assert!(stdout.contains("Wolfware LLC"), "stdout: {stdout}");
     assert!(
         stdout.contains("License: MIT OR Apache-2.0"),
@@ -20,5 +21,6 @@ fn version_prints_brand_and_license() {
 fn bare_invocation_defaults_to_version() {
     let out = Command::cargo_bin("moonlit").unwrap().assert().success();
     let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
-    assert!(stdout.contains("Moonlit v0.1.0"), "stdout: {stdout}");
+    let expected = format!("Moonlit v{}", env!("CARGO_PKG_VERSION"));
+    assert!(stdout.contains(&expected), "stdout: {stdout}");
 }
