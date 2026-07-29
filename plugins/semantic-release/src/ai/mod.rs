@@ -4,6 +4,7 @@
 use moonlit_plugin_sdk::prelude::*;
 
 pub mod anthropic;
+pub mod gemini;
 pub mod openai;
 
 /// A single-turn chat request, normalized across providers.
@@ -41,6 +42,7 @@ pub enum Provider {
     #[default]
     Openai,
     Anthropic,
+    Gemini,
 }
 
 #[derive(Deserialize, Clone)]
@@ -76,6 +78,7 @@ impl AiConfig {
             _ => match self.provider {
                 Provider::Openai => "gpt-5-mini",
                 Provider::Anthropic => "claude-haiku-4-5",
+                Provider::Gemini => "gemini-2.5-flash",
             },
         }
     }
@@ -140,6 +143,7 @@ pub fn build_client(cfg: &AiConfig) -> Box<dyn ChatClient> {
     let base: Box<dyn ChatClient> = match cfg.provider {
         Provider::Openai => Box::new(openai::OpenAiClient::new(cfg)),
         Provider::Anthropic => Box::new(anthropic::AnthropicClient::new(cfg)),
+        Provider::Gemini => Box::new(gemini::GeminiClient::new(cfg)),
     };
     Box::new(Retrying::new(base, cfg.max_retries))
 }
