@@ -21,11 +21,10 @@ release = true
 name = "moonlit"
 release = true
 publish = false # binary, never published to crates.io (matches Cargo.toml)
-# Automated tagging is deferred until the release infrastructure exists
-# (Homebrew tap repo, npm/Chocolatey accounts and secrets), so a tag
-# does not prematurely trigger a half-configured dist release. Until then the
-# maintainer creates `moonlit-v*` tags manually; flip this to `true` to enable
-# release-plz to tag automatically once the infrastructure is ready.
-git_tag_enable = false
+# Merging the release PR tags `moonlit-v{version}`, which triggers the dist
+# release. The release infrastructure is proven (0.1.1 shipped to GitHub
+# Releases, Homebrew, npm via OIDC, and Chocolatey), so tagging is automated.
+# dist creates the GitHub release, so release-plz does not.
+git_tag_enable = true
 git_tag_name = "moonlit-v{{ version }}"
 git_release_enable = false
