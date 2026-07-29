@@ -52,6 +52,9 @@ impl Host for RealHost {
     fn monotonic_nanos(&self) -> u64 {
         crate::bindings::wasi::clocks::monotonic_clock::now()
     }
+    fn sleep_nanos(&self, nanos: u64) {
+        crate::bindings::wasi::clocks::monotonic_clock::subscribe_duration(nanos).block();
+    }
 }
 
 fn to_wit_command(cmd: &ProcessCommand) -> crate::bindings::moonlit::plugin::process::Command {

@@ -22,6 +22,7 @@ pub struct MockHost {
     random: Vec<u8>,
     clock: Vec<u64>,
     cursor: RefCell<usize>,
+    sleeps: RefCell<Vec<u64>>,
 }
 
 impl MockHost {
@@ -121,6 +122,10 @@ impl MockHost {
     pub fn recorded_requests(&self) -> Vec<HttpRequestData> {
         self.recorded_requests.borrow().clone()
     }
+    /// Nanosecond durations passed to `sleep_nanos`, in order.
+    pub fn recorded_sleeps(&self) -> Vec<u64> {
+        self.sleeps.borrow().clone()
+    }
 }
 
 impl Host for MockHost {
@@ -182,6 +187,9 @@ impl Host for MockHost {
         let v = self.clock[(*c).min(self.clock.len() - 1)];
         *c += 1;
         v
+    }
+    fn sleep_nanos(&self, nanos: u64) {
+        self.sleeps.borrow_mut().push(nanos);
     }
 }
 

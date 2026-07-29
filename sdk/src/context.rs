@@ -46,6 +46,10 @@ pub trait Host {
     /// `wasi:clocks/monotonic-clock` on the real host; a controllable mock in
     /// tests). Never decreases.
     fn monotonic_nanos(&self) -> u64;
+    /// Sleep for `nanos` nanoseconds (routes to `wasi:clocks/monotonic-clock`
+    /// `subscribe-duration().block()` on the real host; recorded, no real wait,
+    /// in tests).
+    fn sleep_nanos(&self, nanos: u64);
 }
 
 /// Execution context handed to every middleware.

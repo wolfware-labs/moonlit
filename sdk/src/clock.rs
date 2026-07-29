@@ -24,6 +24,10 @@ impl<'a> Clock<'a> {
             start: self.host.monotonic_nanos(),
         }
     }
+    /// Sleep for `ms` milliseconds. Backed by the host's monotonic sleep.
+    pub fn sleep_ms(&self, ms: u64) {
+        self.host.sleep_nanos(ms.saturating_mul(1_000_000));
+    }
 }
 
 /// A running stopwatch: holds the host and start instant; `elapsed_ms`
@@ -67,5 +71,14 @@ mod tests {
         let host = MockHost::new();
         let ctx = Context::new(&host, "/w".into(), "s".into());
         assert_eq!(ctx.clock().now(), 0);
+    }
+
+    #[test]
+    fn sleep_ms_converts_to_nanos_and_records() {
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        ctx.clock().sleep_ms(5);
+        ctx.clock().sleep_ms(0);
+        assert_eq!(host.recorded_sleeps(), vec![5_000_000, 0]);
     }
 }

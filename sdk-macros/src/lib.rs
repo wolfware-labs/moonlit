@@ -221,6 +221,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             fn env_vars(&self) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> { ::std::vec::Vec::new() }
             fn random_bytes(&self, n: usize) -> ::std::vec::Vec<u8> { ::std::vec![0u8; n] }
             fn monotonic_nanos(&self) -> u64 { 0 }
+            fn sleep_nanos(&self, _nanos: u64) {}
         }
 
         ::moonlit_plugin_sdk::export!(MoonlitComponent with_types_in ::moonlit_plugin_sdk::bindings);
