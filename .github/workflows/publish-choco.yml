@@ -1,0 +1,88 @@
+name: Publish Chocolatey
+
+# Custom dist publish-job. Runs inside dist's release (after the release + its
+# assets exist), so it does not rely on the `release: published` event — which a
+# GITHUB_TOKEN-created release does not fire. Self-contained: it downloads the
+# public Windows build, generates the nuspec + install script inline, packs, and
+# pushes. CHOCOLATEY_API_KEY arrives via dist's `secrets: inherit`.
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  chocolatey:
+    runs-on: windows-latest
+    steps:
+      - name: Resolve version and download the Windows build
+        id: art
+        shell: pwsh
+        env:
+          PLAN: ${{ inputs.plan }}
+        run: |
+          $tag = ($env:PLAN | ConvertFrom-Json).announcement_tag
+          $version = $tag -replace '^moonlit-v', ''
+          $asset = 'moonlit-x86_64-pc-windows-msvc.zip'
+          $url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$asset"
+          $tmp = Join-Path $env:RUNNER_TEMP $asset
+          Invoke-WebRequest -Uri $url -OutFile $tmp
+          $sha = (Get-FileHash $tmp -Algorithm SHA256).Hash.ToLower()
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "url=$url"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "checksum=$sha"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Generate package and pack
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.art.outputs.version }}
+          URL64: ${{ steps.art.outputs.url }}
+          CHECKSUM64: ${{ steps.art.outputs.checksum }}
+        run: |
+          $pkgDir = Join-Path $env:RUNNER_TEMP 'choco'
+          New-Item -ItemType Directory -Force -Path (Join-Path $pkgDir 'tools') | Out-Null
+
+          # Single-quoted here-strings do no expansion: __TOKENS__ are literal and
+          # replaced below; PowerShell in the install script stays literal (it runs
+          # on the end user's machine at install time).
+          $nuspec = @'
+          <?xml version="1.0" encoding="utf-8"?>
+          <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+            <metadata>
+              <id>moonlit</id>
+              <version>__VERSION__</version>
+              <title>Moonlit</title>
+              <authors>Wolfware LLC</authors>
+              <projectUrl>https://moonlitbuild.dev/</projectUrl>
+              <packageSourceUrl>https://github.com/wolfware-labs/moonlit</packageSourceUrl>
+              <licenseUrl>https://github.com/wolfware-labs/moonlit/blob/main/LICENSE</licenseUrl>
+              <requireLicenseAcceptance>false</requireLicenseAcceptance>
+              <tags>moonlit release-automation cli wasm</tags>
+              <summary>Run release pipelines with sandboxed WebAssembly plugins.</summary>
+              <description>Moonlit runs release pipelines defined in YAML, driven by sandboxed WebAssembly component plugins. This package installs the moonlit CLI.</description>
+            </metadata>
+            <files>
+              <file src="tools\**" target="tools" />
+            </files>
+          </package>
+          '@
+          $nuspec = $nuspec.Replace('__VERSION__', $env:VERSION)
+          Set-Content -Path (Join-Path $pkgDir 'moonlit.nuspec') -Value $nuspec -Encoding utf8
+
+          $install = @'
+          $ErrorActionPreference = 'Stop'
+          Install-ChocolateyZipPackage -PackageName 'moonlit' -Url64bit '__URL64__' -Checksum64 '__CHECKSUM64__' -ChecksumType64 'sha256' -UnzipLocation "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
+          '@
+          $install = $install.Replace('__URL64__', $env:URL64).Replace('__CHECKSUM64__', $env:CHECKSUM64)
+          Set-Content -Path (Join-Path $pkgDir 'tools/chocolateyinstall.ps1') -Value $install -Encoding utf8
+
+          choco pack (Join-Path $pkgDir 'moonlit.nuspec') --version $env:VERSION --outputdirectory $env:RUNNER_TEMP
+      - name: Push
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.art.outputs.version }}
+          CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          $pkg = Join-Path $env:RUNNER_TEMP "moonlit.$env:VERSION.nupkg"
+          choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY

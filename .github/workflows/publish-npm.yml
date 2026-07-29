@@ -1,0 +1,33 @@
+name: Publish npm
+
+# Custom dist publish-job. Publishes the npm package via npm trusted publishing
+# (OIDC) — dist grants this job `id-token: write`, so no NPM_TOKEN is needed.
+# dist invokes it after the release exists; the package tarball is downloaded
+# from the (public) GitHub Release, so no repo checkout / contents scope is used.
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the npm package from the release
+        env:
+          PLAN: ${{ inputs.plan }}
+        run: |
+          tag="$(echo "$PLAN" | jq -r '.announcement_tag')"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/moonlit-npm-package.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSL "$url" -o moonlit-npm-package.tar.gz
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Upgrade to an npm with OIDC trusted publishing (>= 11.5.1)
+        run: npm install -g npm@latest
+      - name: Publish via OIDC trusted publishing
+        run: npm publish ./moonlit-npm-package.tar.gz --access public
