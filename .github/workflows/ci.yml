@@ -14,6 +14,13 @@ jobs:
   check:
     name: fmt · clippy · test
     runs-on: ubuntu-latest
+    env:
+      # Trim debuginfo to line tables only: keeps backtrace line numbers while
+      # cutting link-time memory, which was crashing ld (SIGBUS) when linking the
+      # heavy moonlit-engine integration-test binaries. CI-scoped; local builds
+      # keep full debuginfo.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
     steps:
       - uses: actions/checkout@v4
       - name: Cache cargo
