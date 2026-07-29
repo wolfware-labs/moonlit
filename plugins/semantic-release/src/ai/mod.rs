@@ -74,10 +74,141 @@ impl AiConfig {
     }
 }
 
+/// Backoff in ms for a failed attempt: honor `retry_after_ms` if present, else
+/// `2^attempt × 500ms`; capped at 60_000ms.
+fn backoff_ms(attempt: u32, retry_after_ms: Option<u64>) -> u64 {
+    let ms = match retry_after_ms {
+        Some(ra) => ra,
+        None => 500u64.saturating_mul(1u64.checked_shl(attempt).unwrap_or(u64::MAX)),
+    };
+    ms.min(60_000)
+}
+
+fn retry_after_of(e: &ChatError) -> Option<u64> {
+    match e {
+        ChatError::RateLimited { retry_after_ms } => *retry_after_ms,
+        _ => None,
+    }
+}
+
+/// Decorator: retries `RateLimited`/`Transport` with backoff; returns
+/// `Auth`/`Malformed` immediately. Waits via the SDK monotonic sleep.
+pub struct Retrying {
+    inner: Box<dyn ChatClient>,
+    max_retries: u32,
+}
+
+impl Retrying {
+    pub fn new(inner: Box<dyn ChatClient>, max_retries: u32) -> Self {
+        Self { inner, max_retries }
+    }
+}
+
+impl ChatClient for Retrying {
+    fn complete(&self, ctx: &Context, req: &ChatRequest) -> Result<ChatResponse, ChatError> {
+        let mut attempt = 0u32;
+        loop {
+            match self.inner.complete(ctx, req) {
+                Ok(r) => return Ok(r),
+                Err(e @ (ChatError::Auth(_) | ChatError::Malformed(_))) => return Err(e),
+                Err(e) => {
+                    if attempt >= self.max_retries {
+                        return Err(e);
+                    }
+                    ctx.clock().sleep_ms(backoff_ms(attempt, retry_after_of(&e)));
+                    attempt += 1;
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use moonlit_plugin_sdk::config::from_json_value;
+    use moonlit_plugin_sdk::testing::MockHost;
+    use std::cell::RefCell;
+
+    /// Fake client returning a scripted sequence of results, one per call.
+    struct FakeClient {
+        results: RefCell<Vec<Result<ChatResponse, ChatError>>>,
+        calls: RefCell<usize>,
+    }
+    impl FakeClient {
+        fn new(results: Vec<Result<ChatResponse, ChatError>>) -> Self {
+            Self { results: RefCell::new(results), calls: RefCell::new(0) }
+        }
+    }
+    impl ChatClient for FakeClient {
+        fn complete(&self, _ctx: &Context, _req: &ChatRequest) -> Result<ChatResponse, ChatError> {
+            *self.calls.borrow_mut() += 1;
+            let mut r = self.results.borrow_mut();
+            if r.is_empty() { return Err(ChatError::Transport("exhausted".into())); }
+            r.remove(0)
+        }
+    }
+    fn req() -> ChatRequest { ChatRequest { system: "s".into(), user: "u".into() } }
+
+    #[test]
+    fn backoff_uses_retry_after_then_exponential() {
+        assert_eq!(backoff_ms(0, None), 500);
+        assert_eq!(backoff_ms(1, None), 1000);
+        assert_eq!(backoff_ms(4, None), 8000);
+        assert_eq!(backoff_ms(0, Some(1000)), 1000);   // honor server hint
+        assert_eq!(backoff_ms(3, Some(90_000)), 60_000); // capped
+    }
+
+    #[test]
+    fn success_passes_through_without_sleep() {
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let r = Retrying::new(Box::new(FakeClient::new(vec![Ok(ChatResponse { text: "ok".into() })])), 5);
+        assert_eq!(r.complete(&ctx, &req()).unwrap().text, "ok");
+        assert!(host.recorded_sleeps().is_empty());
+    }
+
+    #[test]
+    fn auth_error_is_not_retried() {
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let fake = Box::new(FakeClient::new(vec![Err(ChatError::Auth("401".into()))]));
+        let r = Retrying::new(fake, 5);
+        assert!(matches!(r.complete(&ctx, &req()), Err(ChatError::Auth(_))));
+        assert!(host.recorded_sleeps().is_empty());
+    }
+
+    #[test]
+    fn rate_limited_then_success_sleeps_once() {
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let fake = Box::new(FakeClient::new(vec![
+            Err(ChatError::RateLimited { retry_after_ms: Some(1000) }),
+            Ok(ChatResponse { text: "done".into() }),
+        ]));
+        let r = Retrying::new(fake, 5);
+        assert_eq!(r.complete(&ctx, &req()).unwrap().text, "done");
+        assert_eq!(host.recorded_sleeps(), vec![1_000_000_000]); // 1000ms -> 1e9 nanos
+    }
+
+    #[test]
+    fn exhausts_retries_and_fails_with_backoff_sequence() {
+        let host = MockHost::new();
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let fake = Box::new(FakeClient::new(vec![
+            Err(ChatError::RateLimited { retry_after_ms: None }), // attempt 0
+            Err(ChatError::RateLimited { retry_after_ms: None }), // 1
+            Err(ChatError::RateLimited { retry_after_ms: None }), // 2
+            Err(ChatError::RateLimited { retry_after_ms: None }), // 3
+            Err(ChatError::RateLimited { retry_after_ms: None }), // 4
+            Err(ChatError::RateLimited { retry_after_ms: None }), // 5 (== max_retries) -> return Err
+        ]));
+        let r = Retrying::new(fake, 5);
+        assert!(matches!(r.complete(&ctx, &req()), Err(ChatError::RateLimited { .. })));
+        // 5 sleeps between the 6 attempts, exponential in ms -> nanos.
+        assert_eq!(host.recorded_sleeps(),
+            vec![500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000]);
+    }
 
     #[test]
     fn ai_config_defaults_and_camel_case() {
