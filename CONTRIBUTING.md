@@ -4,9 +4,9 @@ Thanks for your interest in improving Moonlit.
 
 ## License of contributions
 
-Moonlit is distributed under the Elastic License 2.0 (see [LICENSE](LICENSE)).
-Unless stated otherwise, contributions you submit are provided under the same
-terms.
+Moonlit is dual-licensed under the MIT license and the Apache License, Version 2.0
+(see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)). Unless stated
+otherwise, contributions you submit are provided under the same terms.
 
 ## Developer Certificate of Origin (DCO)
 

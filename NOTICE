@@ -1,11 +1,13 @@
 Moonlit
 Copyright (c) 2026 Wolfware LLC
 
-This software is made available under the Elastic License 2.0 (ELv2).
-See the LICENSE file for the full terms.
-
-The "licensor" under the Elastic License 2.0 is Wolfware LLC.
+This software is dual-licensed under the MIT license and the Apache License,
+Version 2.0, at your option. See LICENSE-MIT and LICENSE-APACHE for the full
+terms.
 
 "Moonlit" and the Moonlit name and logo are trademarks of Wolfware LLC. The
-Elastic License 2.0 grants no rights to use these trademarks; any use of
-Wolfware LLC's trademarks is subject to applicable law.
+licenses grant no rights to use these trademarks; any use of Wolfware LLC's
+trademarks is subject to applicable law.
+
+The Moonlit managed cloud service and plugin registry are separate, proprietary
+services operated by Wolfware LLC and are not covered by the licenses above.

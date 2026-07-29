@@ -213,7 +213,7 @@ mod tests {
             version: "2.0.0".into(),
             description: "Git plugin".into(),
             source: Some("https://example.com/git".into()),
-            licenses: Some("Elastic-2.0".into()),
+            licenses: Some("MIT OR Apache-2.0".into()),
             middlewares: vec!["build".into(), "test".into()],
             sdk_version: Some("0.1.0".into()),
         }
@@ -251,7 +251,7 @@ mod tests {
             ann["org.opencontainers.image.source"],
             "https://example.com/git"
         );
-        assert_eq!(ann["org.opencontainers.image.licenses"], "Elastic-2.0");
+        assert_eq!(ann["org.opencontainers.image.licenses"], "MIT OR Apache-2.0");
     }
 
     #[test]

@@ -8,14 +8,13 @@ sandboxed WebAssembly plugin components.
 
 ## License
 
-Moonlit is **source-available** under the [Elastic License 2.0](LICENSE) (ELv2).
-This is not an OSI-approved open-source license.
+Moonlit is open source, dual-licensed under either of
 
-You may use, copy, modify, distribute, and self-host Moonlit freely — including
-inside your own products and to run your own releases. You may **not** provide
-Moonlit to third parties as a hosted or managed service that gives users access
-to a substantial set of its features. See [LICENSE](LICENSE) and
-[NOTICE](NOTICE) for the full terms.
+- [Apache License 2.0](LICENSE-APACHE)
+- [MIT license](LICENSE-MIT)
+
+at your option. You may use, copy, modify, and distribute it freely, including in
+commercial and closed-source products. See [NOTICE](NOTICE) for trademark terms.
 
 A managed cloud service is planned at moonlitbuild.cloud.
 

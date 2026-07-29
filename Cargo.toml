@@ -6,7 +6,7 @@ exclude = ["fixtures/test-plugin", "fixtures/sdk-sample", "plugins/git", "plugin
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "Elastic-2.0"
+license = "MIT OR Apache-2.0"
 authors = ["Wolfware LLC"]
 repository = "https://github.com/wolfware-labs/moonlit"
 homepage = "https://moonlitbuild.dev/"

@@ -11,6 +11,6 @@ pub fn run() -> i32 {
     println!("{BANNER}");
     println!("Moonlit v{}", env!("CARGO_PKG_VERSION"));
     println!("Author: Wolfware LLC");
-    println!("License: Elastic-2.0");
+    println!("License: MIT OR Apache-2.0");
     0
 }
