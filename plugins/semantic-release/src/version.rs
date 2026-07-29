@@ -1,7 +1,7 @@
 //! The pure version engine: bump analysis + semver arithmetic helpers +
 //! `calculate_next`. No I/O — the golden tests exercise every branch.
 
-use moonlit_plugin_sdk::prelude::Deserialize;
+use moonlit_sdk::prelude::Deserialize;
 use semver::{BuildMetadata, Prerelease, Version};
 
 use crate::models::{ConventionalCommit, ReleaseRule, VersionBumpType};
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn partial_override_preserves_default_rules() {
-        let cfg: AnalyzerConfig = moonlit_plugin_sdk::config::from_json_value(
+        let cfg: AnalyzerConfig = moonlit_sdk::config::from_json_value(
             &serde_json::json!({ "breakingChangesAlwaysMajor": false }).to_string(),
         )
         .unwrap();
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn explicit_empty_rules_are_honored() {
-        let cfg: AnalyzerConfig = moonlit_plugin_sdk::config::from_json_value(
+        let cfg: AnalyzerConfig = moonlit_sdk::config::from_json_value(
             &serde_json::json!({ "rules": [] }).to_string(),
         )
         .unwrap();

@@ -1,6 +1,6 @@
 //! Plugin-level config: NuGet source + API key, with an `apiKey` alias for `nugetApiKey`.
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", default)]

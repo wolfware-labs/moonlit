@@ -3,7 +3,7 @@
 //! for the retry policy. The API key travels in the `x-goog-api-key` header (never
 //! in the URL, so it can't leak through request logs).
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 use super::openai::{parse_retry_after, strip_fences};
 use super::{AiConfig, ChatClient, ChatError, ChatRequest, ChatResponse};
@@ -96,10 +96,10 @@ impl ChatClient for GeminiClient {
 mod tests {
     use super::*;
     use crate::ai::{AiConfig, ChatClient, ChatError, ChatRequest};
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::testing::MockHost;
 
     fn cfg() -> AiConfig {
-        moonlit_plugin_sdk::config::from_json_value(r#"{"provider":"gemini","apiKey":"gk-test"}"#)
+        moonlit_sdk::config::from_json_value(r#"{"provider":"gemini","apiKey":"gk-test"}"#)
             .unwrap()
     }
     fn req() -> ChatRequest {

@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use globset::Glob;
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 use semver::Version;
 
 use crate::models::{ConventionalCommit, SrShared};
@@ -149,14 +149,14 @@ fn non_empty(v: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
     use serde_json::Value;
 
     fn cfg(json: Value) -> CalculateVersionConfig {
-        moonlit_plugin_sdk::config::from_json_value(&json.to_string()).unwrap()
+        moonlit_sdk::config::from_json_value(&json.to_string()).unwrap()
     }
     fn outputs(
-        w: moonlit_plugin_sdk::bindings::MiddlewareResult,
+        w: moonlit_sdk::bindings::MiddlewareResult,
     ) -> std::collections::HashMap<String, Value> {
         w.output
             .into_iter()
@@ -166,7 +166,7 @@ mod tests {
     fn ctx_run(
         shared: &SrShared,
         c: CalculateVersionConfig,
-    ) -> moonlit_plugin_sdk::bindings::MiddlewareResult {
+    ) -> moonlit_sdk::bindings::MiddlewareResult {
         let host = MockHost::new();
         let ctx = Context::new(&host, "/w".into(), "s".into()).with_state(shared);
         run(&CalculateVersion, &ctx, c).into_wit()

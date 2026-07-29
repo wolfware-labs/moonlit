@@ -2,8 +2,8 @@
 
 use crate::dotnet::{dotnet, exit_phrase, resolve};
 use crate::version::{assembly_or_file_version, informational_version};
-use moonlit_plugin_sdk::prelude::*;
-use moonlit_plugin_sdk::process::LineHandler;
+use moonlit_sdk::prelude::*;
+use moonlit_sdk::process::LineHandler;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -94,7 +94,7 @@ impl Middleware for Build {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn proj_dir() -> tempfile::TempDir {
         let d = tempfile::tempdir().unwrap();

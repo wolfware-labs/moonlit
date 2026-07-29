@@ -1,8 +1,8 @@
 //! Thin GitHub REST client over `ctx.http()`: canonical headers, Link-header
 //! pagination, and status→error mapping.
 
-use moonlit_plugin_sdk::http::{Request, Response};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::http::{Request, Response};
+use moonlit_sdk::prelude::*;
 use serde_json::Value;
 
 const BASE: &str = "https://api.github.com";
@@ -81,7 +81,7 @@ pub fn get_json(ctx: &Context, token: &str, path: &str) -> Result<Value, String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::testing::MockHost;
 
     #[test]
     fn get_attaches_canonical_headers_and_per_page() {

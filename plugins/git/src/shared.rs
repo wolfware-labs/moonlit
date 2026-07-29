@@ -1,7 +1,7 @@
 //! Shared state, the cwd-seeded `git` command builder, and the repo probe.
 
-use moonlit_plugin_sdk::prelude::*;
-use moonlit_plugin_sdk::process::Command;
+use moonlit_sdk::prelude::*;
+use moonlit_sdk::process::Command;
 
 /// Plugin-wide shared state (one instance per pipeline run).
 #[derive(Default)]
@@ -33,8 +33,8 @@ pub fn ensure_repo(ctx: &Context) -> Result<(), MiddlewareResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::MockHost;
 
     fn out(text: &str) -> OutputChunk {
         OutputChunk {

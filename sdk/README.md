@@ -1,4 +1,4 @@
-# moonlit-plugin-sdk
+# moonlit-sdk
 
 SDK for writing [Moonlit](https://github.com/wolfware-labs/moonlit) release-pipeline
 plugins as WebAssembly (`wasm32-wasip2`) components.
@@ -6,11 +6,11 @@ plugins as WebAssembly (`wasm32-wasip2`) components.
 A Moonlit plugin is a `cdylib` that implements one or more middlewares over a `Context`
 (HTTP, process exec, filesystem, environment, logging, and clock capabilities, each
 gated by the host's deny-by-default sandbox). The `moonlit_plugin!` macro (from
-`moonlit-plugin-sdk-macros`, re-exported here) wires your middlewares and optional
+`moonlit-sdk-macros`, re-exported here) wires your middlewares and optional
 plugin config/state into the generated component entrypoints.
 
 ```rust
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 use serde::Deserialize;
 
 #[derive(Deserialize, Default)]

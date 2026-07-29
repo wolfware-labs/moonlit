@@ -3,7 +3,7 @@
 
 /// Generated WIT bindings. Public because the `moonlit_plugin!` macro output
 /// (expanded in the author crate) references this exact path via
-/// `export!(Component with_types_in moonlit_plugin_sdk::bindings)`.
+/// `export!(Component with_types_in moonlit_sdk::bindings)`.
 #[allow(clippy::too_many_arguments)]
 pub mod bindings {
     wit_bindgen::generate!({
@@ -11,13 +11,13 @@ pub mod bindings {
         world: "plugin",
         generate_all,
         pub_export_macro: true,
-        default_bindings_module: "moonlit_plugin_sdk::bindings",
+        default_bindings_module: "moonlit_sdk::bindings",
     });
 }
 
 pub use bindings::export;
 
-pub use moonlit_plugin_sdk_macros::moonlit_plugin;
+pub use moonlit_sdk_macros::moonlit_plugin;
 
 mod result;
 pub use result::{MiddlewareResult, Output};

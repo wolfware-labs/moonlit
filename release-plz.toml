@@ -6,9 +6,9 @@
 release = false
 
 [[package]]
-name = "moonlit-plugin-sdk-macros"
+name = "moonlit-sdk-macros"
 release = true
 
 [[package]]
-name = "moonlit-plugin-sdk"
+name = "moonlit-sdk"
 release = true

@@ -2,7 +2,7 @@
 //! failures come back as HTTP 200 with `{"ok":false,"error":"<code>"}`, so this
 //! branches on the parsed `ok` field, not the HTTP status.
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 const BASE: &str = "https://slack.com/api";
 
@@ -41,7 +41,7 @@ pub fn post_message(ctx: &Context, token: &str, channel: &str, text: &str) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::testing::MockHost;
 
     #[test]
     fn success_sends_canonical_request() {

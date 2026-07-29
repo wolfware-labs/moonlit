@@ -3,8 +3,8 @@
 //! init metadata, the middleware list, and unknown-middleware dispatch — paths
 //! that do not depend on host calls.
 
-use moonlit_plugin_sdk::bindings::Guest;
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::bindings::Guest;
+use moonlit_sdk::prelude::*;
 
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]

@@ -1,7 +1,7 @@
 //! `git latest-tag` — newest tag matching a pattern; stores its commit SHA.
 
 use crate::shared::{ensure_repo, git, GitShared};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 use regex::RegexBuilder;
 
 #[derive(Deserialize)]
@@ -101,8 +101,8 @@ impl Middleware for LatestTag {
 mod tests {
     use super::*;
     use crate::shared::GitShared;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn out(text: &str) -> OutputChunk {
         OutputChunk {

@@ -3,8 +3,8 @@
 
 use crate::docker::{docker, fail};
 use crate::state::DockerShared;
-use moonlit_plugin_sdk::prelude::*;
-use moonlit_plugin_sdk::process::LineHandler;
+use moonlit_sdk::prelude::*;
+use moonlit_sdk::process::LineHandler;
 use std::collections::BTreeMap;
 
 #[derive(Deserialize)]
@@ -114,7 +114,7 @@ impl Middleware for BuildAndPush {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn ctx<'a>(host: &'a MockHost, shared: &'a DockerShared) -> Context<'a> {
         Context::new(host, "/wd".into(), "build-and-push".into()).with_state(shared)

@@ -2,8 +2,8 @@
 
 use crate::config::DotnetConfig;
 use crate::dotnet::{dotnet, exit_phrase, resolve};
-use moonlit_plugin_sdk::prelude::*;
-use moonlit_plugin_sdk::process::LineHandler;
+use moonlit_sdk::prelude::*;
+use moonlit_sdk::process::LineHandler;
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
@@ -97,8 +97,8 @@ impl Middleware for Push {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn pkg_dir() -> tempfile::TempDir {
         let d = tempfile::tempdir().unwrap();

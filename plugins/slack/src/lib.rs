@@ -5,7 +5,7 @@ mod api;
 mod config;
 mod send_notification;
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 use config::SlackPluginConfig;
 use send_notification::SendNotification;

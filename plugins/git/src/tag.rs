@@ -1,7 +1,7 @@
 //! `git tag` — create a lightweight or annotated tag (idempotent on existing).
 
 use crate::shared::{ensure_repo, git};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
@@ -71,8 +71,8 @@ impl Middleware for Tag {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn out(text: &str) -> OutputChunk {
         OutputChunk {

@@ -2,8 +2,8 @@
 //! pagination, and status→error mapping. The API base is dynamic (self-hosted
 //! GitLab via `baseUrl`), so callers pass `api_base` (e.g. `https://gitlab.com/api/v4`).
 
-use moonlit_plugin_sdk::http::{Request, Response};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::http::{Request, Response};
+use moonlit_sdk::prelude::*;
 use serde_json::Value;
 
 fn auth<'a>(req: Request<'a>, token: &str) -> Request<'a> {
@@ -89,8 +89,8 @@ pub fn put(ctx: &Context, api_base: &str, token: &str, path: &str) -> Result<Res
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::http::HttpMethod;
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::http::HttpMethod;
+    use moonlit_sdk::testing::MockHost;
 
     const BASE: &str = "https://gitlab.com/api/v4";
 

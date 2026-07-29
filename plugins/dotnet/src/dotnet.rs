@@ -1,8 +1,8 @@
 //! Shared `dotnet` command helpers: cwd-seeded builder, project-path resolution
 //! against the wasm preopen, and the uniform non-zero-exit phrase.
 
-use moonlit_plugin_sdk::process::Command;
-use moonlit_plugin_sdk::Context;
+use moonlit_sdk::process::Command;
+use moonlit_sdk::Context;
 use std::path::{Path, PathBuf};
 
 /// A `dotnet` command pre-seeded with the working directory as cwd.
@@ -54,7 +54,7 @@ pub fn prepare_output_dir(working_dir: &str, rel: &str) -> std::io::Result<PathB
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::testing::MockHost;
 
     #[test]
     fn dotnet_builder_sets_program_and_cwd() {

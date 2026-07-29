@@ -3,7 +3,7 @@
 
 use crate::api;
 use crate::config::SlackPluginConfig;
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
@@ -38,7 +38,7 @@ impl Middleware for SendNotification {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn cfg(channel: &str, message: &str) -> SendNotificationConfig {
         SendNotificationConfig {

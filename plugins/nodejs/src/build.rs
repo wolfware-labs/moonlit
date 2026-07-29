@@ -1,8 +1,8 @@
 //! `npm run <command>` — optionally bump the version first, then run the build script.
 
 use crate::npm::{exit_phrase, maybe_set_version, npm, require_package_json};
-use moonlit_plugin_sdk::prelude::*;
-use moonlit_plugin_sdk::process::LineHandler;
+use moonlit_sdk::prelude::*;
+use moonlit_sdk::process::LineHandler;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -55,7 +55,7 @@ impl Middleware for Build {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn proj_dir() -> tempfile::TempDir {
         let d = tempfile::tempdir().unwrap();

@@ -1,6 +1,6 @@
 //! Plugin-level config: the Slack API token, validated at `init`.
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]

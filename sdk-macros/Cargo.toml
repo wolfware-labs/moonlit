@@ -1,12 +1,12 @@
 [package]
-name = "moonlit-plugin-sdk-macros"
+name = "moonlit-sdk-macros"
 version = "0.1.0"
 edition = "2021"
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Procedural macro for moonlit-plugin-sdk (moonlit_plugin!)."
+description = "Procedural macro for moonlit-sdk (moonlit_plugin!)."
 readme = "README.md"
 
 [lib]

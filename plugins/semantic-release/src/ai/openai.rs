@@ -1,7 +1,7 @@
 //! OpenAI Chat Completions provider. Maps a normalized ChatRequest to
 //! POST {base}/v1/chat/completions and back, classifying errors for the retry policy.
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 use super::{AiConfig, ChatClient, ChatError, ChatRequest, ChatResponse};
 
@@ -94,7 +94,7 @@ pub fn strip_fences(s: &str) -> String {
 
 /// Parse a `Retry-After` header expressed in integer seconds into milliseconds.
 /// HTTP-date form (non-numeric) yields `None` (the caller falls back to computed backoff).
-pub fn parse_retry_after(resp: &moonlit_plugin_sdk::http::Response) -> Option<u64> {
+pub fn parse_retry_after(resp: &moonlit_sdk::http::Response) -> Option<u64> {
     resp.header("retry-after")
         .and_then(|v| v.trim().parse::<u64>().ok())
         .map(|secs| secs.saturating_mul(1000))
@@ -104,10 +104,10 @@ pub fn parse_retry_after(resp: &moonlit_plugin_sdk::http::Response) -> Option<u6
 mod tests {
     use super::*;
     use crate::ai::{AiConfig, ChatClient, ChatError, ChatRequest};
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::testing::MockHost;
 
     fn cfg() -> AiConfig {
-        moonlit_plugin_sdk::config::from_json_value(r#"{"apiKey":"sk-test"}"#).unwrap()
+        moonlit_sdk::config::from_json_value(r#"{"apiKey":"sk-test"}"#).unwrap()
     }
     fn req() -> ChatRequest { ChatRequest { system: "SYS".into(), user: "USR".into() } }
 

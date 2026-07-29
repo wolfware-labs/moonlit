@@ -14,7 +14,7 @@ mod models;
 mod refine;
 mod version;
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 use analyze::Analyze;
 use calculate_version::CalculateVersion;

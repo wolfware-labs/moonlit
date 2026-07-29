@@ -4,8 +4,8 @@
 use crate::npm::{
     exit_phrase, maybe_set_version, npm, prepare_output_dir, require_package_json, resolve,
 };
-use moonlit_plugin_sdk::prelude::*;
-use moonlit_plugin_sdk::process::LineHandler;
+use moonlit_sdk::prelude::*;
+use moonlit_sdk::process::LineHandler;
 
 /// The first tarball filename from `npm pack --json` stdout (a JSON array of results).
 /// `None` on malformed JSON or an empty array.
@@ -113,7 +113,7 @@ impl Middleware for Pack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn proj_dir() -> tempfile::TempDir {
         let d = tempfile::tempdir().unwrap();
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn pack_emits_working_dir_relative_package_path() {
-        use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
+        use moonlit_sdk::process::{OutputChunk, StdioStream};
         let d = proj_dir();
         // A stdout chunk carrying a valid `npm pack --json` array.
         let json_chunk = OutputChunk {
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn pack_user_destination_is_not_wiped() {
-        use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
+        use moonlit_sdk::process::{OutputChunk, StdioStream};
         let d = proj_dir();
         // Seed a user file in the destination; pack must NOT delete it (create-only, no wipe).
         let dest = d.path().join("out/tarballs");

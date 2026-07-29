@@ -1,7 +1,7 @@
 //! `git commits` — commits in a range, newest-first, boundary excluded.
 
 use crate::shared::{ensure_repo, git, GitShared};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 /// `git log` format: field sep 0x1f, record sep 0x1e. `%B` (raw body) is last so
 /// its internal newlines never collide with the field separators.
@@ -130,8 +130,8 @@ impl Middleware for Commits {
 mod tests {
     use super::*;
     use crate::shared::GitShared;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn out(text: &str) -> OutputChunk {
         OutputChunk {

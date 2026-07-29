@@ -1,7 +1,7 @@
 //! `github create-release` — create a GitHub Release, then comment/label related items.
 
-use moonlit_plugin_sdk::changelog::{self, Category};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::changelog::{self, Category};
+use moonlit_sdk::prelude::*;
 use serde_json::json;
 
 use crate::api;
@@ -126,9 +126,9 @@ impl Middleware for CreateRelease {
 mod tests {
     use super::*;
     use crate::context::GithubShared;
-    use moonlit_plugin_sdk::changelog::Entry;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::changelog::Entry;
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn origin() -> OutputChunk {
         OutputChunk {

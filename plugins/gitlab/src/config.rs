@@ -1,6 +1,6 @@
 //! Plugin-level config: the GitLab API token (validated at `init`) and base URL.
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", default)]

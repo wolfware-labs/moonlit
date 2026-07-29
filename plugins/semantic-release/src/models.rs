@@ -1,6 +1,6 @@
 //! Domain models shared across the three middlewares.
 
-use moonlit_plugin_sdk::prelude::*; // Deserialize, Shared
+use moonlit_sdk::prelude::*; // Deserialize, Shared
 use serde::Serialize;
 
 /// A raw commit as produced by the `git` plugin's `commits.details` output.

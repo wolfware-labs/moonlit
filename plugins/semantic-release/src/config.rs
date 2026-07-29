@@ -1,7 +1,7 @@
 //! Plugin-level config for semantic-release: an optional `ai` block that powers
 //! generate-changelog's AI refinement. Absent by default (most pipelines don't use AI).
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 use crate::ai::AiConfig;
 
@@ -25,7 +25,7 @@ impl PluginConfig for SrPluginConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::config::from_json_value;
+    use moonlit_sdk::config::from_json_value;
 
     #[test]
     fn absent_ai_is_valid_and_default() {

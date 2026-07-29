@@ -1,8 +1,8 @@
-//! Minimal plugin built on moonlit-plugin-sdk, used by the engine integration
+//! Minimal plugin built on moonlit-sdk, used by the engine integration
 //! tests to prove the SDK produces a real, runnable component. Exercises SDK
 //! core (Echo/Fail) plus the utility modules (process/http/env).
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]

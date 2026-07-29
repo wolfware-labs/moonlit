@@ -17,7 +17,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-moonlit-plugin-sdk = {sdk_dep}
+moonlit-sdk = {sdk_dep}
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
@@ -25,7 +25,7 @@ serde_json = "1"
 opt-level = "s"
 "#;
 
-const LIB_RS: &str = r#"use moonlit_plugin_sdk::prelude::*;
+const LIB_RS: &str = r#"use moonlit_sdk::prelude::*;
 
 /// Config for the `greet` middleware. Fields bind from step config with
 /// string-coercion; unknown keys are ignored.
@@ -65,7 +65,7 @@ moonlit_plugin! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     #[test]
     fn greet_greets_the_configured_name() {
@@ -214,7 +214,7 @@ mod tests {
             .unwrap()
             .1;
         assert!(cargo.contains("name = \"my-plugin\""));
-        assert!(cargo.contains("moonlit-plugin-sdk = \"0.1.0\""));
+        assert!(cargo.contains("moonlit-sdk = \"0.1.0\""));
     }
 
     #[test]

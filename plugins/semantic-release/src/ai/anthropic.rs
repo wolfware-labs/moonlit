@@ -1,7 +1,7 @@
 //! Anthropic Messages API provider. Maps a normalized ChatRequest to
 //! POST {base}/v1/messages and back, classifying errors for the retry policy.
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 use super::openai::{parse_retry_after, strip_fences};
 use super::{AiConfig, ChatClient, ChatError, ChatRequest, ChatResponse};
@@ -89,10 +89,10 @@ impl ChatClient for AnthropicClient {
 mod tests {
     use super::*;
     use crate::ai::{AiConfig, ChatClient, ChatError, ChatRequest};
-    use moonlit_plugin_sdk::testing::MockHost;
+    use moonlit_sdk::testing::MockHost;
 
     fn cfg() -> AiConfig {
-        moonlit_plugin_sdk::config::from_json_value(r#"{"provider":"anthropic","apiKey":"ak-test"}"#)
+        moonlit_sdk::config::from_json_value(r#"{"provider":"anthropic","apiKey":"ak-test"}"#)
             .unwrap()
     }
     fn req() -> ChatRequest {

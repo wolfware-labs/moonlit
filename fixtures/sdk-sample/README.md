@@ -1,6 +1,6 @@
 # sdk-sample — Moonlit SDK integration fixture
 
-A plugin written on `moonlit-plugin-sdk`, built to a `wasm32-wasip2` component
+A plugin written on `moonlit-sdk`, built to a `wasm32-wasip2` component
 and used by `engine/tests/sdk_sample.rs`. **Excluded from the workspace** so the
 engine build/CI never needs the wasm target.
 

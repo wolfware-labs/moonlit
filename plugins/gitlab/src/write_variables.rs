@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 use regex::Regex;
 
 #[derive(Deserialize)]
@@ -116,7 +116,7 @@ impl Middleware for WriteVariables {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn cfg(
         output: &[(&str, &str)],

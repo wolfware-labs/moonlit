@@ -9,7 +9,7 @@ pub struct ScaffoldValues {
     pub namespace: String,
     pub description: String,
     pub license: String,
-    /// The full RHS of the `moonlit-plugin-sdk = …` dependency line.
+    /// The full RHS of the `moonlit-sdk = …` dependency line.
     pub sdk_dep: String,
 }
 

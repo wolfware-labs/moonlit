@@ -194,26 +194,26 @@ dependencies = [
 name = "moonlit-plugin-nodejs"
 version = "0.1.0"
 dependencies = [
- "moonlit-plugin-sdk",
+ "moonlit-sdk",
  "serde",
  "serde_json",
  "tempfile",
 ]
 
 [[package]]
-name = "moonlit-plugin-sdk"
+name = "moonlit-sdk"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "flate2",
- "moonlit-plugin-sdk-macros",
+ "moonlit-sdk-macros",
  "serde",
  "serde_json",
  "wit-bindgen",
 ]
 
 [[package]]
-name = "moonlit-plugin-sdk-macros"
+name = "moonlit-sdk-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

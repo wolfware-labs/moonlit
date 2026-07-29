@@ -1,7 +1,7 @@
 //! `git repo-context` — current branch and origin remote URL.
 
 use crate::shared::{ensure_repo, git, NoConfig};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::prelude::*;
 
 #[derive(Default)]
 pub struct RepoContext;
@@ -44,8 +44,8 @@ impl Middleware for RepoContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_plugin_sdk::process::{OutputChunk, StdioStream};
-    use moonlit_plugin_sdk::testing::{run, MockHost};
+    use moonlit_sdk::process::{OutputChunk, StdioStream};
+    use moonlit_sdk::testing::{run, MockHost};
 
     fn out(text: &str) -> OutputChunk {
         OutputChunk {

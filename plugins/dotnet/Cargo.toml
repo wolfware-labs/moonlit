@@ -12,7 +12,7 @@ name = "dotnet"
 crate-type = ["cdylib"]
 
 [dependencies]
-moonlit-plugin-sdk = { path = "../../sdk" }
+moonlit-sdk = { path = "../../sdk" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 regex = "1"

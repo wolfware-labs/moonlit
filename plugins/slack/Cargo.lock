@@ -152,33 +152,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "moonlit-plugin-sdk"
+name = "moonlit-plugin-slack"
+version = "0.1.0"
+dependencies = [
+ "moonlit-sdk",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moonlit-sdk"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "flate2",
- "moonlit-plugin-sdk-macros",
+ "moonlit-sdk-macros",
  "serde",
  "serde_json",
  "wit-bindgen",
 ]
 
 [[package]]
-name = "moonlit-plugin-sdk-macros"
+name = "moonlit-sdk-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "moonlit-plugin-slack"
-version = "0.1.0"
-dependencies = [
- "moonlit-plugin-sdk",
- "serde",
- "serde_json",
 ]
 
 [[package]]

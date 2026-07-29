@@ -12,8 +12,8 @@
 //! per process, so splitting into multiple `#[test]`s (which may run in the
 //! same process) would make `init` order-dependent and flaky.
 
-use moonlit_plugin_sdk::bindings::{Guest, ReleaseContext};
-use moonlit_plugin_sdk::prelude::*;
+use moonlit_sdk::bindings::{Guest, ReleaseContext};
+use moonlit_sdk::prelude::*;
 
 #[derive(Default)]
 struct Counter {

@@ -7,12 +7,12 @@ use moonlit_engine::publish::{PublishMeta, new_push_client, publish_plugin};
 use crate::cli::{OutputMode, PluginPublishArgs};
 use crate::render::resolve_mode;
 
-/// Best-effort: the resolved `moonlit-plugin-sdk` version from a crate's `Cargo.lock`.
+/// Best-effort: the resolved `moonlit-sdk` version from a crate's `Cargo.lock`.
 pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
     let doc: toml::Value = toml::from_str(lock_text).ok()?;
     let packages = doc.get("package")?.as_array()?;
     for pkg in packages {
-        if pkg.get("name").and_then(|n| n.as_str()) == Some("moonlit-plugin-sdk") {
+        if pkg.get("name").and_then(|n| n.as_str()) == Some("moonlit-sdk") {
             return pkg
                 .get("version")
                 .and_then(|v| v.as_str())
@@ -170,7 +170,7 @@ name = "some-dep"
 version = "1.2.3"
 
 [[package]]
-name = "moonlit-plugin-sdk"
+name = "moonlit-sdk"
 version = "0.4.1"
 "#;
         assert_eq!(sdk_version_from_lock(lock), Some("0.4.1".to_string()));

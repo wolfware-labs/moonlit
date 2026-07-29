@@ -82,9 +82,9 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
     // list-middlewares entries
     let list_entries = mws.iter().map(|m| {
         quote! {
-            ::moonlit_plugin_sdk::bindings::MiddlewareInfo {
-                name: <#m as ::moonlit_plugin_sdk::Middleware>::NAME.to_string(),
-                description: <#m as ::moonlit_plugin_sdk::Middleware>::DESCRIPTION.to_string(),
+            ::moonlit_sdk::bindings::MiddlewareInfo {
+                name: <#m as ::moonlit_sdk::Middleware>::NAME.to_string(),
+                description: <#m as ::moonlit_sdk::Middleware>::DESCRIPTION.to_string(),
             }
         }
     });
@@ -92,18 +92,18 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
     // execute dispatch arms
     let exec_arms = mws.iter().map(|m| {
         quote! {
-            <#m as ::moonlit_plugin_sdk::Middleware>::NAME => {
-                let cfg: <#m as ::moonlit_plugin_sdk::Middleware>::Config =
-                    match ::moonlit_plugin_sdk::config::from_json_value(&config) {
+            <#m as ::moonlit_sdk::Middleware>::NAME => {
+                let cfg: <#m as ::moonlit_sdk::Middleware>::Config =
+                    match ::moonlit_sdk::config::from_json_value(&config) {
                         Ok(c) => c,
                         Err(e) => {
-                            return ::moonlit_plugin_sdk::MiddlewareResult::failure(
+                            return ::moonlit_sdk::MiddlewareResult::failure(
                                 ::std::format!("invalid config for `{}`: {}", middleware, e)
                             ).into_wit();
                         }
                     };
                 let mw = <#m as ::core::default::Default>::default();
-                ::moonlit_plugin_sdk::Middleware::execute(&mw, &ctx, cfg).into_wit()
+                ::moonlit_sdk::Middleware::execute(&mw, &ctx, cfg).into_wit()
             }
         }
     });
@@ -132,9 +132,9 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
                 }
             },
             quote! {
-                let parsed: #ty = ::moonlit_plugin_sdk::config::from_json_value(&plugin_config)
+                let parsed: #ty = ::moonlit_sdk::config::from_json_value(&plugin_config)
                     .map_err(|e| ::std::format!("invalid plugin config: {}", e))?;
-                ::moonlit_plugin_sdk::PluginConfig::validate(&parsed)?;
+                ::moonlit_sdk::PluginConfig::validate(&parsed)?;
                 let _ = __MOONLIT_PLUGIN_CONFIG.set(parsed);
             },
             quote! {
@@ -154,9 +154,9 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
         #state_static
         #config_static
 
-        impl ::moonlit_plugin_sdk::bindings::Guest for MoonlitComponent {
-            fn describe() -> ::moonlit_plugin_sdk::bindings::PluginMetadata {
-                ::moonlit_plugin_sdk::bindings::PluginMetadata {
+        impl ::moonlit_sdk::bindings::Guest for MoonlitComponent {
+            fn describe() -> ::moonlit_sdk::bindings::PluginMetadata {
+                ::moonlit_sdk::bindings::PluginMetadata {
                     name: #name.to_string(),
                     version: ::core::env!("CARGO_PKG_VERSION").to_string(),
                     description: ::core::option_env!("CARGO_PKG_DESCRIPTION")
@@ -167,28 +167,28 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             fn init(
                 plugin_config: ::std::string::String,
             ) -> ::core::result::Result<
-                ::moonlit_plugin_sdk::bindings::PluginMetadata,
+                ::moonlit_sdk::bindings::PluginMetadata,
                 ::std::string::String,
             > {
                 #config_init
-                ::core::result::Result::Ok(<Self as ::moonlit_plugin_sdk::bindings::Guest>::describe())
+                ::core::result::Result::Ok(<Self as ::moonlit_sdk::bindings::Guest>::describe())
             }
 
             fn list_middlewares(
-            ) -> ::std::vec::Vec<::moonlit_plugin_sdk::bindings::MiddlewareInfo> {
+            ) -> ::std::vec::Vec<::moonlit_sdk::bindings::MiddlewareInfo> {
                 ::std::vec![ #(#list_entries),* ]
             }
 
             fn execute(
                 middleware: ::std::string::String,
-                ctx: ::moonlit_plugin_sdk::bindings::ReleaseContext,
+                ctx: ::moonlit_sdk::bindings::ReleaseContext,
                 config: ::std::string::String,
-            ) -> ::moonlit_plugin_sdk::bindings::MiddlewareResult {
+            ) -> ::moonlit_sdk::bindings::MiddlewareResult {
                 #[cfg(target_arch = "wasm32")]
-                let host = ::moonlit_plugin_sdk::RealHost;
+                let host = ::moonlit_sdk::RealHost;
                 #[cfg(not(target_arch = "wasm32"))]
                 let host = __MoonlitUnavailableHost;
-                let ctx = ::moonlit_plugin_sdk::Context::new(
+                let ctx = ::moonlit_sdk::Context::new(
                     &host,
                     ctx.working_directory,
                     ctx.step_name,
@@ -197,7 +197,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
                 #config_attach
                 match middleware.as_str() {
                     #(#exec_arms)*
-                    other => ::moonlit_plugin_sdk::MiddlewareResult::failure(
+                    other => ::moonlit_sdk::MiddlewareResult::failure(
                         ::std::format!("unknown middleware: {}", other)
                     ).into_wit(),
                 }
@@ -210,13 +210,13 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
         #[cfg(not(target_arch = "wasm32"))]
         struct __MoonlitUnavailableHost;
         #[cfg(not(target_arch = "wasm32"))]
-        impl ::moonlit_plugin_sdk::Host for __MoonlitUnavailableHost {
-            fn log(&self, _l: ::moonlit_plugin_sdk::LogLevel, _m: &str) {}
+        impl ::moonlit_sdk::Host for __MoonlitUnavailableHost {
+            fn log(&self, _l: ::moonlit_sdk::LogLevel, _m: &str) {}
             fn get_config(&self, _p: &str) -> ::core::option::Option<::std::string::String> { None }
             fn report_progress(&self, _m: &str) {}
-            fn process_run(&self, _cmd: &::moonlit_plugin_sdk::process::ProcessCommand) -> ::core::result::Result<::moonlit_plugin_sdk::process::ProcessOutput, ::std::string::String> { Err("process unavailable".to_string()) }
-            fn process_spawn(&self, _cmd: &::moonlit_plugin_sdk::process::ProcessCommand) -> ::core::result::Result<::std::boxed::Box<dyn ::moonlit_plugin_sdk::process::ChildHandle>, ::std::string::String> { Err("process unavailable".to_string()) }
-            fn http_send(&self, _req: &::moonlit_plugin_sdk::http::HttpRequestData) -> ::core::result::Result<::moonlit_plugin_sdk::http::HttpResponseData, ::std::string::String> { Err("http unavailable".to_string()) }
+            fn process_run(&self, _cmd: &::moonlit_sdk::process::ProcessCommand) -> ::core::result::Result<::moonlit_sdk::process::ProcessOutput, ::std::string::String> { Err("process unavailable".to_string()) }
+            fn process_spawn(&self, _cmd: &::moonlit_sdk::process::ProcessCommand) -> ::core::result::Result<::std::boxed::Box<dyn ::moonlit_sdk::process::ChildHandle>, ::std::string::String> { Err("process unavailable".to_string()) }
+            fn http_send(&self, _req: &::moonlit_sdk::http::HttpRequestData) -> ::core::result::Result<::moonlit_sdk::http::HttpResponseData, ::std::string::String> { Err("http unavailable".to_string()) }
             fn env_var(&self, _n: &str) -> ::core::option::Option<::std::string::String> { None }
             fn env_vars(&self) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> { ::std::vec::Vec::new() }
             fn random_bytes(&self, n: usize) -> ::std::vec::Vec<u8> { ::std::vec![0u8; n] }
@@ -224,6 +224,6 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
             fn sleep_nanos(&self, _nanos: u64) {}
         }
 
-        ::moonlit_plugin_sdk::export!(MoonlitComponent with_types_in ::moonlit_plugin_sdk::bindings);
+        ::moonlit_sdk::export!(MoonlitComponent with_types_in ::moonlit_sdk::bindings);
     }
 }

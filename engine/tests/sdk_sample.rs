@@ -1,4 +1,4 @@
-//! Proves the moonlit-plugin-sdk sample compiles to a real component the engine
+//! Proves the moonlit-sdk sample compiles to a real component the engine
 //! host runs: init metadata, middleware discovery, a coerced execute with
 //! outputs + get-config, and a failure path.
 
