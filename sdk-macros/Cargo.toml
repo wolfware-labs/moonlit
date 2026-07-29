@@ -7,6 +7,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Procedural macro for moonlit-plugin-sdk (moonlit_plugin!)."
+readme = "README.md"
 
 [lib]
 proc-macro = true
