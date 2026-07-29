@@ -18,10 +18,6 @@ The command you run is always `moonlit`.
 
     choco install moonlit
 
-## winget
-
-    winget install Wolfware.Moonlit
-
 ## npm
 
     npx @moonlitbuild/cli --help

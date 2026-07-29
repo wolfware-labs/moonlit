@@ -22,7 +22,7 @@ name = "moonlit"
 release = true
 publish = false # binary, never published to crates.io (matches Cargo.toml)
 # Automated tagging is deferred until the release infrastructure exists
-# (Homebrew tap repo, npm/Chocolatey/winget accounts and secrets), so a tag
+# (Homebrew tap repo, npm/Chocolatey accounts and secrets), so a tag
 # does not prematurely trigger a half-configured dist release. Until then the
 # maintainer creates `moonlit-v*` tags manually; flip this to `true` to enable
 # release-plz to tag automatically once the infrastructure is ready.

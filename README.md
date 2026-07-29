@@ -9,7 +9,7 @@ sandboxed WebAssembly plugin components.
 ## Installation
 
 Install the `moonlit` CLI via a shell/PowerShell one-liner, Homebrew, Chocolatey,
-winget, or npm — see [INSTALL.md](INSTALL.md).
+or npm — see [INSTALL.md](INSTALL.md).
 
 ## License
 
