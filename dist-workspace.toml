@@ -16,3 +16,10 @@ tap = "wolfware-labs/homebrew-tap"
 npm-scope = "@moonlitbuild"
 npm-package = "cli"
 publish-jobs = ["homebrew", "./publish-npm", "./publish-choco"]
+
+# The choco job authenticates to Chocolatey with an API key (not GITHUB_TOKEN),
+# so it does not need the default id-token/packages write. It only needs
+# contents:write to append a Chocolatey section to the release notes (dist does
+# not list custom-job channels there).
+[dist.github-custom-job-permissions]
+publish-choco = { contents = "write" }

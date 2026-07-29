@@ -86,3 +86,27 @@ jobs:
         run: |
           $pkg = Join-Path $env:RUNNER_TEMP "moonlit.$env:VERSION.nupkg"
           choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+      - name: Add Chocolatey to the release notes
+        shell: pwsh
+        env:
+          PLAN: ${{ inputs.plan }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = ($env:PLAN | ConvertFrom-Json).announcement_tag
+          $body = gh release view $tag --json body --jq '.body'
+          if ($body -notmatch 'choco install moonlit') {
+            $addition = @'
+
+
+          ### Install prebuilt binaries via Chocolatey
+
+          ```sh
+          choco install moonlit
+          ```
+          '@
+            $notes = Join-Path $env:RUNNER_TEMP 'notes.md'
+            ($body + $addition) | Out-File -FilePath $notes -Encoding utf8
+            gh release edit $tag --notes-file $notes
+          } else {
+            Write-Host 'Chocolatey section already present; skipping.'
+          }
