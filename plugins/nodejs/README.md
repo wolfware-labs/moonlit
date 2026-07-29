@@ -6,9 +6,6 @@ Six middlewares — `install`, `run-script`, `build`, `pack`, `push`, `test` —
 build/CI never needs the wasm target; native unit tests run via
 `cargo test --manifest-path plugins/nodejs/Cargo.toml`.
 
-There is no 1.x behavior to match: the 1.x NodeJs middlewares were unimplemented stubs,
-so this plugin implements MVP_SPEC §11.6 directly.
-
 ## Regenerate the committed artifact
 
     cd plugins/nodejs
@@ -43,4 +40,4 @@ Requires: `rustup target add wasm32-wasip2`. Verify with
   WASI has no Unix mode bits, so the file's permissions are set by the **host** — operators
   on shared machines should run the engine with a restrictive `umask` and keep
   `.moonlit/npm-push/` unreadable to other users for the duration of a publish.
-- **`test`** is new in 2.0 (spec's optional stretch), mirroring `dotnet.test`.
+- **`test`** implements the spec's optional test stretch, mirroring `dotnet.test`.

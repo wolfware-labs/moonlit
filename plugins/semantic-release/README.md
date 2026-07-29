@@ -78,13 +78,13 @@ stages:
         refineCommitsSummary: true
 ```
 
-## 2.0 vs 1.x divergences
+## Design notes
 
 - `prereleaseMappings` glob keys resolve by exact-key-then-alphabetical-glob
-  precedence: engine config maps are unordered, so 1.x's declaration-order
-  glob matching is not available.
+  precedence (engine config maps are unordered, so declaration order is not
+  significant).
 - Rule-config enum values (`VersionBumpType`) are case-sensitive PascalCase
-  (e.g. `Major`, `Minor`, `Patch`, `None`), unlike 1.x's case-insensitive binder.
+  (e.g. `Major`, `Minor`, `Patch`, `None`).
 - Custom `ChangelogRule` entries must specify `icon`, `section`, and `summary`
   explicitly — there are no silent per-property defaults; a rule missing one
   of these fails to deserialize instead of falling back to a default value.
