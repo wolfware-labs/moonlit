@@ -3,6 +3,7 @@
 
 use moonlit_plugin_sdk::prelude::*;
 
+pub mod anthropic;
 pub mod openai;
 
 /// A single-turn chat request, normalized across providers.
@@ -39,6 +40,7 @@ fn default_max_retries() -> u32 {
 pub enum Provider {
     #[default]
     Openai,
+    Anthropic,
 }
 
 #[derive(Deserialize, Clone)]
@@ -49,6 +51,8 @@ pub struct AiConfig {
     pub api_key: String,
     pub base_url: Option<String>,
     pub max_retries: u32,
+    /// Max output tokens. Required by Anthropic; ignored by OpenAI/Gemini.
+    pub max_tokens: Option<u32>,
 }
 
 impl Default for AiConfig {
@@ -59,6 +63,7 @@ impl Default for AiConfig {
             api_key: String::new(),
             base_url: None,
             max_retries: default_max_retries(),
+            max_tokens: None,
         }
     }
 }
@@ -70,8 +75,14 @@ impl AiConfig {
             Some(m) if !m.trim().is_empty() => m,
             _ => match self.provider {
                 Provider::Openai => "gpt-5-mini",
+                Provider::Anthropic => "claude-haiku-4-5",
             },
         }
+    }
+
+    /// Max output tokens, defaulting to 4096 when unset (used by Anthropic).
+    pub fn max_tokens_or_default(&self) -> u32 {
+        self.max_tokens.unwrap_or(4096)
     }
 }
 
@@ -128,6 +139,7 @@ impl ChatClient for Retrying {
 pub fn build_client(cfg: &AiConfig) -> Box<dyn ChatClient> {
     let base: Box<dyn ChatClient> = match cfg.provider {
         Provider::Openai => Box::new(openai::OpenAiClient::new(cfg)),
+        Provider::Anthropic => Box::new(anthropic::AnthropicClient::new(cfg)),
     };
     Box::new(Retrying::new(base, cfg.max_retries))
 }
