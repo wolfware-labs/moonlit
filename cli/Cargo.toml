@@ -9,6 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 description = "Moonlit CLI: run release pipelines and render their execution."
+readme = "README.md"
 
 # The CLI is `publish = false` (distributed as a binary, not a crate); opt it
 # into dist so it is built and released as an application.
