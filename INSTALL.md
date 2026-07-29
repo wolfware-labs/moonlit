@@ -12,7 +12,7 @@ The command you run is always `moonlit`.
 
 ## Homebrew
 
-    brew install wolfware-labs/homebrew-tap/moonlit
+    brew install wolfware-labs/tap/moonlit
 
 ## Chocolatey
 
