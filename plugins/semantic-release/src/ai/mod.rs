@@ -3,7 +3,7 @@
 
 use moonlit_plugin_sdk::prelude::*;
 
-// NOTE: `pub mod openai;` is added in Task 4 (openai.rs does not exist yet).
+pub mod openai;
 
 /// A single-turn chat request, normalized across providers.
 pub struct ChatRequest {
@@ -12,6 +12,7 @@ pub struct ChatRequest {
 }
 
 /// The model's raw text answer, with any ``` code fences already stripped.
+#[derive(Debug)]
 pub struct ChatResponse {
     pub text: String,
 }
