@@ -9,6 +9,7 @@ mod changelog;
 mod convert;
 mod generate_changelog;
 mod models;
+mod refine;
 mod version;
 
 use moonlit_plugin_sdk::prelude::*;
