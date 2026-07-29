@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>moonlit</id>
+    <version>0.0.0</version>
+    <title>Moonlit</title>
+    <authors>Wolfware LLC</authors>
+    <projectUrl>https://moonlitbuild.dev/</projectUrl>
+    <packageSourceUrl>https://github.com/wolfware-labs/moonlit</packageSourceUrl>
+    <licenseUrl>https://github.com/wolfware-labs/moonlit/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <tags>moonlit release-automation cli wasm</tags>
+    <summary>Run release pipelines with sandboxed WebAssembly plugins.</summary>
+    <description>Moonlit runs release pipelines defined in YAML, driven by sandboxed WebAssembly component plugins. This package installs the `moonlit` CLI.</description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
