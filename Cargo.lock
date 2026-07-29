@@ -2032,7 +2032,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "moonlit-cli"
+name = "moonlit"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",

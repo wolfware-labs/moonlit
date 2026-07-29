@@ -1,5 +1,5 @@
 [package]
-name = "moonlit-cli"
+name = "moonlit"
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,19 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+homepage.workspace = true
 description = "Moonlit CLI: run release pipelines and render their execution."
+
+# The CLI is `publish = false` (distributed as a binary, not a crate); opt it
+# into dist so it is built and released as an application.
+[package.metadata.dist]
+dist = true
+
+[package.metadata.wix]
+upgrade-guid = "246A0B1F-D411-48B8-951B-5BB34C455A67"
+path-guid = "47D9882B-124B-4C92-80F4-AD05C8E9DEAD"
+license = false
+eula = false
 
 [[bin]]
 name = "moonlit"
