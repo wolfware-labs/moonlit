@@ -124,6 +124,14 @@ impl ChatClient for Retrying {
     }
 }
 
+/// Build a ready-to-use client from config: the provider impl wrapped in `Retrying`.
+pub fn build_client(cfg: &AiConfig) -> Box<dyn ChatClient> {
+    let base: Box<dyn ChatClient> = match cfg.provider {
+        Provider::Openai => Box::new(openai::OpenAiClient::new(cfg)),
+    };
+    Box::new(Retrying::new(base, cfg.max_retries))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,6 +217,20 @@ mod tests {
         // 5 sleeps between the 6 attempts, exponential in ms -> nanos.
         assert_eq!(host.recorded_sleeps(),
             vec![500_000_000, 1_000_000_000, 2_000_000_000, 4_000_000_000, 8_000_000_000]);
+    }
+
+    #[test]
+    fn build_client_wraps_openai_in_retry() {
+        // 429 (retry-after 1s) then 200 -> factory-built client retries and succeeds.
+        let host = MockHost::new()
+            .with_http_response_headers(429, vec![("retry-after".into(), "1".into())], b"slow")
+            .with_http_response(200, br#"{"choices":[{"message":{"content":"{\"ok\":true}"}}]}"#);
+        let ctx = Context::new(&host, "/w".into(), "s".into());
+        let cfg: AiConfig = from_json_value(r#"{"apiKey":"sk"}"#).unwrap();
+        let client = build_client(&cfg);
+        let out = client.complete(&ctx, &ChatRequest { system: "s".into(), user: "u".into() }).unwrap();
+        assert_eq!(out.text, "{\"ok\":true}");
+        assert_eq!(host.recorded_sleeps(), vec![1_000_000_000]); // retried once; 1000ms=1e9 nanos
     }
 
     #[test]
