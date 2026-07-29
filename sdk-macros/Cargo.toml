@@ -3,11 +3,15 @@ name = "moonlit-sdk-macros"
 version = "0.1.0"
 edition = "2021"
 rust-version.workspace = true
-license.workspace = true
+license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "Procedural macro for moonlit-sdk (moonlit_plugin!)."
 readme = "README.md"
+keywords = ["moonlit", "plugin", "macro", "wasm", "codegen"]
+categories = ["development-tools::procedural-macro-helpers", "wasm"]
+documentation = "https://docs.rs/moonlit-sdk-macros"
 
 [lib]
 proc-macro = true

@@ -9,6 +9,7 @@ edition = "2024"
 license = "Elastic-2.0"
 authors = ["Wolfware LLC"]
 repository = "https://github.com/wolfware-labs/moonlit"
+homepage = "https://moonlitbuild.dev/"
 rust-version = "1.97"
 
 [workspace.dependencies]

@@ -45,4 +45,4 @@ Build with `cargo build --target wasm32-wasip2 --release` (requires
 
 ## License
 
-Elastic License 2.0 (`Elastic-2.0`).
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.

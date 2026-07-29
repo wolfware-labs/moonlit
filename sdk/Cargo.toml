@@ -3,11 +3,15 @@ name = "moonlit-sdk"
 version = "0.1.0"
 edition = "2021"
 rust-version.workspace = true
-license.workspace = true
+license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "SDK for writing Moonlit release-pipeline plugins as WebAssembly components."
 readme = "README.md"
+keywords = ["moonlit", "plugin", "wasm", "release", "sdk"]
+categories = ["development-tools", "wasm"]
+documentation = "https://docs.rs/moonlit-sdk"
 
 [dependencies]
 wit-bindgen = { workspace = true }
