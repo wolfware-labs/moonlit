@@ -10,7 +10,10 @@ fn version_prints_brand_and_license() {
     let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
     assert!(stdout.contains("Moonlit v0.1.0"), "stdout: {stdout}");
     assert!(stdout.contains("Wolfware LLC"), "stdout: {stdout}");
-    assert!(stdout.contains("License: MIT OR Apache-2.0"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("License: MIT OR Apache-2.0"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]

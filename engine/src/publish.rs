@@ -251,7 +251,10 @@ mod tests {
             ann["org.opencontainers.image.source"],
             "https://example.com/git"
         );
-        assert_eq!(ann["org.opencontainers.image.licenses"], "MIT OR Apache-2.0");
+        assert_eq!(
+            ann["org.opencontainers.image.licenses"],
+            "MIT OR Apache-2.0"
+        );
     }
 
     #[test]
