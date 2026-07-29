@@ -6,6 +6,11 @@ sandboxed WebAssembly plugin components.
 
 > **Status:** early development.
 
+## Installation
+
+Install the `moonlit` CLI via a shell/PowerShell one-liner, Homebrew, Chocolatey,
+winget, or npm — see [INSTALL.md](INSTALL.md).
+
 ## License
 
 Moonlit is open source, dual-licensed under either of
