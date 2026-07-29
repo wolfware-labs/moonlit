@@ -78,6 +78,54 @@ pub fn filter_commits(
     Ok(kept)
 }
 
+pub const REFINE_SYSTEM: &str = "You are a release-notes editor. You receive a JSON array of \
+commits, each with an index, type, scope, and summary. Rewrite each summary into a concise, \
+clear, user-facing release-note line (imperative mood, no trailing period, no type prefix). \
+Respond with JSON only, no prose, in the exact shape \
+{\"summaries\": [{\"index\": <index>, \"summary\": \"<rewritten>\"}, ...]} covering every input index.";
+
+#[derive(serde::Deserialize)]
+struct SummaryReply {
+    #[serde(default)]
+    summaries: Vec<SummaryItem>,
+}
+#[derive(serde::Deserialize)]
+struct SummaryItem {
+    index: usize,
+    summary: String,
+}
+
+/// Rewrite commit summaries, batch by batch. Commits the model omits are left
+/// unchanged. Errors (→ step failure) on provider error, unparseable reply, or
+/// out-of-range index.
+pub fn refine_summaries(
+    ctx: &Context,
+    client: &dyn ChatClient,
+    commits: Vec<ConventionalCommit>,
+) -> Result<Vec<ConventionalCommit>, String> {
+    let mut out = commits;
+    for start in (0..out.len()).step_by(BATCH) {
+        let end = (start + BATCH).min(out.len());
+        let batch_len = end - start;
+        // Build the payload from an immutable borrow that ends before we mutate `out`.
+        let user = batch_items_json(&out[start..end]);
+        let req = ChatRequest {
+            system: REFINE_SYSTEM.to_string(),
+            user,
+        };
+        let resp = client.complete(ctx, &req).map_err(err_to_string)?;
+        let reply: SummaryReply = serde_json::from_str(&resp.text)
+            .map_err(|e| format!("OpenAI returned an unparseable response: {e}."))?;
+        for item in reply.summaries {
+            if item.index >= batch_len {
+                return Err(format!("OpenAI returned an out-of-range index {}.", item.index));
+            }
+            out[start + item.index].summary = item.summary;
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,5 +192,42 @@ mod tests {
         let client = Canned::new(vec!["not json at all"]);
         let commits = vec![commit("feat", "x")];
         assert!(filter_commits(&ctx(&host), &client, commits).is_err());
+    }
+
+    #[test]
+    fn refine_rewrites_by_index() {
+        let host = MockHost::new();
+        let client = Canned::new(vec![r#"{"summaries":[{"index":0,"summary":"Add retry support"}]}"#]);
+        let commits = vec![commit("feat", "add retry")];
+        let out = refine_summaries(&ctx(&host), &client, commits).unwrap();
+        assert_eq!(out[0].summary, "Add retry support");
+    }
+
+    #[test]
+    fn refine_leaves_unmentioned_commits_unchanged() {
+        let host = MockHost::new();
+        let client = Canned::new(vec![r#"{"summaries":[{"index":0,"summary":"Rewritten"}]}"#]);
+        let commits = vec![commit("feat", "one"), commit("fix", "two")];
+        let out = refine_summaries(&ctx(&host), &client, commits).unwrap();
+        assert_eq!(out[0].summary, "Rewritten");
+        assert_eq!(out[1].summary, "two");
+    }
+
+    #[test]
+    fn refine_batches_in_groups_of_15() {
+        let host = MockHost::new();
+        let client = Canned::new(vec![r#"{"summaries":[]}"#, r#"{"summaries":[]}"#]);
+        let commits: Vec<_> = (0..16).map(|i| commit("feat", &format!("c{i}"))).collect();
+        let out = refine_summaries(&ctx(&host), &client, commits).unwrap();
+        assert_eq!(out.len(), 16);
+        assert_eq!(client.seen_users.borrow().len(), 2);
+    }
+
+    #[test]
+    fn refine_bad_index_errors() {
+        let host = MockHost::new();
+        let client = Canned::new(vec![r#"{"summaries":[{"index":9,"summary":"x"}]}"#]);
+        let commits = vec![commit("feat", "only")];
+        assert!(refine_summaries(&ctx(&host), &client, commits).is_err());
     }
 }
