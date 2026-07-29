@@ -93,7 +93,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = ($env:PLAN | ConvertFrom-Json).announcement_tag
-          $body = gh release view $tag --json body --jq '.body'
+          # This job has no checkout, so gh cannot infer the repo from git —
+          # pass it explicitly.
+          $repo = $env:GITHUB_REPOSITORY
+          $body = gh release view $tag -R $repo --json body --jq '.body'
           if ($body -notmatch 'choco install moonlit') {
             $addition = @'
 
@@ -106,7 +109,7 @@ jobs:
           '@
             $notes = Join-Path $env:RUNNER_TEMP 'notes.md'
             ($body + $addition) | Out-File -FilePath $notes -Encoding utf8
-            gh release edit $tag --notes-file $notes
+            gh release edit $tag -R $repo --notes-file $notes
           } else {
             Write-Host 'Chocolatey section already present; skipping.'
           }
