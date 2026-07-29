@@ -1,0 +1,14 @@
+# release-plz configuration.
+# Release management is disabled workspace-wide and re-enabled only for the
+# publishable SDK library crates, so the engine and CLI apps are never
+# versioned or published (they ship as binaries via cargo-dist).
+[workspace]
+release = false
+
+[[package]]
+name = "moonlit-plugin-sdk-macros"
+release = true
+
+[[package]]
+name = "moonlit-plugin-sdk"
+release = true
