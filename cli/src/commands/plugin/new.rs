@@ -75,11 +75,16 @@ fn resolve_values(args: &PluginNewArgs, interactive: bool) -> std::io::Result<Sc
     let license = match args.license.clone() {
         Some(l) => l,
         None if interactive => cliclack::select("License?")
+            .item(
+                "MIT OR Apache-2.0".to_string(),
+                "MIT OR Apache-2.0",
+                "recommended",
+            )
             .item("Apache-2.0".to_string(), "Apache-2.0", "")
             .item("MIT".to_string(), "MIT", "")
             .item("Elastic-2.0".to_string(), "Elastic-2.0", "")
             .interact()?,
-        None => "Apache-2.0".to_string(),
+        None => "MIT OR Apache-2.0".to_string(),
     };
 
     Ok(ScaffoldValues {

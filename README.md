@@ -24,4 +24,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Trademarks
 
-"Moonlit" is a trademark of Wolfware LLC. See [NOTICE](NOTICE).
+"Moonlit" and the Moonlit logo are trademarks of Wolfware LLC. See
+[TRADEMARKS.md](TRADEMARKS.md) and [NOTICE](NOTICE).

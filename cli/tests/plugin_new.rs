@@ -32,7 +32,7 @@ fn new_scaffolds_a_buildable_plugin() {
 
     let plugin_toml = std::fs::read_to_string(root.join("moonlit-plugin.toml")).unwrap();
     assert!(plugin_toml.contains("namespace = \"acme\""));
-    assert!(plugin_toml.contains("license = \"Apache-2.0\""));
+    assert!(plugin_toml.contains("license = \"MIT OR Apache-2.0\""));
 
     // Buildability proof: the generated crate's native unit test compiles and passes.
     Command::new("cargo")
