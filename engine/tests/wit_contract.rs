@@ -32,7 +32,11 @@ fn package_is_moonlit_plugin_0_2_0() {
 }
 
 /// Names of the fields declared by a `record` type in the `types` interface.
-fn record_field_names<'a>(resolve: &'a Resolve, package_id: PackageId, record: &str) -> Vec<&'a str> {
+fn record_field_names<'a>(
+    resolve: &'a Resolve,
+    package_id: PackageId,
+    record: &str,
+) -> Vec<&'a str> {
     let types_id = resolve.packages[package_id].interfaces["types"];
     let type_id = resolve.interfaces[types_id].types[record];
     match &resolve.types[type_id].kind {

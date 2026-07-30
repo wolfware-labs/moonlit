@@ -76,22 +76,27 @@ fn icon_expr(icon: &Option<LitStr>) -> proc_macro2::TokenStream {
     } else if rel.ends_with(".webp") {
         "image/webp"
     } else {
-        return syn::Error::new(lit.span(), "icon must be a .png or .webp file")
-            .to_compile_error();
+        return syn::Error::new(lit.span(), "icon must be a .png or .webp file").to_compile_error();
     };
     let manifest_dir = match std::env::var("CARGO_MANIFEST_DIR") {
         Ok(d) => d,
         Err(_) => {
-            return syn::Error::new(lit.span(), "CARGO_MANIFEST_DIR unavailable; cannot locate icon")
-                .to_compile_error();
+            return syn::Error::new(
+                lit.span(),
+                "CARGO_MANIFEST_DIR unavailable; cannot locate icon",
+            )
+            .to_compile_error();
         }
     };
     let path = std::path::Path::new(&manifest_dir).join(&rel);
     let bytes = match std::fs::read(&path) {
         Ok(b) => b,
         Err(e) => {
-            return syn::Error::new(lit.span(), format!("cannot read icon `{}`: {e}", path.display()))
-                .to_compile_error();
+            return syn::Error::new(
+                lit.span(),
+                format!("cannot read icon `{}`: {e}", path.display()),
+            )
+            .to_compile_error();
         }
     };
     use base64::Engine as _;

@@ -42,7 +42,10 @@ fn describe_embeds_icon_as_data_uri() {
         "icon must be a PNG data URI; got prefix {:?}",
         &icon[..icon.len().min(32)]
     );
-    assert!(icon.len() > "data:image/png;base64,".len(), "data URI must carry bytes");
+    assert!(
+        icon.len() > "data:image/png;base64,".len(),
+        "data URI must carry bytes"
+    );
 }
 
 #[test]
@@ -53,7 +56,8 @@ fn middleware_carries_config_schema_with_declared_field() {
         .config_schema
         .as_ref()
         .expect("config_schema must be emitted for every middleware");
-    let schema: serde_json::Value = serde_json::from_str(raw).expect("config schema must be valid JSON");
+    let schema: serde_json::Value =
+        serde_json::from_str(raw).expect("config schema must be valid JSON");
     assert_eq!(
         schema["$schema"], "https://json-schema.org/draft/2020-12/schema",
         "schema must declare the draft 2020-12 dialect"

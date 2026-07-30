@@ -60,11 +60,16 @@ async fn describe_and_list_carry_icon_and_config_schema() {
     let mws = p.list_middlewares().await.unwrap();
     let log = mws.iter().find(|m| m.name == "log-and-output").unwrap();
     assert!(
-        log.config_schema.as_deref().is_some_and(|s| s.contains("2020-12")),
+        log.config_schema
+            .as_deref()
+            .is_some_and(|s| s.contains("2020-12")),
         "log-and-output must carry a draft-2020-12 config schema"
     );
     let run = mws.iter().find(|m| m.name == "run-process").unwrap();
-    assert!(run.config_schema.is_none(), "run-process must have no config schema");
+    assert!(
+        run.config_schema.is_none(),
+        "run-process must have no config schema"
+    );
 }
 
 #[tokio::test]

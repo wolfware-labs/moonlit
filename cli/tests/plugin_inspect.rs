@@ -65,7 +65,10 @@ fn inspect_json_carries_icon_and_config_schema() {
         .find(|m| m["name"] == "echo")
         .expect("echo middleware present");
     let schema = &echo["configSchema"];
-    assert!(schema.is_object(), "configSchema must be an embedded object; got {schema}");
+    assert!(
+        schema.is_object(),
+        "configSchema must be an embedded object; got {schema}"
+    );
     assert_eq!(
         schema["$schema"], "https://json-schema.org/draft/2020-12/schema",
         "schema must declare the draft 2020-12 dialect"
