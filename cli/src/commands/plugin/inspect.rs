@@ -110,9 +110,16 @@ fn print_json(meta: &PluginMetadata, mws: &[MiddlewareInfo]) {
         "name": meta.name,
         "version": meta.version,
         "description": meta.description,
+        // Data URI string, or null when the plugin declares no icon.
+        "icon": meta.icon,
         "middlewares": mws.iter().map(|m| serde_json::json!({
             "name": m.name,
             "description": m.description,
+            // The config schema travels the ABI as JSON text; re-embed it as an
+            // object here (null when absent or unparseable) so the registry can
+            // consume it directly.
+            "configSchema": m.config_schema.as_deref()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
         })).collect::<Vec<_>>(),
     });
     println!("{}", serde_json::to_string_pretty(&v).unwrap());
