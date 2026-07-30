@@ -2,12 +2,14 @@
 # Release management is disabled workspace-wide and re-enabled per package:
 #   - the SDK library crates are versioned AND published to crates.io, but get
 #     no GitHub release (they ship via crates.io; a GitHub release for an SDK
-#     tag would steal `/releases/latest`, which the CLI installers depend on);
-#   - the `moonlit` CLI is versioned and tagged (so dist can build a release
-#     from the tag) but never published to crates.io (`publish = false`) and
-#     gets no release-plz GitHub release — dist owns that.
-# The engine is never versioned by release-plz (it inherits the workspace
-# version bumped alongside the CLI, and ships only as part of the binary).
+#     tag would steal `/releases/latest`, which the CLI installers depend on).
+# The `moonlit` CLI and `moonlit-engine` are NOT versioned by release-plz —
+# they are owned by semantic-release (see .releaserc.json +
+# .github/workflows/semantic-release.yml), which bumps the workspace version
+# from Conventional Commits and tags `moonlit-v{version}` to trigger dist.
+# release-plz cannot version the CLI anyway: it `cargo package`s every
+# release=true crate, which fails on the CLI's unpublished `moonlit-engine`
+# path dependency.
 [workspace]
 release = false
 
@@ -23,12 +25,6 @@ git_release_enable = false
 
 [[package]]
 name = "moonlit"
-release = true
-publish = false # binary, never published to crates.io (matches Cargo.toml)
-# Merging the release PR tags `moonlit-v{version}`, which triggers the dist
-# release. The release infrastructure is proven (0.1.1 shipped to GitHub
-# Releases, Homebrew, npm via OIDC, and Chocolatey), so tagging is automated.
-# dist creates the GitHub release, so release-plz does not.
-git_tag_enable = true
-git_tag_name = "moonlit-v{{ version }}"
-git_release_enable = false
+# Owned by semantic-release, not release-plz. Left here (release = false) as an
+# explicit marker so nobody re-enables release-plz versioning for the CLI.
+release = false
