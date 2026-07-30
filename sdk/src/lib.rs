@@ -51,6 +51,16 @@ pub mod testing;
 mod middleware;
 pub use middleware::Middleware;
 
+/// Serialize a middleware `Config`'s JSON Schema (draft 2020-12) to text.
+///
+/// The `moonlit_plugin!` macro calls this to fill `middleware-info.config-schema`,
+/// keeping the `schemars`/`serde_json` calls inside the SDK rather than each
+/// author crate. Hidden from docs — it is macro-internal API.
+#[doc(hidden)]
+pub fn __schema_json<T: schemars::JsonSchema>() -> String {
+    serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default()
+}
+
 mod plugin_config;
 pub use plugin_config::PluginConfig;
 

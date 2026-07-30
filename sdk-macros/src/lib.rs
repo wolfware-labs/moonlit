@@ -6,9 +6,11 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{braced, bracketed, Ident, LitStr, Token, Type};
 
-/// `moonlit_plugin! { name: "git", config: C, middlewares: [A, B], state: S }`
+/// `moonlit_plugin! { name: "git", icon: "icon.png", config: C, middlewares: [A, B], state: S }`
 struct PluginDecl {
     name: LitStr,
+    /// Path to a PNG/WebP icon, relative to the author crate's `CARGO_MANIFEST_DIR`.
+    icon: Option<LitStr>,
     config: Option<Type>,
     middlewares: Vec<Type>,
     state: Option<Type>,
@@ -17,6 +19,7 @@ struct PluginDecl {
 impl Parse for PluginDecl {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut name: Option<LitStr> = None;
+        let mut icon: Option<LitStr> = None;
         let mut config: Option<Type> = None;
         let mut middlewares: Option<Vec<Type>> = None;
         let mut state: Option<Type> = None;
@@ -26,6 +29,7 @@ impl Parse for PluginDecl {
             input.parse::<Token![:]>()?;
             match key.to_string().as_str() {
                 "name" => name = Some(input.parse()?),
+                "icon" => icon = Some(input.parse()?),
                 "config" => config = Some(input.parse()?),
                 "state" => state = Some(input.parse()?),
                 "middlewares" => {
@@ -37,7 +41,7 @@ impl Parse for PluginDecl {
                 other => {
                     return Err(syn::Error::new(
                         key.span(),
-                        format!("unknown moonlit_plugin! field `{other}` (expected name, config, middlewares, state)"),
+                        format!("unknown moonlit_plugin! field `{other}` (expected name, icon, config, middlewares, state)"),
                     ));
                 }
             }
@@ -47,10 +51,56 @@ impl Parse for PluginDecl {
 
         Ok(PluginDecl {
             name: name.ok_or_else(|| input.error("missing `name:`"))?,
+            icon,
             config,
             middlewares: middlewares.ok_or_else(|| input.error("missing `middlewares:`"))?,
             state,
         })
+    }
+}
+
+/// Read the icon at expansion time and build a `data:` URI expression for
+/// `plugin-metadata.icon`. MIME comes from the extension; unknown extensions are
+/// a compile error. The emitted `include_bytes!` is inert (discarded) but makes
+/// `rustc` track the file so a changed icon triggers a rebuild.
+fn icon_expr(icon: &Option<LitStr>) -> proc_macro2::TokenStream {
+    let Some(lit) = icon else {
+        return quote! { ::core::option::Option::None };
+    };
+    let rel = lit.value();
+    let mime = if rel.ends_with(".png") {
+        "image/png"
+    } else if rel.ends_with(".webp") {
+        "image/webp"
+    } else {
+        return syn::Error::new(lit.span(), "icon must be a .png or .webp file")
+            .to_compile_error();
+    };
+    let manifest_dir = match std::env::var("CARGO_MANIFEST_DIR") {
+        Ok(d) => d,
+        Err(_) => {
+            return syn::Error::new(lit.span(), "CARGO_MANIFEST_DIR unavailable; cannot locate icon")
+                .to_compile_error();
+        }
+    };
+    let path = std::path::Path::new(&manifest_dir).join(&rel);
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => {
+            return syn::Error::new(lit.span(), format!("cannot read icon `{}`: {e}", path.display()))
+                .to_compile_error();
+        }
+    };
+    use base64::Engine as _;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let data_uri = format!("data:{mime};base64,{b64}");
+    quote! {
+        {
+            // Rebuild tracking only — the encoded string above is the real value.
+            const _: &[u8] =
+                ::core::include_bytes!(::core::concat!(::core::env!("CARGO_MANIFEST_DIR"), "/", #rel));
+            ::core::option::Option::Some(::std::string::String::from(#data_uri))
+        }
     }
 }
 
@@ -79,15 +129,21 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
     let name = &decl.name;
     let mws = &decl.middlewares;
 
-    // list-middlewares entries
+    // list-middlewares entries; config-schema is the JSON Schema of each
+    // middleware's `Config` (draft 2020-12), emitted via the SDK helper.
     let list_entries = mws.iter().map(|m| {
         quote! {
             ::moonlit_sdk::bindings::MiddlewareInfo {
                 name: <#m as ::moonlit_sdk::Middleware>::NAME.to_string(),
                 description: <#m as ::moonlit_sdk::Middleware>::DESCRIPTION.to_string(),
+                config_schema: ::core::option::Option::Some(
+                    ::moonlit_sdk::__schema_json::<<#m as ::moonlit_sdk::Middleware>::Config>()
+                ),
             }
         }
     });
+
+    let icon = icon_expr(&decl.icon);
 
     // execute dispatch arms
     let exec_arms = mws.iter().map(|m| {
@@ -161,6 +217,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
                     version: ::core::env!("CARGO_PKG_VERSION").to_string(),
                     description: ::core::option_env!("CARGO_PKG_DESCRIPTION")
                         .unwrap_or("").to_string(),
+                    icon: #icon,
                 }
             }
 

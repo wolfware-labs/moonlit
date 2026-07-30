@@ -6,7 +6,7 @@
 use moonlit_sdk::bindings::Guest;
 use moonlit_sdk::prelude::*;
 
-#[derive(serde::Deserialize, Default)]
+#[derive(serde::Deserialize, Default, schemars::JsonSchema)]
 #[serde(default)]
 struct NoCfg {}
 
@@ -39,4 +39,10 @@ fn lists_declared_middlewares() {
     assert_eq!(mws.len(), 1);
     assert_eq!(mws[0].name, "alpha");
     assert_eq!(mws[0].description, "first");
+}
+
+#[test]
+fn describe_omits_icon_when_unset() {
+    // This plugin declares no `icon:`, so the ABI-0.2.0 icon field is None.
+    assert!(<MoonlitComponent as Guest>::describe().icon.is_none());
 }

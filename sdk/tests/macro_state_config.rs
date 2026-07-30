@@ -35,7 +35,7 @@ impl PluginConfig for PluginCfg {
     }
 }
 
-#[derive(serde::Deserialize, Default)]
+#[derive(serde::Deserialize, Default, schemars::JsonSchema)]
 #[serde(default)]
 struct NoCfg {}
 
