@@ -28,3 +28,7 @@ name = "moonlit"
 # Owned by semantic-release, not release-plz. Left here (release = false) as an
 # explicit marker so nobody re-enables release-plz versioning for the CLI.
 release = false
+# Must still mirror Cargo.toml's `publish = false`: release-plz validates the
+# publish flag of every listed package against its Cargo.toml even when
+# release = false, and errors on a mismatch.
+publish = false

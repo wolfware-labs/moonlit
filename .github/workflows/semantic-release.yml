@@ -30,8 +30,15 @@ jobs:
           # Full history + tags so semantic-release can find the last
           # moonlit-v* tag and analyze every commit since it.
           fetch-depth: 0
-          # Keep the checkout token in git config so semantic-release can push
-          # the release commit and tag back to main (main is unprotected).
+          # Push the release commit + tag with a PAT (RELEASE_PAT) so the
+          # moonlit-v* tag is attributed to a real user and TRIGGERS the dist
+          # release workflow. GitHub deliberately suppresses tag-triggered
+          # workflows for pushes made with the built-in GITHUB_TOKEN, so the
+          # default token would tag the release but never build the binary.
+          # Falls back to GITHUB_TOKEN if the PAT secret is not configured
+          # (versioning/tagging still works; the tag must then be re-pushed by
+          # a user to build the binary).
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
           persist-credentials: true
       - name: Install Node.js
         uses: actions/setup-node@v7
