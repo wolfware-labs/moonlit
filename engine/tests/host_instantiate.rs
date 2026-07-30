@@ -44,6 +44,30 @@ async fn init_ok_and_failinit_err() {
 }
 
 #[tokio::test]
+async fn describe_and_list_carry_icon_and_config_schema() {
+    let mut p = instance().await;
+
+    // ABI 0.2.0: describe() carries the plugin icon as a data URI.
+    let meta = p.describe().await.expect("describe Ok");
+    let icon = meta.icon.expect("test fixture must carry an icon");
+    assert!(
+        icon.starts_with("data:image/png;base64,"),
+        "icon must be a PNG data URI; got {icon:.32}"
+    );
+
+    // Each middleware carries an optional config schema: log-and-output declares
+    // one, run-process leaves it absent — both paths must survive the host mapping.
+    let mws = p.list_middlewares().await.unwrap();
+    let log = mws.iter().find(|m| m.name == "log-and-output").unwrap();
+    assert!(
+        log.config_schema.as_deref().is_some_and(|s| s.contains("2020-12")),
+        "log-and-output must carry a draft-2020-12 config schema"
+    );
+    let run = mws.iter().find(|m| m.name == "run-process").unwrap();
+    assert!(run.config_schema.is_none(), "run-process must have no config schema");
+}
+
+#[tokio::test]
 async fn lists_all_middlewares() {
     let mut p = instance().await;
     let mws = p.list_middlewares().await.unwrap();

@@ -39,12 +39,16 @@ pub struct PluginMetadata {
     pub name: String,
     pub version: String,
     pub description: String,
+    /// Embedded icon as a `data:` URI (PNG/WebP), if the plugin declares one.
+    pub icon: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MiddlewareInfo {
     pub name: String,
     pub description: String,
+    /// JSON Schema (draft 2020-12) for this middleware's config, as JSON text.
+    pub config_schema: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -119,6 +123,7 @@ pub(crate) fn metadata(m: raw::PluginMetadata) -> PluginMetadata {
         name: m.name,
         version: m.version,
         description: m.description,
+        icon: m.icon,
     }
 }
 
@@ -126,6 +131,7 @@ pub(crate) fn middleware_info(m: raw::MiddlewareInfo) -> MiddlewareInfo {
     MiddlewareInfo {
         name: m.name,
         description: m.description,
+        config_schema: m.config_schema,
     }
 }
 
