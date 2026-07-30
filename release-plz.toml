@@ -1,6 +1,8 @@
 # release-plz configuration.
 # Release management is disabled workspace-wide and re-enabled per package:
-#   - the SDK library crates are versioned AND published to crates.io;
+#   - the SDK library crates are versioned AND published to crates.io, but get
+#     no GitHub release (they ship via crates.io; a GitHub release for an SDK
+#     tag would steal `/releases/latest`, which the CLI installers depend on);
 #   - the `moonlit` CLI is versioned and tagged (so dist can build a release
 #     from the tag) but never published to crates.io (`publish = false`) and
 #     gets no release-plz GitHub release — dist owns that.
@@ -12,10 +14,12 @@ release = false
 [[package]]
 name = "moonlit-sdk-macros"
 release = true
+git_release_enable = false
 
 [[package]]
 name = "moonlit-sdk"
 release = true
+git_release_enable = false
 
 [[package]]
 name = "moonlit"
