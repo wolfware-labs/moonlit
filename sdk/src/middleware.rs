@@ -9,7 +9,8 @@ pub trait Middleware: Default {
     /// Shown by `plugin inspect` / `list-middlewares`.
     const DESCRIPTION: &'static str = "";
     /// The step config type; `Default` so an absent block still binds.
-    type Config: serde::de::DeserializeOwned + Default;
+    /// `JsonSchema` lets the macro emit `middleware-info.config-schema`.
+    type Config: serde::de::DeserializeOwned + Default + schemars::JsonSchema;
     fn execute(&self, ctx: &Context, cfg: Self::Config) -> MiddlewareResult;
 }
 
@@ -18,7 +19,7 @@ mod tests {
     use crate::prelude::*;
     use crate::testing::{run, MockHost};
 
-    #[derive(serde::Deserialize, Default)]
+    #[derive(serde::Deserialize, Default, schemars::JsonSchema)]
     #[serde(default)]
     struct GreetCfg {
         name: String,
@@ -37,6 +38,17 @@ mod tests {
                 o.set("count", cfg.times);
             })
         }
+    }
+
+    #[test]
+    fn config_derives_a_json_schema() {
+        // Proves schemars is wired and a middleware `Config` is derivable; the
+        // macro (Task 3) reuses exactly this to emit `middleware-info.config-schema`.
+        let schema = serde_json::to_value(schemars::schema_for!(GreetCfg)).unwrap();
+        assert!(
+            schema.pointer("/properties/name").is_some(),
+            "schema must expose properties.name; got {schema}"
+        );
     }
 
     #[test]
