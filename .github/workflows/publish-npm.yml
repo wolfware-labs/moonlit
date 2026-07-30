@@ -23,7 +23,7 @@ jobs:
           tag="$(echo "$PLAN" | jq -r '.announcement_tag')"
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/moonlit-npm-package.tar.gz"
           curl --proto '=https' --tlsv1.2 -fsSL "$url" -o moonlit-npm-package.tar.gz
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
