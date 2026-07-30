@@ -28,7 +28,7 @@ pub fn is_valid_crate_name(name: &str) -> bool {
 pub fn sdk_dep_line(sdk_path: Option<&Path>) -> String {
     match sdk_path {
         Some(p) => format!("{{ path = \"{}\" }}", p.display()),
-        None => "\"0.1.0\"".to_string(),
+        None => "\"0.2.0\"".to_string(),
     }
 }
 
@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn sdk_dep_defaults_to_crates_io() {
-        assert_eq!(sdk_dep_line(None), "\"0.1.0\"");
+        assert_eq!(sdk_dep_line(None), "\"0.2.0\"");
     }
 
     #[test]

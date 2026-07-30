@@ -20,6 +20,7 @@ crate-type = ["cdylib"]
 moonlit-sdk = {sdk_dep}
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+schemars = "1"
 
 [profile.release]
 opt-level = "s"
@@ -28,8 +29,9 @@ opt-level = "s"
 const LIB_RS: &str = r#"use moonlit_sdk::prelude::*;
 
 /// Config for the `greet` middleware. Fields bind from step config with
-/// string-coercion; unknown keys are ignored.
-#[derive(Deserialize, Default)]
+/// string-coercion; unknown keys are ignored. `JsonSchema` lets `moonlit plugin
+/// inspect` and the registry document these fields.
+#[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 struct GreetConfig {
     /// Who to greet; defaults to "world" when empty.
@@ -190,7 +192,7 @@ mod tests {
             namespace: "acme".to_string(),
             description: "does things".to_string(),
             license: "Apache-2.0".to_string(),
-            sdk_dep: "\"0.1.0\"".to_string(),
+            sdk_dep: "\"0.2.0\"".to_string(),
         }
     }
 
@@ -214,7 +216,8 @@ mod tests {
             .unwrap()
             .1;
         assert!(cargo.contains("name = \"my-plugin\""));
-        assert!(cargo.contains("moonlit-sdk = \"0.1.0\""));
+        assert!(cargo.contains("moonlit-sdk = \"0.2.0\""));
+        assert!(cargo.contains("schemars = \"1\""));
     }
 
     #[test]
