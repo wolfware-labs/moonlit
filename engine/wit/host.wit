@@ -1,4 +1,4 @@
-package moonlit:plugin@0.1.0;
+package moonlit:plugin@0.2.0;
 
 /// Host-side bindgen world: identical to `plugin` MINUS wasi:http/outgoing-handler.
 /// The vendored 0.2.3 wasi:http WIT lacks the `@unstable` gates wasmtime's bindgen

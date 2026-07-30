@@ -4,7 +4,7 @@
 //! malformed or a vendored WASI dependency is missing. The assertions then pin the
 //! contract's shape so a later edit cannot silently drop or rename an export.
 
-use wit_parser::{PackageId, Resolve, WorldId, WorldItem, WorldKey};
+use wit_parser::{PackageId, Resolve, TypeDefKind, WorldId, WorldItem, WorldKey};
 
 fn load() -> (Resolve, PackageId, WorldId) {
     let wit_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
@@ -20,14 +20,44 @@ fn load() -> (Resolve, PackageId, WorldId) {
 }
 
 #[test]
-fn package_is_moonlit_plugin_0_1_0() {
+fn package_is_moonlit_plugin_0_2_0() {
     let (resolve, package_id, _) = load();
     let name = &resolve.packages[package_id].name;
     assert_eq!(name.namespace, "moonlit");
     assert_eq!(name.name, "plugin");
     assert_eq!(
         name.version.as_ref().map(ToString::to_string).as_deref(),
-        Some("0.1.0")
+        Some("0.2.0")
+    );
+}
+
+/// Names of the fields declared by a `record` type in the `types` interface.
+fn record_field_names<'a>(resolve: &'a Resolve, package_id: PackageId, record: &str) -> Vec<&'a str> {
+    let types_id = resolve.packages[package_id].interfaces["types"];
+    let type_id = resolve.interfaces[types_id].types[record];
+    match &resolve.types[type_id].kind {
+        TypeDefKind::Record(rec) => rec.fields.iter().map(|f| f.name.as_str()).collect(),
+        other => panic!("`{record}` must be a record, found {other:?}"),
+    }
+}
+
+#[test]
+fn plugin_metadata_carries_optional_icon() {
+    let (resolve, package_id, _) = load();
+    let fields = record_field_names(&resolve, package_id, "plugin-metadata");
+    assert!(
+        fields.contains(&"icon"),
+        "plugin-metadata must declare `icon`; fields = {fields:?}"
+    );
+}
+
+#[test]
+fn middleware_info_carries_optional_config_schema() {
+    let (resolve, package_id, _) = load();
+    let fields = record_field_names(&resolve, package_id, "middleware-info");
+    assert!(
+        fields.contains(&"config-schema"),
+        "middleware-info must declare `config-schema`; fields = {fields:?}"
     );
 }
 

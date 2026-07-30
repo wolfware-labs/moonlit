@@ -1,4 +1,4 @@
-package moonlit:plugin@0.1.0;
+package moonlit:plugin@0.2.0;
 
 /// Core data types shared across the plugin ABI.
 interface types {
@@ -27,12 +27,18 @@ interface types {
   record middleware-info {
     name: string,
     description: string,
+    /// JSON Schema (draft 2020-12) for this middleware's config, as JSON text.
+    /// Absent -> "no configuration documented for this version".
+    config-schema: option<string>,
   }
 
   record plugin-metadata {
     name: string,
     version: string,
     description: string,
+    /// Embedded icon as a data URI, e.g. "data:image/png;base64,...". Absent for
+    /// plugins built against older ABIs; consumers fall back to a default glyph.
+    icon: option<string>,
   }
 }
 
