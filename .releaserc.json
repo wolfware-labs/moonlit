@@ -1,0 +1,43 @@
+{
+  "branches": ["main"],
+  "tagFormat": "moonlit-v${version}",
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "scope": "sdk", "release": false },
+          { "scope": "sdk-macros", "release": false },
+          { "scope": "macro", "release": false }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits"
+      }
+    ],
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "cli/CHANGELOG.md",
+        "changelogTitle": "# Changelog\n\nAll notable changes to the Moonlit CLI are documented here."
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sed -i '/^\\[workspace\\.package\\]/,/^\\[/ s/^version = \"[^\"]*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo update --workspace"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["Cargo.toml", "Cargo.lock", "cli/CHANGELOG.md"],
+        "message": "chore(release): moonlit ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

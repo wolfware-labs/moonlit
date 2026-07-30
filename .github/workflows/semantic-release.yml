@@ -1,0 +1,53 @@
+name: semantic-release (CLI)
+
+# Versions and tags the `moonlit` CLI from Conventional Commits. On every push
+# to main it inspects the commits since the last `moonlit-v*` tag: SDK-scoped
+# commits are ignored (the SDK crates are versioned separately by release-plz),
+# and anything touching the CLI or engine drives the bump. It then writes the
+# new workspace version into Cargo.toml/Cargo.lock, updates cli/CHANGELOG.md,
+# commits with [skip ci], and tags `moonlit-v<version>` — which triggers the
+# dist release workflow (release.yml) to build the binary and publish it to
+# GitHub Releases, Homebrew, npm, and Chocolatey.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: semantic-release-cli
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: version + tag the moonlit CLI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Full history + tags so semantic-release can find the last
+          # moonlit-v* tag and analyze every commit since it.
+          fetch-depth: 0
+          # Keep the checkout token in git config so semantic-release can push
+          # the release commit and tag back to main (main is unprotected).
+          persist-credentials: true
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install Rust toolchain
+        # prepareCmd runs `cargo update --workspace` to sync Cargo.lock.
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          npx --yes
+          -p semantic-release@24
+          -p conventional-changelog-conventionalcommits@9
+          -p @semantic-release/changelog@6
+          -p @semantic-release/exec@7
+          -p @semantic-release/git@10
+          semantic-release
