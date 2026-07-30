@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-v0.1.1...moonlit-sdk-v0.2.0) - 2026-07-30
+
+### Added
+
+- *(sdk)* [**breaking**] require plugin ABI 0.2.0 (icon + middleware config schema)
+- *(macro)* embed plugin icon and emit middleware config schemas
+- *(sdk)* require JsonSchema on Middleware::Config
+- *(wit)* bump plugin ABI to 0.2.0 with icon + middleware config-schema
+
+### Other
+
+- rustfmt Plan A files to satisfy CI fmt gate
+
 ## [0.1.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-v0.1.0...moonlit-sdk-v0.1.1) - 2026-07-29
 
 ### Other
