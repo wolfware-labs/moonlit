@@ -4,10 +4,12 @@
 
 use moonlit_sdk::prelude::*;
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 struct EchoConfig {
+    /// How many times to echo.
     times: i64,
+    /// A label included in the output.
     label: String,
 }
 
@@ -46,7 +48,7 @@ impl Middleware for Fail {
 }
 
 /// A config type for middlewares that take no parameters.
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(default)]
 struct NoConfig {}
 
@@ -91,11 +93,14 @@ impl Middleware for SpawnEcho {
     }
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 struct HttpGetConfig {
+    /// URL scheme, `http` or `https`.
     scheme: String,
+    /// Host authority, e.g. `example.com`.
     authority: String,
+    /// Request path, e.g. `/`.
     path: String,
 }
 
@@ -137,5 +142,6 @@ impl Middleware for ReadEnv {
 
 moonlit_plugin! {
     name: "sdk-sample",
+    icon: "icon.png",
     middlewares: [Echo, Fail, RunEcho, SpawnEcho, HttpGet, ReadEnv],
 }
