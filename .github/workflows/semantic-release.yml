@@ -20,6 +20,12 @@ concurrency:
 jobs:
   release:
     name: version + tag the moonlit CLI
+    # Don't re-run on our own release commit. The release commit is pushed with
+    # a PAT (so its tag can trigger dist), which means it is NOT suppressed by
+    # the GITHUB_TOKEN rule and would otherwise re-enter this workflow. The
+    # message is intentionally free of [skip ci]: that marker also skips the
+    # tag push, which must reach the dist release workflow.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
