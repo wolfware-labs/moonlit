@@ -39,7 +39,7 @@ fn inspect_json_emits_structured_output() {
 }
 
 #[test]
-fn inspect_json_carries_icon_and_config_schema() {
+fn inspect_json_carries_icon_and_io_schemas() {
     let out = Command::cargo_bin("moonlit")
         .unwrap()
         .args(["--output", "json", "plugin", "inspect", FIXTURE])
@@ -50,32 +50,44 @@ fn inspect_json_carries_icon_and_config_schema() {
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
 
-    // ABI 0.2.0: the plugin icon is emitted as a top-level data-URI string.
+    // The plugin icon is emitted as a top-level data-URI string.
     let icon = v["icon"].as_str().expect("icon must be a string");
     assert!(
         icon.starts_with("data:image/"),
         "icon must be a data URI; got {icon:.32}"
     );
 
-    // Each middleware's config schema is embedded as a JSON object (not a string).
+    // ABI 0.3.0: each middleware's input and output schemas are embedded as JSON
+    // objects (not strings).
     let echo = v["middlewares"]
         .as_array()
         .unwrap()
         .iter()
         .find(|m| m["name"] == "echo")
         .expect("echo middleware present");
-    let schema = &echo["configSchema"];
+
+    let input_schema = &echo["inputSchema"];
     assert!(
-        schema.is_object(),
-        "configSchema must be an embedded object; got {schema}"
+        input_schema.is_object(),
+        "inputSchema must be an embedded object; got {input_schema}"
     );
     assert_eq!(
-        schema["$schema"], "https://json-schema.org/draft/2020-12/schema",
-        "schema must declare the draft 2020-12 dialect"
+        input_schema["$schema"], "https://json-schema.org/draft/2020-12/schema",
+        "input schema must declare the draft 2020-12 dialect"
     );
     assert!(
-        schema.pointer("/properties/times").is_some(),
-        "echo config schema must expose the `times` property; got {schema}"
+        input_schema.pointer("/properties/times").is_some(),
+        "echo input schema must expose the `times` property; got {input_schema}"
+    );
+
+    let output_schema = &echo["outputSchema"];
+    assert!(
+        output_schema.is_object(),
+        "outputSchema must be an embedded object; got {output_schema}"
+    );
+    assert!(
+        output_schema.pointer("/properties/plugin_name").is_some(),
+        "echo output schema must expose the `plugin_name` property; got {output_schema}"
     );
 }
 

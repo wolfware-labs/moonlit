@@ -186,7 +186,10 @@ mod tests {
         let w = MiddlewareResult::ok(Bad { bad }).into_wit();
         assert!(!w.successful);
         assert!(
-            w.error_message.as_deref().unwrap().contains("serialization"),
+            w.error_message
+                .as_deref()
+                .unwrap()
+                .contains("serialization"),
             "message should indicate a serialization failure; got {:?}",
             w.error_message
         );

@@ -44,10 +44,10 @@ async fn init_ok_and_failinit_err() {
 }
 
 #[tokio::test]
-async fn describe_and_list_carry_icon_and_config_schema() {
+async fn describe_and_list_carry_icon_and_io_schema() {
     let mut p = instance().await;
 
-    // ABI 0.2.0: describe() carries the plugin icon as a data URI.
+    // ABI 0.3.0: describe() carries the plugin icon as a data URI.
     let meta = p.describe().await.expect("describe Ok");
     let icon = meta.icon.expect("test fixture must carry an icon");
     assert!(
@@ -55,20 +55,31 @@ async fn describe_and_list_carry_icon_and_config_schema() {
         "icon must be a PNG data URI; got {icon:.32}"
     );
 
-    // Each middleware carries an optional config schema: log-and-output declares
-    // one, run-process leaves it absent — both paths must survive the host mapping.
+    // Each middleware carries optional input/output schemas: log-and-output
+    // declares both, run-process leaves them absent — both paths must survive
+    // the host mapping.
     let mws = p.list_middlewares().await.unwrap();
     let log = mws.iter().find(|m| m.name == "log-and-output").unwrap();
     assert!(
-        log.config_schema
+        log.input_schema
             .as_deref()
             .is_some_and(|s| s.contains("2020-12")),
-        "log-and-output must carry a draft-2020-12 config schema"
+        "log-and-output must carry a draft-2020-12 input schema"
+    );
+    assert!(
+        log.output_schema
+            .as_deref()
+            .is_some_and(|s| s.contains("2020-12")),
+        "log-and-output must carry a draft-2020-12 output schema"
     );
     let run = mws.iter().find(|m| m.name == "run-process").unwrap();
     assert!(
-        run.config_schema.is_none(),
-        "run-process must have no config schema"
+        run.input_schema.is_none(),
+        "run-process must have no input schema"
+    );
+    assert!(
+        run.output_schema.is_none(),
+        "run-process must have no output schema"
     );
 }
 

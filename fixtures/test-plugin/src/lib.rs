@@ -22,10 +22,14 @@ struct Component;
 /// field end-to-end (engine host mapping + `plugin inspect`) without the SDK.
 const ICON_DATA_URI: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-/// A minimal draft-2020-12 JSON Schema for `log-and-output`, so `list-middlewares`
-/// carries a real `config-schema`. The other middlewares leave it `None`, which
-/// exercises the absent-schema path through the engine and CLI.
-const LOG_AND_OUTPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputConfig","type":"object","properties":{"name":{"type":"string","description":"config name echoed into the step output"}},"additionalProperties":false}"#;
+/// A minimal draft-2020-12 JSON Schema for `log-and-output`'s input, so
+/// `list-middlewares` carries a real `input-schema`. The other middlewares leave
+/// it `None`, which exercises the absent-schema path through the engine and CLI.
+const LOG_AND_OUTPUT_INPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputConfig","type":"object","properties":{"name":{"type":"string","description":"config name echoed into the step output"}},"additionalProperties":false}"#;
+
+/// A minimal draft-2020-12 JSON Schema for `log-and-output`'s output, so
+/// `list-middlewares` carries a real `output-schema` alongside the input one.
+const LOG_AND_OUTPUT_OUTPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputOutput","type":"object","properties":{"step":{"type":"string","description":"the step name this ran under"},"echoed_config":{"description":"the raw config echoed back"},"cfg_seen":{"description":"the plugin:name config value observed"}},"additionalProperties":false}"#;
 
 impl Guest for Component {
     fn describe() -> PluginMetadata {
@@ -49,21 +53,30 @@ impl Guest for Component {
     }
 
     fn list_middlewares() -> Vec<MiddlewareInfo> {
-        let mw = |name: &str, description: &str, config_schema: Option<String>| MiddlewareInfo {
+        let mw = |name: &str,
+                  description: &str,
+                  input_schema: Option<String>,
+                  output_schema: Option<String>| MiddlewareInfo {
             name: name.to_string(),
             description: description.to_string(),
-            config_schema,
+            input_schema,
+            output_schema,
         };
         vec![
-            mw("log-and-output", "logs + outputs", Some(LOG_AND_OUTPUT_SCHEMA.to_string())),
-            mw("run-process", "process::run", None),
-            mw("spawn-stream", "process::spawn streaming", None),
-            mw("http-get", "wasi:http GET", None),
-            mw("boom", "panics", None),
-            mw("fail", "returns successful=false", None),
-            mw("dup-output", "two outputs, same key", None),
-            mw("sleep", "blocks for config ms", None),
-            mw("bad-output", "successful=true but invalid-JSON output", None),
+            mw(
+                "log-and-output",
+                "logs + outputs",
+                Some(LOG_AND_OUTPUT_INPUT_SCHEMA.to_string()),
+                Some(LOG_AND_OUTPUT_OUTPUT_SCHEMA.to_string()),
+            ),
+            mw("run-process", "process::run", None, None),
+            mw("spawn-stream", "process::spawn streaming", None, None),
+            mw("http-get", "wasi:http GET", None, None),
+            mw("boom", "panics", None, None),
+            mw("fail", "returns successful=false", None, None),
+            mw("dup-output", "two outputs, same key", None, None),
+            mw("sleep", "blocks for config ms", None, None),
+            mw("bad-output", "successful=true but invalid-JSON output", None, None),
         ]
     }
 

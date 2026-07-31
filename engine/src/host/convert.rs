@@ -47,8 +47,10 @@ pub struct PluginMetadata {
 pub struct MiddlewareInfo {
     pub name: String,
     pub description: String,
-    /// JSON Schema (draft 2020-12) for this middleware's config, as JSON text.
-    pub config_schema: Option<String>,
+    /// JSON Schema (draft 2020-12) for this middleware's input config, as JSON text.
+    pub input_schema: Option<String>,
+    /// JSON Schema (draft 2020-12) for this middleware's output, as JSON text.
+    pub output_schema: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -131,7 +133,8 @@ pub(crate) fn middleware_info(m: raw::MiddlewareInfo) -> MiddlewareInfo {
     MiddlewareInfo {
         name: m.name,
         description: m.description,
-        config_schema: m.config_schema,
+        input_schema: m.input_schema,
+        output_schema: m.output_schema,
     }
 }
 

@@ -115,10 +115,12 @@ fn print_json(meta: &PluginMetadata, mws: &[MiddlewareInfo]) {
         "middlewares": mws.iter().map(|m| serde_json::json!({
             "name": m.name,
             "description": m.description,
-            // The config schema travels the ABI as JSON text; re-embed it as an
-            // object here (null when absent or unparseable) so the registry can
+            // Input/output schemas travel the ABI as JSON text; re-embed each as
+            // an object here (null when absent or unparseable) so the registry can
             // consume it directly.
-            "configSchema": m.config_schema.as_deref()
+            "inputSchema": m.input_schema.as_deref()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
+            "outputSchema": m.output_schema.as_deref()
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
         })).collect::<Vec<_>>(),
     });

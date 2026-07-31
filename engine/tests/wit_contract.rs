@@ -20,14 +20,14 @@ fn load() -> (Resolve, PackageId, WorldId) {
 }
 
 #[test]
-fn package_is_moonlit_plugin_0_2_0() {
+fn package_is_moonlit_plugin_0_3_0() {
     let (resolve, package_id, _) = load();
     let name = &resolve.packages[package_id].name;
     assert_eq!(name.namespace, "moonlit");
     assert_eq!(name.name, "plugin");
     assert_eq!(
         name.version.as_ref().map(ToString::to_string).as_deref(),
-        Some("0.2.0")
+        Some("0.3.0")
     );
 }
 
@@ -56,12 +56,16 @@ fn plugin_metadata_carries_optional_icon() {
 }
 
 #[test]
-fn middleware_info_carries_optional_config_schema() {
+fn middleware_info_carries_optional_input_and_output_schema() {
     let (resolve, package_id, _) = load();
     let fields = record_field_names(&resolve, package_id, "middleware-info");
     assert!(
-        fields.contains(&"config-schema"),
-        "middleware-info must declare `config-schema`; fields = {fields:?}"
+        fields.contains(&"input-schema"),
+        "middleware-info must declare `input-schema`; fields = {fields:?}"
+    );
+    assert!(
+        fields.contains(&"output-schema"),
+        "middleware-info must declare `output-schema`; fields = {fields:?}"
     );
 }
 

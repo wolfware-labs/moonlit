@@ -28,14 +28,23 @@ opt-level = "s"
 
 const LIB_RS: &str = r#"use moonlit_sdk::prelude::*;
 
-/// Config for the `greet` middleware. Fields bind from step config with
+/// Input for the `greet` middleware. Fields bind from step config with
 /// string-coercion; unknown keys are ignored. `JsonSchema` lets `moonlit plugin
 /// inspect` and the registry document these fields.
 #[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
-struct GreetConfig {
+struct GreetInput {
     /// Who to greet; defaults to "world" when empty.
     name: String,
+}
+
+/// Output published by the `greet` middleware for downstream steps to consume
+/// via `steps.<step>.outputs.greeting`.
+#[derive(Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct GreetOutput {
+    /// The greeting message, e.g. `hello, world`.
+    greeting: String,
 }
 
 #[derive(Default)]
@@ -44,17 +53,18 @@ struct Greet;
 impl Middleware for Greet {
     const NAME: &'static str = "greet";
     const DESCRIPTION: &'static str = "logs and returns a greeting";
-    type Config = GreetConfig;
+    type Input = GreetInput;
+    type Output = GreetOutput;
 
-    fn execute(&self, ctx: &Context, cfg: Self::Config) -> MiddlewareResult {
-        let who = if cfg.name.is_empty() {
+    fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output> {
+        let who = if input.name.is_empty() {
             "world".to_string()
         } else {
-            cfg.name
+            input.name
         };
         ctx.log_info(&format!("greeting {who}"));
-        MiddlewareResult::success_with(|o| {
-            o.set("greeting", format!("hello, {who}"));
+        MiddlewareResult::ok(GreetOutput {
+            greeting: format!("hello, {who}"),
         })
     }
 }
@@ -73,7 +83,7 @@ mod tests {
     fn greet_greets_the_configured_name() {
         let host = MockHost::new();
         let ctx = Context::new(&host, "/work".to_string(), "test".to_string());
-        let result = run(&Greet, &ctx, GreetConfig { name: "moonlit".to_string() });
+        let result = run(&Greet, &ctx, GreetInput { name: "moonlit".to_string() });
         assert!(result.is_success());
         assert!(host.logs().iter().any(|(_, m)| m.contains("moonlit")));
     }
@@ -192,7 +202,7 @@ mod tests {
             namespace: "acme".to_string(),
             description: "does things".to_string(),
             license: "Apache-2.0".to_string(),
-            sdk_dep: "\"0.2.0\"".to_string(),
+            sdk_dep: "\"0.3.0\"".to_string(),
         }
     }
 
@@ -216,7 +226,7 @@ mod tests {
             .unwrap()
             .1;
         assert!(cargo.contains("name = \"my-plugin\""));
-        assert!(cargo.contains("moonlit-sdk = \"0.2.0\""));
+        assert!(cargo.contains("moonlit-sdk = \"0.3.0\""));
         assert!(cargo.contains("schemars = \"1\""));
     }
 
