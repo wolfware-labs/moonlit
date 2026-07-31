@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-v0.2.1...moonlit-sdk-v0.3.0) - 2026-07-31
+
+### Added
+
+- *(cli)* [**breaking**] declare middleware input and output schemas in inspect
+- *(sdk)* [**breaking**] rename Config to Input, add typed Output, emit input/output schema (ABI 0.3.0)
+
 ## [0.2.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-v0.2.0...moonlit-sdk-v0.2.1) - 2026-07-31
 
 ### Fixed

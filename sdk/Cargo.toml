@@ -1,6 +1,6 @@
 [package]
 name = "moonlit-sdk"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 rust-version.workspace = true
 license.workspace = true
@@ -19,5 +19,5 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
-moonlit-sdk-macros = { path = "../sdk-macros", version = "0.2.0" }
+moonlit-sdk-macros = { path = "../sdk-macros", version = "0.3.0" }
 flate2 = { workspace = true }
