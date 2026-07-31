@@ -16,6 +16,11 @@ tap = "wolfware-labs/homebrew-tap"
 npm-scope = "@moonlitbuild"
 npm-package = "cli"
 publish-jobs = ["homebrew", "./publish-npm", "./publish-choco"]
+# release.yml's host job is hand-edited to create the GitHub Release with
+# RELEASE_PAT instead of the built-in token (this repo's Actions integration is
+# denied release creation). Tell dist not to fail its CI-freshness check on that
+# manual edit. Re-review the edit if you ever run `dist generate`.
+allow-dirty = ["ci"]
 
 # The choco job authenticates to Chocolatey with an API key (not GITHUB_TOKEN),
 # so it does not need the default id-token/packages write. It only needs
