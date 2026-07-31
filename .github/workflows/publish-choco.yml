@@ -79,14 +79,35 @@ jobs:
 
           choco pack (Join-Path $pkgDir 'moonlit.nuspec') --version $env:VERSION --outputdirectory $env:RUNNER_TEMP
       - name: Push
+        id: push
         shell: pwsh
         env:
           VERSION: ${{ steps.art.outputs.version }}
           CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
           $pkg = Join-Path $env:RUNNER_TEMP "moonlit.$env:VERSION.nupkg"
-          choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+          $out = choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Host $out
+          if ($code -eq 0) {
+            'pushed=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } elseif ($out -match '403' -or $out -match 'Forbidden') {
+            # TEMPORARY: the community repo throttles new/unverified maintainers
+            # until the first package version clears moderation, rejecting further
+            # version pushes with 403. Tolerate that so the release stays green;
+            # re-push this version once the first version is approved. REMOVE this
+            # tolerance once the package is approved so real push failures (a bad
+            # or expired key, network errors) fail the release again.
+            Write-Host "::warning::Chocolatey push returned 403 for moonlit $env:VERSION - treating as the new-package moderation throttle and NOT failing the release. Re-push once the first version is approved on chocolatey.org."
+            'pushed=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            Write-Error "choco push failed (exit code $code) - not a 403/moderation rejection."
+            exit $code
+          }
       - name: Add Chocolatey to the release notes
+        # Only advertise `choco install` when the push actually succeeded; a
+        # tolerated 403 means the package is not on Chocolatey yet.
+        if: ${{ steps.push.outputs.pushed == 'true' }}
         shell: pwsh
         env:
           PLAN: ${{ inputs.plan }}
