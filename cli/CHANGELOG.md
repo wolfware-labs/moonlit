@@ -2,6 +2,26 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v0.2.0...moonlit-v1.0.0) (2026-07-31)
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** `moonlit plugin inspect --output json` replaces each
+middleware's `configSchema` field with `inputSchema` and `outputSchema`.
+* **sdk:** moonlit:plugin world 0.2.0 -> 0.3.0. Middleware::Config renamed to
+Input; new Middleware::Output. middleware-info.config-schema renamed to input-schema and
+output-schema added. MiddlewareResult is now generic (MiddlewareResult<Output>) with ok()/
+failure(); success()/success_with() removed. SDK adds NoInput/NoOutput markers.
+
+### Features
+
+* **cli:** declare middleware input and output schemas in inspect ([76ce63f](https://github.com/wolfware-labs/moonlit/commit/76ce63fcb3310026a2d325fb993feb172540c68d))
+* **sdk:** rename Config to Input, add typed Output, emit input/output schema (ABI 0.3.0) ([8bac9d5](https://github.com/wolfware-labs/moonlit/commit/8bac9d560e2140cf89f5d6971b3f519b48a7390f))
+
+### Bug Fixes
+
+* **sdk:** derive JsonSchema on changelog Category and Entry ([2cae64e](https://github.com/wolfware-labs/moonlit/commit/2cae64e0ff1fdf088d18ca1c20acf0d525a4adb6))
+
 ## [0.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v0.1.1...moonlit-v0.2.0) (2026-07-30)
 
 ### ⚠ BREAKING CHANGES
