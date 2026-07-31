@@ -3,13 +3,13 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, schemars::JsonSchema)]
 pub struct Entry {
     pub sha: String,
     pub description: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, schemars::JsonSchema)]
 pub struct Category {
     pub name: String,
     pub icon: String,
