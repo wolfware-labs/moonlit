@@ -1,61 +1,38 @@
-//! Ergonomic result + output builders. Authors return a `MiddlewareResult`;
-//! the `moonlit_plugin!` glue converts it to the WIT `middleware-result` via
-//! `into_wit`. Output values serialize to JSON text (the ABI `json-value`);
-//! a serialization failure degrades the whole result to a loud `failure(...)`.
+//! Ergonomic result builder. Authors return a `MiddlewareResult<Output>`; the
+//! `moonlit_plugin!` glue converts it to the WIT `middleware-result` via
+//! `into_wit`, serializing the typed output into the ABI's `(key, json-text)`
+//! output map. A serialization failure degrades the whole result to a loud
+//! `failure(...)`.
 
-/// A middleware outcome in ergonomic form.
-pub struct MiddlewareResult {
+/// A middleware outcome in ergonomic form, carrying a typed `Output` on success.
+pub struct MiddlewareResult<T> {
     successful: bool,
     error_message: Option<String>,
     warnings: Vec<String>,
-    /// (key, JSON-text value) — or an Err captured from a failed serialize.
-    output: Vec<(String, Result<String, String>)>,
+    output: Option<T>,
 }
 
-/// Output accumulator handed to `success_with`.
-pub struct Output {
-    entries: Vec<(String, Result<String, String>)>,
-}
-
-impl Output {
-    /// Serialize `value` to a json-value. A failure is captured and later
-    /// degrades the result to `failure` (keeps `execute -> MiddlewareResult`).
-    pub fn set<T: serde::Serialize>(&mut self, key: impl Into<String>, value: T) {
-        let key = key.into();
-        let encoded = serde_json::to_string(&value).map_err(|e| e.to_string());
-        self.entries.push((key, encoded));
-    }
-}
-
-impl MiddlewareResult {
-    pub fn success() -> Self {
+impl<T: serde::Serialize> MiddlewareResult<T> {
+    /// A successful outcome carrying the middleware's typed output. Use
+    /// `NoOutput` for middlewares that publish nothing.
+    pub fn ok(output: T) -> Self {
         Self {
             successful: true,
             error_message: None,
             warnings: Vec::new(),
-            output: Vec::new(),
+            output: Some(output),
         }
     }
+}
 
-    pub fn success_with(f: impl FnOnce(&mut Output)) -> Self {
-        let mut out = Output {
-            entries: Vec::new(),
-        };
-        f(&mut out);
-        Self {
-            successful: true,
-            error_message: None,
-            warnings: Vec::new(),
-            output: out.entries,
-        }
-    }
-
+impl<T> MiddlewareResult<T> {
+    /// A failed outcome; carries no output.
     pub fn failure(msg: impl Into<String>) -> Self {
         Self {
             successful: false,
             error_message: Some(msg.into()),
             warnings: Vec::new(),
-            output: Vec::new(),
+            output: None,
         }
     }
 
@@ -82,20 +59,39 @@ impl MiddlewareResult {
     pub fn warnings(&self) -> &[String] {
         &self.warnings
     }
+}
 
-    /// Convert to the WIT record. Any captured output-serialization error turns
-    /// the whole result into a failure naming the offending key.
+impl<T: serde::Serialize> MiddlewareResult<T> {
+    /// Convert to the WIT record. The typed output is serialized to a JSON
+    /// object and spread into the `(key, json-text)` output list (the field
+    /// names become the map keys, so `steps.NAME.outputs.<field>` resolves). A
+    /// non-object output or a serialization error degrades to a loud failure.
     pub fn into_wit(self) -> crate::bindings::MiddlewareResult {
-        let mut output = Vec::with_capacity(self.output.len());
-        for (key, encoded) in self.output {
-            match encoded {
-                Ok(json) => output.push((key, json)),
-                Err(e) => {
+        let mut output: Vec<(String, String)> = Vec::new();
+        if let Some(value) = self.output {
+            match serde_json::to_value(&value) {
+                Ok(serde_json::Value::Object(map)) => {
+                    for (k, v) in map {
+                        output.push((k, v.to_string()));
+                    }
+                }
+                // `NoOutput`-like empties (`{}`) land here as an object with no
+                // entries; `()` serializes to Null. Both mean "no outputs".
+                Ok(serde_json::Value::Null) => {}
+                Ok(other) => {
                     return crate::bindings::MiddlewareResult {
                         successful: false,
                         error_message: Some(format!(
-                            "output serialization failed for key '{key}': {e}"
+                            "middleware output must serialize to a JSON object, got {other}"
                         )),
+                        warnings: self.warnings,
+                        output: Vec::new(),
+                    };
+                }
+                Err(e) => {
+                    return crate::bindings::MiddlewareResult {
+                        successful: false,
+                        error_message: Some(format!("output serialization failed: {e}")),
                         warnings: self.warnings,
                         output: Vec::new(),
                     };
@@ -116,8 +112,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn success_is_successful_no_warnings() {
-        let w = MiddlewareResult::success().into_wit();
+    fn ok_is_successful_no_warnings() {
+        let w = MiddlewareResult::ok(()).into_wit();
         assert!(w.successful);
         assert!(w.error_message.is_none());
         assert!(w.warnings.is_empty());
@@ -125,26 +121,36 @@ mod tests {
     }
 
     #[test]
+    fn no_output_serializes_to_empty() {
+        let w = MiddlewareResult::ok(crate::NoOutput {}).into_wit();
+        assert!(w.successful);
+        assert!(w.output.is_empty());
+    }
+
+    #[test]
     fn failure_carries_message_and_is_not_successful() {
-        let w = MiddlewareResult::failure("boom").into_wit();
+        let w = MiddlewareResult::<()>::failure("boom").into_wit();
         assert!(!w.successful);
         assert_eq!(w.error_message.as_deref(), Some("boom"));
     }
 
     #[test]
-    fn with_warning_is_chainable_on_success_and_failure() {
-        let w = MiddlewareResult::success()
-            .with_warning("careful")
-            .into_wit();
+    fn with_warning_is_chainable() {
+        let w = MiddlewareResult::ok(()).with_warning("careful").into_wit();
         assert!(w.successful);
         assert_eq!(w.warnings, vec!["careful".to_string()]);
     }
 
     #[test]
-    fn success_with_serializes_outputs_to_json_values() {
-        let w = MiddlewareResult::success_with(|o| {
-            o.set("tag", "v1.2.3");
-            o.set("count", 7u32);
+    fn typed_output_spreads_fields_into_json_values() {
+        #[derive(serde::Serialize)]
+        struct Out {
+            tag: String,
+            count: u32,
+        }
+        let w = MiddlewareResult::ok(Out {
+            tag: "v1.2.3".to_string(),
+            count: 7,
         })
         .into_wit();
         assert!(w.successful);
@@ -156,12 +162,12 @@ mod tests {
 
     #[test]
     fn accessors_expose_outcome() {
-        let ok = MiddlewareResult::success_with(|o| o.set("k", 1)).with_warning("w");
+        let ok = MiddlewareResult::ok(()).with_warning("w");
         assert!(ok.is_success());
         assert_eq!(ok.error_message(), None);
         assert_eq!(ok.warnings(), &["w".to_string()]);
 
-        let bad = MiddlewareResult::failure("boom");
+        let bad = MiddlewareResult::<()>::failure("boom");
         assert!(!bad.is_success());
         assert_eq!(bad.error_message(), Some("boom"));
         assert!(bad.warnings().is_empty());
@@ -169,19 +175,20 @@ mod tests {
 
     #[test]
     fn output_serialize_error_degrades_to_failure() {
-        // A map with non-string keys cannot be encoded as JSON -> serde_json errors,
-        // which `into_wit` must surface as a failure naming the offending key.
-        use std::collections::HashMap;
-        let mut bad_map: HashMap<(i32, i32), i32> = HashMap::new();
-        bad_map.insert((1, 2), 3);
-        let w = MiddlewareResult::success_with(|o| {
-            o.set("bad", bad_map);
-        })
-        .into_wit();
+        // A field whose value can't be JSON-encoded (non-string map keys) makes
+        // `serde_json::to_value` error, which `into_wit` surfaces as a failure.
+        #[derive(serde::Serialize)]
+        struct Bad {
+            bad: std::collections::HashMap<(i32, i32), i32>,
+        }
+        let mut bad = std::collections::HashMap::new();
+        bad.insert((1, 2), 3);
+        let w = MiddlewareResult::ok(Bad { bad }).into_wit();
         assert!(!w.successful);
         assert!(
-            w.error_message.as_deref().unwrap().contains("bad"),
-            "message names the offending key"
+            w.error_message.as_deref().unwrap().contains("serialization"),
+            "message should indicate a serialization failure; got {:?}",
+            w.error_message
         );
     }
 }

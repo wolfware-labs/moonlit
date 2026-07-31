@@ -35,25 +35,25 @@ impl PluginConfig for PluginCfg {
     }
 }
 
-#[derive(serde::Deserialize, Default, schemars::JsonSchema)]
-#[serde(default)]
-struct NoCfg {}
+#[derive(serde::Serialize, schemars::JsonSchema)]
+struct BetaOutput {
+    token: String,
+    hits: u32,
+}
 
 #[derive(Default)]
 struct Beta;
 impl Middleware for Beta {
     const NAME: &'static str = "beta";
     const DESCRIPTION: &'static str = "second";
-    type Config = NoCfg;
-    fn execute(&self, ctx: &Context, _cfg: Self::Config) -> MiddlewareResult {
+    type Input = NoInput;
+    type Output = BetaOutput;
+    fn execute(&self, ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
         let mut hits = ctx.state::<Counter>().hits.lock().unwrap();
         *hits += 1;
         let hits = *hits;
         let token = ctx.plugin_config::<PluginCfg>().token.clone();
-        MiddlewareResult::success_with(|o| {
-            o.set("token", token);
-            o.set("hits", hits);
-        })
+        MiddlewareResult::ok(BetaOutput { token, hits })
     }
 }
 

@@ -137,15 +137,18 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
     let name = &decl.name;
     let mws = &decl.middlewares;
 
-    // list-middlewares entries; config-schema is the JSON Schema of each
-    // middleware's `Config` (draft 2020-12), emitted via the SDK helper.
+    // list-middlewares entries; input-schema / output-schema are the JSON Schemas
+    // of each middleware's `Input` / `Output` (draft 2020-12), via the SDK helper.
     let list_entries = mws.iter().map(|m| {
         quote! {
             ::moonlit_sdk::bindings::MiddlewareInfo {
                 name: <#m as ::moonlit_sdk::Middleware>::NAME.to_string(),
                 description: <#m as ::moonlit_sdk::Middleware>::DESCRIPTION.to_string(),
-                config_schema: ::core::option::Option::Some(
-                    ::moonlit_sdk::__schema_json::<<#m as ::moonlit_sdk::Middleware>::Config>()
+                input_schema: ::core::option::Option::Some(
+                    ::moonlit_sdk::__schema_json::<<#m as ::moonlit_sdk::Middleware>::Input>()
+                ),
+                output_schema: ::core::option::Option::Some(
+                    ::moonlit_sdk::__schema_json::<<#m as ::moonlit_sdk::Middleware>::Output>()
                 ),
             }
         }
@@ -157,17 +160,19 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
     let exec_arms = mws.iter().map(|m| {
         quote! {
             <#m as ::moonlit_sdk::Middleware>::NAME => {
-                let cfg: <#m as ::moonlit_sdk::Middleware>::Config =
+                let input: <#m as ::moonlit_sdk::Middleware>::Input =
                     match ::moonlit_sdk::config::from_json_value(&config) {
                         Ok(c) => c,
                         Err(e) => {
-                            return ::moonlit_sdk::MiddlewareResult::failure(
-                                ::std::format!("invalid config for `{}`: {}", middleware, e)
+                            return ::moonlit_sdk::MiddlewareResult::<
+                                <#m as ::moonlit_sdk::Middleware>::Output,
+                            >::failure(
+                                ::std::format!("invalid input for `{}`: {}", middleware, e)
                             ).into_wit();
                         }
                     };
                 let mw = <#m as ::core::default::Default>::default();
-                ::moonlit_sdk::Middleware::execute(&mw, &ctx, cfg).into_wit()
+                ::moonlit_sdk::Middleware::execute(&mw, &ctx, input).into_wit()
             }
         }
     });
@@ -262,7 +267,7 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
                 #config_attach
                 match middleware.as_str() {
                     #(#exec_arms)*
-                    other => ::moonlit_sdk::MiddlewareResult::failure(
+                    other => ::moonlit_sdk::MiddlewareResult::<()>::failure(
                         ::std::format!("unknown middleware: {}", other)
                     ).into_wit(),
                 }

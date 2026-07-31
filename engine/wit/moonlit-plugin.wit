@@ -1,4 +1,4 @@
-package moonlit:plugin@0.2.0;
+package moonlit:plugin@0.3.0;
 
 /// Core data types shared across the plugin ABI.
 interface types {
@@ -27,9 +27,12 @@ interface types {
   record middleware-info {
     name: string,
     description: string,
-    /// JSON Schema (draft 2020-12) for this middleware's config, as JSON text.
-    /// Absent -> "no configuration documented for this version".
-    config-schema: option<string>,
+    /// JSON Schema (draft 2020-12) for this middleware's INPUT config, as JSON text.
+    /// Absent -> "no input documented for this version" (e.g. built against an older ABI).
+    input-schema: option<string>,
+    /// JSON Schema (draft 2020-12) for this middleware's OUTPUT, as JSON text.
+    /// Absent -> "no output documented for this version".
+    output-schema: option<string>,
   }
 
   record plugin-metadata {

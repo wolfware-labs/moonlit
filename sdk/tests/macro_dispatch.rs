@@ -6,18 +6,15 @@
 use moonlit_sdk::bindings::Guest;
 use moonlit_sdk::prelude::*;
 
-#[derive(serde::Deserialize, Default, schemars::JsonSchema)]
-#[serde(default)]
-struct NoCfg {}
-
 #[derive(Default)]
 struct Alpha;
 impl Middleware for Alpha {
     const NAME: &'static str = "alpha";
     const DESCRIPTION: &'static str = "first";
-    type Config = NoCfg;
-    fn execute(&self, _ctx: &Context, _cfg: Self::Config) -> MiddlewareResult {
-        MiddlewareResult::success()
+    type Input = NoInput;
+    type Output = NoOutput;
+    fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+        MiddlewareResult::ok(NoOutput {})
     }
 }
 

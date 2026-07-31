@@ -1,8 +1,9 @@
 //! Moonlit plugin SDK: write a plugin as typed `Middleware` structs + one
 //! `moonlit_plugin!` block. See `docs`/README for the authoring model.
 //!
-//! Targets plugin ABI `moonlit:plugin@0.2.0`: plugins carry an optional icon and
-//! each middleware a JSON Schema for its config (`Middleware::Config: JsonSchema`).
+//! Targets plugin ABI `moonlit:plugin@0.3.0`: plugins carry an optional icon and
+//! each middleware a JSON Schema for its typed `Input` and `Output`
+//! (`Middleware::Input` / `Middleware::Output: JsonSchema`).
 
 /// Generated WIT bindings. Public because the `moonlit_plugin!` macro output
 /// (expanded in the author crate) references this exact path via
@@ -23,7 +24,7 @@ pub use bindings::export;
 pub use moonlit_sdk_macros::moonlit_plugin;
 
 mod result;
-pub use result::{MiddlewareResult, Output};
+pub use result::MiddlewareResult;
 
 pub mod config;
 
@@ -54,15 +55,25 @@ pub mod testing;
 mod middleware;
 pub use middleware::Middleware;
 
-/// Serialize a middleware `Config`'s JSON Schema (draft 2020-12) to text.
+/// Serialize a middleware `Input`/`Output` JSON Schema (draft 2020-12) to text.
 ///
-/// The `moonlit_plugin!` macro calls this to fill `middleware-info.config-schema`,
-/// keeping the `schemars`/`serde_json` calls inside the SDK rather than each
-/// author crate. Hidden from docs — it is macro-internal API.
+/// The `moonlit_plugin!` macro calls this to fill `middleware-info.input-schema`
+/// and `output-schema`, keeping the `schemars`/`serde_json` calls inside the SDK
+/// rather than each author crate. Hidden from docs — it is macro-internal API.
 #[doc(hidden)]
 pub fn __schema_json<T: schemars::JsonSchema>() -> String {
     serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default()
 }
+
+/// Marker for a middleware that reads no configuration. Serializes to `{}` and
+/// yields an empty-object input schema ("no declared inputs").
+#[derive(serde::Deserialize, Default, schemars::JsonSchema)]
+pub struct NoInput {}
+
+/// Marker for a middleware that publishes no outputs. Serializes to `{}` and
+/// yields an empty-object output schema ("no declared outputs").
+#[derive(serde::Serialize, schemars::JsonSchema)]
+pub struct NoOutput {}
 
 mod plugin_config;
 pub use plugin_config::PluginConfig;
@@ -73,8 +84,8 @@ pub mod prelude {
     pub use crate::process::LineHandler;
     pub use crate::state::Shared;
     pub use crate::PluginConfig;
-    pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, Output};
-    pub use serde::Deserialize;
+    pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, NoInput, NoOutput};
+    pub use serde::{Deserialize, Serialize};
 }
 
 #[cfg(test)]

@@ -8,10 +8,15 @@ pub trait Middleware: Default {
     const NAME: &'static str;
     /// Shown by `plugin inspect` / `list-middlewares`.
     const DESCRIPTION: &'static str = "";
-    /// The step config type; `Default` so an absent block still binds.
-    /// `JsonSchema` lets the macro emit `middleware-info.config-schema`.
-    type Config: serde::de::DeserializeOwned + Default + schemars::JsonSchema;
-    fn execute(&self, ctx: &Context, cfg: Self::Config) -> MiddlewareResult;
+    /// The step input (config) type; `Default` so an absent block still binds.
+    /// `JsonSchema` lets the macro emit `middleware-info.input-schema`.
+    /// Use `NoInput` when the middleware reads no configuration.
+    type Input: serde::de::DeserializeOwned + Default + schemars::JsonSchema;
+    /// The step output type, published for downstream steps. `JsonSchema` lets
+    /// the macro emit `middleware-info.output-schema`. Use `NoOutput` when the
+    /// middleware publishes nothing.
+    type Output: serde::Serialize + schemars::JsonSchema;
+    fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output>;
 }
 
 #[cfg(test)]
@@ -21,9 +26,14 @@ mod tests {
 
     #[derive(serde::Deserialize, Default, schemars::JsonSchema)]
     #[serde(default)]
-    struct GreetCfg {
+    struct GreetInput {
         name: String,
         times: i64,
+    }
+
+    #[derive(serde::Serialize, schemars::JsonSchema)]
+    struct GreetOutput {
+        count: i64,
     }
 
     #[derive(Default)]
@@ -31,20 +41,19 @@ mod tests {
     impl Middleware for Greet {
         const NAME: &'static str = "greet";
         const DESCRIPTION: &'static str = "greets";
-        type Config = GreetCfg;
-        fn execute(&self, ctx: &Context, cfg: Self::Config) -> MiddlewareResult {
-            ctx.log_info(&format!("hi {}", cfg.name));
-            MiddlewareResult::success_with(|o| {
-                o.set("count", cfg.times);
-            })
+        type Input = GreetInput;
+        type Output = GreetOutput;
+        fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output> {
+            ctx.log_info(&format!("hi {}", input.name));
+            MiddlewareResult::ok(GreetOutput { count: input.times })
         }
     }
 
     #[test]
-    fn config_derives_a_json_schema() {
-        // Proves schemars is wired and a middleware `Config` is derivable; the
-        // macro (Task 3) reuses exactly this to emit `middleware-info.config-schema`.
-        let schema = serde_json::to_value(schemars::schema_for!(GreetCfg)).unwrap();
+    fn input_derives_a_json_schema() {
+        // Proves schemars is wired and a middleware `Input` is derivable; the
+        // macro (Task 3) reuses exactly this to emit `middleware-info.input-schema`.
+        let schema = serde_json::to_value(schemars::schema_for!(GreetInput)).unwrap();
         assert!(
             schema.pointer("/properties/name").is_some(),
             "schema must expose properties.name; got {schema}"
@@ -56,9 +65,9 @@ mod tests {
         let host = MockHost::new();
         let ctx = Context::new(&host, "/w".into(), "s".into());
         // times arrives as a coerced string, proving the caller-side coercion path.
-        let cfg: GreetCfg =
+        let input: GreetInput =
             crate::config::from_json_value(r#"{"name":"ada","times":"3"}"#).unwrap();
-        let w = run(&Greet, &ctx, cfg).into_wit();
+        let w = run(&Greet, &ctx, input).into_wit();
         assert!(w.successful);
         assert_eq!(host.logs()[0].1, "hi ada");
         assert_eq!(w.output.iter().find(|(k, _)| k == "count").unwrap().1, "3");
