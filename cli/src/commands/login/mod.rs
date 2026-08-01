@@ -50,27 +50,39 @@ pub(crate) fn write_credential(home: &Path, host: &str, cred: &Credential) -> st
     write_doc_0600(&path, &text)
 }
 
+/// Resolve the user's home directory, or `None` if it cannot be determined. Callers must NOT fall
+/// back to a relative/CWD path: writing the plaintext token to a CWD-relative
+/// `.config/moonlit/credentials.toml` could leak it into whatever directory the command ran in.
+pub(crate) fn home_dir() -> Option<std::path::PathBuf> {
+    dirs::home_dir().filter(|p| !p.as_os_str().is_empty())
+}
+
 /// Write `text` to `path` (creating parent dirs) with `0600` permissions on unix, so the plaintext
 /// token is never group/world-readable. Shared by credential upsert and removal.
 fn write_doc_0600(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    // Create the file with 0600 from the outset on unix (no world/group-readable window for the
-    // plaintext token); still reset perms afterward so a pre-existing looser file is tightened too.
+    // Write to a sibling temp created 0600, then atomically rename over the target. Rename preserves
+    // the temp's 0600, so the plaintext token never exists at looser perms — even when the target
+    // pre-existed group/world-readable (a plain open+truncate would hold the new token at the old
+    // mode until a follow-up chmod).
     #[cfg(unix)]
     {
         use std::io::Write as _;
         use std::os::unix::fs::OpenOptionsExt;
+        let mut tmp_os = path.as_os_str().to_os_string();
+        tmp_os.push(".tmp");
+        let tmp = std::path::PathBuf::from(tmp_os);
         let mut f = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .mode(0o600)
-            .open(path)?;
+            .open(&tmp)?;
         f.write_all(text.as_bytes())?;
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        f.sync_all()?;
+        std::fs::rename(&tmp, path)?;
     }
     #[cfg(not(unix))]
     {
@@ -165,7 +177,10 @@ fn run_manual(args: LoginArgs) -> i32 {
         _ => Credential::Bearer { token },
     };
 
-    let home = dirs::home_dir().unwrap_or_default();
+    let Some(home) = home_dir() else {
+        eprintln!("error: could not determine your home directory (is $HOME set?)");
+        return 1;
+    };
     match write_credential(&home, &host, &cred) {
         Ok(()) => {
             println!("Logged in to {host}.");
@@ -274,6 +289,30 @@ mod tests {
             .permissions()
             .mode();
         assert_eq!(mode & 0o777, 0o600);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_tightens_a_preexisting_group_readable_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let home = tempfile::tempdir().unwrap();
+        let path = home.path().join(".config/moonlit/credentials.toml");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        // Simulate a credentials file that already exists group/world-readable.
+        std::fs::write(&path, "[registries]\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        write_credential(
+            home.path(),
+            "ghcr.io",
+            &Credential::Bearer { token: "t".into() },
+        )
+        .unwrap();
+
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+        // No temp file left behind.
+        assert!(!path.with_file_name("credentials.toml.tmp").exists());
     }
 
     #[test]

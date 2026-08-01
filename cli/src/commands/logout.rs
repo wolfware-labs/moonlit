@@ -4,13 +4,16 @@
 //! the local credential is still removed (with a warning) so the user is never wedged.
 
 use crate::cli::{DEFAULT_REGISTRY_HOST, LogoutArgs};
-use crate::commands::login::{device, read_bearer, remove_credential};
+use crate::commands::login::{device, home_dir, read_bearer, remove_credential};
 
 pub async fn run(args: LogoutArgs) -> i32 {
     let host = args
         .host
         .unwrap_or_else(|| DEFAULT_REGISTRY_HOST.to_string());
-    let home = dirs::home_dir().unwrap_or_default();
+    let Some(home) = home_dir() else {
+        eprintln!("error: could not determine your home directory (is $HOME set?)");
+        return 1;
+    };
 
     let Some(token) = read_bearer(&home, &host) else {
         println!("Not logged in to {host}.");

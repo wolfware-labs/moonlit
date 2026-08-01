@@ -17,7 +17,6 @@ struct AuthorizeResponse {
     user_code: String,
     verification_uri: String,
     verification_uri_complete: String,
-    #[allow(dead_code)]
     expires_in: u64,
     interval: u64,
 }
@@ -96,6 +95,13 @@ fn is_loopback(host: &str) -> bool {
     hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
 }
 
+/// Whether a URL is safe to hand to the OS browser opener: only `http`/`https`, so a hostile or
+/// buggy registry cannot get the CLI to launch an arbitrary scheme (e.g. `file:`) via the
+/// server-provided verification URL.
+fn opens_safely(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://")
+}
+
 /// The token label shown in the portal, e.g. `Moonlit CLI — my-laptop`.
 fn client_name() -> String {
     let host = gethostname::gethostname().to_string_lossy().to_string();
@@ -130,28 +136,47 @@ pub async fn login(host_arg: Option<String>) -> i32 {
         }
     };
 
-    // 2. Show the code and open the browser.
+    // 2. Show the code and open the browser (only for an http/https URL).
     println!("First copy your one-time code: {}", authorize.user_code);
     println!("Opening {} …", authorize.verification_uri);
-    if open::that(&authorize.verification_uri_complete).is_err() {
+    let opened = opens_safely(&authorize.verification_uri_complete)
+        && open::that(&authorize.verification_uri_complete).is_ok();
+    if !opened {
         println!(
             "Could not open a browser. Visit {} and enter the code above.",
             authorize.verification_uri
         );
     }
 
-    // 3. Poll until approved, denied, or expired.
+    // 3. Poll until approved, denied, or expired. Bound the whole wait by the server's `expires_in`
+    // so a registry that never emits `expired_token` can't wedge the CLI forever, and tolerate a few
+    // consecutive transient network errors instead of aborting on the first blip.
     let mut interval = authorize.interval.max(1);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(authorize.expires_in.max(1));
+    let mut consecutive_errors = 0u32;
+    const MAX_CONSECUTIVE_ERRORS: u32 = 5;
     let spinner = cliclack::spinner();
     spinner.start("Waiting for authorization…");
     let token = loop {
         tokio::time::sleep(Duration::from_secs(interval)).await;
+        if tokio::time::Instant::now() >= deadline {
+            spinner.error("timed out");
+            eprintln!("error: login timed out; run `moonlit login` again");
+            return 1;
+        }
         let resp = match poll_once(&http, &base, &authorize.device_code).await {
-            Ok(r) => r,
+            Ok(r) => {
+                consecutive_errors = 0;
+                r
+            }
             Err(e) => {
-                spinner.error("network error");
-                eprintln!("error: {e}");
-                return 1;
+                consecutive_errors += 1;
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+                    spinner.error("network error");
+                    eprintln!("error: {e}");
+                    return 1;
+                }
+                continue; // transient; keep waiting within the deadline
             }
         };
         match decide(resp, interval) {
@@ -167,7 +192,10 @@ pub async fn login(host_arg: Option<String>) -> i32 {
     spinner.stop("Authorized.");
 
     // 4. Store as Bearer (existing 0600 writer).
-    let home = dirs::home_dir().unwrap_or_default();
+    let Some(home) = super::home_dir() else {
+        eprintln!("error: could not determine your home directory (is $HOME set?)");
+        return 1;
+    };
     match super::write_credential(&home, &host, &super::Credential::Bearer { token }) {
         Ok(()) => {
             println!("Logged in to {host}.");
@@ -269,6 +297,17 @@ mod tests {
         // Real hosts → https.
         assert!(base_url("registry.moonlitbuild.dev").starts_with("https://"));
         assert!(base_url("registry.moonlitbuild.dev:443").starts_with("https://"));
+    }
+
+    #[test]
+    fn opens_safely_only_allows_http_schemes() {
+        assert!(opens_safely(
+            "https://registry.moonlitbuild.dev/device?code=ABCD"
+        ));
+        assert!(opens_safely("http://localhost:5185/device?code=ABCD"));
+        assert!(!opens_safely("file:///etc/passwd"));
+        assert!(!opens_safely("javascript:alert(1)"));
+        assert!(!opens_safely("ftp://example.com"));
     }
 
     #[test]
