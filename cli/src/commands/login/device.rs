@@ -68,10 +68,32 @@ pub fn decide(resp: PollResponse, interval: u64) -> PollDecision {
 
 /// Registry base URL: plain `http` only for loopback hosts, `https` otherwise.
 pub(crate) fn base_url(host: &str) -> String {
-    let is_local =
-        host.starts_with("localhost") || host.starts_with("127.0.0.1") || host.starts_with("[::1]");
-    let scheme = if is_local { "http" } else { "https" };
+    let scheme = if is_loopback(host) { "http" } else { "https" };
     format!("{scheme}://{host}")
+}
+
+/// Whether `host` (optionally `host:port`) names the loopback interface. The hostname is matched
+/// EXACTLY: a `starts_with` test would treat `localhost.evil.com` / `127.0.0.1.attacker.com` as
+/// local and silently downgrade those connections to cleartext `http`, exposing the token.
+fn is_loopback(host: &str) -> bool {
+    let hostname = if let Some(rest) = host.strip_prefix('[') {
+        // Bracketed IPv6 literal, e.g. `[::1]` or `[::1]:5185`.
+        rest.split(']').next().unwrap_or(rest)
+    } else {
+        // `host` or `host:port`: strip only a trailing numeric port, and never split a bare IPv6
+        // literal (which itself contains ':').
+        match host.rsplit_once(':') {
+            Some((h, port))
+                if !h.contains(':')
+                    && !port.is_empty()
+                    && port.bytes().all(|b| b.is_ascii_digit()) =>
+            {
+                h
+            }
+            _ => host,
+        }
+    };
+    hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
 }
 
 /// The token label shown in the portal, e.g. `Moonlit CLI — my-laptop`.
@@ -238,8 +260,23 @@ mod tests {
 
     #[test]
     fn base_url_uses_http_for_localhost_https_otherwise() {
+        // Loopback → http (with or without a port, IPv4 and bracketed IPv6).
+        assert!(base_url("localhost").starts_with("http://"));
         assert!(base_url("localhost:5185").starts_with("http://"));
         assert!(base_url("127.0.0.1:5185").starts_with("http://"));
+        assert!(base_url("[::1]:5185").starts_with("http://"));
+        assert!(base_url("::1").starts_with("http://"));
+        // Real hosts → https.
         assert!(base_url("registry.moonlitbuild.dev").starts_with("https://"));
+        assert!(base_url("registry.moonlitbuild.dev:443").starts_with("https://"));
+    }
+
+    #[test]
+    fn base_url_does_not_downgrade_loopback_lookalike_hosts() {
+        // A prefix check would wrongly send these over cleartext http; an exact match must not.
+        assert!(base_url("localhost.evil.com").starts_with("https://"));
+        assert!(base_url("127.0.0.1.attacker.com").starts_with("https://"));
+        assert!(base_url("localhostapi.internal").starts_with("https://"));
+        assert!(base_url("localhost.evil.com:8080").starts_with("https://"));
     }
 }
