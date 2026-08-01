@@ -15,33 +15,43 @@ pub async fn run(args: LogoutArgs) -> i32 {
         return 1;
     };
 
-    let Some(token) = read_bearer(&home, &host) else {
-        println!("Not logged in to {host}.");
-        return 0;
-    };
-
-    // Best-effort server-side revoke (unless --local). Never block local removal on it.
-    if !args.local {
+    // Best-effort server-side revoke (unless --local). Only a Bearer credential has a token the
+    // registry can revoke; a Basic credential (the CI `--username`/`--token` path) is local-only.
+    // The revoke lookup must NOT gate removal, or a Basic credential would be unremovable and its
+    // plaintext password would silently stay on disk.
+    if !args.local
+        && let Some(token) = read_bearer(&home, &host)
+    {
         let base = device::base_url(&host);
-        let http = reqwest::Client::new();
-        let revoked = http
-            .post(format!("{base}/api/v1/device/logout"))
-            .bearer_auth(&token)
-            .send()
-            .await
-            .and_then(|r| r.error_for_status())
-            .is_ok();
+        // A timed-out client matters here too: a hung revoke must not stall the local removal
+        // below. If the client cannot even be built, treat it as a failed revoke and continue.
+        let revoked = match device::http_client(device::REQUEST_TIMEOUT) {
+            Ok(http) => http
+                .post(format!("{base}/api/v1/device/logout"))
+                .bearer_auth(&token)
+                .send()
+                .await
+                .and_then(|r| r.error_for_status())
+                .is_ok(),
+            Err(_) => false,
+        };
         if !revoked {
             eprintln!(
-                "warning: removed local credentials; could not reach {host} to revoke the token \
-                 (revoke it in the portal)."
+                "warning: could not revoke the token on {host} (revoke it in the portal); \
+                 removing it locally anyway."
             );
         }
     }
 
+    // `remove_credential` reports whether an entry existed, so it — not the Bearer lookup — is what
+    // decides "were you logged in?".
     match remove_credential(&home, &host) {
-        Ok(_) => {
+        Ok(true) => {
             println!("Logged out of {host}.");
+            0
+        }
+        Ok(false) => {
+            println!("Not logged in to {host}.");
             0
         }
         Err(e) => {
