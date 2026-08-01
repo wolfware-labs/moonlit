@@ -2,6 +2,19 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.0.0...moonlit-v1.1.0) (2026-08-01)
+
+### Features
+
+* **login:** default to RFC 8628 device flow, keep --token for CI ([3a457f3](https://github.com/wolfware-labs/moonlit/commit/3a457f3c2d5d6e08869bdd17f7e11d8b7fc6f31f))
+* **login:** optional host defaulting to registry.moonlitbuild.dev ([892f332](https://github.com/wolfware-labs/moonlit/commit/892f332ce81a6ece5044289c4e22fe995391a312))
+* **logout:** revoke server-side and remove local credential ([9c29297](https://github.com/wolfware-labs/moonlit/commit/9c2929705336d84e39f50e04ca87f8c0b00634a9))
+
+### Bug Fixes
+
+* **login:** harden device flow — home-dir, atomic 0600, URL scheme, timeout, retries ([fc35e3e](https://github.com/wolfware-labs/moonlit/commit/fc35e3e31fc4275e2de5f81158459c7c9bf70ce8))
+* **login:** match loopback host exactly so lookalikes aren't downgraded to http ([a1df84a](https://github.com/wolfware-labs/moonlit/commit/a1df84a8cb3726b3a7f2cd41cbab3683f26a0d6a))
+
 ## [1.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v0.2.0...moonlit-v1.0.0) (2026-07-31)
 
 ### ⚠ BREAKING CHANGES
