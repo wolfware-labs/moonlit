@@ -100,6 +100,12 @@ jobs:
             # or expired key, network errors) fail the release again.
             Write-Host "::warning::Chocolatey push returned 403 for moonlit $env:VERSION - treating as the new-package moderation throttle and NOT failing the release. Re-push once the first version is approved on chocolatey.org."
             'pushed=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            # Falling out of this branch is NOT enough: `choco push` already set
+            # $LASTEXITCODE to non-zero on line 89 and `Out-File` does not reset
+            # it, so the pwsh wrapper would exit with that code and fail the job
+            # anyway — which is exactly what happened on moonlit-v1.1.2. Exit 0
+            # explicitly so the tolerance above actually tolerates.
+            exit 0
           } else {
             Write-Error "choco push failed (exit code $code) - not a 403/moderation rejection."
             exit $code
