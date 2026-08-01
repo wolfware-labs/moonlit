@@ -39,9 +39,9 @@ pub enum Command {
     Plugin(PluginCommand),
     /// Print the banner, version, author, and license.
     Version,
-    /// Store credentials for an OCI registry.
+    /// Sign in to an OCI registry in the browser, or with `--token` for CI.
     Login(LoginArgs),
-    /// Revoke and remove stored credentials for an OCI registry.
+    /// Remove the stored credential for an OCI registry, revoking it server-side.
     Logout(LogoutArgs),
     /// Inspect or clear the plugin content cache.
     #[command(subcommand)]
@@ -155,8 +155,9 @@ pub struct LoginArgs {
     /// Registry host, e.g. `registry.moonlitbuild.dev` or `localhost:5185`.
     /// Defaults to `registry.moonlitbuild.dev` when omitted.
     pub host: Option<String>,
-    /// Registry username (Basic auth). Prompted on a TTY when omitted; blank → token-only (Bearer).
-    /// Any explicit `--username`/`--token` bypasses the browser device flow (for CI).
+    /// Registry username (Basic auth). Supplying this or `--token` selects the manual path and
+    /// bypasses the browser device flow (for CI); on a TTY that path then prompts for whichever
+    /// of the two you left out, and a blank username stores a token-only (Bearer) credential.
     #[arg(long)]
     pub username: Option<String>,
     /// Registry token or password. Bypasses the browser device flow (for CI).

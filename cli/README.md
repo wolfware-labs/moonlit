@@ -86,7 +86,8 @@ semantic-release, slack, moonlit) live at
 | `moonlit plugin build` | Build the plugin in the current directory to a WASI-P2 component. |
 | `moonlit plugin inspect` | Print a component's metadata and middlewares. |
 | `moonlit plugin publish` | Publish a built component to an OCI registry. |
-| `moonlit login` | Store credentials for an OCI registry. |
+| `moonlit login` | Sign in to an OCI registry via the browser (`--token` for CI). |
+| `moonlit logout` | Remove the stored credential, revoking the token server-side. |
 | `moonlit cache` | Inspect or clear the plugin content cache. |
 | `moonlit version` | Print the version, author, and license. |
 
