@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.3](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.2...moonlit-v1.1.3) (2026-08-01)
+
+### Bug Fixes
+
+* **ci:** let the tolerated Chocolatey 403 actually pass the job ([08d0fb1](https://github.com/wolfware-labs/moonlit/commit/08d0fb10576e7b12a883aeaf4d00a5ede5f0f253))
+
 ## [1.1.2](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.1...moonlit-v1.1.2) (2026-08-01)
 
 ### Bug Fixes
