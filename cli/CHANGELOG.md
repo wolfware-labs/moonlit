@@ -6,8 +6,8 @@ All notable changes to the Moonlit CLI are documented here.
 
 ### Bug Fixes
 
-* **login:** bound registry requests with request and connect timeouts ([05b8951](https://github.com/wolfware-labs/moonlit/commit/05b8951a5a83cc9f943bdf3e60a2f0886cf19e5e))
-* **logout:** remove the local credential for Basic logins ([3739484](https://github.com/wolfware-labs/moonlit/commit/37394849be961ddf78e7ba0c895ecdbb230e4356))
+* **login:** bound registry requests with request and connect timeouts ([debb9c1](https://github.com/wolfware-labs/moonlit/commit/debb9c17469da6c2bd16b97b1c61671c64a9edcd))
+* **logout:** remove the local credential for Basic logins ([e025b0f](https://github.com/wolfware-labs/moonlit/commit/e025b0fed7d286dcac710cca643a099d7f11a921))
 
 ## [1.1.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.0.0...moonlit-v1.1.0) (2026-08-01)
 
