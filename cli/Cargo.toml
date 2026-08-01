@@ -45,6 +45,12 @@ humantime.workspace = true
 wasmparser.workspace = true
 cliclack.workspace = true
 dirs.workspace = true
+# Device-authorization login: reqwest gains the `json` feature (merged onto the
+# workspace's rustls/stream set); `open` launches the approval page; `gethostname`
+# names the minted token "Moonlit CLI — <hostname>".
+reqwest = { workspace = true, features = ["json"] }
+open = "5"
+gethostname = "1"
 
 [dev-dependencies]
 assert_cmd.workspace = true

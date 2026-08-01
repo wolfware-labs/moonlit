@@ -145,14 +145,19 @@ pub struct RunArgs {
     pub dry_run: bool,
 }
 
+/// Default registry when no host is given (mirrors `gh` defaulting to github.com).
+pub const DEFAULT_REGISTRY_HOST: &str = "registry.moonlitbuild.dev";
+
 #[derive(Debug, clap::Args)]
 pub struct LoginArgs {
-    /// Registry host, e.g. `ghcr.io` or `registry.moonlitbuild.dev`.
-    pub host: String,
+    /// Registry host, e.g. `registry.moonlitbuild.dev` or `localhost:5185`.
+    /// Defaults to `registry.moonlitbuild.dev` when omitted.
+    pub host: Option<String>,
     /// Registry username (Basic auth). Prompted on a TTY when omitted; blank → token-only (Bearer).
+    /// Any explicit `--username`/`--token` bypasses the browser device flow (for CI).
     #[arg(long)]
     pub username: Option<String>,
-    /// Registry token or password. Prompted (hidden) on a TTY when omitted; required otherwise.
+    /// Registry token or password. Bypasses the browser device flow (for CI).
     #[arg(long)]
     pub token: Option<String>,
 }

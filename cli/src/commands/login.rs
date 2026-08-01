@@ -68,6 +68,9 @@ fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Resu
 }
 
 pub fn run(args: LoginArgs) -> i32 {
+    let host = args
+        .host
+        .unwrap_or_else(|| crate::cli::DEFAULT_REGISTRY_HOST.to_string());
     let interactive = std::io::IsTerminal::is_terminal(&std::io::stdin());
 
     let username = match args.username {
@@ -106,9 +109,9 @@ pub fn run(args: LoginArgs) -> i32 {
     };
 
     let home = dirs::home_dir().unwrap_or_default();
-    match write_credential(&home, &args.host, &cred) {
+    match write_credential(&home, &host, &cred) {
         Ok(()) => {
-            println!("Logged in to {}.", args.host);
+            println!("Logged in to {host}.");
             0
         }
         Err(e) => {
