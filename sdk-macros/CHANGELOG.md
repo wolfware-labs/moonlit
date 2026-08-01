@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-macros-v0.3.0...moonlit-sdk-macros-v0.3.1) - 2026-08-01
+
+### Other
+
+- *(sdk)* pin the crate-doc ABI strings to the shipped WIT
+
 ## [0.3.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-macros-v0.2.0...moonlit-sdk-macros-v0.3.0) - 2026-07-31
 
 ### Added
