@@ -2,10 +2,12 @@ use assert_cmd::Command;
 use predicates::str::contains;
 
 #[test]
-fn non_interactive_without_token_errors() {
+fn manual_path_without_token_errors_non_interactive() {
+    // `--username` selects the manual (CI) path; without `--token` on a non-TTY it must error
+    // rather than prompt. A bare `login <host>` with no flags now runs the device flow instead.
     Command::cargo_bin("moonlit")
         .unwrap()
-        .args(["login", "ghcr.io"])
+        .args(["login", "ghcr.io", "--username", "alice"])
         .assert()
         .code(2)
         .stderr(contains("requires --token"));

@@ -1,19 +1,25 @@
-//! `moonlit login <host>` — store OCI registry credentials in `~/.config/moonlit/credentials.toml`.
-//! Generic username/token store only; the Clerk device-code flow is future work (M7).
+//! `moonlit login [host]` — authenticate to an OCI registry.
+//!
+//! By default this runs the RFC 8628 device-authorization flow ([`device`]): request a device code,
+//! open the browser to the approval page, and store the minted PAT as a Bearer credential in
+//! `~/.config/moonlit/credentials.toml`. An explicit `--token`/`--username` takes the manual path
+//! (for CI), storing exactly what the caller supplies.
 
 use std::path::Path;
 
 use crate::cli::LoginArgs;
 
+pub(crate) mod device;
+
 /// A credential to persist for one registry host.
-enum Credential {
+pub(crate) enum Credential {
     Basic { username: String, password: String },
     Bearer { token: String },
 }
 
 /// Upsert a registry credential into `credentials.toml` under `home`, preserving other hosts.
 /// Writes the file with `0600` permissions on unix.
-fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Result<()> {
+pub(crate) fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Result<()> {
     let path = home.join(".config/moonlit/credentials.toml");
     let mut doc: toml::Table = std::fs::read_to_string(&path)
         .ok()
@@ -67,7 +73,18 @@ fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Resu
     Ok(())
 }
 
-pub fn run(args: LoginArgs) -> i32 {
+pub async fn run(args: LoginArgs) -> i32 {
+    // Manual path (CI / non-device registries): any explicit --token or --username bypasses the
+    // browser device flow and stores exactly what the caller supplied.
+    if args.token.is_some() || args.username.is_some() {
+        return run_manual(args);
+    }
+    device::login(args.host).await
+}
+
+/// Store a credential supplied directly by the caller (`--token`/`--username`, or interactive
+/// prompts). No browser flow; used for CI and registries that are not Moonlit's device endpoint.
+fn run_manual(args: LoginArgs) -> i32 {
     let host = args
         .host
         .unwrap_or_else(|| crate::cli::DEFAULT_REGISTRY_HOST.to_string());
