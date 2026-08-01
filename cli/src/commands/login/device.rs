@@ -65,6 +65,23 @@ pub fn decide(resp: PollResponse, interval: u64) -> PollDecision {
     }
 }
 
+/// How long a single registry request may take. reqwest applies no timeout of its own, and a peer
+/// that completes the TCP handshake and then never answers produces a silently idle connection the
+/// OS will not tear down — so without this the poll loop below can never regain control to re-check
+/// its `expires_in` deadline, and logout can block local removal on a hung revoke.
+pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Separate, shorter bound on just the connect phase, so an unroutable host fails fast.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Build an HTTP client for registry calls, bounded by `timeout`.
+pub(crate) fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .connect_timeout(CONNECT_TIMEOUT.min(timeout))
+        .build()
+}
+
 /// Registry base URL: plain `http` only for loopback hosts, `https` otherwise.
 pub(crate) fn base_url(host: &str) -> String {
     let scheme = if is_loopback(host) { "http" } else { "https" };
@@ -113,7 +130,13 @@ fn client_name() -> String {
 pub async fn login(host_arg: Option<String>) -> i32 {
     let host = host_arg.unwrap_or_else(|| DEFAULT_REGISTRY_HOST.to_string());
     let base = base_url(&host);
-    let http = reqwest::Client::new();
+    let http = match http_client(REQUEST_TIMEOUT) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: could not initialize the HTTP client: {e}");
+            return 1;
+        }
+    };
 
     // 1. Request a device code.
     let authorize: AuthorizeResponse = match http
@@ -308,6 +331,30 @@ mod tests {
         assert!(!opens_safely("file:///etc/passwd"));
         assert!(!opens_safely("javascript:alert(1)"));
         assert!(!opens_safely("ftp://example.com"));
+    }
+
+    #[tokio::test]
+    async fn http_client_gives_up_on_a_server_that_never_responds() {
+        // Accept the connection, then never write a reply. TCP stays healthy, so nothing but a
+        // request timeout can free the caller — and the poll loop re-checks its `expires_in`
+        // deadline only *between* polls, so a hung request would wedge login past expiry.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let _held = listener.accept();
+            std::thread::sleep(Duration::from_secs(8));
+        });
+
+        let client = http_client(Duration::from_millis(200)).expect("client builds");
+        let started = std::time::Instant::now();
+        let result = client.post(format!("http://{addr}/")).send().await;
+
+        assert!(result.is_err(), "expected a timeout error, got a response");
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "request took {:?}; the timeout was not applied",
+            started.elapsed()
+        );
     }
 
     #[test]
