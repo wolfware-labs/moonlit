@@ -41,6 +41,8 @@ pub enum Command {
     Version,
     /// Store credentials for an OCI registry.
     Login(LoginArgs),
+    /// Revoke and remove stored credentials for an OCI registry.
+    Logout(LogoutArgs),
     /// Inspect or clear the plugin content cache.
     #[command(subcommand)]
     Cache(CacheCommand),
@@ -160,6 +162,15 @@ pub struct LoginArgs {
     /// Registry token or password. Bypasses the browser device flow (for CI).
     #[arg(long)]
     pub token: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct LogoutArgs {
+    /// Registry host. Defaults to `registry.moonlitbuild.dev` when omitted.
+    pub host: Option<String>,
+    /// Only remove the local credential; do not contact the server to revoke the token.
+    #[arg(long)]
+    pub local: bool,
 }
 
 #[derive(Debug, clap::Args)]

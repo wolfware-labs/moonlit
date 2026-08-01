@@ -47,6 +47,12 @@ pub(crate) fn write_credential(home: &Path, host: &str, cred: &Credential) -> st
     registries.insert(host.to_string(), toml::Value::Table(entry));
 
     let text = toml::to_string_pretty(&doc).map_err(std::io::Error::other)?;
+    write_doc_0600(&path, &text)
+}
+
+/// Write `text` to `path` (creating parent dirs) with `0600` permissions on unix, so the plaintext
+/// token is never group/world-readable. Shared by credential upsert and removal.
+fn write_doc_0600(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -61,16 +67,50 @@ pub(crate) fn write_credential(home: &Path, host: &str, cred: &Credential) -> st
             .create(true)
             .truncate(true)
             .mode(0o600)
-            .open(&path)?;
+            .open(path)?;
         f.write_all(text.as_bytes())?;
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
     }
     #[cfg(not(unix))]
     {
-        std::fs::write(&path, text)?;
+        std::fs::write(path, text)?;
     }
     Ok(())
+}
+
+/// Read the stored Bearer token for `host`, if any (used by logout to revoke it server-side).
+pub(crate) fn read_bearer(home: &Path, host: &str) -> Option<String> {
+    let path = home.join(".config/moonlit/credentials.toml");
+    let doc: toml::Table = std::fs::read_to_string(&path).ok()?.parse().ok()?;
+    doc.get("registries")?
+        .as_table()?
+        .get(host)?
+        .as_table()?
+        .get("token")?
+        .as_str()
+        .map(str::to_string)
+}
+
+/// Remove one host's credential entry, preserving siblings and rewriting the file 0600.
+/// Returns `false` if the host (or the whole file) was not present.
+pub(crate) fn remove_credential(home: &Path, host: &str) -> std::io::Result<bool> {
+    let path = home.join(".config/moonlit/credentials.toml");
+    let mut doc: toml::Table = match std::fs::read_to_string(&path) {
+        Ok(t) => t.parse().unwrap_or_default(),
+        Err(_) => return Ok(false),
+    };
+
+    let Some(registries) = doc.get_mut("registries").and_then(|r| r.as_table_mut()) else {
+        return Ok(false);
+    };
+    if registries.remove(host).is_none() {
+        return Ok(false);
+    }
+
+    let text = toml::to_string_pretty(&doc).map_err(std::io::Error::other)?;
+    write_doc_0600(&path, &text)?;
+    Ok(true)
 }
 
 pub async fn run(args: LoginArgs) -> i32 {
@@ -229,6 +269,91 @@ mod tests {
             &Credential::Bearer { token: "t".into() },
         )
         .unwrap();
+        let mode = std::fs::metadata(home.path().join(".config/moonlit/credentials.toml"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+
+    #[test]
+    fn remove_credential_removes_one_host_preserves_others() {
+        let home = tempfile::tempdir().unwrap();
+        write_credential(
+            home.path(),
+            "a.example.com",
+            &Credential::Bearer { token: "ta".into() },
+        )
+        .unwrap();
+        write_credential(
+            home.path(),
+            "b.example.com",
+            &Credential::Bearer { token: "tb".into() },
+        )
+        .unwrap();
+
+        let removed = remove_credential(home.path(), "a.example.com").unwrap();
+        assert!(removed);
+        let doc = read(home.path());
+        assert!(doc["registries"].get("a.example.com").is_none());
+        assert_eq!(
+            doc["registries"]["b.example.com"]["token"].as_str(),
+            Some("tb")
+        );
+    }
+
+    #[test]
+    fn remove_credential_absent_host_is_false() {
+        let home = tempfile::tempdir().unwrap();
+        write_credential(
+            home.path(),
+            "a.example.com",
+            &Credential::Bearer { token: "ta".into() },
+        )
+        .unwrap();
+        assert!(!remove_credential(home.path(), "nope.example.com").unwrap());
+    }
+
+    #[test]
+    fn remove_credential_missing_file_is_false() {
+        let home = tempfile::tempdir().unwrap();
+        assert!(!remove_credential(home.path(), "a.example.com").unwrap());
+    }
+
+    #[test]
+    fn read_bearer_returns_stored_token() {
+        let home = tempfile::tempdir().unwrap();
+        write_credential(
+            home.path(),
+            "a.example.com",
+            &Credential::Bearer { token: "ta".into() },
+        )
+        .unwrap();
+        assert_eq!(
+            read_bearer(home.path(), "a.example.com").as_deref(),
+            Some("ta")
+        );
+        assert_eq!(read_bearer(home.path(), "missing"), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remove_credential_keeps_file_0600() {
+        use std::os::unix::fs::PermissionsExt;
+        let home = tempfile::tempdir().unwrap();
+        write_credential(
+            home.path(),
+            "a.example.com",
+            &Credential::Bearer { token: "ta".into() },
+        )
+        .unwrap();
+        write_credential(
+            home.path(),
+            "b.example.com",
+            &Credential::Bearer { token: "tb".into() },
+        )
+        .unwrap();
+        remove_credential(home.path(), "a.example.com").unwrap();
         let mode = std::fs::metadata(home.path().join(".config/moonlit/credentials.toml"))
             .unwrap()
             .permissions()
