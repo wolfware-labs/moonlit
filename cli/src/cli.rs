@@ -41,7 +41,7 @@ pub enum Command {
     Version,
     /// Sign in to an OCI registry in the browser, or with `--token` for CI.
     Login(LoginArgs),
-    /// Remove the stored credential for an OCI registry, revoking it server-side.
+    /// Remove the stored credential for an OCI registry, revoking the token server-side if there is one.
     Logout(LogoutArgs),
     /// Inspect or clear the plugin content cache.
     #[command(subcommand)]
