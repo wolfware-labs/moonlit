@@ -1,8 +1,9 @@
 //! `moonlit_plugin!` — generates the WIT `Guest` glue and `export!` for a
 //! plugin from a declaration of its name, middlewares, and optional config/state.
 //!
-//! Emits plugin ABI `moonlit:plugin@0.2.0` metadata: an optional embedded icon
-//! (`icon = "…"`) and a JSON Schema per middleware config.
+//! Emits plugin ABI `moonlit:plugin@0.3.0` metadata: an optional embedded icon
+//! (`icon = "…"`) and, per middleware, a JSON Schema for both its typed `Input`
+//! and its `Output`.
 
 use proc_macro::TokenStream;
 use quote::quote;

@@ -65,8 +65,9 @@ pub fn __schema_json<T: schemars::JsonSchema>() -> String {
     serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default()
 }
 
-/// Marker for a middleware that reads no configuration. Serializes to `{}` and
-/// yields an empty-object input schema ("no declared inputs").
+/// Marker for a middleware that reads no configuration. Deserializes from `{}`
+/// (or an absent config block) and yields an empty-object input schema
+/// ("no declared inputs"). Input-only: it has no `Serialize` impl.
 #[derive(serde::Deserialize, Default, schemars::JsonSchema)]
 pub struct NoInput {}
 
@@ -89,6 +90,18 @@ pub mod prelude {
 }
 
 #[cfg(test)]
+mod markers {
+    use super::NoInput;
+
+    /// Pins the direction claimed by `NoInput`'s doc: it binds *from* an empty object. The
+    /// `NoOutput` counterpart is covered by `result::tests::no_output_serializes_to_empty`.
+    #[test]
+    fn no_input_deserializes_from_an_empty_object() {
+        serde_json::from_str::<NoInput>("{}").expect("NoInput binds from an empty object");
+    }
+}
+
+#[cfg(test)]
 mod wit_drift {
     /// The vendored canonical WIT must match the engine's source of truth when
     /// building in-repo. Inert for crates.io consumers (no sibling engine/).
@@ -105,6 +118,32 @@ mod wit_drift {
             std::fs::read_to_string(&vendored).unwrap(),
             std::fs::read_to_string(&engine).unwrap(),
             "sdk/wit/moonlit-plugin.wit drifted from engine/wit/moonlit-plugin.wit; re-vendor"
+        );
+    }
+
+    /// This crate's doc header names the ABI it targets, and that line is the docs.rs front page.
+    /// `moonlit-sdk-macros` carried a stale version across two bumps for want of this check, so
+    /// pin the string to the WIT that actually ships.
+    #[test]
+    fn crate_doc_states_the_shipped_abi_version() {
+        let wit = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("wit/moonlit-plugin.wit");
+        let text = std::fs::read_to_string(wit).unwrap();
+        let abi = text
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("package "))
+            .expect("WIT declares a package")
+            .trim()
+            .trim_end_matches(';');
+
+        let doc: String = include_str!("lib.rs")
+            .lines()
+            .take_while(|l| l.starts_with("//!"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(
+            doc.contains(abi),
+            "moonlit-sdk's crate doc must name the shipped ABI `{abi}`. It currently reads:\n{doc}"
         );
     }
 }
