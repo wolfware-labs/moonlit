@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.2](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.1...moonlit-v1.1.2) (2026-08-01)
+
+### Bug Fixes
+
+* **cli:** do not promise a server-side revoke logout cannot always do ([355f34c](https://github.com/wolfware-labs/moonlit/commit/355f34ceb2b8c371bc1cf3cf921b9cc3322252ba))
+
 ## [1.1.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.0...moonlit-v1.1.1) (2026-08-01)
 
 ### Bug Fixes
