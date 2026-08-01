@@ -11,34 +11,62 @@ plugin config/state into the generated component entrypoints.
 
 ```rust
 use moonlit_sdk::prelude::*;
-use serde::Deserialize;
 
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct HelloConfig {
+/// Input for the `greet` middleware, bound from the step's config block.
+/// `JsonSchema` is what lets `moonlit plugin inspect` and the registry
+/// document these fields.
+#[derive(Deserialize, Default, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", default)]
+struct GreetInput {
+    /// Who to greet; defaults to "world" when empty.
     name: String,
 }
 
+/// Output published for downstream steps to read as
+/// `steps.<step>.outputs.greeting`.
+#[derive(Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct GreetOutput {
+    /// The greeting message, e.g. `hello, world`.
+    greeting: String,
+}
+
 #[derive(Default)]
-struct Hello;
+struct Greet;
 
-impl Middleware for Hello {
-    const NAME: &'static str = "hello";
-    const DESCRIPTION: &'static str = "say hello";
-    type Config = HelloConfig;
+impl Middleware for Greet {
+    const NAME: &'static str = "greet";
+    const DESCRIPTION: &'static str = "logs and returns a greeting";
+    type Input = GreetInput;
+    type Output = GreetOutput;
 
-    fn execute(&self, ctx: &Context, cfg: HelloConfig) -> MiddlewareResult {
-        let name = if cfg.name.is_empty() { "world" } else { &cfg.name };
-        ctx.log_info(&format!("hello, {name}"));
-        MiddlewareResult::success()
+    fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output> {
+        let who = if input.name.is_empty() {
+            "world".to_string()
+        } else {
+            input.name
+        };
+        ctx.log_info(&format!("greeting {who}"));
+        MiddlewareResult::ok(GreetOutput {
+            greeting: format!("hello, {who}"),
+        })
     }
 }
 
-moonlit_plugin! { name: "hello", middlewares: [Hello] }
+moonlit_plugin! { name: "greet-plugin", middlewares: [Greet] }
 ```
 
-Each middleware's `Config` is deserialized from its step config (a `#[serde(default)]`
-struct is the idiomatic "all fields optional" choice).
+Each middleware declares two types. `Input` is deserialized from the step's config
+block (a `#[serde(default)]` struct is the idiomatic "all fields optional" choice);
+`Output` is serialized and published for later steps to read as
+`steps.<step>.outputs.<field>`. Use `NoInput` or `NoOutput` when a middleware takes
+no configuration or publishes nothing. Both types derive `schemars::JsonSchema`, and
+the macro emits those schemas into the component so `moonlit plugin inspect` and the
+registry can document the plugin without running it.
+
+Alongside `moonlit-sdk`, a plugin crate needs `serde` (with `derive`),
+`serde_json`, and `schemars = "1"`. `moonlit plugin new` scaffolds all of this —
+the example above is what it generates.
 
 Build with `cargo build --target wasm32-wasip2 --release` (requires
 `rustup target add wasm32-wasip2`).
