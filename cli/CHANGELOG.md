@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.4](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.3...moonlit-v1.1.4) (2026-08-03)
+
+### Bug Fixes
+
+* **engine:** stamp the plugin world this engine actually ships ([a6e5fb2](https://github.com/wolfware-labs/moonlit/commit/a6e5fb22d32cc25973a8a1ebe8af47399d56593b))
+
 ## [1.1.3](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.2...moonlit-v1.1.3) (2026-08-01)
 
 ### Bug Fixes
