@@ -31,6 +31,32 @@ fn package_is_moonlit_plugin_0_3_0() {
     );
 }
 
+/// `PLUGIN_WORLD` is stamped into every published OCI config as `moonlit.world`, and the registry
+/// rejects any manifest whose value is not exactly its own `SupportedWorld`. Nothing tied the
+/// constant to the WIT it claims to describe, which is how it sat two revisions behind: the 0.2.0
+/// bump (`b5e8543`) and the 0.3.0 bump (`8bac9d5`) both changed the contract and left it at 0.1.0.
+/// Derive the expectation from the resolved package so the next bump cannot miss it.
+#[test]
+fn plugin_world_constant_matches_the_shipped_wit() {
+    let (resolve, package_id, _) = load();
+    let name = &resolve.packages[package_id].name;
+    let expected = format!(
+        "{}:{}@{}",
+        name.namespace,
+        name.name,
+        name.version
+            .as_ref()
+            .expect("the WIT package declares a version")
+    );
+    assert_eq!(
+        moonlit_engine::publish::PLUGIN_WORLD,
+        expected,
+        "PLUGIN_WORLD must name the WIT this engine ships. Bumping the contract means bumping this \
+         constant AND the registry's PublishService.SupportedWorld in the same window - the \
+         registry rejects any other value with ManifestInvalid."
+    );
+}
+
 /// Names of the fields declared by a `record` type in the `types` interface.
 fn record_field_names<'a>(
     resolve: &'a Resolve,

@@ -17,7 +17,7 @@ pub const ARTIFACT_TYPE: &str = "application/vnd.wasm.component.v1+wasm";
 /// The single-layer media type (§8.1).
 pub const LAYER_MEDIA_TYPE: &str = "application/wasm";
 /// The fixed WIT world a Moonlit plugin implements (§8.1).
-pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.1.0";
+pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.3.0";
 
 /// Everything needed to describe a plugin artifact, gathered by the CLI
 /// (component introspection + best-effort crate facts).
