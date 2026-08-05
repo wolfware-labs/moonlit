@@ -68,14 +68,21 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
                     return 2;
                 }
             };
-            let manifest = match super::build::parse_manifest(&text) {
-                Ok(m) => m,
+            if let Err(e) = super::build::parse_manifest(&text) {
+                eprintln!("error: {e}");
+                return 2;
+            }
+            // Ask cargo where the artifact is rather than guessing: a workspace member writes to
+            // the workspace target directory, and `[lib] name` may differ from the package name.
+            let layout = match super::build::resolve_layout(&crate_dir) {
+                Ok(l) => l,
                 Err(e) => {
                     eprintln!("error: {e}");
+                    eprintln!("  fix: pass --file with the path to the built component");
                     return 2;
                 }
             };
-            super::build::artifact_path(&crate_dir, &manifest.name, true)
+            super::build::artifact_path(&layout.target_dir, &layout.lib_name, true)
         }
     };
     let bytes = match std::fs::read(&file) {

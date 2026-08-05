@@ -37,13 +37,106 @@ pub fn parse_manifest(text: &str) -> Result<PluginManifest, String> {
     })
 }
 
-/// Where cargo drops the component: cdylib names use `_` for `-`.
-pub fn artifact_path(crate_dir: &Path, pkg_name: &str, release: bool) -> PathBuf {
+/// Where cargo drops the component, given the target directory and the cdylib target's name.
+/// Cargo substitutes `_` for `-` in artifact filenames.
+pub fn artifact_path(target_dir: &Path, lib_name: &str, release: bool) -> PathBuf {
     let profile = if release { "release" } else { "debug" };
-    crate_dir
-        .join("target/wasm32-wasip2")
+    target_dir
+        .join("wasm32-wasip2")
         .join(profile)
-        .join(format!("{}.wasm", pkg_name.replace('-', "_")))
+        .join(format!("{}.wasm", lib_name.replace('-', "_")))
+}
+
+/// Where cargo will actually write, and what it will call the artifact.
+#[derive(Debug, PartialEq)]
+pub struct BuildLayout {
+    pub target_dir: PathBuf,
+    pub lib_name: String,
+}
+
+/// Ask cargo, rather than guessing from the crate directory.
+///
+/// Two assumptions in the obvious guess are wrong often enough to matter. A crate in a workspace
+/// writes to the WORKSPACE's `target/`, not its own, so `<crate>/target/...` does not exist. And
+/// `[lib] name` may differ from the package name — `moonlit-plugin-git` builds `git.wasm` — so a
+/// filename derived from the package name does not exist either. Both produced the same failure:
+/// cargo reported success and this command reported a missing artifact for the file it had just
+/// built.
+pub fn resolve_layout(crate_dir: &Path) -> Result<BuildLayout, String> {
+    let out = std::process::Command::new("cargo")
+        .args(["metadata", "--no-deps", "--format-version", "1"])
+        .arg("--manifest-path")
+        .arg(crate_dir.join("Cargo.toml"))
+        .output()
+        .map_err(|e| format!("could not run cargo metadata: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "cargo metadata failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let meta: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .map_err(|e| format!("could not parse cargo metadata: {e}"))?;
+    parse_layout(&meta, crate_dir)
+}
+
+/// Split out from `resolve_layout` so the JSON shape is testable without invoking cargo.
+pub fn parse_layout(meta: &serde_json::Value, crate_dir: &Path) -> Result<BuildLayout, String> {
+    let target_dir = meta
+        .get("target_directory")
+        .and_then(|v| v.as_str())
+        .ok_or("cargo metadata has no target_directory")?;
+
+    // `--no-deps` still lists every workspace member, so select the package whose manifest is the
+    // one we were pointed at. cargo reports ABSOLUTE manifest paths while `crate_dir` is whatever
+    // the caller passed (often relative), so both sides are canonicalised before comparing.
+    //
+    // There is deliberately no "just take the first package" fallback. An unmatched path is a bug,
+    // and guessing turns it into a confidently wrong artifact — every crate in a workspace would
+    // resolve to whichever package happened to be listed first.
+    let wanted = std::fs::canonicalize(crate_dir.join("Cargo.toml"))
+        .unwrap_or_else(|_| crate_dir.join("Cargo.toml"));
+    let packages = meta
+        .get("packages")
+        .and_then(|v| v.as_array())
+        .ok_or("cargo metadata has no packages")?;
+    let package = packages
+        .iter()
+        .find(|p| {
+            p.get("manifest_path")
+                .and_then(|v| v.as_str())
+                .map(|m| {
+                    let listed = Path::new(m);
+                    std::fs::canonicalize(listed).unwrap_or_else(|_| listed.to_path_buf()) == wanted
+                })
+                .unwrap_or(false)
+        })
+        .ok_or_else(|| {
+            format!(
+                "cargo metadata lists no package whose manifest is {}",
+                wanted.display()
+            )
+        })?;
+
+    let lib_name = package
+        .get("targets")
+        .and_then(|v| v.as_array())
+        .and_then(|targets| {
+            targets.iter().find(|t| {
+                t.get("kind")
+                    .and_then(|k| k.as_array())
+                    .map(|kinds| kinds.iter().any(|k| k.as_str() == Some("cdylib")))
+                    .unwrap_or(false)
+            })
+        })
+        .and_then(|t| t.get("name"))
+        .and_then(|v| v.as_str())
+        .ok_or("the crate declares no cdylib target")?;
+
+    Ok(BuildLayout {
+        target_dir: PathBuf::from(target_dir),
+        lib_name: lib_name.to_string(),
+    })
 }
 
 /// True if the `wasm32-wasip2` target is installed in the active toolchain.
@@ -118,7 +211,14 @@ pub fn run(args: PluginBuildArgs) -> i32 {
         return 4;
     }
 
-    let artifact = artifact_path(&crate_dir, &manifest.name, args.release);
+    let layout = match resolve_layout(&crate_dir) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 1;
+        }
+    };
+    let artifact = artifact_path(&layout.target_dir, &layout.lib_name, args.release);
     let bytes = match std::fs::read(&artifact) {
         Ok(b) => b,
         Err(e) => {
@@ -184,12 +284,69 @@ mod tests {
 
     #[test]
     fn artifact_path_uses_underscores_and_profile() {
-        let p = artifact_path(Path::new("/x"), "my-plugin", true);
+        let p = artifact_path(Path::new("/x/target"), "my-plugin", true);
         assert_eq!(
             p,
             PathBuf::from("/x/target/wasm32-wasip2/release/my_plugin.wasm")
         );
-        let d = artifact_path(Path::new("/x"), "my-plugin", false);
+        let d = artifact_path(Path::new("/x/target"), "my-plugin", false);
         assert!(d.ends_with("target/wasm32-wasip2/debug/my_plugin.wasm"));
+    }
+
+    /// A workspace member writes to the WORKSPACE target directory and may name its lib target
+    /// differently from its package. Guessing `<crate>/target/<pkg_name>.wasm` finds neither.
+    #[test]
+    fn parse_layout_uses_the_workspace_target_dir_and_the_lib_name() {
+        let meta = serde_json::json!({
+            "target_directory": "/ws/target",
+            "packages": [
+                {
+                    "name": "moonlit-plugin-other",
+                    "manifest_path": "/ws/other/Cargo.toml",
+                    "targets": [{ "kind": ["cdylib"], "name": "other" }]
+                },
+                {
+                    "name": "moonlit-plugin-git",
+                    "manifest_path": "/ws/git/Cargo.toml",
+                    "targets": [{ "kind": ["cdylib"], "name": "git" }]
+                }
+            ]
+        });
+        let layout = parse_layout(&meta, Path::new("/ws/git")).unwrap();
+        assert_eq!(layout.target_dir, PathBuf::from("/ws/target"));
+        assert_eq!(layout.lib_name, "git");
+        assert_eq!(
+            artifact_path(&layout.target_dir, &layout.lib_name, true),
+            PathBuf::from("/ws/target/wasm32-wasip2/release/git.wasm")
+        );
+    }
+
+    /// The bug this replaced: an unmatched path silently resolved to the first package, so every
+    /// crate in a workspace built to the same artifact name.
+    #[test]
+    fn parse_layout_errors_rather_than_guessing_when_no_package_matches() {
+        let meta = serde_json::json!({
+            "target_directory": "/ws/target",
+            "packages": [{
+                "name": "moonlit-plugin-docker",
+                "manifest_path": "/ws/docker/Cargo.toml",
+                "targets": [{ "kind": ["cdylib"], "name": "docker" }]
+            }]
+        });
+        let err = parse_layout(&meta, Path::new("/ws/git")).unwrap_err();
+        assert!(err.contains("no package"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn parse_layout_rejects_a_crate_with_no_cdylib_target() {
+        let meta = serde_json::json!({
+            "target_directory": "/ws/target",
+            "packages": [{
+                "name": "plain",
+                "manifest_path": "/ws/plain/Cargo.toml",
+                "targets": [{ "kind": ["lib"], "name": "plain" }]
+            }]
+        });
+        assert!(parse_layout(&meta, Path::new("/ws/plain")).is_err());
     }
 }
