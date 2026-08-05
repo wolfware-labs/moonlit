@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.5](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.4...moonlit-v1.1.5) (2026-08-05)
+
+### Bug Fixes
+
+* **cli:** resolve plugin artifacts from cargo metadata ([9ca348a](https://github.com/wolfware-labs/moonlit/commit/9ca348a99ed5bd033777f53d4b71b67b3220393b))
+
 ## [1.1.4](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.3...moonlit-v1.1.4) (2026-08-03)
 
 ### Bug Fixes
