@@ -86,6 +86,31 @@ jobs:
           # reads as ambiguous even though PowerShell parses it correctly.
           $iconUrl = "https://cdn.jsdelivr.net/gh/${env:GITHUB_REPOSITORY}@${env:TAG}/assets/moonlit.png"
           $releaseNotes = "https://github.com/${env:GITHUB_REPOSITORY}/releases/tag/${env:TAG}"
+
+          # Prove the icon resolves before packing. This URL is only ever exercised at release
+          # time, so an unreachable one fails silently: the package publishes, the listing shows
+          # a placeholder, and nobody finds out until they look at chocolatey.org. That already
+          # happened once - the icon lived under docs/, which .git/info/exclude keeps out of the
+          # repo entirely, so it was in no tag and every URL pointing at it would have 404'd.
+          # Retried because jsDelivr fetches from GitHub on first request and a tag pushed
+          # moments ago can miss briefly; a transient miss must not fail a release.
+          $iconOk = $false
+          foreach ($attempt in 1..5) {
+            try {
+              if ((Invoke-WebRequest -Uri $iconUrl -Method Head -TimeoutSec 20).StatusCode -eq 200) {
+                $iconOk = $true
+                break
+              }
+            } catch {
+              Write-Host "icon probe attempt ${attempt}: $($_.Exception.Message)"
+            }
+            if ($attempt -lt 5) { Start-Sleep -Seconds (5 * $attempt) }
+          }
+          if (-not $iconOk) {
+            Write-Error "Icon URL is not reachable after 5 attempts: $iconUrl - refusing to publish a package whose listing would show a placeholder."
+            exit 1
+          }
+          Write-Host "icon OK: $iconUrl"
           $nuspec = $nuspec.Replace('__VERSION__', $env:VERSION).Replace('__ICONURL__', $iconUrl).Replace('__RELEASENOTES__', $releaseNotes)
           Set-Content -Path (Join-Path $pkgDir 'moonlit.nuspec') -Value $nuspec -Encoding utf8
 
