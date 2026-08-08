@@ -33,12 +33,17 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "url=$url"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "checksum=$sha"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          # The tag, not just the version: the icon and release-notes URLs pin to it so each
+          # published version points at an immutable tree. Moving a file later cannot then
+          # retroactively break an already-listed version's icon.
+          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - name: Generate package and pack
         shell: pwsh
         env:
           VERSION: ${{ steps.art.outputs.version }}
           URL64: ${{ steps.art.outputs.url }}
           CHECKSUM64: ${{ steps.art.outputs.checksum }}
+          TAG: ${{ steps.art.outputs.tag }}
         run: |
           $pkgDir = Join-Path $env:RUNNER_TEMP 'choco'
           New-Item -ItemType Directory -Force -Path (Join-Path $pkgDir 'tools') | Out-Null
@@ -54,10 +59,17 @@ jobs:
               <version>__VERSION__</version>
               <title>Moonlit</title>
               <authors>Wolfware LLC</authors>
+              <owners>Wolfware LLC</owners>
               <projectUrl>https://moonlitbuild.dev/</projectUrl>
+              <projectSourceUrl>https://github.com/wolfware-labs/moonlit</projectSourceUrl>
               <packageSourceUrl>https://github.com/wolfware-labs/moonlit</packageSourceUrl>
+              <docsUrl>https://moonlitbuild.dev/guide/</docsUrl>
+              <bugTrackerUrl>https://github.com/wolfware-labs/moonlit/issues</bugTrackerUrl>
+              <iconUrl>__ICONURL__</iconUrl>
               <licenseUrl>https://github.com/wolfware-labs/moonlit/blob/main/LICENSE</licenseUrl>
               <requireLicenseAcceptance>false</requireLicenseAcceptance>
+              <copyright>Copyright (c) 2026 Wolfware LLC</copyright>
+              <releaseNotes>__RELEASENOTES__</releaseNotes>
               <tags>moonlit release-automation cli wasm</tags>
               <summary>Run release pipelines with sandboxed WebAssembly plugins.</summary>
               <description>Moonlit runs release pipelines defined in YAML, driven by sandboxed WebAssembly component plugins. This package installs the moonlit CLI.</description>
@@ -67,7 +79,14 @@ jobs:
             </files>
           </package>
           '@
-          $nuspec = $nuspec.Replace('__VERSION__', $env:VERSION)
+          # jsDelivr rather than raw.githubusercontent: Chocolatey asks for a CDN-backed icon URL,
+          # and raw GitHub links are rate-limited and served with a content type the gallery does
+          # not always render. Pinned to the tag, so the URL is immutable per published version.
+          # Braced, because the jsDelivr separator is `@` and an unbraced $env:NAME followed by it
+          # reads as ambiguous even though PowerShell parses it correctly.
+          $iconUrl = "https://cdn.jsdelivr.net/gh/${env:GITHUB_REPOSITORY}@${env:TAG}/assets/moonlit.png"
+          $releaseNotes = "https://github.com/${env:GITHUB_REPOSITORY}/releases/tag/${env:TAG}"
+          $nuspec = $nuspec.Replace('__VERSION__', $env:VERSION).Replace('__ICONURL__', $iconUrl).Replace('__RELEASENOTES__', $releaseNotes)
           Set-Content -Path (Join-Path $pkgDir 'moonlit.nuspec') -Value $nuspec -Encoding utf8
 
           $install = @'
