@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.6](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.5...moonlit-v1.1.6) (2026-08-08)
+
+### Bug Fixes
+
+* **choco:** give the Chocolatey package an icon and full metadata ([77b6e5b](https://github.com/wolfware-labs/moonlit/commit/77b6e5b9ac968f9399a95fdd79726c6dc25c438c))
+
 ## [1.1.5](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.4...moonlit-v1.1.5) (2026-08-05)
 
 ### Bug Fixes
