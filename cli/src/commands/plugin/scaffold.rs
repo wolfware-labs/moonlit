@@ -9,8 +9,8 @@ pub struct ScaffoldValues {
     pub namespace: String,
     pub description: String,
     pub license: String,
-    /// The full RHS of the `moonlit-sdk = …` dependency line.
-    pub sdk_dep: String,
+    /// The full RHS of the `moonlit-pdk = …` dependency line.
+    pub pdk_dep: String,
 }
 
 /// A crate-safe name: starts with a letter, then letters/digits/`-`/`_`.
@@ -24,11 +24,11 @@ pub fn is_valid_crate_name(name: &str) -> bool {
 }
 
 /// The dependency RHS: pinned crates.io version by default, a path dep when
-/// `--sdk-path` is given (for local/in-repo development).
-pub fn sdk_dep_line(sdk_path: Option<&Path>) -> String {
-    match sdk_path {
+/// `--pdk-path` is given (for local/in-repo development).
+pub fn pdk_dep_line(pdk_path: Option<&Path>) -> String {
+    match pdk_path {
         Some(p) => format!("{{ path = \"{}\" }}", p.display()),
-        None => "\"0.3.0\"".to_string(),
+        None => "\"0.1.0\"".to_string(),
     }
 }
 
@@ -49,13 +49,13 @@ mod tests {
 
     #[test]
     fn sdk_dep_defaults_to_crates_io() {
-        assert_eq!(sdk_dep_line(None), "\"0.3.0\"");
+        assert_eq!(pdk_dep_line(None), "\"0.1.0\"");
     }
 
     #[test]
     fn sdk_dep_path_when_given() {
         assert_eq!(
-            sdk_dep_line(Some(Path::new("/repo/sdk"))),
+            pdk_dep_line(Some(Path::new("/repo/sdk"))),
             "{ path = \"/repo/sdk\" }"
         );
     }

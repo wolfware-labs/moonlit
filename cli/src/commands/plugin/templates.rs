@@ -17,7 +17,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-moonlit-sdk = {sdk_dep}
+moonlit-pdk = {pdk_dep}
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 schemars = "1"
@@ -26,7 +26,7 @@ schemars = "1"
 opt-level = "s"
 "#;
 
-const LIB_RS: &str = r#"use moonlit_sdk::prelude::*;
+const LIB_RS: &str = r#"use moonlit_pdk::prelude::*;
 
 /// Input for the `greet` middleware. Fields bind from step config with
 /// string-coercion; unknown keys are ignored. `JsonSchema` lets `moonlit plugin
@@ -77,7 +77,7 @@ moonlit_plugin! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use moonlit_sdk::testing::{run, MockHost};
+    use moonlit_pdk::testing::{run, MockHost};
 
     #[test]
     fn greet_greets_the_configured_name() {
@@ -177,7 +177,7 @@ pub fn render_all(v: &ScaffoldValues) -> Vec<(PathBuf, String)> {
         ("{namespace}", namespace.as_str()),
         ("{description}", description.as_str()),
         ("{license}", license.as_str()),
-        ("{sdk_dep}", v.sdk_dep.as_str()),
+        ("{pdk_dep}", v.pdk_dep.as_str()),
         ("{artifact}", artifact.as_str()),
     ];
     vec![
@@ -202,7 +202,7 @@ mod tests {
             namespace: "acme".to_string(),
             description: "does things".to_string(),
             license: "Apache-2.0".to_string(),
-            sdk_dep: "\"0.3.0\"".to_string(),
+            pdk_dep: "\"0.1.0\"".to_string(),
         }
     }
 
@@ -226,7 +226,7 @@ mod tests {
             .unwrap()
             .1;
         assert!(cargo.contains("name = \"my-plugin\""));
-        assert!(cargo.contains("moonlit-sdk = \"0.3.0\""));
+        assert!(cargo.contains("moonlit-pdk = \"0.1.0\""));
         assert!(cargo.contains("schemars = \"1\""));
     }
 

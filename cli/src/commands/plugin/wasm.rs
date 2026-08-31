@@ -31,7 +31,7 @@ mod tests {
     // The smallest valid core module: magic + version 1. Not a component.
     const CORE_MODULE: &[u8] = &[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
     // The committed sample is a real component.
-    const COMPONENT: &[u8] = include_bytes!("../../../../engine/tests/fixtures/sdk_sample.wasm");
+    const COMPONENT: &[u8] = include_bytes!("../../../../engine/tests/fixtures/pdk_sample.wasm");
 
     #[test]
     fn core_module_is_not_a_component() {

@@ -7,8 +7,8 @@
       {
         "preset": "conventionalcommits",
         "releaseRules": [
-          { "scope": "sdk", "release": false },
-          { "scope": "sdk-macros", "release": false },
+          { "scope": "pdk", "release": false },
+          { "scope": "pdk-macros", "release": false },
           { "scope": "macro", "release": false }
         ]
       }

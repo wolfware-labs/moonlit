@@ -90,7 +90,7 @@ pub struct PluginNewArgs {
     pub license: Option<String>,
     /// Emit a `path = …` SDK dependency (local dev) instead of a crates.io version.
     #[arg(long)]
-    pub sdk_path: Option<PathBuf>,
+    pub pdk_path: Option<PathBuf>,
 }
 
 #[derive(Debug, clap::Args)]

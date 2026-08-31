@@ -1,0 +1,2 @@
+cargo:rustc-link-lib=static=wit_bindgen_cabi0_59_0
+cargo:rustc-link-search=native=/mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/build/wit-bindgen-623ce27adffbd4d7/out

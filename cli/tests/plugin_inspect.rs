@@ -2,7 +2,7 @@ use assert_cmd::Command;
 
 const FIXTURE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../engine/tests/fixtures/sdk_sample.wasm"
+    "/../engine/tests/fixtures/pdk_sample.wasm"
 );
 
 #[test]
@@ -12,7 +12,7 @@ fn inspect_prints_metadata_and_middlewares() {
         .args(["plugin", "inspect", FIXTURE])
         .assert()
         .success()
-        .stdout(predicates::str::contains("sdk-sample"))
+        .stdout(predicates::str::contains("pdk-sample"))
         .stdout(predicates::str::contains("echo"))
         .stdout(predicates::str::contains("fail"));
 }
@@ -28,7 +28,7 @@ fn inspect_json_emits_structured_output() {
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
-    assert_eq!(v["name"], "sdk-sample");
+    assert_eq!(v["name"], "pdk-sample");
     let names: Vec<_> = v["middlewares"]
         .as_array()
         .unwrap()
@@ -95,7 +95,7 @@ fn inspect_json_carries_icon_and_io_schemas() {
 fn inspects_a_component_by_file_ref() {
     // Absolute path to a committed component fixture, expressed as a file:// ref.
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../engine/tests/fixtures/sdk_sample.wasm")
+        .join("../engine/tests/fixtures/pdk_sample.wasm")
         .canonicalize()
         .unwrap();
     let url = format!("file://{}", fixture.display());
@@ -105,7 +105,7 @@ fn inspects_a_component_by_file_ref() {
         .assert()
         .success()
         .stdout(predicates::str::contains("name:"))
-        .stdout(predicates::str::contains("sdk-sample"));
+        .stdout(predicates::str::contains("pdk-sample"));
 }
 
 #[test]

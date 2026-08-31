@@ -1,0 +1,14 @@
+/mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/deps/serde-9e4e73f0b53ad02f.d: /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/build/serde-37a77b1fc7952bad/out/private.rs
+
+/mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/deps/libserde-9e4e73f0b53ad02f.rlib: /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/build/serde-37a77b1fc7952bad/out/private.rs
+
+/mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/deps/libserde-9e4e73f0b53ad02f.rmeta: /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/build/serde-37a77b1fc7952bad/out/private.rs
+
+/home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/home/mariano/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/build/serde-37a77b1fc7952bad/out/private.rs:
+
+# env-dep:OUT_DIR=/mnt/dev/wolfware/oss/mvp/fixtures/sdk-sample/target/wasm32-wasip2/release/build/serde-37a77b1fc7952bad/out

@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 
-fn sdk_path() -> String {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../sdk").to_string()
+fn pdk_path() -> String {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../pdk").to_string()
 }
 
 fn wasm_target_installed() -> bool {
@@ -30,7 +30,7 @@ fn build_produces_and_validates_a_component() {
     Command::cargo_bin("moonlit")
         .unwrap()
         .current_dir(dir.path())
-        .args(["plugin", "new", "buildme", "--sdk-path", &sdk_path()])
+        .args(["plugin", "new", "buildme", "--pdk-path", &pdk_path()])
         .assert()
         .success();
 

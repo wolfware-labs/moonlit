@@ -2132,12 +2132,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "moonlit-sdk"
-version = "0.3.1"
+name = "moonlit-pdk"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "flate2",
- "moonlit-sdk-macros",
+ "moonlit-pdk-macros",
  "schemars",
  "serde",
  "serde_json",
@@ -2145,8 +2145,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "moonlit-sdk-macros"
-version = "0.3.1"
+name = "moonlit-pdk-macros"
+version = "0.1.0"
 dependencies = [
  "base64",
  "proc-macro2",

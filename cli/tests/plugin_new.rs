@@ -1,8 +1,8 @@
 use assert_cmd::Command;
 
-/// Absolute path to the in-repo SDK, so the scaffold builds without a published crate.
-fn sdk_path() -> String {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../sdk").to_string()
+/// Absolute path to the in-repo PDK, so the scaffold builds without a published crate.
+fn pdk_path() -> String {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../pdk").to_string()
 }
 
 #[test]
@@ -16,8 +16,8 @@ fn new_scaffolds_a_buildable_plugin() {
             "plugin",
             "new",
             "my-plugin",
-            "--sdk-path",
-            &sdk_path(),
+            "--pdk-path",
+            &pdk_path(),
             "--namespace",
             "acme",
         ])
@@ -48,7 +48,7 @@ fn new_rejects_an_invalid_name() {
     Command::cargo_bin("moonlit")
         .unwrap()
         .current_dir(dir.path())
-        .args(["plugin", "new", "2bad", "--sdk-path", &sdk_path()])
+        .args(["plugin", "new", "2bad", "--pdk-path", &pdk_path()])
         .assert()
         .code(2);
 }
@@ -60,7 +60,7 @@ fn new_refuses_to_overwrite_existing_dir() {
     Command::cargo_bin("moonlit")
         .unwrap()
         .current_dir(dir.path())
-        .args(["plugin", "new", "taken", "--sdk-path", &sdk_path()])
+        .args(["plugin", "new", "taken", "--pdk-path", &pdk_path()])
         .assert()
         .code(2);
 }

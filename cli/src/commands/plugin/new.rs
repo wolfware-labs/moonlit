@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::cli::PluginNewArgs;
 
-use super::scaffold::{ScaffoldValues, is_valid_crate_name, sdk_dep_line};
+use super::scaffold::{ScaffoldValues, is_valid_crate_name, pdk_dep_line};
 use super::templates::render_all;
 
 pub fn run(args: PluginNewArgs) -> i32 {
@@ -92,7 +92,7 @@ fn resolve_values(args: &PluginNewArgs, interactive: bool) -> std::io::Result<Sc
         namespace,
         description,
         license,
-        sdk_dep: sdk_dep_line(args.sdk_path.as_deref()),
+        pdk_dep: pdk_dep_line(args.pdk_path.as_deref()),
     })
 }
 

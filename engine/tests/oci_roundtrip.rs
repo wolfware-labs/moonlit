@@ -17,7 +17,7 @@ async fn publish_then_pull_roundtrips() {
         return;
     };
 
-    let wasm = include_bytes!("fixtures/sdk_sample.wasm").to_vec();
+    let wasm = include_bytes!("fixtures/pdk_sample.wasm").to_vec();
     let raw_ref = format!("{host}/moonlit-test/sample:0.0.1");
     let meta = PublishMeta {
         plugin_name: "sample".into(),

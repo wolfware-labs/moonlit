@@ -1,0 +1,23 @@
+[package]
+name = "moonlit-pdk-macros"
+version = "0.1.0"
+edition = "2021"
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Procedural macro for moonlit-pdk (moonlit_plugin!)."
+readme = "README.md"
+keywords = ["moonlit", "plugin", "macro", "wasm", "codegen"]
+categories = ["development-tools::procedural-macro-helpers", "wasm"]
+documentation = "https://docs.rs/moonlit-pdk-macros"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true, features = ["full"] }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+base64 = { workspace = true }
