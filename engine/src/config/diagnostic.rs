@@ -235,7 +235,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_run_uses_verbatim_message_and_span() {
+    fn invalid_run_names_the_bad_reference_and_has_a_span() {
         let d = src().invalid_run("gitpush", Span::new(6, 13));
         assert_eq!(
             d.message(),
@@ -249,7 +249,7 @@ mod tests {
     }
 
     #[test]
-    fn no_stages_is_verbatim_and_spanless() {
+    fn no_stages_has_no_span() {
         let d = src().no_stages();
         assert_eq!(
             d.message(),
@@ -259,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn no_plugins_is_verbatim() {
+    fn no_plugins_names_the_requirement_and_has_a_span() {
         let d = src().no_plugins(Some(Span::new(0, 4)));
         assert_eq!(
             d.message(),
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn plugin_and_middleware_not_found_are_verbatim() {
+    fn plugin_and_middleware_not_found_name_the_missing_item() {
         assert_eq!(
             src().plugin_not_found("gh", Span::new(0, 2)).message(),
             "No plugin is declared with the alias 'gh'."

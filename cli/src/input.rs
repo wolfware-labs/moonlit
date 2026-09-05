@@ -155,6 +155,7 @@ mod tests {
         fs::write(dir.path().join("release.yaml"), "name: b\n").unwrap();
         let r = resolve(None, Some(dir.path().to_path_buf())).unwrap();
         assert_eq!(r.chosen_name, "release.yml");
+        assert_eq!(r.yaml, "name: a\n");
     }
 
     #[test]

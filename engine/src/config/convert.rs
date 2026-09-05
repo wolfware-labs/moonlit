@@ -703,4 +703,36 @@ stages:
         assert_eq!(step.halt_if.as_deref(), Some("true"));
         assert!(step.continue_on_error);
     }
+
+    #[test]
+    fn unknown_plugin_key_is_rejected() {
+        let yaml = "plugins:\n  - name: p\n    url: file:///p.wasm\n    bogusKey: 1\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("bogusKey"), "got: {}", err.message());
+        assert!(err.span().is_some());
+    }
+
+    #[test]
+    fn unknown_permissions_key_is_rejected() {
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "    permissions:\n      netwrok: []\n",
+        );
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("netwrok"), "got: {}", err.message());
+    }
+
+    #[test]
+    fn duplicate_key_in_a_plugin_is_rejected() {
+        let yaml = "plugins:\n  - name: p\n    name: q\n    url: file:///p.wasm\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("name"), "got: {}", err.message());
+    }
+
+    #[test]
+    fn null_url_is_rejected() {
+        let yaml = "plugins:\n  - name: p\n    url:\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("url"), "got: {}", err.message());
+    }
 }

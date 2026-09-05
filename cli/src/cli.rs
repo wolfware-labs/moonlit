@@ -176,8 +176,11 @@ pub struct LogoutArgs {
 
 #[derive(Debug, clap::Args)]
 pub struct ValidateArgs {
+    /// Pipeline file (default: release.yml, then release.yaml).
     #[arg(short = 'f', long = "file")]
     pub file: Option<PathBuf>,
+
+    /// Working directory (default: current).
     #[arg(short = 'w', long = "working-dir")]
     pub working_dir: Option<PathBuf>,
 }
