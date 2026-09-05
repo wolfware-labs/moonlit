@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0](https://github.com/wolfware-labs/moonlit/releases/tag/moonlit-pdk-v0.1.0) - 2026-08-31
+
+### Other
+
+- *(pdk)* [**breaking**] rename moonlit-sdk to moonlit-pdk
+
 ## [0.3.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-v0.3.0...moonlit-pdk-v0.3.1) - 2026-08-01
 
 ### Other
