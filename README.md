@@ -101,11 +101,18 @@ depend on them directly.
 
 ## How it works
 
-```
-release.yml ──▶ engine::config ──▶ engine::resolve ──▶ engine::host ──▶ engine::pipeline
-                 parse and          fetch and cache      wasmtime +        run stages,
-                 validate           the component        WASI P2 with      bind outputs,
-                                                         granted caps      evaluate exprs
+```mermaid
+flowchart LR
+    yaml["release.yml"] --> cfg["engine::config<br/>parse · validate"]
+    cfg --> res["engine::resolve<br/>fetch · content-cache"]
+    reg[("oci:// · file:// · https://")] -. plugin components .-> res
+    res --> run["engine::pipeline<br/>stages · steps · expressions"]
+
+    subgraph sandbox ["engine::host — wasmtime, WASI Preview 2"]
+        plug["plugin component<br/>network · exec · env · filesystem<br/><i>only as the pipeline grants</i>"]
+    end
+
+    run <-. "JSON over moonlit:plugin ABI" .-> plug
 ```
 
 The plugin ABI is authored in WIT at `engine/wit/moonlit-plugin.wit`. Dynamic config and
