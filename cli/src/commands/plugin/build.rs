@@ -193,12 +193,7 @@ pub fn run(args: PluginBuildArgs) -> i32 {
         return 2;
     }
 
-    let mut cmd = std::process::Command::new("cargo");
-    cmd.current_dir(&crate_dir)
-        .args(["build", "--target", "wasm32-wasip2"]);
-    if args.release {
-        cmd.arg("--release");
-    }
+    let mut cmd = cargo_build_command(&crate_dir, args.release);
     let status = match cmd.status() {
         Ok(s) => s,
         Err(e) => {
@@ -248,9 +243,66 @@ pub fn run(args: PluginBuildArgs) -> i32 {
     0
 }
 
+/// The `cargo build` invocation for a plugin crate, targeting wasm32-wasip2.
+///
+/// Host rustflags are cleared rather than inherited. They arrive through the environment
+/// and apply to the *target* artifacts once `--target` is set, so a flag chosen for the
+/// host lands on a wasm component that may not support it — `cargo llvm-cov` exporting
+/// `-C instrument-coverage` breaks the build outright, because `profiler_builtins` has no
+/// wasm32-wasip2 build. Flags meant for the component still work: set them in the plugin
+/// crate's own `.cargo/config.toml`, which is read from the crate directory and can be
+/// scoped to the target.
+fn cargo_build_command(crate_dir: &Path, release: bool) -> std::process::Command {
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.current_dir(crate_dir)
+        .args(["build", "--target", "wasm32-wasip2"])
+        .env_remove("RUSTFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .env_remove("CARGO_BUILD_RUSTFLAGS");
+    if release {
+        cmd.arg("--release");
+    }
+    cmd
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The nested build targets wasm32-wasip2, so the caller's host RUSTFLAGS must not
+    /// reach it. A coverage-instrumented shell is the case that bites: `profiler_builtins`
+    /// has no wasm32-wasip2 build, so an inherited `-C instrument-coverage` fails the
+    /// component build outright with E0463.
+    #[test]
+    fn build_command_does_not_inherit_host_rustflags() {
+        let cmd = cargo_build_command(Path::new("/tmp/plugin"), false);
+        let removed: Vec<_> = cmd
+            .get_envs()
+            .filter(|(_, v)| v.is_none())
+            .map(|(k, _)| k.to_string_lossy().into_owned())
+            .collect();
+        for var in [
+            "RUSTFLAGS",
+            "CARGO_ENCODED_RUSTFLAGS",
+            "CARGO_BUILD_RUSTFLAGS",
+        ] {
+            assert!(
+                removed.contains(&var.to_string()),
+                "{var} should be cleared for the wasm build, got {removed:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn build_command_targets_wasm_and_honours_release() {
+        let debug = cargo_build_command(Path::new("/tmp/plugin"), false);
+        let args: Vec<_> = debug.get_args().map(|a| a.to_string_lossy()).collect();
+        assert_eq!(args, ["build", "--target", "wasm32-wasip2"]);
+
+        let release = cargo_build_command(Path::new("/tmp/plugin"), true);
+        let args: Vec<_> = release.get_args().map(|a| a.to_string_lossy()).collect();
+        assert_eq!(args, ["build", "--target", "wasm32-wasip2", "--release"]);
+    }
 
     #[test]
     fn parses_a_cdylib_plugin() {
