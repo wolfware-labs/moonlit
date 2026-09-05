@@ -42,7 +42,7 @@ fn convert_root(
     let mut stages: Option<Spanned<Vec<Stage>>> = None;
 
     for (key, value) in entries {
-        match schema_key(key).as_deref() {
+        match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("arguments") => arguments = Some(string_map(value, "arguments", src)?),
             Some("variables") => variables = Some(string_map(value, "variables", src)?),
@@ -61,10 +61,11 @@ fn convert_root(
     })
 }
 
-/// Lowercased key of a scalar key node (schema matching); `None` for non-scalar keys.
-fn schema_key(key: &Node) -> Option<String> {
+/// Verbatim key of a scalar key node, for exact schema matching; `None` for non-scalar keys.
+/// Schema keys are case-sensitive: `Plugins` is not `plugins`.
+fn schema_key(key: &Node) -> Option<&str> {
     match &key.value {
-        NodeValue::Scalar(raw) => Some(raw.to_lowercase()),
+        NodeValue::Scalar(raw) => Some(raw.as_str()),
         _ => None,
     }
 }
@@ -126,7 +127,7 @@ fn convert_plugin(node: &Node, src: &Source) -> Result<Plugin, ConfigDiagnostic>
     let mut permissions: Option<Permissions> = None;
 
     for (key, value) in entries {
-        match schema_key(key).as_deref() {
+        match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("url") => url = Some(convert_url(value, src)?),
             Some("config") => config = Some(config_map(value)),
@@ -193,7 +194,7 @@ fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigD
     let mut p = Permissions::deny();
     if let NodeValue::Map(entries) = &node.value {
         for (key, value) in entries {
-            match schema_key(key).as_deref() {
+            match schema_key(key) {
                 Some("network") => p.network = string_list(value),
                 Some("exec") => p.exec = string_list(value),
                 Some("env") => p.env = string_list(value),
@@ -269,12 +270,12 @@ fn convert_step(node: &Node, src: &Source) -> Result<Step, ConfigDiagnostic> {
     let mut config: Option<ConfigMap> = None;
 
     for (key, value) in entries {
-        match schema_key(key).as_deref() {
+        match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("run") => run = Some(convert_run(value, src)?),
             Some("condition") => condition = scalar_string(value),
-            Some("haltif") => halt_if = scalar_string(value),
-            Some("continueonerror") => continue_on_error = Some(parse_bool(value, src)?),
+            Some("haltIf") => halt_if = scalar_string(value),
+            Some("continueOnError") => continue_on_error = Some(parse_bool(value, src)?),
             Some("config") => config = Some(config_map(value)),
             _ => {}
         }
@@ -362,9 +363,9 @@ stages:
     }
 
     #[test]
-    fn schema_keys_are_case_insensitive() {
+    fn canonical_schema_keys_parse() {
         let c = ok(
-            "Name: demo\nPLUGINS:\n  - Name: git\n    URL: file:///p.wasm\nStages:\n  s:\n    - name: a\n      RUN: git.x\n",
+            "name: demo\nplugins:\n  - name: git\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: git.x\n",
         );
         assert_eq!(c.name, "demo");
         assert_eq!(c.plugins.value[0].name, "git");
@@ -538,5 +539,36 @@ stages:
         )
         .unwrap_err();
         assert_eq!(err.message(), "Expected a string value in variables.");
+    }
+
+    #[test]
+    fn lowercased_key_no_longer_matches_the_schema() {
+        // Before this change `haltif` matched `haltIf` because keys were lowercased.
+        // It is now simply not a schema key, so it does not populate the field.
+        // Task 6 turns it into an outright error; this asserts only what case
+        // sensitivity alone delivers, so the suite stays green between the two.
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "stages:\n  s:\n    - name: a\n      run: p.x\n      haltif: 'true'\n",
+        );
+        let c = ok(yaml);
+        assert_eq!(
+            c.stages.value[0].steps[0].halt_if.as_deref(),
+            None,
+            "`haltif` must no longer be accepted as `haltIf`"
+        );
+    }
+
+    #[test]
+    fn canonical_camel_case_keys_parse() {
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "stages:\n  s:\n    - name: a\n      run: p.x\n",
+            "      haltIf: 'true'\n      continueOnError: true\n",
+        );
+        let c = ok(yaml);
+        let step = &c.stages.value[0].steps[0];
+        assert_eq!(step.halt_if.as_deref(), Some("true"));
+        assert!(step.continue_on_error);
     }
 }
