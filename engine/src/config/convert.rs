@@ -51,10 +51,30 @@ fn convert_root(
         }
         match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
-            Some("arguments") => arguments = Some(string_map(value, "arguments", src)?),
-            Some("variables") => variables = Some(string_map(value, "variables", src)?),
-            Some("plugins") => plugins = Some(convert_plugins(value, src)?),
-            Some("stages") => stages = Some(convert_stages(value, src)?),
+            Some("arguments") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("arguments", "a mapping", value.span));
+                }
+                arguments = Some(string_map(value, "arguments", src)?)
+            }
+            Some("variables") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("variables", "a mapping", value.span));
+                }
+                variables = Some(string_map(value, "variables", src)?)
+            }
+            Some("plugins") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("plugins", "a sequence of plugins", value.span));
+                }
+                plugins = Some(convert_plugins(value, src)?)
+            }
+            Some("stages") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("stages", "a mapping of stages", value.span));
+                }
+                stages = Some(convert_stages(value, src)?)
+            }
             other => {
                 return Err(src.unknown_key(other.unwrap_or_default(), "configuration", key.span));
             }
@@ -145,7 +165,12 @@ fn convert_plugin(node: &Node, src: &Source) -> Result<Plugin, ConfigDiagnostic>
         }
         match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
-            Some("url") => url = Some(convert_url(value, src)?),
+            Some("url") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("url", "a plugin URL", value.span));
+                }
+                url = Some(convert_url(value, src)?)
+            }
             Some("config") => config = Some(config_map(value)),
             Some("permissions") => permissions = Some(convert_permissions(value, src)?),
             other => {
@@ -647,6 +672,23 @@ stages:
         let err = parse(yaml).unwrap_err();
         assert!(err.message().contains("name"), "got: {}", err.message());
         assert!(err.span().is_some());
+    }
+
+    #[test]
+    fn null_under_a_schema_key_is_rejected() {
+        let yaml = "plugins:\nstages:\n  s:\n    - name: a\n      run: p.x\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("plugins"), "got: {}", err.message());
+    }
+
+    #[test]
+    fn null_inside_plugin_config_is_preserved() {
+        // A plugin's config is the plugin's contract: null may be meaningful there.
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n    config:\n      maybe:\n",
+            "stages:\n  s:\n    - name: a\n      run: p.x\n",
+        );
+        assert!(parse(yaml).is_ok());
     }
 
     #[test]

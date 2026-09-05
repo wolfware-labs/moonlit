@@ -211,6 +211,17 @@ impl<'a> Source<'a> {
             "duplicate key",
         )
     }
+
+    /// A schema key present but with no value. The schema is Moonlit's own contract and must be
+    /// precise; a null inside a plugin's arbitrary config map is left alone, because there it may
+    /// be a value the plugin acts on.
+    pub fn null_value(&self, key: &str, expected: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Key '{key}' expects {expected}, but has no value."),
+            Some(span),
+            "missing value",
+        )
+    }
 }
 
 #[cfg(test)]
