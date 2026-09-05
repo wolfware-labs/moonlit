@@ -22,6 +22,7 @@ environment, or subprocesses unless the pipeline grants it.
 <a href="https://github.com/wolfware-labs/homebrew-tap"><img alt="Homebrew" src="https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwolfware-labs%2Fhomebrew-tap%2Fmain%2FFormula%2Fmoonlit.rb&search=version%20%22%28%5B%5E%22%5D%2B%29%22&replace=%241&label=homebrew&logo=homebrew&color=blue"></a>
 <a href="https://www.npmjs.com/package/@moonlitbuild/cli"><img alt="npm" src="https://img.shields.io/npm/v/%40moonlitbuild%2Fcli?logo=npm&label=npm"></a>
 <a href="https://community.chocolatey.org/packages/moonlit"><img alt="Chocolatey" src="https://img.shields.io/chocolatey/v/moonlit?logo=chocolatey&label=chocolatey"></a>
+<a href="https://hub.docker.com/r/wolfware/moonlit"><img alt="Docker" src="https://img.shields.io/docker/v/wolfware/moonlit?logo=docker&label=docker&sort=semver"></a>
 </td>
 </tr>
 <tr>
@@ -51,10 +52,16 @@ touch the working directory at all.
 
 ## Installation
 
-Shell one-liner, PowerShell, Homebrew, Chocolatey, or npm — see **[INSTALL.md](INSTALL.md)**.
+Shell one-liner, PowerShell, Homebrew, Chocolatey, npm, or Docker — see **[INSTALL.md](INSTALL.md)**.
 
 ```sh
 brew install wolfware-labs/tap/moonlit
+```
+
+Or run it without installing anything:
+
+```sh
+docker run --rm -v "$PWD:/work" wolfware/moonlit:latest run
 ```
 
 ## Quick start
