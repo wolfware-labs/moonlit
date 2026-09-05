@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.8](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.7...moonlit-v1.1.8) (2026-09-05)
+
+### Bug Fixes
+
+* **choco:** give the package icon an opaque background ([2b033c4](https://github.com/wolfware-labs/moonlit/commit/2b033c4dd1c11e04c7acd98453dea93fe12d84d4)), closes [#0B0E0F](https://github.com/wolfware-labs/moonlit/issues/0B0E0F)
+
 ## [1.1.7](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.6...moonlit-v1.1.7) (2026-09-05)
 
 ### ⚠ BREAKING CHANGES
