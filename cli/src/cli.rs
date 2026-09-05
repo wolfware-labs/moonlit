@@ -118,7 +118,7 @@ pub struct PluginPublishArgs {
 
 #[derive(Debug, clap::Args)]
 pub struct RunArgs {
-    /// Pipeline file (default: release.yml, then moonlit.yml).
+    /// Pipeline file (default: release.yml, then release.yaml).
     #[arg(short = 'f', long = "file")]
     pub file: Option<PathBuf>,
 

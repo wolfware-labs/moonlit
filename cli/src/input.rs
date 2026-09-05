@@ -34,7 +34,7 @@ pub struct ResolvedInput {
 }
 
 /// Candidate file names tried, in order, when `-f` is not given.
-const DEFAULT_NAMES: [&str; 2] = ["release.yml", "moonlit.yml"];
+const DEFAULT_NAMES: [&str; 2] = ["release.yml", "release.yaml"];
 
 /// Resolve CLI inputs from file and working directory arguments.
 pub fn resolve(
@@ -149,21 +149,31 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn prefers_release_yml_over_moonlit_yml() {
+    fn prefers_release_yml_over_release_yaml() {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("release.yml"), "name: a\n").unwrap();
-        fs::write(dir.path().join("moonlit.yml"), "name: b\n").unwrap();
+        fs::write(dir.path().join("release.yaml"), "name: b\n").unwrap();
         let r = resolve(None, Some(dir.path().to_path_buf())).unwrap();
         assert_eq!(r.chosen_name, "release.yml");
-        assert_eq!(r.yaml, "name: a\n");
     }
 
     #[test]
-    fn falls_back_to_moonlit_yml() {
+    fn falls_back_to_release_yaml() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("release.yaml"), "name: b\n").unwrap();
+        let r = resolve(None, Some(dir.path().to_path_buf())).unwrap();
+        assert_eq!(r.chosen_name, "release.yaml");
+    }
+
+    #[test]
+    fn moonlit_yml_is_not_auto_detected() {
+        // The old engine's filename. Users who still have one can pass it with -f.
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("moonlit.yml"), "name: b\n").unwrap();
-        let r = resolve(None, Some(dir.path().to_path_buf())).unwrap();
-        assert_eq!(r.chosen_name, "moonlit.yml");
+        assert!(
+            resolve(None, Some(dir.path().to_path_buf())).is_err(),
+            "moonlit.yml must not be discovered automatically"
+        );
     }
 
     #[test]
