@@ -70,7 +70,13 @@ jobs:
           # they would otherwise evict the plain test artifacts on every run.
           key: ${{ runner.os }}-cargo-llvmcov-${{ hashFiles('**/Cargo.lock') }}
       - name: Generate coverage
-        run: cargo llvm-cov --all --lcov --output-path lcov.info
+        # --skip build_produces_and_validates_a_component: llvm-cov exports
+        # `-C instrument-coverage` globally, and that test drives `moonlit plugin
+        # build`, which spawns a nested `cargo build --target wasm32-wasip2`. The
+        # child inherits the flag and fails with E0463 (`profiler_builtins` has no
+        # wasm32-wasip2 build). The test still runs unskipped in the check job, so
+        # it stays gated - only its coverage is missing.
+        run: cargo llvm-cov --all --lcov --output-path lcov.info -- --skip build_produces_and_validates_a_component
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
         with:
