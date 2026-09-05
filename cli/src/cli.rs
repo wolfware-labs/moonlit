@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
-/// The `moonlit` CLI. With no subcommand, behaves like `version` (C# parity).
+/// The `moonlit` CLI.
 #[derive(Debug, Parser)]
 #[command(name = "moonlit", version, disable_help_subcommand = true)]
 pub struct Cli {

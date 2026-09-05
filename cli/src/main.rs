@@ -14,7 +14,16 @@ async fn main() {
     let output = args.output;
     let verbose = args.verbose;
     let code = match args.command {
-        None | Some(Command::Version) => commands::version::run(),
+        // A bare `moonlit` prints help, like any other modern CLI. `moonlit version`
+        // remains the way to see the banner.
+        None => {
+            use clap::CommandFactory as _;
+            let mut cmd = Cli::command();
+            cmd.print_help().expect("writing help to stdout");
+            println!();
+            0
+        }
+        Some(Command::Version) => commands::version::run(),
         Some(Command::Run(a)) => {
             let dry = a.dry_run;
             commands::run::run(output, verbose, a, dry).await
