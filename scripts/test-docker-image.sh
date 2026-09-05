@@ -56,7 +56,9 @@ pass "4: git is present"
 [ "$(in_image 'echo $HOME')" = "/home/moonlit" ] || fail "5: HOME is not /home/moonlit"
 in_image 'test -w "$HOME"' || fail "5: HOME is not writable"
 in_image 'test -w /home/moonlit/.cache/moonlit' || fail "5: cache dir is not writable"
-pass "5: HOME set and writable, cache dir writable"
+docker run --rm --user 1001:0 --entrypoint sh "$IMAGE" -c 'touch "$HOME/.probe"' \
+  || fail "5: HOME is not writable under a mismatched uid with gid 0"
+pass "5: HOME set and writable, cache dir writable, and writable under an arbitrary uid with gid 0"
 
 # 6. CA certificates, without which every oci:// and https:// resolve fails TLS.
 in_image 'test -s /etc/ssl/certs/ca-certificates.crt' || fail "6: CA bundle missing or empty"
@@ -69,12 +71,23 @@ workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 cp "$REPO_ROOT/tests/docker/release.yml" "$workdir/release.yml"
 cp "$REPO_ROOT/engine/tests/fixtures/test_plugin.wasm" "$workdir/test_plugin.wasm"
+# mktemp -d is 0700, and on most CI runners the host uid differs from the image's,
+# so the container could not otherwise enter the mount at all.
+chmod 0755 "$workdir"
 
-e2e_output="$(docker run --rm -v "$workdir:/work" "$IMAGE" run --output plain 2>&1)" \
-  || fail "7: pipeline run exited non-zero:\n$e2e_output"
-grep -q "SUCCESS" <<<"$e2e_output" \
-  || fail "7: pipeline output had no SUCCESS row:\n$e2e_output"
-pass "7: e2e pipeline runs a wasm plugin to SUCCESS"
+run_e2e() {
+  local label="$1"
+  shift
+  local out
+  if ! out="$(docker run --rm "$@" -v "$workdir:/work" "$IMAGE" run --output plain 2>&1)"; then
+    fail "7: pipeline run ($label) exited non-zero:\n$out"
+  fi
+  grep -q "SUCCESS" <<<"$out" || fail "7: pipeline output ($label) had no SUCCESS row:\n$out"
+}
+
+run_e2e "default user"
+run_e2e "host uid with gid 0" --user "$(id -u):0"
+pass "7: e2e pipeline runs a wasm plugin to SUCCESS (default user and mismatched uid)"
 
 # 8. OCI metadata, and the architecture the manifest claims.
 labels="$(docker image inspect "$IMAGE" --format '{{json .Config.Labels}}')"

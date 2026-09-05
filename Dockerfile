@@ -23,10 +23,18 @@ RUN set -eux; \
 
 COPY dist/linux/${TARGETARCH}/moonlit /usr/local/bin/moonlit
 
+# Bind mounts carry the host's ownership, so a container user whose uid does not
+# match the host's cannot write the mounted workspace. The usual remedy is
+# `--user "$(id -u):0"`, which then leaves $HOME unwritable and breaks the plugin
+# cache and the credentials file. Giving $HOME to the root group and mirroring the
+# owner bits onto it keeps it writable for any uid running with gid 0, without
+# granting world-write.
 RUN set -eux; \
     groupadd --gid 1000 moonlit; \
     useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash moonlit; \
     install -d -o moonlit -g moonlit /work /home/moonlit/.cache/moonlit; \
+    chgrp -R 0 /home/moonlit; \
+    chmod -R g=u /home/moonlit; \
     moonlit --version
 
 # Load-bearing: Docker does not set HOME on USER, it inherits /root from the

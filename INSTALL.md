@@ -35,6 +35,16 @@ runs instead of fetching them every time, mount the cache as well:
       -v moonlit-cache:/home/moonlit/.cache/moonlit \
       wolfware/moonlit:latest run
 
+On Linux the container runs as uid 1000, and a bind mount keeps the host's
+ownership, so a pipeline that writes into your repository needs the container to
+run as you. If your host uid differs from 1000 — most CI runners — pass your own
+uid with the root group:
+
+    docker run --rm \
+      --user "$(id -u):0" \
+      -v "$PWD:/work" \
+      wolfware/moonlit:latest run
+
 Tags follow the CLI: `1.2.3`, `1.2`, `1`, and `latest`. Images are published for
 `linux/amd64` and `linux/arm64`.
 
