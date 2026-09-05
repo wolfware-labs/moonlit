@@ -37,6 +37,23 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: test
         run: cargo test --all
+      # The docker job packages this binary instead of compiling its own. Copy
+      # rather than move — the cache post-step saves `target`, and removing the
+      # binary from it would force a relink on the next run. The copy is
+      # stripped because the unstripped debug binary is ~657 MB, and uploading
+      # that costs more than the build it saves.
+      - name: Stage the CLI binary for the docker job
+        run: |
+          mkdir -p dist/linux/amd64
+          cp target/debug/moonlit dist/linux/amd64/moonlit
+          strip dist/linux/amd64/moonlit
+          ls -la dist/linux/amd64/moonlit
+      - name: Upload the CLI binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: moonlit-linux-amd64
+          path: dist/linux/amd64/moonlit
+          retention-days: 1
 
   coverage:
     name: coverage
@@ -78,6 +95,34 @@ jobs:
           use_oidc: true
           # A coverage upload outage must not fail a PR; the check job is the gate.
           fail_ci_if_error: false
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    needs: check
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download the CLI binary
+        uses: actions/download-artifact@v7
+        with:
+          name: moonlit-linux-amd64
+          path: dist/linux/amd64
+      - name: Restore the executable bit
+        # upload-artifact does not preserve file modes.
+        run: chmod +x dist/linux/amd64/moonlit
+      - name: Build the image (amd64 only, never pushed)
+        run: |
+          version="$(dist/linux/amd64/moonlit --version | awk '{print $2}')"
+          echo "MOONLIT_VERSION=$version" >> "$GITHUB_ENV"
+          docker build \
+            --build-arg "MOONLIT_VERSION=$version" \
+            --build-arg "VCS_REF=${GITHUB_SHA::7}" \
+            -t moonlit:ci \
+            .
+      - name: Run the image assertion suite
+        run: scripts/test-docker-image.sh moonlit:ci "$MOONLIT_VERSION"
 
   dist-plan:
     name: dist plan (release config)
