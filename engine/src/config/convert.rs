@@ -41,7 +41,14 @@ fn convert_root(
     let mut plugins: Option<Spanned<Vec<Plugin>>> = None;
     let mut stages: Option<Spanned<Vec<Stage>>> = None;
 
+    let mut seen: Vec<&str> = Vec::new();
     for (key, value) in entries {
+        if let Some(k) = schema_key(key) {
+            if seen.contains(&k) {
+                return Err(src.duplicate_key(k, key.span));
+            }
+            seen.push(k);
+        }
         match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("arguments") => arguments = Some(string_map(value, "arguments", src)?),
@@ -128,7 +135,14 @@ fn convert_plugin(node: &Node, src: &Source) -> Result<Plugin, ConfigDiagnostic>
     let mut config: Option<ConfigMap> = None;
     let mut permissions: Option<Permissions> = None;
 
+    let mut seen: Vec<&str> = Vec::new();
     for (key, value) in entries {
+        if let Some(k) = schema_key(key) {
+            if seen.contains(&k) {
+                return Err(src.duplicate_key(k, key.span));
+            }
+            seen.push(k);
+        }
         match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("url") => url = Some(convert_url(value, src)?),
@@ -197,7 +211,14 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
 fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigDiagnostic> {
     let mut p = Permissions::deny();
     if let NodeValue::Map(entries) = &node.value {
+        let mut seen: Vec<&str> = Vec::new();
         for (key, value) in entries {
+            if let Some(k) = schema_key(key) {
+                if seen.contains(&k) {
+                    return Err(src.duplicate_key(k, key.span));
+                }
+                seen.push(k);
+            }
             match schema_key(key) {
                 Some("network") => p.network = string_list(value),
                 Some("exec") => p.exec = string_list(value),
@@ -275,7 +296,14 @@ fn convert_step(node: &Node, src: &Source) -> Result<Step, ConfigDiagnostic> {
     let mut continue_on_error: Option<bool> = None;
     let mut config: Option<ConfigMap> = None;
 
+    let mut seen: Vec<&str> = Vec::new();
     for (key, value) in entries {
+        if let Some(k) = schema_key(key) {
+            if seen.contains(&k) {
+                return Err(src.duplicate_key(k, key.span));
+            }
+            seen.push(k);
+        }
         match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("run") => run = Some(convert_run(value, src)?),
@@ -387,11 +415,14 @@ stages:
     }
 
     #[test]
-    fn duplicate_schema_key_is_last_wins() {
-        let c = ok(
+    fn duplicate_schema_key_is_rejected_not_last_wins() {
+        // Previously last-wins silently discarded the first `name`. Duplicate schema keys
+        // are now an error (see `duplicate_schema_keys_are_rejected` in diagnostic.rs tests).
+        let err = parse(
             "name: first\nname: second\nplugins:\n  - name: git\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: git.x\n",
-        );
-        assert_eq!(c.name, "second");
+        )
+        .unwrap_err();
+        assert!(err.message().contains("name"), "got: {}", err.message());
     }
 
     #[test]
@@ -607,6 +638,15 @@ stages:
             "stages:\n  s:\n    - name: a\n      run: p.x\n",
         );
         assert!(parse(yaml).is_ok());
+    }
+
+    #[test]
+    fn duplicate_schema_keys_are_rejected() {
+        // YAML forbids duplicate mapping keys; last-wins silently discarded the first.
+        let yaml = "name: a\nname: b\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("name"), "got: {}", err.message());
+        assert!(err.span().is_some());
     }
 
     #[test]

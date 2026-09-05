@@ -201,6 +201,16 @@ impl<'a> Source<'a> {
             "unknown key",
         )
     }
+
+    /// The same schema key given twice. YAML forbids duplicate mapping keys; accepting them and
+    /// keeping the last silently discarded whatever the author wrote first.
+    pub fn duplicate_key(&self, key: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Duplicate key '{key}'."),
+            Some(span),
+            "duplicate key",
+        )
+    }
 }
 
 #[cfg(test)]
