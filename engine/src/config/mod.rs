@@ -74,7 +74,7 @@ stages:
         .unwrap_err();
         assert_eq!(
             err.message(),
-            "No stages found in the release configuration."
+            "No stages defined. A pipeline needs at least one stage."
         );
     }
 
@@ -87,7 +87,7 @@ stages:
         .unwrap_err();
         assert_eq!(
             err.message(),
-            "At least one plugin configuration must be provided."
+            "No plugins declared. Every step runs a middleware from a plugin, so at least one is required."
         );
     }
 
@@ -102,7 +102,7 @@ stages:
         let err = parse_config(yaml, "release.yml").unwrap_err();
         assert_eq!(
             err.message(),
-            "Invalid run format: nodot. Expected format: 'plugin.middleware'"
+            "'nodot' is not a valid run reference; use the format 'plugin.middleware'."
         );
         let span = err.span().expect("has a span");
         let (start, len) = (span.offset(), span.len());

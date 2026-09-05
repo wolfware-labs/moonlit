@@ -91,7 +91,7 @@ impl<'a> Source<'a> {
     /// `run:` is not `plugin.middleware`.
     pub fn invalid_run(&self, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
-            format!("Invalid run format: {value}. Expected format: 'plugin.middleware'"),
+            format!("'{value}' is not a valid run reference; use the format 'plugin.middleware'."),
             Some(span),
             "expected 'plugin.middleware'",
         )
@@ -150,7 +150,7 @@ impl<'a> Source<'a> {
     /// No stages found. No span — nothing to point at.
     pub fn no_stages(&self) -> ConfigDiagnostic {
         self.make(
-            "No stages found in the release configuration.".to_string(),
+            "No stages defined. A pipeline needs at least one stage.".to_string(),
             None,
             "",
         )
@@ -159,7 +159,8 @@ impl<'a> Source<'a> {
     /// Stages present but no plugins.
     pub fn no_plugins(&self, span: Option<Span>) -> ConfigDiagnostic {
         self.make(
-            "At least one plugin configuration must be provided.".to_string(),
+            "No plugins declared. Every step runs a middleware from a plugin, so at least one is required."
+                .to_string(),
             span,
             "define at least one plugin",
         )
@@ -168,7 +169,7 @@ impl<'a> Source<'a> {
     /// A `run:` referencing a plugin alias that was not declared (§7.4).
     pub fn plugin_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
-            format!("Plugin '{name}' not found."),
+            format!("No plugin is declared with the alias '{name}'."),
             Some(span),
             "unknown plugin",
         )
@@ -177,7 +178,7 @@ impl<'a> Source<'a> {
     /// A `run:` naming a middleware the plugin does not export (§7.4).
     pub fn middleware_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
-            format!("Middleware with name '{name}' not found."),
+            format!("The plugin does not export a middleware named '{name}'."),
             Some(span),
             "unknown middleware",
         )
@@ -238,7 +239,7 @@ mod tests {
         let d = src().invalid_run("gitpush", Span::new(6, 13));
         assert_eq!(
             d.message(),
-            "Invalid run format: gitpush. Expected format: 'plugin.middleware'"
+            "'gitpush' is not a valid run reference; use the format 'plugin.middleware'."
         );
         // Display (thiserror) matches the message.
         assert_eq!(format!("{d}"), d.message());
@@ -250,7 +251,10 @@ mod tests {
     #[test]
     fn no_stages_is_verbatim_and_spanless() {
         let d = src().no_stages();
-        assert_eq!(d.message(), "No stages found in the release configuration.");
+        assert_eq!(
+            d.message(),
+            "No stages defined. A pipeline needs at least one stage."
+        );
         assert!(d.span().is_none());
     }
 
@@ -259,7 +263,7 @@ mod tests {
         let d = src().no_plugins(Some(Span::new(0, 4)));
         assert_eq!(
             d.message(),
-            "At least one plugin configuration must be provided."
+            "No plugins declared. Every step runs a middleware from a plugin, so at least one is required."
         );
         assert!(d.span().is_some());
     }
@@ -268,11 +272,11 @@ mod tests {
     fn plugin_and_middleware_not_found_are_verbatim() {
         assert_eq!(
             src().plugin_not_found("gh", Span::new(0, 2)).message(),
-            "Plugin 'gh' not found."
+            "No plugin is declared with the alias 'gh'."
         );
         assert_eq!(
             src().middleware_not_found("tag", Span::new(0, 3)).message(),
-            "Middleware with name 'tag' not found."
+            "The plugin does not export a middleware named 'tag'."
         );
     }
 

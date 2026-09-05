@@ -76,7 +76,7 @@ mod tests {
         let err = validate(&c, &Source::new("", "release.yml")).unwrap_err();
         assert_eq!(
             err.message(),
-            "No stages found in the release configuration."
+            "No stages defined. A pipeline needs at least one stage."
         );
     }
 
@@ -86,7 +86,7 @@ mod tests {
         let err = validate(&c, &Source::new("", "release.yml")).unwrap_err();
         assert_eq!(
             err.message(),
-            "At least one plugin configuration must be provided."
+            "No plugins declared. Every step runs a middleware from a plugin, so at least one is required."
         );
     }
 

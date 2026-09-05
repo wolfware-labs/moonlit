@@ -484,7 +484,7 @@ stages:
         let err = parse("plugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: nodot\n").unwrap_err();
         assert_eq!(
             err.message(),
-            "Invalid run format: nodot. Expected format: 'plugin.middleware'"
+            "'nodot' is not a valid run reference; use the format 'plugin.middleware'."
         );
     }
 
