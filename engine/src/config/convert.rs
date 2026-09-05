@@ -48,7 +48,9 @@ fn convert_root(
             Some("variables") => variables = Some(string_map(value, "variables", src)?),
             Some("plugins") => plugins = Some(convert_plugins(value, src)?),
             Some("stages") => stages = Some(convert_stages(value, src)?),
-            _ => {} // unknown key ignored
+            other => {
+                return Err(src.unknown_key(other.unwrap_or_default(), "configuration", key.span));
+            }
         }
     }
 
@@ -132,7 +134,9 @@ fn convert_plugin(node: &Node, src: &Source) -> Result<Plugin, ConfigDiagnostic>
             Some("url") => url = Some(convert_url(value, src)?),
             Some("config") => config = Some(config_map(value)),
             Some("permissions") => permissions = Some(convert_permissions(value, src)?),
-            _ => {}
+            other => {
+                return Err(src.unknown_key(other.unwrap_or_default(), "plugin", key.span));
+            }
         }
     }
 
@@ -204,7 +208,9 @@ fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigD
                             parse_fs(&s).ok_or_else(|| src.invalid_filesystem(&s, value.span))?;
                     }
                 }
-                _ => {}
+                other => {
+                    return Err(src.unknown_key(other.unwrap_or_default(), "permissions", key.span));
+                }
             }
         }
     }
@@ -277,7 +283,9 @@ fn convert_step(node: &Node, src: &Source) -> Result<Step, ConfigDiagnostic> {
             Some("haltIf") => halt_if = scalar_string(value),
             Some("continueOnError") => continue_on_error = Some(parse_bool(value, src)?),
             Some("config") => config = Some(config_map(value)),
-            _ => {}
+            other => {
+                return Err(src.unknown_key(other.unwrap_or_default(), "step", key.span));
+            }
         }
     }
 
@@ -373,12 +381,9 @@ stages:
     }
 
     #[test]
-    fn unknown_keys_are_ignored() {
-        let c = ok(
-            "name: demo\nnope: 1\nplugins:\n  - name: git\n    url: file:///p.wasm\n    bogus: x\nstages:\n  s:\n    - name: a\n      run: git.x\n      mystery: 9\n",
-        );
-        assert_eq!(c.name, "demo");
-        assert_eq!(c.plugins.value[0].name, "git");
+    fn unknown_keys_are_rejected() {
+        let yaml = "name: x\nnotAKey: 1\n";
+        assert!(parse(yaml).is_err());
     }
 
     #[test]
@@ -543,20 +548,65 @@ stages:
 
     #[test]
     fn lowercased_key_no_longer_matches_the_schema() {
-        // Before this change `haltif` matched `haltIf` because keys were lowercased.
-        // It is now simply not a schema key, so it does not populate the field.
-        // Task 6 turns it into an outright error; this asserts only what case
-        // sensitivity alone delivers, so the suite stays green between the two.
+        // Before task 5 `haltif` matched `haltIf` because keys were lowercased. Case
+        // sensitivity means it is simply not a schema key, and unknown schema keys are
+        // now an error rather than being silently skipped.
         let yaml = concat!(
             "plugins:\n  - name: p\n    url: file:///p.wasm\n",
             "stages:\n  s:\n    - name: a\n      run: p.x\n      haltif: 'true'\n",
         );
-        let c = ok(yaml);
-        assert_eq!(
-            c.stages.value[0].steps[0].halt_if.as_deref(),
-            None,
-            "`haltif` must no longer be accepted as `haltIf`"
+        let err = parse(yaml).unwrap_err();
+        assert!(
+            err.message().contains("haltif"),
+            "`haltif` must be reported as an unknown key, got: {}",
+            err.message()
         );
+    }
+
+    #[test]
+    fn unknown_top_level_key_is_rejected() {
+        // The typo this exists to catch.
+        let yaml = "pluigns:\n  - name: p\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(
+            err.message().contains("pluigns"),
+            "the offending key must be named, got: {}",
+            err.message()
+        );
+        assert!(err.span().is_some(), "the diagnostic must point at the key");
+    }
+
+    #[test]
+    fn a_capitalised_schema_key_is_rejected() {
+        // Case sensitivity landed in task 5; with unknown keys now an error, a
+        // case-mismatched key is reported rather than silently skipped.
+        let yaml = "Plugins:\n  - name: p\n    url: file:///p.wasm\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(
+            err.message().contains("Plugins"),
+            "capitalised schema key must be reported, got: {}",
+            err.message()
+        );
+    }
+
+    #[test]
+    fn unknown_step_key_is_rejected() {
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "stages:\n  s:\n    - name: a\n      run: p.x\n      contineOnError: true\n",
+        );
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("contineOnError"), "got: {}", err.message());
+    }
+
+    #[test]
+    fn arbitrary_plugin_config_keys_are_still_free_form() {
+        // Only SCHEMA keys are constrained. A plugin's own config is the plugin's contract.
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n    config:\n      anythingAtAll: 1\n",
+            "stages:\n  s:\n    - name: a\n      run: p.x\n",
+        );
+        assert!(parse(yaml).is_ok());
     }
 
     #[test]

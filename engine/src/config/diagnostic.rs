@@ -191,6 +191,16 @@ impl<'a> Source<'a> {
             "duplicate plugin name",
         )
     }
+
+    /// A key the schema does not define. Silently ignoring these hid typos such as `pluigns:`,
+    /// which produced a pipeline with no plugins and no diagnostic at all.
+    pub fn unknown_key(&self, key: &str, context: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Unknown {context} key '{key}'."),
+            Some(span),
+            "unknown key",
+        )
+    }
 }
 
 #[cfg(test)]
