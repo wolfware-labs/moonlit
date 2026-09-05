@@ -1,5 +1,7 @@
 {
-  "branches": ["main"],
+  "branches": [
+    "main"
+  ],
   "tagFormat": "moonlit-v${version}",
   "plugins": [
     [
@@ -7,16 +9,79 @@
       {
         "preset": "conventionalcommits",
         "releaseRules": [
-          { "scope": "pdk", "release": false },
-          { "scope": "pdk-macros", "release": false },
-          { "scope": "macro", "release": false }
+          {
+            "scope": "pdk",
+            "release": false
+          },
+          {
+            "scope": "pdk-macros",
+            "release": false
+          },
+          {
+            "scope": "macro",
+            "release": false
+          }
         ]
       }
     ],
     [
       "@semantic-release/release-notes-generator",
       {
-        "preset": "conventionalcommits"
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            {
+              "type": "feat",
+              "section": "Features"
+            },
+            {
+              "type": "fix",
+              "section": "Bug Fixes"
+            },
+            {
+              "type": "perf",
+              "section": "Performance Improvements"
+            },
+            {
+              "type": "revert",
+              "section": "Reverts"
+            },
+            {
+              "type": "refactor",
+              "section": "Changes"
+            },
+            {
+              "type": "docs",
+              "section": "Documentation",
+              "hidden": true
+            },
+            {
+              "type": "style",
+              "section": "Styles",
+              "hidden": true
+            },
+            {
+              "type": "chore",
+              "section": "Miscellaneous Chores",
+              "hidden": true
+            },
+            {
+              "type": "test",
+              "section": "Tests",
+              "hidden": true
+            },
+            {
+              "type": "build",
+              "section": "Build System",
+              "hidden": true
+            },
+            {
+              "type": "ci",
+              "section": "Continuous Integration",
+              "hidden": true
+            }
+          ]
+        }
       }
     ],
     [
@@ -35,7 +100,11 @@
     [
       "@semantic-release/git",
       {
-        "assets": ["Cargo.toml", "Cargo.lock", "cli/CHANGELOG.md"],
+        "assets": [
+          "Cargo.toml",
+          "Cargo.lock",
+          "cli/CHANGELOG.md"
+        ],
         "message": "chore(release): moonlit ${nextRelease.version}\n\n${nextRelease.notes}"
       }
     ]
