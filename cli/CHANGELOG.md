@@ -2,6 +2,20 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.7](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.6...moonlit-v1.1.7) (2026-09-05)
+
+### ⚠ BREAKING CHANGES
+
+* **pdk:** rename moonlit-sdk to moonlit-pdk
+
+### Bug Fixes
+
+* **choco:** use the wolf mark as the icon and fail on a rejected push ([5f8d553](https://github.com/wolfware-labs/moonlit/commit/5f8d55395db5414df1a021dfeeb594c3a345a4fc))
+
+### Code Refactoring
+
+* **pdk:** rename moonlit-sdk to moonlit-pdk ([96c50e1](https://github.com/wolfware-labs/moonlit/commit/96c50e183ed56d6784f70be9faaf540f635f304b))
+
 ## [1.1.6](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.5...moonlit-v1.1.6) (2026-08-08)
 
 ### Bug Fixes
