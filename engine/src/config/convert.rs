@@ -260,7 +260,11 @@ fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigD
                     }
                 }
                 other => {
-                    return Err(src.unknown_key(other.unwrap_or_default(), "permissions", key.span));
+                    return Err(src.unknown_key(
+                        other.unwrap_or_default(),
+                        "permissions",
+                        key.span,
+                    ));
                 }
             }
         }
@@ -670,7 +674,11 @@ stages:
             "stages:\n  s:\n    - name: a\n      run: p.x\n      contineOnError: true\n",
         );
         let err = parse(yaml).unwrap_err();
-        assert!(err.message().contains("contineOnError"), "got: {}", err.message());
+        assert!(
+            err.message().contains("contineOnError"),
+            "got: {}",
+            err.message()
+        );
     }
 
     #[test]
@@ -800,11 +808,7 @@ stages:
         for key in ["condition", "haltIf"] {
             let yaml = format!("{base}      {key}:\n");
             let err = parse(&yaml).unwrap_err();
-            assert!(
-                err.message().contains(key),
-                "{key}: got: {}",
-                err.message()
-            );
+            assert!(err.message().contains(key), "{key}: got: {}", err.message());
         }
     }
 

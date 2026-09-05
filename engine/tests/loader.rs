@@ -78,7 +78,10 @@ async fn middleware_not_found_is_exit_2_config_error() {
     assert_eq!(err.exit_code(), 2);
     match err {
         EngineError::Config(d) => {
-            assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.")
+            assert_eq!(
+                d.message(),
+                "The plugin does not export a middleware named 'nosuch'."
+            )
         }
         other => panic!("expected Config, got {other:?}"),
     }
@@ -98,7 +101,9 @@ async fn plugin_not_found_is_exit_2_config_error() {
     };
     assert_eq!(err.exit_code(), 2);
     match err {
-        EngineError::Config(d) => assert_eq!(d.message(), "No plugin is declared with the alias 'other'."),
+        EngineError::Config(d) => {
+            assert_eq!(d.message(), "No plugin is declared with the alias 'other'.")
+        }
         other => panic!("expected Config, got {other:?}"),
     }
 }
@@ -212,7 +217,10 @@ async fn middleware_validation_covers_stages_excluded_by_the_filter() {
     assert_eq!(err.exit_code(), 2);
     match err {
         EngineError::Config(d) => {
-            assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.")
+            assert_eq!(
+                d.message(),
+                "The plugin does not export a middleware named 'nosuch'."
+            )
         }
         other => panic!("expected Config, got {other:?}"),
     }
