@@ -2068,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "moonlit"
-version = "1.1.10"
+version = "1.2.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -2098,7 +2098,7 @@ dependencies = [
 
 [[package]]
 name = "moonlit-engine"
-version = "1.1.10"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "base64",

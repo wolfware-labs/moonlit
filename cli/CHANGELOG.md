@@ -2,6 +2,25 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.10...moonlit-v1.2.0) (2026-09-05)
+
+### Features
+
+* **cli:** strict pipeline validation and a cleaner command surface ([dba9681](https://github.com/wolfware-labs/moonlit/commit/dba9681fd6792ce7c382529ddd9dcd500180c2d1))
+
+### Changes
+
+* **cli:** discover release.yaml instead of moonlit.yml ([f9f30b3](https://github.com/wolfware-labs/moonlit/commit/f9f30b3c38b1700fc52553b0b6eab18afa8b3540))
+* **cli:** drop the -d alias for --working-dir ([33c3009](https://github.com/wolfware-labs/moonlit/commit/33c300952cbe717937a2a5247c050615a1808c06))
+* **cli:** print help instead of the version banner with no subcommand ([5fa9075](https://github.com/wolfware-labs/moonlit/commit/5fa9075de461aebd0fcf6ad85f27f5cdba459524))
+* **config:** match schema keys case-sensitively ([d9f36be](https://github.com/wolfware-labs/moonlit/commit/d9f36befb1bd56f26162789b0c71e192a10ca65a))
+* **config:** reject a schema key with no value ([99d0bbc](https://github.com/wolfware-labs/moonlit/commit/99d0bbcf411503e1082e94e542f0837865e730c8))
+* **config:** reject duplicate schema keys ([9321c05](https://github.com/wolfware-labs/moonlit/commit/9321c055fc71f5c7b32b380afab5acf00da0cb44))
+* **config:** reject malformed schema values instead of defaulting ([90c17b5](https://github.com/wolfware-labs/moonlit/commit/90c17b5ab9b24f8486fb41431138554a0405d322))
+* **config:** reject unknown schema keys ([9ae9cb2](https://github.com/wolfware-labs/moonlit/commit/9ae9cb2dc51deedf1c54bd3fce891b9d4c901118))
+* **config:** write validation errors in Moonlit's own voice ([e26b24b](https://github.com/wolfware-labs/moonlit/commit/e26b24b7abda044368082bc5438ef5a224ec6752))
+* **engine:** label diagnostics with the file that was read ([8a11538](https://github.com/wolfware-labs/moonlit/commit/8a115383b66d28b8010ad264d74c36725e47d546))
+
 ## [1.1.10](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.9...moonlit-v1.1.10) (2026-09-05)
 
 ### Bug Fixes
