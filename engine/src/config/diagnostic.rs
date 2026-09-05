@@ -79,6 +79,16 @@ impl<'a> Source<'a> {
         )
     }
 
+    /// A value that must be a sequence but is something else. Accepting the wrong shape here used
+    /// to yield an empty collection, so a stage with a malformed body ran and reported success.
+    pub fn expected_sequence(&self, context: &str, span: Span) -> ConfigDiagnostic {
+        self.make(
+            format!("Expected a sequence for {context}."),
+            Some(span),
+            "expected a sequence",
+        )
+    }
+
     /// An `arguments`/`variables` entry with a non-string value.
     pub fn expected_string(&self, context: &str, span: Span) -> ConfigDiagnostic {
         self.make(

@@ -234,6 +234,11 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
 }
 
 fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigDiagnostic> {
+    // A non-mapping used to fall through to deny-all. That is safe, but silent: a plugin then
+    // failed at run time with a capability error far from the line that actually caused it.
+    let NodeValue::Map(_) = &node.value else {
+        return Err(src.expected_mapping("a plugin's permissions", node.span));
+    };
     let mut p = Permissions::deny();
     if let NodeValue::Map(entries) = &node.value {
         let mut seen: Vec<&str> = Vec::new();
@@ -288,7 +293,7 @@ fn convert_stages(node: &Node, src: &Source) -> Result<Spanned<Vec<Stage>>, Conf
                 continue;
             };
             if matches!(value.value, NodeValue::Null) {
-                continue; // null stage filtered
+                return Err(src.null_value(stage_name, "a sequence of steps", value.span));
             }
             let steps = convert_steps(value, src)?;
             stages.push(Stage {
@@ -301,11 +306,14 @@ fn convert_stages(node: &Node, src: &Source) -> Result<Spanned<Vec<Stage>>, Conf
 }
 
 fn convert_steps(node: &Node, src: &Source) -> Result<Vec<Step>, ConfigDiagnostic> {
+    // Anything other than a sequence used to fall through to an empty Vec, so a stage with a
+    // malformed body ran with no steps and reported success.
+    let NodeValue::Seq(items) = &node.value else {
+        return Err(src.expected_sequence("a stage's steps", node.span));
+    };
     let mut steps = Vec::new();
-    if let NodeValue::Seq(items) = &node.value {
-        for item in items {
-            steps.push(convert_step(item, src)?);
-        }
+    for item in items {
+        steps.push(convert_step(item, src)?);
     }
     Ok(steps)
 }
@@ -332,8 +340,18 @@ fn convert_step(node: &Node, src: &Source) -> Result<Step, ConfigDiagnostic> {
         match schema_key(key) {
             Some("name") => name = Some(scalar_string(value).unwrap_or_default()),
             Some("run") => run = Some(convert_run(value, src)?),
-            Some("condition") => condition = scalar_string(value),
-            Some("haltIf") => halt_if = scalar_string(value),
+            Some("condition") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("condition", "an expression", value.span));
+                }
+                condition = scalar_string(value)
+            }
+            Some("haltIf") => {
+                if matches!(value.value, NodeValue::Null) {
+                    return Err(src.null_value("haltIf", "an expression", value.span));
+                }
+                halt_if = scalar_string(value)
+            }
             Some("continueOnError") => continue_on_error = Some(parse_bool(value, src)?),
             Some("config") => config = Some(config_map(value)),
             other => {
@@ -734,5 +752,72 @@ stages:
         let yaml = "plugins:\n  - name: p\n    url:\n";
         let err = parse(yaml).unwrap_err();
         assert!(err.message().contains("url"), "got: {}", err.message());
+    }
+
+    /// A stage body that is not a sequence used to yield an EMPTY stage that ran
+    /// and reported success — the worst shape of silent acceptance in the parser.
+    #[test]
+    fn a_stage_whose_steps_are_not_a_sequence_is_rejected() {
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "stages:\n  build: oops\n",
+        );
+        let err = parse(yaml).unwrap_err();
+        assert!(err.span().is_some(), "must point at the offending value");
+        assert!(
+            err.message().to_lowercase().contains("sequence"),
+            "got: {}",
+            err.message()
+        );
+    }
+
+    #[test]
+    fn a_null_stage_body_is_rejected() {
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "stages:\n  build:\n",
+        );
+        let err = parse(yaml).unwrap_err();
+        assert!(err.message().contains("build"), "got: {}", err.message());
+    }
+
+    /// A malformed `permissions:` silently produced deny-all. Safe, but the plugin
+    /// then failed at run time with a capability error far from the real cause.
+    #[test]
+    fn permissions_that_are_not_a_mapping_are_rejected() {
+        let yaml = "plugins:\n  - name: p\n    url: file:///p.wasm\n    permissions: read-only\n";
+        let err = parse(yaml).unwrap_err();
+        assert!(
+            err.message().to_lowercase().contains("mapping"),
+            "got: {}",
+            err.message()
+        );
+    }
+
+    #[test]
+    fn null_condition_and_halt_if_are_rejected() {
+        let base = "plugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: p.x\n";
+        for key in ["condition", "haltIf"] {
+            let yaml = format!("{base}      {key}:\n");
+            let err = parse(&yaml).unwrap_err();
+            assert!(
+                err.message().contains(key),
+                "{key}: got: {}",
+                err.message()
+            );
+        }
+    }
+
+    /// The guards above must not make valid pipelines stricter than intended.
+    #[test]
+    fn a_fully_populated_pipeline_still_parses() {
+        let yaml = concat!(
+            "plugins:\n  - name: p\n    url: file:///p.wasm\n",
+            "    permissions:\n      network: [\"example.com\"]\n",
+            "stages:\n  s:\n    - name: a\n      run: p.x\n",
+            "      condition: 'true'\n      haltIf: 'false'\n",
+        );
+        let c = ok(yaml);
+        assert_eq!(c.stages.value[0].steps.len(), 1);
     }
 }
