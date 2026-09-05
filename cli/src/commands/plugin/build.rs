@@ -245,20 +245,26 @@ pub fn run(args: PluginBuildArgs) -> i32 {
 
 /// The `cargo build` invocation for a plugin crate, targeting wasm32-wasip2.
 ///
-/// Host rustflags are cleared rather than inherited. They arrive through the environment
-/// and apply to the *target* artifacts once `--target` is set, so a flag chosen for the
-/// host lands on a wasm component that may not support it — `cargo llvm-cov` exporting
-/// `-C instrument-coverage` breaks the build outright, because `profiler_builtins` has no
-/// wasm32-wasip2 build. Flags meant for the component still work: set them in the plugin
-/// crate's own `.cargo/config.toml`, which is read from the crate directory and can be
-/// scoped to the target.
+/// The caller's toolchain configuration is cleared rather than inherited. Once `--target`
+/// is set, host rustflags apply to the *target* artifacts, so a flag chosen for the host
+/// lands on a wasm component that may not accept it. Wrappers are worse, because they
+/// inject flags a level below where anyone would look: `cargo llvm-cov` sets
+/// `RUSTC_WRAPPER` to itself and adds `-C instrument-coverage` for the crates it is
+/// measuring, which fails the component build outright — `profiler_builtins` has no
+/// wasm32-wasip2 build.
+///
+/// Flags meant for the component still work: set them in the plugin crate's own
+/// `.cargo/config.toml`, which is read from the crate directory and can be scoped to the
+/// target. The cost is that a host wrapper such as `sccache` does not cache this build.
 fn cargo_build_command(crate_dir: &Path, release: bool) -> std::process::Command {
     let mut cmd = std::process::Command::new("cargo");
     cmd.current_dir(crate_dir)
         .args(["build", "--target", "wasm32-wasip2"])
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
-        .env_remove("CARGO_BUILD_RUSTFLAGS");
+        .env_remove("CARGO_BUILD_RUSTFLAGS")
+        .env_remove("RUSTC_WRAPPER")
+        .env_remove("RUSTC_WORKSPACE_WRAPPER");
     if release {
         cmd.arg("--release");
     }
@@ -285,6 +291,8 @@ mod tests {
             "RUSTFLAGS",
             "CARGO_ENCODED_RUSTFLAGS",
             "CARGO_BUILD_RUSTFLAGS",
+            "RUSTC_WRAPPER",
+            "RUSTC_WORKSPACE_WRAPPER",
         ] {
             assert!(
                 removed.contains(&var.to_string()),
