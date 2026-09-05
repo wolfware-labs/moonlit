@@ -123,7 +123,7 @@ pub struct RunArgs {
     pub file: Option<PathBuf>,
 
     /// Working directory (default: current).
-    #[arg(short = 'w', visible_short_alias = 'd', long = "working-dir")]
+    #[arg(short = 'w', long = "working-dir")]
     pub working_dir: Option<PathBuf>,
 
     /// Stage(s) to run; repeatable and comma-separated.
@@ -178,7 +178,7 @@ pub struct LogoutArgs {
 pub struct ValidateArgs {
     #[arg(short = 'f', long = "file")]
     pub file: Option<PathBuf>,
-    #[arg(short = 'w', visible_short_alias = 'd', long = "working-dir")]
+    #[arg(short = 'w', long = "working-dir")]
     pub working_dir: Option<PathBuf>,
 }
 
@@ -223,15 +223,13 @@ mod tests {
     }
 
     #[test]
-    fn working_dir_short_alias_d_matches_w() {
-        let a = Cli::try_parse_from(["moonlit", "run", "-w", "/x"]).unwrap();
-        let b = Cli::try_parse_from(["moonlit", "run", "-d", "/x"]).unwrap();
-        let wd = |c: &Cli| match &c.command {
-            Some(Command::Run(r)) => r.working_dir.clone(),
-            _ => None,
-        };
-        assert_eq!(wd(&a), Some(PathBuf::from("/x")));
-        assert_eq!(wd(&a), wd(&b));
+    fn working_dir_has_no_d_short_alias() {
+        // `-d` was the old engine's spelling. Only `-w`/`--working-dir` are supported.
+        let ok = Cli::try_parse_from(["moonlit", "run", "-w", "/tmp"]);
+        assert!(ok.is_ok(), "-w must still parse");
+
+        let err = Cli::try_parse_from(["moonlit", "run", "-d", "/tmp"]);
+        assert!(err.is_err(), "-d must no longer be accepted");
     }
 
     #[test]
