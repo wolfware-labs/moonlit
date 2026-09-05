@@ -14,21 +14,27 @@ environment, or subprocesses unless the pipeline grants it.
 [![Coverage](https://img.shields.io/codecov/c/github/wolfware-labs/moonlit?logo=codecov&label=coverage)](https://codecov.io/gh/wolfware-labs/moonlit)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 
-**CLI**
-[![GitHub release](https://img.shields.io/github/v/release/wolfware-labs/moonlit?logo=github&label=release)](https://github.com/wolfware-labs/moonlit/releases/latest)
-[![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwolfware-labs%2Fhomebrew-tap%2Fmain%2FFormula%2Fmoonlit.rb&search=version%20%22%28%5B%5E%22%5D%2B%29%22&replace=%241&label=homebrew&logo=homebrew&color=blue)](https://github.com/wolfware-labs/homebrew-tap)
-[![npm](https://img.shields.io/npm/v/%40moonlitbuild%2Fcli?logo=npm&label=npm)](https://www.npmjs.com/package/@moonlitbuild/cli)
-[![Chocolatey](https://img.shields.io/chocolatey/v/moonlit?logo=chocolatey&label=chocolatey)](https://community.chocolatey.org/packages/moonlit)
-
-**Plugin libraries**
-[![moonlit-pdk](https://img.shields.io/crates/v/moonlit-pdk?logo=rust&label=moonlit-pdk)](https://crates.io/crates/moonlit-pdk)
-[![moonlit-pdk-macros](https://img.shields.io/crates/v/moonlit-pdk-macros?logo=rust&label=moonlit-pdk-macros)](https://crates.io/crates/moonlit-pdk-macros)
-[![docs.rs](https://img.shields.io/docsrs/moonlit-pdk?logo=docsdotrs&label=docs.rs)](https://docs.rs/moonlit-pdk)
+<table align="center">
+<tr>
+<td align="right"><b>Moonlit&nbsp;CLI</b></td>
+<td>
+<a href="https://github.com/wolfware-labs/moonlit/releases/latest"><img alt="GitHub release" src="https://img.shields.io/github/v/release/wolfware-labs/moonlit?logo=github&label=release"></a>
+<a href="https://github.com/wolfware-labs/homebrew-tap"><img alt="Homebrew" src="https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwolfware-labs%2Fhomebrew-tap%2Fmain%2FFormula%2Fmoonlit.rb&search=version%20%22%28%5B%5E%22%5D%2B%29%22&replace=%241&label=homebrew&logo=homebrew&color=blue"></a>
+<a href="https://www.npmjs.com/package/@moonlitbuild/cli"><img alt="npm" src="https://img.shields.io/npm/v/%40moonlitbuild%2Fcli?logo=npm&label=npm"></a>
+<a href="https://community.chocolatey.org/packages/moonlit"><img alt="Chocolatey" src="https://img.shields.io/chocolatey/v/moonlit?logo=chocolatey&label=chocolatey"></a>
+</td>
+</tr>
+<tr>
+<td align="right"><b>Moonlit&nbsp;PDK</b></td>
+<td>
+<a href="https://crates.io/crates/moonlit-pdk"><img alt="moonlit-pdk" src="https://img.shields.io/crates/v/moonlit-pdk?logo=rust&label=moonlit-pdk"></a>
+<a href="https://crates.io/crates/moonlit-pdk-macros"><img alt="moonlit-pdk-macros" src="https://img.shields.io/crates/v/moonlit-pdk-macros?logo=rust&label=moonlit-pdk-macros"></a>
+<a href="https://docs.rs/moonlit-pdk"><img alt="docs.rs" src="https://img.shields.io/docsrs/moonlit-pdk?logo=docsdotrs&label=docs.rs"></a>
+</td>
+</tr>
+</table>
 
 </div>
-
-> **Status:** early development. The plugin ABI is still moving; expect breaking changes
-> between minor versions.
 
 ## Why Moonlit
 
