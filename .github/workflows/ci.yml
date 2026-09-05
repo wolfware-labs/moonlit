@@ -41,6 +41,12 @@ jobs:
   coverage:
     name: coverage
     runs-on: ubuntu-latest
+    # OIDC instead of a stored CODECOV_TOKEN: GitHub mints a short-lived identity
+    # token for this job and Codecov verifies it, so there is no long-lived secret
+    # to store or rotate. Fork PRs cannot mint one; the upload is best-effort there.
+    permissions:
+      contents: read
+      id-token: write
     env:
       # Same debuginfo trim as the check job: llvm-cov links the very same heavy
       # moonlit-engine integration-test binaries, with instrumentation on top.
@@ -69,7 +75,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
           # A coverage upload outage must not fail a PR; the check job is the gate.
           fail_ci_if_error: false
 
