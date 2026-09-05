@@ -33,7 +33,8 @@ pass "1: --version reports moonlit $EXPECTED_VERSION"
 # 2. A bare run prints help and succeeds (ENTRYPOINT + CMD wired correctly).
 docker run --rm "$IMAGE" >/dev/null 2>&1 \
   || fail "2: bare 'docker run' did not exit 0"
-docker run --rm "$IMAGE" 2>&1 | grep -q "^Usage: moonlit" \
+help_output="$(docker run --rm "$IMAGE" 2>&1)"
+grep -q "^Usage: moonlit" <<<"$help_output" \
   || fail "2: bare 'docker run' did not print the usage banner"
 pass "2: bare run prints help, exit 0"
 

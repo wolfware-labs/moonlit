@@ -99,6 +99,7 @@ jobs:
   docker:
     name: docker image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check
     permissions:
       contents: read

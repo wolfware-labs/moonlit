@@ -367,7 +367,9 @@ jobs:
     uses: ./.github/workflows/publish-docker.yml
     with:
       plan: ${{ needs.plan.outputs.val }}
-    secrets: inherit
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     # publish jobs get escalated permissions
     permissions:
       "contents": "read"

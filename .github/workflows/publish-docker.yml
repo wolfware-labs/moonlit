@@ -18,6 +18,11 @@ on:
       plan:
         required: true
         type: string
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       tag:
@@ -31,6 +36,7 @@ env:
 jobs:
   publish-docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
@@ -53,6 +59,10 @@ jobs:
           else
             tag="$(echo "$PLAN" | jq -r '.announcement_tag')"
           fi
+          case "$tag" in
+            moonlit-v[0-9]*) ;;
+            *) echo "tag '$tag' is not a moonlit release tag" >&2; exit 1 ;;
+          esac
           version="${tag#moonlit-v}"
           if [ "$version" = "$tag" ]; then
             echo "tag '$tag' does not look like moonlit-v<version>" >&2
@@ -96,15 +106,20 @@ jobs:
       - name: Compute tags
         run: |
           set -euo pipefail
-          major="${VERSION%%.*}"
-          rest="${VERSION#*.}"
-          minor="${major}.${rest%%.*}"
           {
             echo "TAGS<<EOF"
             echo "${IMAGE}:${VERSION}"
-            echo "${IMAGE}:${minor}"
-            echo "${IMAGE}:${major}"
-            echo "${IMAGE}:latest"
+            case "$VERSION" in
+              *-*) ;;
+              *)
+                major="${VERSION%%.*}"
+                rest="${VERSION#*.}"
+                minor="${major}.${rest%%.*}"
+                echo "${IMAGE}:${minor}"
+                echo "${IMAGE}:${major}"
+                echo "${IMAGE}:latest"
+                ;;
+            esac
             echo "EOF"
           } >> "$GITHUB_ENV"
 
