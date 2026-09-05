@@ -35,7 +35,11 @@ jobs:
       contents: read
     steps:
       # Unlike publish-npm, this job needs the repo: the Dockerfile and the
-      # assertion suite both live here.
+      # assertion suite both live here. This checks out the default branch,
+      # not the release tag, so a workflow_dispatch rebuild of an older tag
+      # builds that tag's binary against current main's Dockerfile and test
+      # script. That's intended, but surprising — publish-choco.yml has the
+      # same property.
       - uses: actions/checkout@v6
 
       - name: Resolve the tag and version
@@ -122,7 +126,11 @@ jobs:
           set -euo pipefail
           docker pull "${IMAGE}:${VERSION}"
           scripts/test-docker-image.sh "${IMAGE}:${VERSION}" "${VERSION}"
+          # build-push-action enables provenance attestations by default on public
+          # repos, and those manifests report platform.architecture "unknown".
+          # Filter them out rather than disabling provenance: the attestation is a
+          # free supply-chain win on a public artifact.
           docker manifest inspect "${IMAGE}:${VERSION}" \
-            | jq -e '[.manifests[].platform.architecture] | sort == ["amd64","arm64"]' \
+            | jq -e '[.manifests[] | select(.platform.architecture != "unknown") | .platform.architecture] | sort == ["amd64","arm64"]' \
             > /dev/null
           echo "published ${IMAGE}:${VERSION} for amd64 + arm64"
