@@ -119,6 +119,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_r
     let header = build_header(&resolved, &args.stages);
     let opts = PipelineOptions {
         working_directory: resolved.working_directory.clone(),
+        config_file_name: resolved.chosen_name.clone(),
         stages_filter: args.stages.clone(),
         cli_args: args.args.clone(),
         step_timeout: args.step_timeout,
@@ -180,6 +181,7 @@ mod tests {
 
     fn opts() -> PipelineOptions {
         PipelineOptions {
+            config_file_name: "release.yml".to_string(),
             working_directory: std::env::temp_dir(),
             stages_filter: vec![],
             cli_args: vec![],

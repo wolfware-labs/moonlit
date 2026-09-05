@@ -41,6 +41,9 @@ impl Default for EngineSettings {
 /// Per-run options.
 pub struct PipelineOptions {
     pub working_directory: PathBuf,
+    /// Name of the pipeline file actually read, used as the diagnostic source label. A pipeline in
+    /// `release.yaml` must not have its errors reported against `release.yml`.
+    pub config_file_name: String,
     /// Case-insensitive stage names to run; empty = all stages.
     pub stages_filter: Vec<String>,
     pub cli_args: Vec<(String, String)>,
@@ -227,7 +230,7 @@ impl Engine {
         events: &Sender<PipelineEvent>,
     ) -> Result<Pipeline, EngineError> {
         // 1. Parse (ConfigDiagnostic -> EngineError::Config via #[from], exit 2).
-        let cfg = crate::config::parse_config(yaml, "release.yml")?;
+        let cfg = crate::config::parse_config(yaml, &opts.config_file_name)?;
 
         // 2. Base + release layers.
         let env: Vec<(String, String)> = std::env::vars().collect();
@@ -315,7 +318,7 @@ impl Engine {
         }
 
         // 5. Flatten stages (declaration order) + validate middleware refs over ALL steps (§7.4).
-        let src = crate::config::diagnostic::Source::new(yaml, "release.yml");
+        let src = crate::config::diagnostic::Source::new(yaml, &opts.config_file_name);
         let mut flat = Vec::new();
         for stage in &cfg.stages.value {
             for step in &stage.steps {

@@ -11,6 +11,7 @@ fn fixture_url() -> String {
 fn opts() -> PipelineOptions {
     PipelineOptions {
         working_directory: std::env::temp_dir(),
+        config_file_name: "release.yml".to_string(),
         stages_filter: vec![],
         cli_args: vec![],
         step_timeout: None,

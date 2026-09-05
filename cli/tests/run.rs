@@ -86,3 +86,31 @@ fn json_mode_emits_finished_event() {
         "expected a pipeline_finished json line; stdout:\n{stdout}"
     );
 }
+
+/// Diagnostics must name the file that was actually read. The source label was hardcoded to
+/// `release.yml`, so a pipeline in `release.yaml` reported errors against a filename the user
+/// does not have — and `release.yaml` only became a routine default recently.
+#[test]
+fn diagnostics_name_the_file_that_was_actually_read() {
+    let dir = tempdir().unwrap();
+    fs::write(dir.path().join("release.yaml"), "pluigns:\n  - name: p\n").unwrap();
+    let out = Command::cargo_bin("moonlit")
+        .unwrap()
+        .args(["run", "--output", "plain", "-w"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        text.contains("release.yaml"),
+        "diagnostic must name release.yaml, got:\n{text}"
+    );
+    assert!(
+        !text.contains("release.yml:"),
+        "diagnostic must not claim release.yml, got:\n{text}"
+    );
+}
