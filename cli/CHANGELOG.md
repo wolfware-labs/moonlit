@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.9](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.8...moonlit-v1.1.9) (2026-09-05)
+
+### Bug Fixes
+
+* **cli:** stop host rustflags leaking into the plugin wasm build ([330091b](https://github.com/wolfware-labs/moonlit/commit/330091bb1752910363cb6034ff52d736b595fa76))
+
 ## [1.1.8](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.7...moonlit-v1.1.8) (2026-09-05)
 
 ### Bug Fixes
