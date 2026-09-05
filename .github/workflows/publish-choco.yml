@@ -12,6 +12,15 @@ on:
       plan:
         required: true
         type: string
+  # Manual re-push for a tag that was released but never landed on Chocolatey
+  # (a push rejected while the package was in moderation, an expired key, a
+  # transient outage). Takes the tag directly instead of a dist plan.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, e.g. moonlit-v1.1.6
+        required: true
+        type: string
 
 jobs:
   chocolatey:
@@ -22,8 +31,11 @@ jobs:
         shell: pwsh
         env:
           PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
-          $tag = ($env:PLAN | ConvertFrom-Json).announcement_tag
+          # workflow_dispatch supplies the tag directly; workflow_call carries it
+          # inside the dist plan. Exactly one of the two is ever set.
+          $tag = if ($env:TAG_INPUT) { $env:TAG_INPUT } else { ($env:PLAN | ConvertFrom-Json).announcement_tag }
           $version = $tag -replace '^moonlit-v', ''
           $asset = 'moonlit-x86_64-pc-windows-msvc.zip'
           $url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$asset"
@@ -123,47 +135,30 @@ jobs:
 
           choco pack (Join-Path $pkgDir 'moonlit.nuspec') --version $env:VERSION --outputdirectory $env:RUNNER_TEMP
       - name: Push
-        id: push
         shell: pwsh
         env:
           VERSION: ${{ steps.art.outputs.version }}
           CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
+          # Every push failure fails the release. Until moonlit 0.1.1 cleared
+          # moderation the community repo rejected further version pushes from an
+          # unverified maintainer with a 403, and this step tolerated that - which
+          # silently skipped 1.1.3 through 1.1.6. The package is approved now, so a
+          # 403 means a real problem (bad or expired key, revoked account) and must
+          # be loud.
           $pkg = Join-Path $env:RUNNER_TEMP "moonlit.$env:VERSION.nupkg"
-          $out = choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY 2>&1 | Out-String
-          $code = $LASTEXITCODE
-          Write-Host $out
-          if ($code -eq 0) {
-            'pushed=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          } elseif ($out -match '403' -or $out -match 'Forbidden') {
-            # TEMPORARY: the community repo throttles new/unverified maintainers
-            # until the first package version clears moderation, rejecting further
-            # version pushes with 403. Tolerate that so the release stays green;
-            # re-push this version once the first version is approved. REMOVE this
-            # tolerance once the package is approved so real push failures (a bad
-            # or expired key, network errors) fail the release again.
-            Write-Host "::warning::Chocolatey push returned 403 for moonlit $env:VERSION - treating as the new-package moderation throttle and NOT failing the release. Re-push once the first version is approved on chocolatey.org."
-            'pushed=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            # Falling out of this branch is NOT enough: `choco push` already set
-            # $LASTEXITCODE to non-zero on line 89 and `Out-File` does not reset
-            # it, so the pwsh wrapper would exit with that code and fail the job
-            # anyway — which is exactly what happened on moonlit-v1.1.2. Exit 0
-            # explicitly so the tolerance above actually tolerates.
-            exit 0
-          } else {
-            Write-Error "choco push failed (exit code $code) - not a 403/moderation rejection."
-            exit $code
+          choco push $pkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "choco push failed for moonlit $env:VERSION (exit code $LASTEXITCODE)."
+            exit $LASTEXITCODE
           }
       - name: Add Chocolatey to the release notes
-        # Only advertise `choco install` when the push actually succeeded; a
-        # tolerated 403 means the package is not on Chocolatey yet.
-        if: ${{ steps.push.outputs.pushed == 'true' }}
         shell: pwsh
         env:
-          PLAN: ${{ inputs.plan }}
+          TAG: ${{ steps.art.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = ($env:PLAN | ConvertFrom-Json).announcement_tag
+          $tag = $env:TAG
           # This job has no checkout, so gh cannot infer the repo from git —
           # pass it explicitly.
           $repo = $env:GITHUB_REPOSITORY
