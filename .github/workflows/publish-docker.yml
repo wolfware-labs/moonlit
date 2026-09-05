@@ -63,6 +63,12 @@ jobs:
             moonlit-v[0-9]*) ;;
             *) echo "tag '$tag' is not a moonlit release tag" >&2; exit 1 ;;
           esac
+          case "$tag" in
+            *[!0-9A-Za-z.+-]*)
+              echo "tag '$tag' contains unexpected characters" >&2
+              exit 1
+              ;;
+          esac
           version="${tag#moonlit-v}"
           if [ "$version" = "$tag" ]; then
             echo "tag '$tag' does not look like moonlit-v<version>" >&2
