@@ -4,7 +4,7 @@ members = ["engine", "cli", "pdk", "pdk-macros"]
 exclude = ["fixtures/test-plugin", "fixtures/pdk-sample"]
 
 [workspace.package]
-version = "1.1.9"
+version = "1.1.10"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 authors = ["Wolfware LLC"]

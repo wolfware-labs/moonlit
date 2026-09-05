@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [1.1.10](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.9...moonlit-v1.1.10) (2026-09-05)
+
+### Bug Fixes
+
+* **cli:** clear rustc wrappers too before the plugin wasm build ([657fe91](https://github.com/wolfware-labs/moonlit/commit/657fe911894794f8cef287330c09e725ac225ce8))
+
 ## [1.1.9](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.8...moonlit-v1.1.9) (2026-09-05)
 
 ### Bug Fixes
