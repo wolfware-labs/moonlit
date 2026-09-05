@@ -1,0 +1,128 @@
+name: Publish Docker
+
+# Custom dist publish-job. Builds the official image from the Linux binaries
+# already attached to the GitHub Release and pushes a two-architecture manifest
+# to Docker Hub.
+#
+# Unlike publish-npm, Docker Hub offers no OIDC / trusted-publishing path, so
+# this is the one job in the repo that needs stored credentials. Use an
+# Organization Access Token on the `wolfware` org (Read+Write), not a personal
+# PAT: it is not bound to an individual account and is independently revocable.
+#
+# workflow_dispatch exists so an image can be rebuilt for an existing tag
+# without cutting a release — the same escape hatch publish-choco.yml has.
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, e.g. moonlit-v1.1.10
+        required: true
+        type: string
+
+env:
+  IMAGE: wolfware/moonlit
+
+jobs:
+  publish-docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Unlike publish-npm, this job needs the repo: the Dockerfile and the
+      # assertion suite both live here.
+      - uses: actions/checkout@v6
+
+      - name: Resolve the tag and version
+        env:
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${TAG_INPUT:-}" ]; then
+            tag="$TAG_INPUT"
+          else
+            tag="$(echo "$PLAN" | jq -r '.announcement_tag')"
+          fi
+          version="${tag#moonlit-v}"
+          if [ "$version" = "$tag" ]; then
+            echo "tag '$tag' does not look like moonlit-v<version>" >&2
+            exit 1
+          fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Download the Linux binaries from the release
+        run: |
+          set -euo pipefail
+          # dist emits .tar.xz, and each archive nests its files under a
+          # moonlit-<triple>/ directory, hence --strip-components=1.
+          download() {
+            triple="$1"; arch="$2"
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/moonlit-${triple}.tar.xz"
+            mkdir -p "dist/linux/${arch}"
+            curl --proto '=https' --tlsv1.2 -fsSL "$url" -o "moonlit-${triple}.tar.xz"
+            tar -xJf "moonlit-${triple}.tar.xz" \
+              --strip-components=1 \
+              -C "dist/linux/${arch}" \
+              "moonlit-${triple}/moonlit"
+          }
+          download x86_64-unknown-linux-gnu amd64
+          download aarch64-unknown-linux-gnu arm64
+          chmod +x dist/linux/amd64/moonlit dist/linux/arm64/moonlit
+          ls -la dist/linux/amd64 dist/linux/arm64
+
+      # apt-get has to execute in the target architecture, so the arm64 pass
+      # runs emulated. It costs 1-3 minutes for a slim base. If that ever grows,
+      # the upgrade is a native ubuntu-24.04 + ubuntu-24.04-arm matrix plus a
+      # `buildx imagetools create` manifest merge.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute tags
+        run: |
+          set -euo pipefail
+          major="${VERSION%%.*}"
+          rest="${VERSION#*.}"
+          minor="${major}.${rest%%.*}"
+          {
+            echo "TAGS<<EOF"
+            echo "${IMAGE}:${VERSION}"
+            echo "${IMAGE}:${minor}"
+            echo "${IMAGE}:${major}"
+            echo "${IMAGE}:latest"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.TAGS }}
+          build-args: |
+            MOONLIT_VERSION=${{ env.VERSION }}
+            VCS_REF=${{ github.sha }}
+
+      # Test the artifact that shipped, not a local rebuild of it. Pulling the
+      # pushed tag also proves the manifest resolves for this platform.
+      - name: Verify the published image
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE}:${VERSION}"
+          scripts/test-docker-image.sh "${IMAGE}:${VERSION}" "${VERSION}"
+          docker manifest inspect "${IMAGE}:${VERSION}" \
+            | jq -e '[.manifests[].platform.architecture] | sort == ["amd64","arm64"]' \
+            > /dev/null
+          echo "published ${IMAGE}:${VERSION} for amd64 + arm64"

@@ -15,7 +15,7 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 tap = "wolfware-labs/homebrew-tap"
 npm-scope = "@moonlitbuild"
 npm-package = "cli"
-publish-jobs = ["homebrew", "./publish-npm", "./publish-choco"]
+publish-jobs = ["homebrew", "./publish-npm", "./publish-choco", "./publish-docker"]
 # release.yml's host job is hand-edited to create the GitHub Release with
 # RELEASE_PAT instead of the built-in token (this repo's Actions integration is
 # denied release creation). Tell dist not to fail its CI-freshness check on that
@@ -28,3 +28,8 @@ allow-dirty = ["ci"]
 # not list custom-job channels there).
 [dist.github-custom-job-permissions]
 publish-choco = { contents = "write" }
+
+# The docker job authenticates to Docker Hub with a stored Organization Access
+# Token (not GITHUB_TOKEN) and reads a public Release, so it needs neither
+# id-token nor packages. Read access to the repo is all it uses.
+publish-docker = { contents = "read" }
