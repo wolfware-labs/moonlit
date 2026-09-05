@@ -23,7 +23,8 @@ pub struct ConfigDiagnostic {
 }
 
 impl ConfigDiagnostic {
-    /// The human-readable message (parity strings live in the [`Source`] constructors).
+    /// The human-readable message (exact wording is fixed in the [`Source`] constructors and
+    /// asserted verbatim by tests).
     pub fn message(&self) -> &str {
         &self.message
     }
@@ -87,7 +88,7 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// `run:` is not `plugin.middleware` (verbatim parity string).
+    /// `run:` is not `plugin.middleware`.
     pub fn invalid_run(&self, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Invalid run format: {value}. Expected format: 'plugin.middleware'"),
@@ -146,7 +147,7 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// No stages found (verbatim parity string). No span — nothing to point at.
+    /// No stages found. No span — nothing to point at.
     pub fn no_stages(&self) -> ConfigDiagnostic {
         self.make(
             "No stages found in the release configuration.".to_string(),
@@ -155,7 +156,7 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// Stages present but no plugins (verbatim parity string).
+    /// Stages present but no plugins.
     pub fn no_plugins(&self, span: Option<Span>) -> ConfigDiagnostic {
         self.make(
             "At least one plugin configuration must be provided.".to_string(),
@@ -164,7 +165,7 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A `run:` referencing a plugin alias that was not declared (verbatim parity string, §7.4).
+    /// A `run:` referencing a plugin alias that was not declared (§7.4).
     pub fn plugin_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Plugin '{name}' not found."),
@@ -173,7 +174,7 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A `run:` naming a middleware the plugin does not export (verbatim parity string, §7.4).
+    /// A `run:` naming a middleware the plugin does not export (§7.4).
     pub fn middleware_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Middleware with name '{name}' not found."),
@@ -182,8 +183,7 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// Two plugins declared with the same alias (engine-chosen message; the C# engine silently
-    /// dropped one — we reject instead).
+    /// Two plugins declared with the same alias; the second is rejected rather than shadowing the first.
     pub fn duplicate_plugin(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Duplicate plugin name '{name}'. Plugin names must be unique."),

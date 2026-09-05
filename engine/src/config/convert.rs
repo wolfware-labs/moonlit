@@ -1,7 +1,6 @@
-//! Spanned node tree → typed [`PipelineConfig`]. The C#-converter port: case-insensitive schema
-//! keys, last-wins on duplicates, unknown keys ignored, YAML-null filtering, verbatim arbitrary
-//! map keys. `run`-format and `url`-scheme validation happen here, where the raw value and span
-//! are in hand.
+//! Spanned node tree → typed [`PipelineConfig`]. Schema keys are matched exactly, duplicates and
+//! unknown keys are rejected, and arbitrary map keys are preserved verbatim. `run`-format and
+//! `url`-scheme validation happen here, where the raw value and span are in hand.
 
 use indexmap::IndexMap;
 

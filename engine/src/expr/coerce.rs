@@ -1,6 +1,6 @@
-//! Scalar coercion (§5.4, `ToClrType` parity): raw config strings are typed in a fixed order —
+//! Scalar coercion (§5.4): raw config strings are typed in a fixed order —
 //! `bool → i64 → f64 → datetime → String`. Datetime recognition is a deliberately narrow ISO-ish
-//! set (RFC3339 with offset, `T`/space naive datetimes, and date-only), not .NET's liberal parse.
+//! set (RFC3339 with offset, `T`/space naive datetimes, and date-only), not a liberal parse.
 
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 

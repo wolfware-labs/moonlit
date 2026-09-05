@@ -1,4 +1,4 @@
-//! Structural/semantic validation. Exit-code-2 class errors with verbatim parity strings. `run`
+//! Structural/semantic validation. Exit-code-2 class validation errors. `run`
 //! format is validated in `convert` (where the raw value and span live); this stage handles only
 //! the cross-cutting rules that need the whole model.
 
