@@ -12,6 +12,12 @@
 # path dependency.
 [workspace]
 release = false
+# Only bump on commits that actually change the crates. Merging a release PR adds a
+# `chore: release ...` commit inside pdk/, which release-plz otherwise reads as a new
+# change and answers with another release PR - a loop. It happened: merging #2 (a
+# changelog-only PR) produced #3, proposing 0.1.1 whose sole changelog entry was
+# "release v0.1.0 (#2)". Without this gate every merge begets the next PR.
+release_commits = "^(feat|fix|perf|refactor)"
 
 [[package]]
 name = "moonlit-pdk-macros"
