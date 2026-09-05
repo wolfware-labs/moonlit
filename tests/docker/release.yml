@@ -1,0 +1,17 @@
+# Fixture pipeline for the Docker image's end-to-end assertion. The plugin is a
+# file:// reference so the test needs no network and no OCI registry. The wasm
+# itself is not stored here — scripts/test-docker-image.sh stages this file next
+# to engine/tests/fixtures/test_plugin.wasm in a temp directory and mounts that
+# at /work.
+name: docker-image-smoke
+
+plugins:
+  - name: probe
+    url: file:///work/test_plugin.wasm
+
+stages:
+  smoke:
+    - name: echo
+      run: probe.log-and-output
+      config:
+        name: moonlit-in-docker
