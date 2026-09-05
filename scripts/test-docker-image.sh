@@ -23,7 +23,9 @@ in_image() { docker run --rm --entrypoint sh "$IMAGE" -c "$1"; }
 echo "Testing image: $IMAGE (expecting moonlit $EXPECTED_VERSION)"
 
 # 1. The image carries the exact binary we expect.
-actual="$(docker run --rm "$IMAGE" --version)"
+if ! actual="$(docker run --rm "$IMAGE" --version 2>&1)"; then
+  fail "1: 'docker run $IMAGE --version' failed:\n$actual"
+fi
 [ "$actual" = "moonlit $EXPECTED_VERSION" ] \
   || fail "1: --version was '$actual', expected 'moonlit $EXPECTED_VERSION'"
 pass "1: --version reports moonlit $EXPECTED_VERSION"
