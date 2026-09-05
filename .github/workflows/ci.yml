@@ -38,6 +38,41 @@ jobs:
       - name: test
         run: cargo test --all
 
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    env:
+      # Same debuginfo trim as the check job: llvm-cov links the very same heavy
+      # moonlit-engine integration-test binaries, with instrumentation on top.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # Keyed apart from the check job: coverage builds are instrumented, so
+          # they would otherwise evict the plain test artifacts on every run.
+          key: ${{ runner.os }}-cargo-llvmcov-${{ hashFiles('**/Cargo.lock') }}
+      - name: Generate coverage
+        run: cargo llvm-cov --all --lcov --output-path lcov.info
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # A coverage upload outage must not fail a PR; the check job is the gate.
+          fail_ci_if_error: false
+
   dist-plan:
     name: dist plan (release config)
     runs-on: ubuntu-latest
