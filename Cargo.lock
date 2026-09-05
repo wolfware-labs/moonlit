@@ -2133,7 +2133,7 @@ dependencies = [
 
 [[package]]
 name = "moonlit-pdk"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "flate2",
@@ -2146,7 +2146,7 @@ dependencies = [
 
 [[package]]
 name = "moonlit-pdk-macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "proc-macro2",
