@@ -103,16 +103,17 @@ depend on them directly.
 
 ```mermaid
 flowchart LR
-    yaml["release.yml"] --> cfg["engine::config<br/>parse · validate"]
-    cfg --> res["engine::resolve<br/>fetch · content-cache"]
-    reg[("oci:// · file:// · https://")] -. plugin components .-> res
-    res --> run["engine::pipeline<br/>stages · steps · expressions"]
+    yaml["release.yml"] --> cfg["engine::config<br/>parse, validate"]
+    cfg --> res["engine::resolve<br/>fetch, content-cache"]
+    reg["plugin sources<br/>oci, file, https"] --> res
+    res --> run["engine::pipeline<br/>stages, steps, expressions"]
 
-    subgraph sandbox ["engine::host — wasmtime, WASI Preview 2"]
-        plug["plugin component<br/>network · exec · env · filesystem<br/><i>only as the pipeline grants</i>"]
+    subgraph sandbox["engine::host: wasmtime, WASI Preview 2"]
+        plug["plugin component<br/>network, exec, env, filesystem<br/>only as the pipeline grants"]
     end
 
-    run <-. "JSON over moonlit:plugin ABI" .-> plug
+    run -- "step config as JSON" --> plug
+    plug -- "step output as JSON" --> run
 ```
 
 The plugin ABI is authored in WIT at `engine/wit/moonlit-plugin.wit`. Dynamic config and
