@@ -48,6 +48,15 @@ uid with the root group:
 Tags follow the CLI: `1.2.3`, `1.2`, `1`, and `latest`. Images are published for
 `linux/amd64` and `linux/arm64`.
 
+## GitHub Actions
+
+    - uses: wolfware-labs/setup-moonlit@v1
+    - run: moonlit run
+
+The action installs the CLI on Linux, macOS and Windows runners, puts it on `PATH`,
+and caches the plugin content store between runs. See
+[setup-moonlit](https://github.com/wolfware-labs/setup-moonlit) for inputs and outputs.
+
 ## From a GitHub Release
 
 Download the archive for your platform from the
