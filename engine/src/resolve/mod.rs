@@ -168,10 +168,10 @@ mod tests {
 
     #[test]
     fn parses_oci_scheme_stripping_prefix() {
-        let s = PluginSource::parse("oci://registry.moonlitbuild.dev/wolfware/git:2.0.0").unwrap();
+        let s = PluginSource::parse("oci://registry.moonlit.rs/wolfware/git:2.0.0").unwrap();
         assert_eq!(
             s,
-            PluginSource::Oci("registry.moonlitbuild.dev/wolfware/git:2.0.0".to_string())
+            PluginSource::Oci("registry.moonlit.rs/wolfware/git:2.0.0".to_string())
         );
     }
 

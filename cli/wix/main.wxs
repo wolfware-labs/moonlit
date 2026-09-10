@@ -173,7 +173,7 @@
         <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
         <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
 
-        <Property Id='ARPHELPLINK' Value='https://moonlitbuild.dev/'/>
+        <Property Id='ARPHELPLINK' Value='https://moonlit.rs/'/>
         
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>

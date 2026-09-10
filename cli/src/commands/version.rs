@@ -24,8 +24,8 @@ const AUTHOR: &str = "Wolfware LLC";
 const LICENSE: &str = "MIT OR Apache-2.0";
 // Show the full https URL so terminals that auto-linkify bare URLs make it
 // clickable even without OSC 8 support.
-const HOMEPAGE: &str = "https://moonlitbuild.dev";
-const HOMEPAGE_URL: &str = "https://moonlitbuild.dev/";
+const HOMEPAGE: &str = "https://moonlit.rs";
+const HOMEPAGE_URL: &str = "https://moonlit.rs/";
 
 // Moon palette (truecolor; only used on the truecolor-gated fancy path).
 // Each text element gets its own hue.

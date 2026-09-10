@@ -72,10 +72,10 @@ jobs:
               <title>Moonlit</title>
               <authors>Wolfware LLC</authors>
               <owners>Wolfware LLC</owners>
-              <projectUrl>https://moonlitbuild.dev/</projectUrl>
+              <projectUrl>https://moonlit.rs/</projectUrl>
               <projectSourceUrl>https://github.com/wolfware-labs/moonlit</projectSourceUrl>
               <packageSourceUrl>https://github.com/wolfware-labs/moonlit</packageSourceUrl>
-              <docsUrl>https://moonlitbuild.dev/guide/</docsUrl>
+              <docsUrl>https://moonlit.rs/guide/</docsUrl>
               <bugTrackerUrl>https://github.com/wolfware-labs/moonlit/issues</bugTrackerUrl>
               <iconUrl>__ICONURL__</iconUrl>
               <licenseUrl>https://github.com/wolfware-labs/moonlit/blob/main/LICENSE</licenseUrl>

@@ -120,9 +120,9 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         write(
             &home.path().join(".config/moonlit/credentials.toml"),
-            "[registries.\"registry.moonlitbuild.dev\"]\ntoken = \"abc123\"\n",
+            "[registries.\"registry.moonlit.rs\"]\ntoken = \"abc123\"\n",
         );
-        match resolve_auth("registry.moonlitbuild.dev", home.path()) {
+        match resolve_auth("registry.moonlit.rs", home.path()) {
             RegistryAuth::Bearer(t) => assert_eq!(t, "abc123"),
             other => panic!("expected Bearer, got {other:?}"),
         }

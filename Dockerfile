@@ -50,8 +50,8 @@ LABEL org.opencontainers.image.title="Moonlit" \
       org.opencontainers.image.version="${MOONLIT_VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="https://github.com/wolfware-labs/moonlit" \
-      org.opencontainers.image.url="https://moonlitbuild.dev/" \
-      org.opencontainers.image.documentation="https://moonlitbuild.dev/" \
+      org.opencontainers.image.url="https://moonlit.rs/" \
+      org.opencontainers.image.documentation="https://moonlit.rs/" \
       org.opencontainers.image.licenses="MIT OR Apache-2.0" \
       org.opencontainers.image.vendor="Wolfware LLC"
 

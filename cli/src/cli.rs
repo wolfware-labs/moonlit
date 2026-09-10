@@ -148,12 +148,12 @@ pub struct RunArgs {
 }
 
 /// Default registry when no host is given (mirrors `gh` defaulting to github.com).
-pub const DEFAULT_REGISTRY_HOST: &str = "registry.moonlitbuild.dev";
+pub const DEFAULT_REGISTRY_HOST: &str = "registry.moonlit.rs";
 
 #[derive(Debug, clap::Args)]
 pub struct LoginArgs {
-    /// Registry host, e.g. `registry.moonlitbuild.dev` or `localhost:5185`.
-    /// Defaults to `registry.moonlitbuild.dev` when omitted.
+    /// Registry host, e.g. `registry.moonlit.rs` or `localhost:5185`.
+    /// Defaults to `registry.moonlit.rs` when omitted.
     pub host: Option<String>,
     /// Registry username (Basic auth). Supplying this or `--token` selects the manual path and
     /// bypasses the browser device flow (for CI); on a TTY that path then prompts for whichever
@@ -167,7 +167,7 @@ pub struct LoginArgs {
 
 #[derive(Debug, clap::Args)]
 pub struct LogoutArgs {
-    /// Registry host. Defaults to `registry.moonlitbuild.dev` when omitted.
+    /// Registry host. Defaults to `registry.moonlit.rs` when omitted.
     pub host: Option<String>,
     /// Only remove the local credential; do not contact the server to revoke the token.
     #[arg(long)]

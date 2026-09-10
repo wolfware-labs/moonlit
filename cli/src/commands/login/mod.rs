@@ -226,14 +226,14 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         write_credential(
             home.path(),
-            "registry.moonlitbuild.dev",
+            "registry.moonlit.rs",
             &Credential::Bearer {
                 token: "abc123".into(),
             },
         )
         .unwrap();
         let doc = read(home.path());
-        let e = &doc["registries"]["registry.moonlitbuild.dev"];
+        let e = &doc["registries"]["registry.moonlit.rs"];
         assert_eq!(e["token"].as_str(), Some("abc123"));
         assert!(e.get("username").is_none());
     }

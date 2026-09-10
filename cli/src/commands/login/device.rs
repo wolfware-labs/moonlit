@@ -318,14 +318,14 @@ mod tests {
         assert!(base_url("[::1]:5185").starts_with("http://"));
         assert!(base_url("::1").starts_with("http://"));
         // Real hosts → https.
-        assert!(base_url("registry.moonlitbuild.dev").starts_with("https://"));
-        assert!(base_url("registry.moonlitbuild.dev:443").starts_with("https://"));
+        assert!(base_url("registry.moonlit.rs").starts_with("https://"));
+        assert!(base_url("registry.moonlit.rs:443").starts_with("https://"));
     }
 
     #[test]
     fn opens_safely_only_allows_http_schemes() {
         assert!(opens_safely(
-            "https://registry.moonlitbuild.dev/device?code=ABCD"
+            "https://registry.moonlit.rs/device?code=ABCD"
         ));
         assert!(opens_safely("http://localhost:5185/device?code=ABCD"));
         assert!(!opens_safely("file:///etc/passwd"));

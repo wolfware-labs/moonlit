@@ -95,7 +95,7 @@ Run `moonlit <command> --help` for the full options of any command.
 
 ## Links
 
-- Homepage: <https://moonlitbuild.dev/>
+- Homepage: <https://moonlit.rs/>
 - Source & docs: <https://github.com/wolfware-labs/moonlit>
 
 ## License

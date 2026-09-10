@@ -73,7 +73,7 @@ name: demo
 
 plugins:
   - name: github
-    url: oci://registry.moonlitbuild.dev/wolfware/github:2.0.0
+    url: oci://registry.moonlit.rs/wolfware/github:2.0.0
     permissions:
       network: ["api.github.com"]   # hosts reachable via wasi:http
       exec: []                      # programs the plugin may spawn
@@ -149,7 +149,7 @@ API reference for the plugin crate: **[docs.rs/moonlit-pdk](https://docs.rs/moon
 - [INSTALL.md](INSTALL.md) — every installation method
 - [CONTRIBUTING.md](CONTRIBUTING.md) — development setup and workflow
 - [SECURITY.md](SECURITY.md) — reporting a vulnerability
-- [moonlitbuild.dev](https://moonlitbuild.dev/) — guides and reference
+- [moonlit.rs](https://moonlit.rs/) — guides and reference
 
 ## Contributing
 
