@@ -324,9 +324,7 @@ mod tests {
 
     #[test]
     fn opens_safely_only_allows_http_schemes() {
-        assert!(opens_safely(
-            "https://registry.moonlit.rs/device?code=ABCD"
-        ));
+        assert!(opens_safely("https://registry.moonlit.rs/device?code=ABCD"));
         assert!(opens_safely("http://localhost:5185/device?code=ABCD"));
         assert!(!opens_safely("file:///etc/passwd"));
         assert!(!opens_safely("javascript:alert(1)"));
