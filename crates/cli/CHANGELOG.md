@@ -2,6 +2,22 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [2.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.2.0...moonlit-v2.0.0) (2026-09-12)
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** `moonlit login`, `logout` and plugin resolution with no explicit
+host now target registry.moonlit.rs instead of registry.moonlitbuild.dev. A
+credential already stored for the old host is no longer found by default, so
+re-run `moonlit login`. Plugin URLs that name registry.moonlitbuild.dev
+explicitly are not rewritten by the CLI -- the old hostname answers with a
+permanent redirect, which OCI clients follow inconsistently on the token-auth
+request, so update them to registry.moonlit.rs.
+
+### Features
+
+* **cli:** default to registry.moonlit.rs ([74b74b0](https://github.com/wolfware-labs/moonlit/commit/74b74b02398b8f6318011bbf8111563b72a4bced))
+
 ## [1.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.1.10...moonlit-v1.2.0) (2026-09-05)
 
 ### Features
