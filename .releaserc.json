@@ -87,7 +87,7 @@
     [
       "@semantic-release/changelog",
       {
-        "changelogFile": "cli/CHANGELOG.md",
+        "changelogFile": "crates/cli/CHANGELOG.md",
         "changelogTitle": "# Changelog\n\nAll notable changes to the Moonlit CLI are documented here."
       }
     ],
@@ -103,7 +103,7 @@
         "assets": [
           "Cargo.toml",
           "Cargo.lock",
-          "cli/CHANGELOG.md"
+          "crates/cli/CHANGELOG.md"
         ],
         "message": "chore(release): moonlit ${nextRelease.version}\n\n${nextRelease.notes}"
       }

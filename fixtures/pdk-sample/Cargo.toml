@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-moonlit-pdk = { path = "../../pdk" }
+moonlit-pdk = { path = "../../crates/pdk" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 schemars = "1"

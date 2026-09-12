@@ -70,7 +70,7 @@ pass "6: CA bundle present"
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 cp "$REPO_ROOT/tests/docker/release.yml" "$workdir/release.yml"
-cp "$REPO_ROOT/engine/tests/fixtures/test_plugin.wasm" "$workdir/test_plugin.wasm"
+cp "$REPO_ROOT/crates/engine/tests/fixtures/test_plugin.wasm" "$workdir/test_plugin.wasm"
 # mktemp -d is 0700, and on most CI runners the host uid differs from the image's,
 # so the container could not otherwise enter the mount at all.
 chmod 0755 "$workdir"

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["engine", "cli", "pdk", "pdk-macros"]
+members = ["crates/*"]
 exclude = ["fixtures/test-plugin", "fixtures/pdk-sample"]
 
 [workspace.package]
