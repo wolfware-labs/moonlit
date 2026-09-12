@@ -137,7 +137,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      # Install the version dist-workspace.toml pins, not the newest release.
+      # dist refuses to run against a config pinned to an older version, so
+      # `latest` turned every push red the moment upstream shipped 0.33.0 --
+      # a failure with no connection to the commit that triggered it. Reading
+      # the pin here keeps the two in step with one source of truth.
       - name: Install dist
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/latest/download/cargo-dist-installer.sh | sh
+        run: |
+          set -euo pipefail
+          version="$(grep -oP 'cargo-dist-version\s*=\s*"\K[^"]+' dist-workspace.toml)"
+          echo "installing dist ${version} (pinned in dist-workspace.toml)"
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "https://github.com/axodotdev/cargo-dist/releases/download/v${version}/cargo-dist-installer.sh" | sh
       - name: Validate release plan
         run: dist plan
