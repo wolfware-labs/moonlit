@@ -6,8 +6,8 @@ Provides the `moonlit_plugin!` macro, which generates the WebAssembly component
 entrypoints for a [Moonlit](https://github.com/wolfware-labs/moonlit) plugin from a list
 of middlewares plus optional plugin config and shared state.
 
-You normally depend on `moonlit-pdk` (which re-exports this macro) rather than on
-this crate directly.
+Depend on `moonlit-pdk`, which re-exports this macro, rather than on this crate
+directly.
 
 ## License
 

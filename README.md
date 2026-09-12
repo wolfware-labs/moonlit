@@ -4,10 +4,10 @@
 
 # Moonlit
 
-**Build and release automation powered by Rust and sandboxed WebAssembly plugins.**
+**Build and release automation in Rust, with sandboxed WebAssembly plugins.**
 
 Pipelines are declared in YAML and executed by a `wasmtime` host that runs every plugin
-as an isolated WebAssembly component — with no ambient access to your network, filesystem,
+as an isolated WebAssembly component. It has no ambient access to your network, filesystem,
 environment, or subprocesses unless the pipeline grants it.
 
 [![CI](https://github.com/wolfware-labs/moonlit/actions/workflows/ci.yml/badge.svg)](https://github.com/wolfware-labs/moonlit/actions/workflows/ci.yml)
@@ -39,20 +39,18 @@ environment, or subprocesses unless the pipeline grants it.
 
 ## Why Moonlit
 
-Most release tooling asks you to trust every plugin you install with the full authority of
-the process that runs it. Moonlit inverts that. A plugin is a WebAssembly component with no
-capabilities by default — each pipeline declares, per plugin, which hosts it may reach,
-which programs it may execute, which environment variables it may read, and whether it may
-touch the working directory at all.
+A plugin is a WebAssembly component with no capabilities by default. Each pipeline
+declares, per plugin, which hosts it may reach, which programs it may execute, which
+environment variables it may read, and whether it may touch the working directory at all.
 
-- **Sandboxed by default.** Capabilities are granted in the pipeline file, not assumed.
+- **Sandboxed by default.** Capabilities are granted in the pipeline file.
 - **Portable plugins.** Components are architecture-independent and cached by content.
-- **One file to read.** The whole pipeline — plugins, permissions, stages, conditions —
-  lives in a single YAML document.
+- **One file to read.** Plugins, permissions, stages, and conditions all live in a
+  single YAML document.
 
 ## Installation
 
-Shell one-liner, PowerShell, Windows MSI, Homebrew, Chocolatey, npm, or Docker — see **[INSTALL.md](INSTALL.md)**.
+Shell one-liner, PowerShell, Windows MSI, Homebrew, Chocolatey, npm, or Docker: see [INSTALL.md](INSTALL.md).
 
 ```sh
 brew install wolfware-labs/tap/moonlit
@@ -103,12 +101,12 @@ each step's output is published under its name for later steps to read.
 
 | Crate | Published as | What it does |
 | --- | --- | --- |
-| **`cli`** | [`moonlit`](https://github.com/wolfware-labs/moonlit/releases/latest) — GitHub, Homebrew, npm, Chocolatey | The `moonlit` binary: `run`, `validate`, `plugin` (scaffold/build/inspect/publish), `login`/`logout` for OCI registries, and `cache`. Renders pipeline execution live in the terminal, with a plain mode for CI. |
+| **`cli`** | [`moonlit`](https://github.com/wolfware-labs/moonlit/releases/latest) (GitHub, Homebrew, npm, Chocolatey) | The `moonlit` binary: `run`, `validate`, `plugin` (scaffold/build/inspect/publish), `login`/`logout` for OCI registries, and `cache`. Renders pipeline execution live in the terminal, with a plain mode for CI. |
 | **`engine`** | not published (internal library) | The runtime. Parses and validates pipeline YAML, evaluates the expression language, resolves plugins from `oci://`, `file://`, and `http(s)://`, instantiates them on `wasmtime` (WASI Preview 2), enforces the declared permissions, and drives stages and steps to completion. |
-| **`pdk`** | [`moonlit-pdk`](https://crates.io/crates/moonlit-pdk) | The plugin development kit. Write a plugin as typed `Middleware` structs with JSON-Schema `Input`/`Output` types; the crate supplies the host bindings — HTTP, process, env, filesystem, clock, randomness, changelog and state helpers — plus test doubles for unit-testing a plugin off-host. |
+| **`pdk`** | [`moonlit-pdk`](https://crates.io/crates/moonlit-pdk) | The plugin development kit. Write a plugin as typed `Middleware` structs with JSON-Schema `Input`/`Output` types; the crate supplies the host bindings (HTTP, process, env, filesystem, clock, randomness, changelog and state helpers) plus test doubles for unit-testing a plugin off-host. |
 | **`pdk-macros`** | [`moonlit-pdk-macros`](https://crates.io/crates/moonlit-pdk-macros) | The `moonlit_plugin!` procedural macro that turns those structs into an exported WebAssembly component. Pulled in automatically by `moonlit-pdk`. |
 
-The CLI and engine share one version and ship together as the `moonlit` product. The two
+The CLI and engine share one version and ship together. The two
 plugin crates are versioned independently and published to crates.io, because plugin authors
 depend on them directly.
 
@@ -130,8 +128,8 @@ flowchart LR
 ```
 
 The plugin ABI is authored in WIT at `crates/engine/wit/moonlit-plugin.wit`. Dynamic config and
-step outputs cross that boundary as JSON, and are bridged to a typed value tree on the Rust
-side, so a plugin never sees host memory or host handles it was not granted.
+step outputs cross that boundary as JSON and are bridged to a typed value tree on the Rust
+side. A plugin never sees host memory or host handles it was not granted.
 
 ## Writing a plugin
 
@@ -142,22 +140,22 @@ moonlit plugin inspect ./my.wasm  # print its metadata and middlewares
 moonlit plugin publish oci://ghcr.io/acme/my-plugin:1.0.0
 ```
 
-API reference for the plugin crate: **[docs.rs/moonlit-pdk](https://docs.rs/moonlit-pdk)**.
+API reference for the plugin crate: [docs.rs/moonlit-pdk](https://docs.rs/moonlit-pdk).
 
 ## Documentation
 
-- [INSTALL.md](INSTALL.md) — every installation method
-- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup and workflow
-- [SECURITY.md](SECURITY.md) — reporting a vulnerability
-- [moonlit.rs](https://moonlit.rs/) — guides and reference
+- [INSTALL.md](INSTALL.md): every installation method
+- [CONTRIBUTING.md](CONTRIBUTING.md): development setup and workflow
+- [SECURITY.md](SECURITY.md): reporting a vulnerability
+- [moonlit.rs](https://moonlit.rs/): guides and reference
 
 ## Contributing
 
-Issues and pull requests are welcome — start with [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Moonlit is open source, dual-licensed under either of
+Moonlit is dual-licensed under either of
 
 - [Apache License 2.0](LICENSE-APACHE)
 - [MIT license](LICENSE-MIT)

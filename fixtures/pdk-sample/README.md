@@ -1,7 +1,7 @@
-# pdk-sample — Moonlit SDK integration fixture
+# pdk-sample: Moonlit SDK integration fixture
 
 A plugin written on `moonlit-pdk`, built to a `wasm32-wasip2` component
-and used by `engine/tests/pdk_sample.rs`. **Excluded from the workspace** so the
+and used by `engine/tests/pdk_sample.rs`. Excluded from the workspace so the
 engine build/CI never needs the wasm target.
 
 ## Regenerate the committed artifact

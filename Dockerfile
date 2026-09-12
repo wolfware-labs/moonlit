@@ -46,7 +46,7 @@ USER moonlit
 WORKDIR /work
 
 LABEL org.opencontainers.image.title="Moonlit" \
-      org.opencontainers.image.description="Build and release automation powered by Rust and sandboxed WebAssembly plugins." \
+      org.opencontainers.image.description="Build and release automation in Rust, with sandboxed WebAssembly plugins." \
       org.opencontainers.image.version="${MOONLIT_VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="https://github.com/wolfware-labs/moonlit" \
