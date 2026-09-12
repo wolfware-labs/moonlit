@@ -1,14 +1,7 @@
 name: CodeQL
 
-# main's ruleset requires a CodeQL analysis (alerts_threshold: errors) before a
-# pull request can merge. Nothing produced one, so every PR sat in "Waiting for
-# Code Scanning results" and the only way to land a change was to bypass the
-# ruleset. This is the analysis that rule is waiting for.
-#
-# GitHub reports two analysable languages for this repository
-# (`gh api repos/wolfware-labs/moonlit/code-scanning/default-setup`): `rust`,
-# the workspace itself, and `actions`, the workflow files -- which is worth
-# having when those workflows hold the publishing credentials.
+# Satisfies main's code_scanning rule. `actions` is analysed alongside `rust`
+# because these workflows hold the publishing credentials.
 
 on:
   push:
@@ -16,8 +9,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # A weekly run catches newly published queries finding old code. Off-peak
-    # Monday so it does not queue behind the weekday pushes.
+    # Weekly, so new queries reach old code.
     - cron: "27 4 * * 1"
 
 concurrency:
@@ -30,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      # Uploading the SARIF results is what makes the ruleset's gate pass.
+      # Uploading the SARIF results is what satisfies the ruleset.
       security-events: write
       contents: read
       actions: read

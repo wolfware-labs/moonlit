@@ -1,4 +1,6 @@
-name: release
+# Versions and publishes the PDK crates to crates.io. The CLI is released by
+# release.yml instead.
+name: Release PDK crates
 
 on:
   push:

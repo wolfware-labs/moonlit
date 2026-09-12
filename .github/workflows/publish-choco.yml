@@ -25,10 +25,8 @@ on:
 jobs:
   chocolatey:
     runs-on: windows-latest
-    # Chocolatey is authenticated with CHOCOLATEY_API_KEY, not GITHUB_TOKEN, so
-    # the only thing this needs the token for is `gh release edit`, which appends
-    # a Chocolatey section to the release notes. Mirrors the grant dist hands
-    # this job in dist-workspace.toml's github-custom-job-permissions.
+    # Only for the `gh release edit` that appends a Chocolatey section to the
+    # release notes; Chocolatey itself uses CHOCOLATEY_API_KEY.
     permissions:
       contents: write
     steps:
@@ -51,9 +49,8 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "url=$url"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "checksum=$sha"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          # The tag, not just the version: the icon and release-notes URLs pin to it so each
-          # published version points at an immutable tree. Moving a file later cannot then
-          # retroactively break an already-listed version's icon.
+          # The tag, not the version: the icon and notes URLs pin to it, so moving a
+          # file later cannot break an already-published listing.
           "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - name: Generate package and pack
         shell: pwsh
@@ -97,21 +94,15 @@ jobs:
             </files>
           </package>
           '@
-          # jsDelivr rather than raw.githubusercontent: Chocolatey asks for a CDN-backed icon URL,
-          # and raw GitHub links are rate-limited and served with a content type the gallery does
-          # not always render. Pinned to the tag, so the URL is immutable per published version.
-          # Braced, because the jsDelivr separator is `@` and an unbraced $env:NAME followed by it
-          # reads as ambiguous even though PowerShell parses it correctly.
+          # jsDelivr, not raw.githubusercontent: Chocolatey wants a CDN-backed icon
+          # URL. Pinned to the tag so it is immutable per version. Braced because
+          # jsDelivr's `@` separator follows the variable name.
           $iconUrl = "https://cdn.jsdelivr.net/gh/${env:GITHUB_REPOSITORY}@${env:TAG}/assets/moonlit.png"
           $releaseNotes = "https://github.com/${env:GITHUB_REPOSITORY}/releases/tag/${env:TAG}"
 
-          # Prove the icon resolves before packing. This URL is only ever exercised at release
-          # time, so an unreachable one fails silently: the package publishes, the listing shows
-          # a placeholder, and nobody finds out until they look at chocolatey.org. That already
-          # happened once - the icon lived under docs/, which .git/info/exclude keeps out of the
-          # repo entirely, so it was in no tag and every URL pointing at it would have 404'd.
-          # Retried because jsDelivr fetches from GitHub on first request and a tag pushed
-          # moments ago can miss briefly; a transient miss must not fail a release.
+          # Prove the icon resolves before packing: an unreachable URL publishes
+          # fine and shows a placeholder nobody notices. Retried because jsDelivr
+          # can miss briefly on a tag pushed moments ago.
           $iconOk = $false
           foreach ($attempt in 1..5) {
             try {

@@ -1,13 +1,8 @@
-name: semantic-release (CLI)
+name: Version and tag CLI
 
-# Versions and tags the `moonlit` CLI from Conventional Commits. On every push
-# to main it inspects the commits since the last `moonlit-v*` tag: SDK-scoped
-# commits are ignored (the SDK crates are versioned separately by release-plz),
-# and anything touching the CLI or engine drives the bump. It then writes the
-# new workspace version into Cargo.toml/Cargo.lock, updates cli/CHANGELOG.md,
-# commits with [skip ci], and tags `moonlit-v<version>` — which triggers the
-# dist release workflow (release.yml) to build the binary and publish it to
-# GitHub Releases, Homebrew, npm, and Chocolatey.
+# Versions and tags the `moonlit` CLI from Conventional Commits, then tags
+# `moonlit-v<version>` to trigger release.yml. PDK-scoped commits are ignored;
+# those crates are versioned by release-plz.yml.
 
 on:
   push:
