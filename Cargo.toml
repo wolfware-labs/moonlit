@@ -13,7 +13,7 @@ homepage = "https://moonlit.rs/"
 rust-version = "1.97"
 
 [workspace.dependencies]
-wit-parser = "0.254"
+wit-parser = "0.258"
 wit-bindgen = "0.62.0"
 saphyr-parser = "=0.0.12"
 miette = "7.6"
@@ -40,7 +40,7 @@ tempfile = "3"
 wasmtime = { version = "48.0.2", features = ["component-model", "async"] }
 wasmtime-wasi = "48.0.2"
 wasmtime-wasi-http = "48.0.2"
-wasmparser = "0.254"
+wasmparser = "0.258"
 anyhow = "1"
 hyper = "1"
 http-body-util = "0.1"
