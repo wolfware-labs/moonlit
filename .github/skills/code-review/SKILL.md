@@ -16,8 +16,9 @@ loads plugins as sandboxed WebAssembly components. The workspace lives under
 security-relevant and say so in the review:
 
 - `perms.rs` builds the WASI context from the `filesystem` and `env` grants
-  (`build_wasi_ctx`): a filtered environment and a single preopened directory.
-  A widened grant changes what every plugin may do.
+  (`build_wasi_ctx`): a filtered environment, plus a preopened working directory
+  only when the grant is not `none`. A widened grant changes what every plugin
+  may do.
 - `exec` is not a WASI permission, since WASI has no subprocess concept.
   `perms.rs` compiles the allowlist, `host/mod.rs` holds it as
   `HostState.exec_allow`, and `imports.rs` checks it before each spawn or run.
@@ -40,26 +41,37 @@ If a PR changes the WIT package version, `PLUGIN_WORLD` in
 
 ## Commit messages drive releases
 
-On every push to `main`, semantic-release reads Conventional Commits, writes the
-new version and changelog, and tags `moonlit-v<version>`. It publishes nothing.
-The tag then triggers `release.yml`, which builds the artifacts and publishes
-them to GitHub Releases, Homebrew, npm, Chocolatey and Docker Hub. The PDK
-crates are versioned separately by `release-plz.yml`.
+On a push to `main`, semantic-release analyses the Conventional Commits since the
+last `moonlit-v*` tag. If none of them warrants a release it stops there.
+Otherwise it writes the new version and changelog and tags `moonlit-v<version>`.
+It publishes nothing itself.
+
+The tag triggers `release.yml`, which builds the artifacts and publishes them to
+GitHub Releases, Homebrew, npm, Chocolatey and Docker Hub. That handoff depends
+on the tag being pushed with `RELEASE_PAT`; GitHub suppresses tag-triggered
+workflows for pushes made with the built-in `GITHUB_TOKEN`, so the fallback path
+tags without building. The PDK crates are versioned separately by
+`release-plz.yml`.
 
 The `!` marker means breaking for a moonlit user, such as a changed CLI flag,
 config schema, plugin ABI or default. It overrides the commit type, so
-`chore(deps)!` cuts a major release of the CLI. Upgrading an internal dependency
-is not a breaking change; flag any `!` that does not correspond to something a
-user must react to.
+`chore(deps)!` cuts a major release of the CLI. Most dependency upgrades are not
+breaking for a user, so flag a `!` that does not match something a user must
+react to. The exception worth thinking about is a runtime or toolchain
+dependency: if the bump changes observable CLI behaviour or the supported
+environment, the `!` is right.
 
 Commits carry no AI or co-author attribution.
 
 ## Tests
 
 The project is test-driven, and the bar is whether a test can fail. When
-reviewing one, ask what edit to the production code it would catch. Tests that
-assert a constant, or that a warning was logged without asserting the behaviour
-it describes, have shipped here before and are worth calling out.
+reviewing one, ask what edit to the production code it would catch. A test whose
+only assertion is a hard-coded constant, or that checks a warning was logged
+without checking the behaviour it describes, has shipped here before and is
+worth calling out. A test that derives its expectation from the source of truth
+is not: `crates/engine/tests/wit_contract.rs` compares `PLUGIN_WORLD` against the
+resolved WIT package, which is the right shape.
 
 `crates/engine/tests/host_network.rs` is the model: it allowlists one host, requests
 another, and asserts the mock server received **no request at all**.

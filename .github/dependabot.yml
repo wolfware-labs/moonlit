@@ -1,10 +1,7 @@
 version: 2
 updates:
-  # Actions are pinned to commit SHAs, which is the only reference an upstream
-  # owner cannot repoint at new code. That safety is worth nothing if the pins
-  # never move: without this file four docker/* actions drifted a full major
-  # behind and started warning about a deprecated Node runtime. Dependabot
-  # rewrites both the SHA and the trailing version comment.
+  # Actions are pinned to commit SHAs, which only helps if something moves them.
+  # Dependabot rewrites the SHA and its trailing version comment together.
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -15,11 +12,10 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # These cannot move independently. wasmtime pins wasmparser and
-      # wit-parser to an exact minor (48.0.2 wants ^0.254), so a PR bumping one
-      # of them alone either fails to resolve or quietly leaves two
-      # incompatible copies in the graph -- and the engine hands wasmparser
-      # types straight to wasmtime. One PR, moved as a set, reviewed as a set.
+      # These cannot move independently: wasmtime pins wasmparser and wit-parser
+      # to an exact minor, so bumping one alone leaves two copies in the graph.
+      # Grouping batches them into one PR; it does not make them agree on a
+      # version, so check that by hand.
       wasm-runtime:
         patterns:
           - "wasmtime*"
@@ -27,10 +23,8 @@ updates:
           - "wasm-encoder"
           - "wit-parser"
           - "wit-bindgen*"
-      # Everything else that is compatible by semver, batched so a weekly run
-      # is one reviewable PR instead of thirty. Majors are deliberately not in
-      # here: each one is a breaking change that deserves its own PR and its
-      # own test run.
+      # The semver-compatible rest, batched into one PR. Majors are excluded so
+      # each breaking change gets its own PR and test run.
       cargo-compatible:
         patterns:
           - "*"
