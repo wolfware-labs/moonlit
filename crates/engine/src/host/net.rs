@@ -2,7 +2,10 @@
 //! (host), matched against the plugin's `network` allowlist globs.
 
 use globset::GlobSet;
-use wasmtime_wasi_http::p2::{HttpResult, WasiHttpHooks, default_send_request};
+use http_body_util::BodyExt;
+use hyper::http;
+use std::future::Future;
+use wasmtime_wasi_http::{Error, RequestOptions, WasiBody, WasiHttpHooks, default_send_request};
 
 use crate::config::model::Permissions;
 use crate::host::perms::network_globset;
@@ -21,16 +24,32 @@ impl AllowlistHooks {
     }
 }
 
+/// The future `send_request` must hand back, spelled once so the allow and deny
+/// arms can agree on it.
+type SendResult = Box<
+    dyn Future<
+            Output = Result<
+                (
+                    http::Response<WasiBody>,
+                    Box<dyn Future<Output = Result<(), Error>> + Send>,
+                ),
+                Error,
+            >,
+        > + Send,
+>;
+
 impl WasiHttpHooks for AllowlistHooks {
     fn send_request(
         &mut self,
-        request: hyper::Request<wasmtime_wasi_http::p2::body::HyperOutgoingBody>,
-        config: wasmtime_wasi_http::p2::types::OutgoingRequestConfig,
-    ) -> HttpResult<wasmtime_wasi_http::p2::types::HostFutureIncomingResponse> {
+        request: http::Request<WasiBody>,
+        options: Option<RequestOptions>,
+        fut: Box<dyn Future<Output = Result<(), Error>> + Send>,
+    ) -> SendResult {
         let host = request.uri().host().unwrap_or_default().to_string();
-        if self.allowed.is_match(&host) {
-            Ok(default_send_request(request, config))
-        } else {
+
+        // Deny first, and before anything touches the network: the allowlist is the
+        // sandbox boundary, so the request must not reach a socket at all.
+        if !self.allowed.is_match(&host) {
             self.events.log(
                 "",
                 crate::host::LogLevel::Warn,
@@ -38,7 +57,17 @@ impl WasiHttpHooks for AllowlistHooks {
                     "blocked from connecting to '{host}' — add it to the plugin's permissions.network"
                 ),
             );
-            Err(wasmtime_wasi_http::p2::bindings::http::types::ErrorCode::HttpRequestDenied.into())
+            return Box::new(async move { Err(Error::HttpRequestDenied) });
         }
+
+        // Allowed: same behaviour as the trait's default implementation.
+        _ = fut;
+        Box::new(async move {
+            let (res, io) = default_send_request(request, options).await?;
+            Ok((
+                res.map(BodyExt::boxed_unsync),
+                Box::new(io) as Box<dyn Future<Output = _> + Send>,
+            ))
+        })
     }
 }

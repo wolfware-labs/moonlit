@@ -2,7 +2,7 @@
 //! the filesystem-grant -> preopen-perms mapping, and the WASI context builder.
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxBuilder};
+use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxBuilder};
 
 use crate::config::model::FilesystemAccess;
 use crate::host::InstanceConfig;
@@ -37,15 +37,17 @@ pub fn filter_env(patterns: &[String], snapshot: &[(String, String)]) -> Vec<(St
         .collect()
 }
 
-/// Map a filesystem grant to `(DirPerms, FilePerms)`; `None` = no preopen at all.
-pub fn filesystem_perms(access: FilesystemAccess) -> Option<(DirPerms, FilePerms)> {
+/// Map a filesystem grant to `FsPerms`; `None` = no preopen at all.
+///
+/// wasmtime-wasi 48 collapsed the old `(DirPerms, FilePerms)` pair into a single
+/// `FsPerms`. That is lossless here: this only ever used the two corners of that
+/// square -- everything readable, or everything readable and writable -- never an
+/// asymmetric grant such as a mutable directory of read-only files.
+pub fn filesystem_perms(access: FilesystemAccess) -> Option<FsPerms> {
     match access {
         FilesystemAccess::None => None,
-        FilesystemAccess::ReadOnly => Some((DirPerms::READ, FilePerms::READ)),
-        FilesystemAccess::ReadWrite => Some((
-            DirPerms::READ | DirPerms::MUTATE,
-            FilePerms::READ | FilePerms::WRITE,
-        )),
+        FilesystemAccess::ReadOnly => Some(FsPerms::ReadOnly),
+        FilesystemAccess::ReadWrite => Some(FsPerms::ReadWrite),
     }
 }
 
@@ -56,8 +58,8 @@ pub fn build_wasi_ctx(cfg: &InstanceConfig) -> anyhow::Result<WasiCtx> {
     for (k, v) in filter_env(&cfg.permissions.env, &cfg.env_snapshot) {
         b.env(&k, &v);
     }
-    if let Some((dir, file)) = filesystem_perms(cfg.permissions.filesystem) {
-        b.preopened_dir(&cfg.working_directory, ".", dir, file)?;
+    if let Some(perms) = filesystem_perms(cfg.permissions.filesystem) {
+        b.preopened_dir(&cfg.working_directory, ".", perms)?;
     }
     Ok(b.build())
 }
@@ -96,11 +98,13 @@ mod tests {
     #[test]
     fn filesystem_perms_maps_each_grant() {
         assert!(filesystem_perms(FilesystemAccess::None).is_none());
-        let (d, f) = filesystem_perms(FilesystemAccess::ReadOnly).unwrap();
-        assert_eq!(d, DirPerms::READ);
-        assert_eq!(f, FilePerms::READ);
-        let (d, f) = filesystem_perms(FilesystemAccess::ReadWrite).unwrap();
-        assert_eq!(d, DirPerms::READ | DirPerms::MUTATE);
-        assert_eq!(f, FilePerms::READ | FilePerms::WRITE);
+        assert_eq!(
+            filesystem_perms(FilesystemAccess::ReadOnly),
+            Some(FsPerms::ReadOnly)
+        );
+        assert_eq!(
+            filesystem_perms(FilesystemAccess::ReadWrite),
+            Some(FsPerms::ReadWrite)
+        );
     }
 }
