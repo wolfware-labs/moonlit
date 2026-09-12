@@ -52,7 +52,7 @@ touch the working directory at all.
 
 ## Installation
 
-Shell one-liner, PowerShell, Homebrew, Chocolatey, npm, or Docker — see **[INSTALL.md](INSTALL.md)**.
+Shell one-liner, PowerShell, Windows MSI, Homebrew, Chocolatey, npm, or Docker — see **[INSTALL.md](INSTALL.md)**.
 
 ```sh
 brew install wolfware-labs/tap/moonlit

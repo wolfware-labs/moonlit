@@ -10,6 +10,29 @@ The command you run is always `moonlit`.
 
     irm https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-installer.ps1 | iex
 
+## Windows Installer (MSI)
+
+Download
+[moonlit-x86_64-pc-windows-msvc.msi](https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-x86_64-pc-windows-msvc.msi)
+and run it, or install it unattended:
+
+    msiexec /i moonlit-x86_64-pc-windows-msvc.msi /qn
+
+The installer places `moonlit.exe` under `Program Files\moonlit\bin`, adds that
+directory to the system `PATH`, and registers the app so it can be removed from
+Add/Remove Programs. Installing a newer MSI upgrades in place. It needs
+administrator rights, and because it installs per-machine it is the channel to
+use when you want one shared install rather than a per-user one.
+
+The MSI is not code-signed, so SmartScreen shows a publisher warning on the
+first run. Verify the download against its published checksum before installing:
+
+    (Get-FileHash moonlit-x86_64-pc-windows-msvc.msi -Algorithm SHA256).Hash
+
+Compare that against
+[moonlit-x86_64-pc-windows-msvc.msi.sha256](https://github.com/wolfware-labs/moonlit/releases/latest/download/moonlit-x86_64-pc-windows-msvc.msi.sha256)
+on the release.
+
 ## Homebrew
 
     brew install wolfware-labs/tap/moonlit
