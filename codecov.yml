@@ -1,0 +1,25 @@
+# Codecov's defaults report only a patch status and no PR comment. This turns on
+# the project status and the comment, so a pull request says what it did to
+# coverage overall rather than only within the lines it touched.
+
+coverage:
+  status:
+    # Total coverage, measured against the base commit.
+    project:
+      default:
+        target: auto
+        # A little slack: a refactor that moves covered code around should not
+        # fail on rounding. A real drop still shows.
+        threshold: 1%
+    # Coverage of the lines this PR actually changed.
+    patch:
+      default:
+        target: auto
+        threshold: 0%
+
+comment:
+  layout: "condensed_header, diff, flags, files"
+  behavior: default
+  # Comment even when coverage is unchanged, so its absence always means
+  # something went wrong with the upload rather than "nothing to say".
+  require_changes: false
