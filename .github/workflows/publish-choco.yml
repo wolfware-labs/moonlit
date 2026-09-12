@@ -25,6 +25,12 @@ on:
 jobs:
   chocolatey:
     runs-on: windows-latest
+    # Chocolatey is authenticated with CHOCOLATEY_API_KEY, not GITHUB_TOKEN, so
+    # the only thing this needs the token for is `gh release edit`, which appends
+    # a Chocolatey section to the release notes. Mirrors the grant dist hands
+    # this job in dist-workspace.toml's github-custom-job-permissions.
+    permissions:
+      contents: write
     steps:
       - name: Resolve version and download the Windows build
         id: art
