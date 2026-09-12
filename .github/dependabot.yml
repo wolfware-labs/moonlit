@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Actions are pinned to commit SHAs, which is the only reference an upstream
+  # owner cannot repoint at new code. That safety is worth nothing if the pins
+  # never move: without this file four docker/* actions drifted a full major
+  # behind and started warning about a deprecated Node runtime. Dependabot
+  # rewrites both the SHA and the trailing version comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
