@@ -65,8 +65,8 @@ the macro emits those schemas into the component so `moonlit plugin inspect` and
 registry can document the plugin without running it.
 
 Alongside `moonlit-pdk`, a plugin crate needs `serde` (with `derive`),
-`serde_json`, and `schemars = "1"`. `moonlit plugin new` scaffolds all of this —
-the example above is what it generates.
+`serde_json`, and `schemars = "1"`. `moonlit plugin new` scaffolds all of this.
+The example above is what it generates.
 
 Build with `cargo build --target wasm32-wasip2 --release` (requires
 `rustup target add wasm32-wasip2`).

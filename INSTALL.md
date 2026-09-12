@@ -21,8 +21,7 @@ and run it, or install it unattended:
 The installer places `moonlit.exe` under `Program Files\moonlit\bin`, adds that
 directory to the system `PATH`, and registers the app so it can be removed from
 Add/Remove Programs. Installing a newer MSI upgrades in place. It needs
-administrator rights, and because it installs per-machine it is the channel to
-use when you want one shared install rather than a per-user one.
+administrator rights and installs per-machine rather than per-user.
 
 The MSI is not code-signed, so SmartScreen shows a publisher warning on the
 first run. Verify the download against its published checksum before installing:
@@ -51,7 +50,7 @@ on the release.
 
 The image runs as a non-root user and treats `/work` as the pipeline's working
 directory, so mount your repository there. To reuse resolved plugins across
-runs instead of fetching them every time, mount the cache as well:
+runs, mount the cache as well:
 
     docker run --rm \
       -v "$PWD:/work" \
@@ -60,7 +59,7 @@ runs instead of fetching them every time, mount the cache as well:
 
 On Linux the container runs as uid 1000, and a bind mount keeps the host's
 ownership, so a pipeline that writes into your repository needs the container to
-run as you. If your host uid differs from 1000 — most CI runners — pass your own
+run as you. If your host uid differs from 1000 (as on most CI runners), pass your own
 uid with the root group:
 
     docker run --rm \
