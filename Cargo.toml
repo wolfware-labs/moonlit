@@ -13,8 +13,8 @@ homepage = "https://moonlit.rs/"
 rust-version = "1.97"
 
 [workspace.dependencies]
-wit-parser = "0.253"
-wit-bindgen = "0.59.0"
+wit-parser = "0.254"
+wit-bindgen = "0.62.0"
 saphyr-parser = "=0.0.12"
 miette = "7.6"
 thiserror = "2.0"
@@ -37,12 +37,13 @@ dirs = "7"
 base64 = "0.23"
 wiremock = "0.6"
 tempfile = "3"
-wasmtime = { version = "46.0.1", features = ["component-model", "async"] }
-wasmtime-wasi = "46.0.1"
-wasmtime-wasi-http = "46.0.1"
-wasmparser = "0.251"
+wasmtime = { version = "48.0.2", features = ["component-model", "async"] }
+wasmtime-wasi = "48.0.2"
+wasmtime-wasi-http = "48.0.2"
+wasmparser = "0.254"
 anyhow = "1"
 hyper = "1"
+http-body-util = "0.1"
 globset = "0.4"
 clap = { version = "4", features = ["derive"] }
 indicatif = "0.18"
