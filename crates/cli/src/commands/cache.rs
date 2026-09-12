@@ -58,7 +58,7 @@ fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
             }
             use comfy_table::{Table, presets::UTF8_BORDERS_ONLY};
             let mut table = Table::new();
-            table.load_preset(UTF8_BORDERS_ONLY);
+            table.load_style(UTF8_BORDERS_ONLY);
             table.set_header(["Reference", "Digest", "Size", "Middlewares"]);
             for (_key, m) in &items {
                 let digest = m.digest.as_deref().unwrap_or("-");

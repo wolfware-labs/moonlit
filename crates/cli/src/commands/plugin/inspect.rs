@@ -87,7 +87,7 @@ fn print_pretty(meta: &PluginMetadata, mws: &[MiddlewareInfo]) {
         println!("{}", meta.description);
     }
     let mut table = Table::new();
-    table.load_preset(UTF8_BORDERS_ONLY);
+    table.load_style(UTF8_BORDERS_ONLY);
     table.set_header(["Middleware", "Description"]);
     for m in mws {
         table.add_row([m.name.as_str(), m.description.as_str()]);
