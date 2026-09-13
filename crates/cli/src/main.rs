@@ -1,12 +1,7 @@
-mod cli;
-mod commands;
-mod input;
-mod render;
-mod signal;
-
 use clap::Parser;
 
-use cli::{Cli, Command};
+use moonlit::cli::{Cli, Command};
+use moonlit::commands;
 
 #[tokio::main]
 async fn main() {
