@@ -1,5 +1,3 @@
-//! Plain, ANSI-free rendering for CI / non-TTY (MVP_SPEC §9.4.6).
-
 use std::io::Write;
 
 use moonlit_engine::{LogLevel, PipelineEvent, StepResult};

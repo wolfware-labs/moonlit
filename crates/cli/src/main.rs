@@ -9,8 +9,6 @@ async fn main() {
     let output = args.output;
     let verbose = args.verbose;
     let code = match args.command {
-        // A bare `moonlit` prints help, like any other modern CLI. `moonlit version`
-        // remains the way to see the banner.
         None => {
             use clap::CommandFactory as _;
             let mut cmd = Cli::command();

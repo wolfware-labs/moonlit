@@ -1,5 +1,3 @@
-//! `moonlit plugin publish <ref>` — introspect a built component and push it as an OCI artifact.
-
 use std::path::PathBuf;
 
 use moonlit_engine::publish::{PublishMeta, new_push_client, publish_plugin};
@@ -7,7 +5,6 @@ use moonlit_engine::publish::{PublishMeta, new_push_client, publish_plugin};
 use crate::cli::{OutputMode, PluginPublishArgs};
 use crate::render::resolve_mode;
 
-/// Best-effort: the resolved `moonlit-pdk` version from a crate's `Cargo.lock`.
 pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
     let doc: toml::Value = toml::from_str(lock_text).ok()?;
     let packages = doc.get("package")?.as_array()?;
@@ -22,8 +19,6 @@ pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
     None
 }
 
-/// Strip an optional `oci://` scheme, matching the pull side's `PluginSource::parse` convention.
-/// The engine's `publish_plugin` expects a bare OCI reference and re-adds the scheme for display.
 fn strip_oci_scheme(reference: &str) -> &str {
     reference.strip_prefix("oci://").unwrap_or(reference)
 }
@@ -38,7 +33,6 @@ struct CratePackage {
     license: Option<String>,
 }
 
-/// Best-effort `(source, licenses)` from a crate's `Cargo.toml`.
 fn read_crate_facts(crate_dir: &std::path::Path) -> (Option<String>, Option<String>) {
     let Ok(text) = std::fs::read_to_string(crate_dir.join("Cargo.toml")) else {
         return (None, None);
@@ -55,7 +49,6 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
         .clone()
         .unwrap_or_else(|| PathBuf::from("."));
 
-    // Resolve the component bytes: --file, else the crate's release artifact.
     let file = match &args.file {
         Some(f) => f.clone(),
         None => {
@@ -72,8 +65,6 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
                 eprintln!("error: {e}");
                 return 2;
             }
-            // Ask cargo where the artifact is rather than guessing: a workspace member writes to
-            // the workspace target directory, and `[lib] name` may differ from the package name.
             let layout = match super::build::resolve_layout(&crate_dir) {
                 Ok(l) => l,
                 Err(e) => {

@@ -1,7 +1,8 @@
-//! Host bridge + Context. `Host` abstracts the wit-bindgen imports so the same
-//! middleware runs under the real host (wasm) or a mock (native tests). The
-//! real impl is cfg'd to wasm because the import stubs abort if called on
-//! native targets.
+//! [`Context`], and the [`Host`] bridge behind it.
+//!
+//! `Host` abstracts the generated WIT imports, so the same middleware runs
+//! against the real host under wasm or a [`MockHost`](crate::testing::MockHost)
+//! in a native test.
 
 use std::any::Any;
 

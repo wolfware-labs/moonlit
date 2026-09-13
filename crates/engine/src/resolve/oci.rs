@@ -1,6 +1,3 @@
-//! `oci://` resolution (§8). This file holds the [`RegistryClient`] seam over `oci-client` (so the
-//! orchestration in `resolve_oci` is unit-tested against a mock) plus artifact verification helpers.
-
 use oci_client::manifest::{OciDescriptor, OciImageManifest};
 use oci_client::secrets::RegistryAuth;
 use oci_client::{Client, Reference};
@@ -8,25 +5,19 @@ use oci_client::{Client, Reference};
 use crate::cache::{Cache, PluginMeta};
 use crate::resolve::{ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin};
 
-/// The OCI config media type Moonlit plugin artifacts use (§8.1).
 pub(crate) const CONFIG_MEDIA_TYPE: &str = "application/vnd.wasm.config.v0+json";
-/// Accepted layer media types (§8.1); the CNCF wasm-OCI convention plus the older deislabs constant.
 pub(crate) const LAYER_MEDIA_TYPES: [&str; 2] = [
     "application/wasm",
     "application/vnd.wasm.content.layer.v1+wasm",
 ];
 
-/// A narrow seam over the OCI registry, so `resolve_oci` can be tested without a network.
 pub(crate) trait RegistryClient {
-    /// Pull the (single-platform) image manifest and its digest.
     async fn pull_image_manifest(
         &self,
         reference: &Reference,
         auth: &RegistryAuth,
     ) -> Result<(OciImageManifest, String), ResolveError>;
 
-    /// Pull a blob (config or layer) identified by its descriptor. The implementation verifies the
-    /// content digest.
     async fn pull_blob(
         &self,
         reference: &Reference,
@@ -34,10 +25,8 @@ pub(crate) trait RegistryClient {
     ) -> Result<Vec<u8>, ResolveError>;
 }
 
-/// The real registry client, backed by `oci-client`.
 pub(crate) struct OciClient(Client);
 
-/// Construct the real client with default configuration (rustls transport).
 pub(crate) fn new_client() -> OciClient {
     OciClient(Client::default())
 }
@@ -68,7 +57,6 @@ impl RegistryClient for OciClient {
     }
 }
 
-/// Map an `oci-client` error to a [`ResolveError`], classifying auth/not-found/digest cases.
 fn map_oci_error(err: oci_client::errors::OciDistributionError) -> ResolveError {
     let msg = err.to_string();
     let lower = msg.to_lowercase();
@@ -87,7 +75,6 @@ fn map_oci_error(err: oci_client::errors::OciDistributionError) -> ResolveError 
     }
 }
 
-/// Verify the artifact is a Moonlit/wasm plugin by its config + layer media types (§8.1).
 pub(crate) fn verify_media_types(
     config_media_type: &str,
     layer_media_type: &str,
@@ -105,7 +92,6 @@ pub(crate) fn verify_media_types(
     Ok(())
 }
 
-/// Extract `moonlit.middlewares` from the OCI config JSON (§8.1), if present.
 pub(crate) fn parse_middlewares(config_json: &[u8]) -> Option<Vec<String>> {
     let value: serde_json::Value = serde_json::from_slice(config_json).ok()?;
     let arr = value.get("moonlit")?.get("middlewares")?.as_array()?;
@@ -116,9 +102,6 @@ pub(crate) fn parse_middlewares(config_json: &[u8]) -> Option<Vec<String>> {
     )
 }
 
-/// Resolve an `oci://` source to a cached component path (§8.3). Digest resolution: a pinned digest
-/// is used directly; a tag consults the `refs/` TTL cache, else pulls the manifest. A `plugins/<digest>`
-/// hit short-circuits with no blob fetch. `cached` is true only when no network request was made.
 pub(crate) async fn resolve_oci<C: RegistryClient>(
     raw_ref: &str,
     opts: &ResolveOptions,
@@ -135,7 +118,6 @@ pub(crate) async fn resolve_oci<C: RegistryClient>(
     let mut network = false;
     let mut fetched: Option<(OciImageManifest, String)> = None;
 
-    // Step A — determine the manifest digest.
     let manifest_digest: String = if let Some(pinned) = reference.digest() {
         pinned.to_string()
     } else if let Some(cached_digest) = cache.read_ref(raw_ref, opts.tag_ttl) {
@@ -152,12 +134,8 @@ pub(crate) async fn resolve_oci<C: RegistryClient>(
         digest
     };
 
-    // Filesystem-safe cache key: a digest is `algo:hex`, and ':' is illegal in a Windows path
-    // component, so map it to `algo-hex` for the `plugins/<key>` directory. The canonical
-    // `algo:hex` digest is preserved in `ResolvedPlugin.digest` and `meta.json`.
     let cache_key = manifest_digest.replace(':', "-");
 
-    // Step B — plugin cache hit?
     if cache.has_plugin(&cache_key) {
         let middlewares = cache.read_meta(&cache_key).and_then(|m| m.middlewares);
         return Ok(ResolvedPlugin {
@@ -169,9 +147,6 @@ pub(crate) async fn resolve_oci<C: RegistryClient>(
         });
     }
 
-    // Step C — need the manifest (and thus the network) to pull the blob. Past the Step B cache hit,
-    // resolution is necessarily a fresh pull, so `cached` is hard-coded false below and `network`
-    // is not tracked further.
     if opts.offline {
         return Err(ResolveError::OfflineMiss(source));
     }
@@ -179,26 +154,18 @@ pub(crate) async fn resolve_oci<C: RegistryClient>(
         Some(pair) => pair,
         None => client.pull_image_manifest(&reference, &auth).await?,
     };
-    // The freshly-pulled manifest's digest is authoritative for what we are about to store and
-    // return: a within-TTL refs-cache hit whose plugin bytes were evicted could resolve a tag that
-    // has since moved, making the Step-A digest stale. Re-key on the pulled digest so bytes are
-    // stored under — and the caller receives — the digest that actually matches these bytes. For
-    // digest-pinned refs and the tag-miss path this equals the Step-A digest (a no-op).
     let manifest_digest = fetched_digest;
     let cache_key = manifest_digest.replace(':', "-");
 
-    // Step D — verify it is a wasm/Moonlit artifact.
     let layer = manifest
         .layers
         .first()
         .ok_or_else(|| ResolveError::MediaTypeMismatch("artifact has no layers".to_string()))?;
     verify_media_types(&manifest.config.media_type, &layer.media_type)?;
 
-    // Step E — middlewares from the config blob.
     let config_bytes = client.pull_blob(&reference, &manifest.config).await?;
     let middlewares = parse_middlewares(&config_bytes);
 
-    // Step F — pull the layer, store in the blob store and plugin store.
     let bytes = client.pull_blob(&reference, layer).await?;
     if let Some(report) = progress {
         report(bytes.len() as u64, Some(bytes.len() as u64));
@@ -328,7 +295,6 @@ mod tests {
         (manifest, layer_bytes.to_vec())
     }
 
-    /// A mock registry client with call counters and canned data.
     struct MockClient {
         manifest: OciImageManifest,
         manifest_digest: String,
@@ -393,10 +359,8 @@ mod tests {
         assert!(!resolved.cached);
         assert_eq!(resolved.middlewares, Some(vec!["build".to_string()]));
         assert_eq!(std::fs::read(&resolved.wasm_path).unwrap(), b"\0asm-body");
-        // manifest fetched once; config + layer blobs pulled.
         assert_eq!(client.manifest_calls.load(Ordering::SeqCst), 1);
         assert_eq!(client.blob_calls.load(Ordering::SeqCst), 2);
-        // the tag→digest ref was recorded.
         assert_eq!(
             cache
                 .read_ref(
@@ -414,7 +378,6 @@ mod tests {
         let opts = ResolveOptions::default();
         let client = mock(br#"{"moonlit":{"middlewares":["build"]}}"#, b"\0asm-body");
 
-        // First call populates cache + ref.
         resolve_oci(
             "reg/x:1",
             &opts,
@@ -427,7 +390,6 @@ mod tests {
         .unwrap();
         let before = client.manifest_calls.load(Ordering::SeqCst);
 
-        // Second call: ref fresh + plugin cached -> no more network.
         let second = resolve_oci(
             "reg/x:1",
             &opts,
@@ -448,11 +410,9 @@ mod tests {
         let (cache, _d) = cache();
         let opts = ResolveOptions::default();
         let client = mock(br#"{"moonlit":{"middlewares":[]}}"#, b"\0asm");
-        // A digest-pinned reference requires a valid 64-hex sha256 (oci-client validates the format).
         const DIGEST: &str =
             "sha256:1111111111111111111111111111111111111111111111111111111111111111";
         let pinned_ref = "reg.example.com/x/y@sha256:1111111111111111111111111111111111111111111111111111111111111111";
-        // Pre-populate the plugin under the filesystem-safe cache key (':' -> '-').
         let cache_key = DIGEST.replace(':', "-");
         let meta = crate::cache::PluginMeta {
             source: format!("oci://{pinned_ref}"),
@@ -507,8 +467,6 @@ mod tests {
         let (cache, _d) = cache();
         let opts = ResolveOptions::default();
         let client = mock(br#"{"moonlit":{"middlewares":["build"]}}"#, b"\0asm-fresh");
-        // Simulate a stale-but-within-TTL refs entry pointing at an OLD digest, with NO plugin bytes
-        // cached under it (external eviction). The mock's manifest digest is "sha256:manifest".
         cache.write_ref("reg/x:1", "sha256:oldstale").unwrap();
 
         let resolved = resolve_oci(
@@ -522,9 +480,7 @@ mod tests {
         .await
         .unwrap();
 
-        // The caller must receive the freshly-pulled digest, not the stale refs digest.
         assert_eq!(resolved.digest.as_deref(), Some("sha256:manifest"));
-        // Bytes stored under the fresh (sanitized) digest key, not the stale one.
         assert!(cache.has_plugin("sha256-manifest"));
         assert!(!cache.has_plugin("sha256-oldstale"));
         assert_eq!(std::fs::read(&resolved.wasm_path).unwrap(), b"\0asm-fresh");
@@ -534,7 +490,6 @@ mod tests {
     async fn wrong_media_type_is_rejected() {
         let (cache, _d) = cache();
         let mut client = mock(br#"{}"#, b"\0asm");
-        // Corrupt the layer media type.
         client.manifest.layers[0].media_type = "application/octet-stream".to_string();
         let err = resolve_oci(
             "reg/x:1",

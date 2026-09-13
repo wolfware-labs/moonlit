@@ -1,7 +1,3 @@
-//! Rich TTY rendering (MVP_SPEC §9.4.2–§9.4.4): indicatif progress for plugin resolution, a
-//! step spinner with an indented live log region, and a comfy-table summary. Output goes to
-//! stderr so json/stdout stays machine-clean; here everything is human output.
-
 use std::collections::HashMap;
 
 use console::style;
@@ -13,9 +9,7 @@ use super::{Header, Renderer};
 
 pub struct PrettyRenderer {
     mp: MultiProgress,
-    /// Resolution bars, keyed by plugin name.
     plugins: HashMap<String, ProgressBar>,
-    /// The active step spinner.
     step: Option<ProgressBar>,
     verbose: bool,
 }
@@ -37,7 +31,6 @@ impl PrettyRenderer {
     }
 
     fn print(&self, line: String) {
-        // Route through MultiProgress so lines don't corrupt active bars.
         let _ = self.mp.println(line);
     }
 

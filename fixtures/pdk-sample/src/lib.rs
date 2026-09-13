@@ -1,6 +1,4 @@
-//! Minimal plugin built on moonlit-pdk, used by the engine integration
-//! tests to prove the SDK produces a real, runnable component. Exercises SDK
-//! core (Echo/Fail) plus the utility modules (process/http/env).
+//! Minimal plugin used by the engine integration tests.
 
 use moonlit_pdk::prelude::*;
 

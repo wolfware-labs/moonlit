@@ -1,34 +1,17 @@
-//! Test fixture plugin implementing `world plugin` from moonlit:plugin@0.1.0.
-//! Built to wasm32-wasip2 -> a real component. It is a TEST INSTRUMENT: each
-//! middleware exercises a specific host path the engine's tests assert on.
-
 wit_bindgen::generate!({
-    // Reuse the canonical engine WIT (no copy).
     path: "../../engine/wit",
     world: "plugin",
-    // Generate all transitive wasi bindings so the guest is self-contained.
     generate_all,
 });
 
 use crate::moonlit::plugin::host;
 use crate::moonlit::plugin::process;
 use crate::moonlit::plugin::types::LogLevel;
-// MiddlewareInfo, MiddlewareResult, PluginMetadata, ReleaseContext are re-exported
-// at the crate root because `world plugin` does `use types.{...}`.
 
 struct Component;
 
-/// A 1x1 PNG as a data URI — exercises the ABI-0.2.0 `plugin-metadata.icon`
-/// field end-to-end (engine host mapping + `plugin inspect`) without the SDK.
 const ICON_DATA_URI: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-
-/// A minimal draft-2020-12 JSON Schema for `log-and-output`'s input, so
-/// `list-middlewares` carries a real `input-schema`. The other middlewares leave
-/// it `None`, which exercises the absent-schema path through the engine and CLI.
 const LOG_AND_OUTPUT_INPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputConfig","type":"object","properties":{"name":{"type":"string","description":"config name echoed into the step output"}},"additionalProperties":false}"#;
-
-/// A minimal draft-2020-12 JSON Schema for `log-and-output`'s output, so
-/// `list-middlewares` carries a real `output-schema` alongside the input one.
 const LOG_AND_OUTPUT_OUTPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputOutput","type":"object","properties":{"step":{"type":"string","description":"the step name this ran under"},"echoed_config":{"description":"the raw config echoed back"},"cfg_seen":{"description":"the plugin:name config value observed"}},"additionalProperties":false}"#;
 
 impl Guest for Component {
@@ -76,19 +59,25 @@ impl Guest for Component {
             mw("fail", "returns successful=false", None, None),
             mw("dup-output", "two outputs, same key", None, None),
             mw("sleep", "blocks for config ms", None, None),
-            mw("bad-output", "successful=true but invalid-JSON output", None, None),
+            mw(
+                "bad-output",
+                "successful=true but invalid-JSON output",
+                None,
+                None,
+            ),
         ]
     }
 
     fn execute(middleware: String, ctx: ReleaseContext, config: String) -> MiddlewareResult {
         match middleware.as_str() {
             "log-and-output" => {
-                host::log(LogLevel::Info, &format!("executing in {}", ctx.working_directory));
+                host::log(
+                    LogLevel::Info,
+                    &format!("executing in {}", ctx.working_directory),
+                );
                 host::report_progress("halfway there");
-                // host::get_config already returns a JSON-encoded json-value string
-                // (e.g. `"test-plugin"` for a string config value); pass it through
-                // as-is instead of re-wrapping it in another layer of quotes.
-                let cfg_seen = host::get_config("plugin:name").unwrap_or_else(|| "null".to_string());
+                let cfg_seen =
+                    host::get_config("plugin:name").unwrap_or_else(|| "null".to_string());
                 MiddlewareResult {
                     successful: true,
                     error_message: None,
@@ -110,8 +99,11 @@ impl Guest for Component {
                 };
                 match process::run(&cmd) {
                     Ok((code, chunks)) => {
-                        let joined: String =
-                            chunks.into_iter().map(|c| c.line).collect::<Vec<_>>().join("\n");
+                        let joined: String = chunks
+                            .into_iter()
+                            .map(|c| c.line)
+                            .collect::<Vec<_>>()
+                            .join("\n");
                         MiddlewareResult {
                             successful: code == 0,
                             error_message: None,
@@ -164,7 +156,8 @@ impl Guest for Component {
                 }
             }
             "http-get" => {
-                let authority = json_field(&config, "authority").unwrap_or_else(|| "example.com".to_string());
+                let authority =
+                    json_field(&config, "authority").unwrap_or_else(|| "example.com".to_string());
                 let path = json_field(&config, "path").unwrap_or_else(|| "/".to_string());
                 let scheme = json_field(&config, "scheme").unwrap_or_else(|| "https".to_string());
                 match http_get(&scheme, &authority, &path) {
@@ -192,8 +185,6 @@ impl Guest for Component {
                 successful: true,
                 error_message: None,
                 warnings: vec![],
-                // Two entries under the same key — the runner must reject this.
-                // Values are JSON-encoded json-value strings.
                 output: vec![
                     ("k".to_string(), "\"one\"".to_string()),
                     ("k".to_string(), "\"two\"".to_string()),
@@ -212,8 +203,6 @@ impl Guest for Component {
                 }
             }
             "bad-output" => MiddlewareResult {
-                // successful call, but the output value is not valid JSON -> host returns
-                // HostError::BadJson (an Ok-path error). The Store is NOT trapped.
                 successful: true,
                 error_message: None,
                 warnings: vec![],
@@ -230,7 +219,6 @@ impl Guest for Component {
     }
 }
 
-/// Minimal string-value extractor for `"key":"value"` (test configs only).
 fn json_field(json: &str, key: &str) -> Option<String> {
     let needle = format!("\"{key}\"");
     let start = json.find(&needle)? + needle.len();
@@ -242,17 +230,24 @@ fn json_field(json: &str, key: &str) -> Option<String> {
     Some(after[..end].to_string())
 }
 
-/// Minimal outgoing HTTP GET using generated wasi:http bindings.
 fn http_get(scheme: &str, authority: &str, path: &str) -> Result<u16, String> {
     use crate::wasi::http::outgoing_handler;
     use crate::wasi::http::types::{Fields, Method, OutgoingRequest, Scheme};
 
-    let s = if scheme == "http" { Scheme::Http } else { Scheme::Https };
+    let s = if scheme == "http" {
+        Scheme::Http
+    } else {
+        Scheme::Https
+    };
     let req = OutgoingRequest::new(Fields::new());
-    req.set_method(&Method::Get).map_err(|_| "set_method".to_string())?;
-    req.set_scheme(Some(&s)).map_err(|_| "set_scheme".to_string())?;
-    req.set_authority(Some(authority)).map_err(|_| "set_authority".to_string())?;
-    req.set_path_with_query(Some(path)).map_err(|_| "set_path".to_string())?;
+    req.set_method(&Method::Get)
+        .map_err(|_| "set_method".to_string())?;
+    req.set_scheme(Some(&s))
+        .map_err(|_| "set_scheme".to_string())?;
+    req.set_authority(Some(authority))
+        .map_err(|_| "set_authority".to_string())?;
+    req.set_path_with_query(Some(path))
+        .map_err(|_| "set_path".to_string())?;
 
     let fut = outgoing_handler::handle(req, None).map_err(|e| format!("handle: {e:?}"))?;
     let pollable = fut.subscribe();

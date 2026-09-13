@@ -1,12 +1,5 @@
-//! ABI value bridging + the host error type + clean public value types.
-//! The ABI speaks JSON strings (`type json-value = string`); this module converts
-//! between the engine's `expr::Value`, `serde_json::Value`, and the JSON text form.
-
 use crate::expr::value::Value;
 
-/// Errors from the host layer. `init`'s domain `err(string)` is NOT a `HostError`
-/// (it is a plugin-load outcome carried as `Result<_, String>`); a trap during any
-/// call is a `HostError::Trap`.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum HostError {
     #[error("failed to instantiate plugin component: {0}")]
@@ -32,14 +25,11 @@ pub enum HostError {
     Io(#[from] std::io::Error),
 }
 
-/// Clean public value types (mirror the WIT records; decouple the engine API from
-/// bindgen-generated types). Mapping from generated records lands in later tasks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PluginMetadata {
     pub name: String,
     pub version: String,
     pub description: String,
-    /// Embedded icon as a `data:` URI (PNG/WebP), if the plugin declares one.
     pub icon: Option<String>,
 }
 
@@ -47,9 +37,7 @@ pub struct PluginMetadata {
 pub struct MiddlewareInfo {
     pub name: String,
     pub description: String,
-    /// JSON Schema (draft 2020-12) for this middleware's input config, as JSON text.
     pub input_schema: Option<String>,
-    /// JSON Schema (draft 2020-12) for this middleware's output, as JSON text.
     pub output_schema: Option<String>,
 }
 
@@ -58,7 +46,6 @@ pub struct MiddlewareResult {
     pub successful: bool,
     pub error_message: Option<String>,
     pub warnings: Vec<String>,
-    /// step outputs: key -> parsed JSON value (from the guest's json-value strings).
     pub output: Vec<(String, serde_json::Value)>,
 }
 
@@ -78,8 +65,6 @@ pub enum LogLevel {
     Error,
 }
 
-/// Total map from the engine's runtime `Value` to `serde_json::Value` (same JSON
-/// shape; all scalars are strings on the `Value` side).
 pub fn value_to_json(v: &Value) -> serde_json::Value {
     match v {
         Value::Null => serde_json::Value::Null,
@@ -93,8 +78,6 @@ pub fn value_to_json(v: &Value) -> serde_json::Value {
     }
 }
 
-/// Inverse of [`value_to_json`]: fold a `serde_json::Value` into the engine's runtime `Value`
-/// (all scalars become strings, preserving the accumulator's "scalars are strings" invariant).
 pub fn json_to_value(j: &serde_json::Value) -> Value {
     match j {
         serde_json::Value::Null => Value::Null,
@@ -110,7 +93,6 @@ pub fn json_to_value(j: &serde_json::Value) -> Value {
     }
 }
 
-/// Parse a guest-supplied `json-value` string, attributing failures to `context`.
 pub fn json_str_to_value(s: &str, context: &str) -> Result<serde_json::Value, HostError> {
     serde_json::from_str(s).map_err(|source| HostError::BadJson {
         context: context.to_string(),
@@ -209,7 +191,6 @@ mod tests {
             "list": ["x", "y"]
         });
         let v = json_to_value(&json);
-        // value_to_json is the inverse for string-only scalar trees (§5.2 lossless).
         assert_eq!(value_to_json(&v), json);
     }
 

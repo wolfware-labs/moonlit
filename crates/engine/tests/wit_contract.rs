@@ -1,9 +1,3 @@
-//! Structural verification of the canonical `moonlit:plugin` WIT contract.
-//!
-//! Resolving `engine/wit/` is the primary gate: it fails loudly if the contract is
-//! malformed or a vendored WASI dependency is missing. The assertions then pin the
-//! contract's shape so a later edit cannot silently drop or rename an export.
-
 use wit_parser::{PackageId, Resolve, TypeDefKind, WorldId, WorldItem, WorldKey};
 
 fn load() -> (Resolve, PackageId, WorldId) {

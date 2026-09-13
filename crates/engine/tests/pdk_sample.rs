@@ -1,7 +1,3 @@
-//! Proves the moonlit-pdk sample compiles to a real component the engine
-//! host runs: init metadata, middleware discovery, a coerced execute with
-//! outputs + get-config, and a failure path.
-
 use std::sync::Arc;
 
 use moonlit_engine::config::model::Permissions;

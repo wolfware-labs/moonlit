@@ -1,11 +1,5 @@
-//! Typed configuration model for a Moonlit pipeline.
-//!
-//! Produced by [`crate::config::parse_config`]. Scalars stay raw strings; `$(...)` text is
-//! preserved verbatim and never resolved here (that is Phase 3).
-
 use indexmap::IndexMap;
 
-/// A byte range into the source YAML.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,
@@ -27,7 +21,6 @@ impl Span {
     }
 }
 
-/// A value paired with its source span.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Spanned<T> {
     pub value: T,
@@ -40,10 +33,8 @@ impl<T> Spanned<T> {
     }
 }
 
-/// An order-preserving map of config keys to spanned values.
 pub type ConfigMap = IndexMap<String, Spanned<ConfigValue>>;
 
-/// A dynamic configuration value. Scalars are kept as raw strings until Phase 3 binding.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConfigValue {
     Null,
@@ -52,7 +43,6 @@ pub enum ConfigValue {
     Map(ConfigMap),
 }
 
-/// A fully parsed, validated pipeline configuration.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PipelineConfig {
     pub name: String,
@@ -76,8 +66,6 @@ pub struct Plugin {
     pub permissions: Option<Permissions>,
 }
 
-/// A plugin source URL, classified by scheme. Holds the original URL string; structural
-/// resolution (host/path/existence) happens in `resolve/` (M2+).
 #[derive(Clone, Debug, PartialEq)]
 pub enum PluginUrl {
     Oci(String),
@@ -102,7 +90,6 @@ pub struct Run {
     pub middleware: String,
 }
 
-/// Per-plugin sandboxing grants (§3.3). Omitted in YAML → [`Permissions::deny`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Permissions {
     pub network: Vec<String>,
@@ -112,7 +99,6 @@ pub struct Permissions {
 }
 
 impl Permissions {
-    /// An explicit full-trust grant, still used by tests. Not the default (§3.3).
     pub fn full_trust() -> Self {
         Self {
             network: vec!["*".to_string()],
@@ -122,9 +108,6 @@ impl Permissions {
         }
     }
 
-    /// Deny-by-default grant: the plugin gets no host access unless its `permissions`
-    /// block names it (§3.3). Omitted `permissions`, and any key a present block does
-    /// not name, resolve to these.
     pub fn deny() -> Self {
         Self {
             network: vec![],

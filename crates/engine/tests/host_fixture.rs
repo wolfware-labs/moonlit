@@ -1,5 +1,3 @@
-//! The committed guest fixture must be a valid wasm component.
-
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 
 #[test]

@@ -1,7 +1,3 @@
-//! Proves the moonlit-pdk utility modules (process/http/env) run for real
-//! inside the engine host: a real subprocess, an HTTP round-trip against a local
-//! mock server (incl. gzip inflate), and a permission-filtered env read.
-
 use std::io::Write;
 use std::sync::Arc;
 

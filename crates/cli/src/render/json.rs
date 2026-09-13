@@ -1,6 +1,3 @@
-//! Machine-readable rendering: one JSON object per event line (MVP_SPEC §9.4.6). The header is
-//! a display concern and is intentionally NOT emitted — json is the pure engine event stream.
-
 use std::io::Write;
 
 use moonlit_engine::PipelineEvent;

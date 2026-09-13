@@ -1,6 +1,3 @@
-//! `moonlit plugin inspect <path>` — validate a local component and print its
-//! metadata + middlewares by instantiating it with zero capability grants.
-
 use moonlit_engine::cache::Cache;
 use moonlit_engine::host::{MiddlewareInfo, PluginMetadata};
 use moonlit_engine::resolve::{PluginSource, ResolveOptions, resolve};
@@ -11,7 +8,6 @@ use crate::render::resolve_mode;
 
 pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
     let bytes = if let Ok(source) = PluginSource::parse(&args.target) {
-        // A recognized scheme (oci/file/http/https) → resolve (and pull if needed).
         let cache = match Cache::new() {
             Ok(c) => c,
             Err(e) => {
@@ -34,7 +30,6 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
             }
         }
     } else {
-        // Not a scheme → a local filesystem path.
         match std::fs::read(&args.target) {
             Ok(b) => b,
             Err(e) => {
@@ -110,14 +105,10 @@ fn print_json(meta: &PluginMetadata, mws: &[MiddlewareInfo]) {
         "name": meta.name,
         "version": meta.version,
         "description": meta.description,
-        // Data URI string, or null when the plugin declares no icon.
         "icon": meta.icon,
         "middlewares": mws.iter().map(|m| serde_json::json!({
             "name": m.name,
             "description": m.description,
-            // Input/output schemas travel the ABI as JSON text; re-embed each as
-            // an object here (null when absent or unparseable) so the registry can
-            // consume it directly.
             "inputSchema": m.input_schema.as_deref()
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
             "outputSchema": m.output_schema.as_deref()

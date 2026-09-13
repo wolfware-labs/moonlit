@@ -1,5 +1,3 @@
-//! `moonlit cache [ls|clean]` — inspect or clear the content cache (`<OS cache dir>/moonlit`).
-
 use moonlit_engine::cache::Cache;
 
 use crate::cli::{CacheCommand, OutputMode};
