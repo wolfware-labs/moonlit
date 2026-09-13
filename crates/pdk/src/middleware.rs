@@ -1,20 +1,52 @@
-//! The middleware authoring trait. A middleware is a `Default` unit struct with
-//! a name, a description, a typed config, and an `execute`.
+//! The middleware authoring trait.
 
 use crate::{Context, MiddlewareResult};
 
+/// One step a pipeline can `run:`. Implement it on a `Default` unit struct.
+///
+/// # Examples
+///
+/// ```
+/// use moonlit_pdk::prelude::*;
+/// use moonlit_pdk::testing::{run, MockHost};
+///
+/// #[derive(Deserialize, Default, schemars::JsonSchema)]
+/// #[serde(default)]
+/// struct Input { name: String }
+///
+/// #[derive(Serialize, schemars::JsonSchema)]
+/// struct Output { greeting: String }
+///
+/// #[derive(Default)]
+/// struct Greet;
+///
+/// impl Middleware for Greet {
+///     const NAME: &'static str = "greet";
+///     const DESCRIPTION: &'static str = "Greets someone by name";
+///     type Input = Input;
+///     type Output = Output;
+///
+///     fn execute(&self, ctx: &Context, input: Input) -> MiddlewareResult<Output> {
+///         ctx.log_info(&format!("greeting {}", input.name));
+///         MiddlewareResult::ok(Output { greeting: format!("hello {}", input.name) })
+///     }
+/// }
+///
+/// let host = MockHost::new();
+/// let ctx = Context::new(&host, "/work".into(), "step".into());
+/// assert!(run(&Greet, &ctx, Input { name: "ada".into() }).is_success());
+/// assert_eq!(host.logs()[0].1, "greeting ada");
+/// ```
 pub trait Middleware: Default {
     /// The `run:` reference name (e.g. `latest-tag`), unique within the plugin.
     const NAME: &'static str;
     /// Shown by `plugin inspect` / `list-middlewares`.
     const DESCRIPTION: &'static str = "";
-    /// The step input (config) type; `Default` so an absent block still binds.
-    /// `JsonSchema` lets the macro emit `middleware-info.input-schema`.
-    /// Use `NoInput` when the middleware reads no configuration.
+    /// The step's `with:` block. `Default` so an absent block still binds.
+    /// Use [`NoInput`](crate::NoInput) when the step reads no configuration.
     type Input: serde::de::DeserializeOwned + Default + schemars::JsonSchema;
-    /// The step output type, published for downstream steps. `JsonSchema` lets
-    /// the macro emit `middleware-info.output-schema`. Use `NoOutput` when the
-    /// middleware publishes nothing.
+    /// Published for later steps as `steps.NAME.outputs.<field>`. Use
+    /// [`NoOutput`](crate::NoOutput) when the step publishes nothing.
     type Output: serde::Serialize + schemars::JsonSchema;
     fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output>;
 }

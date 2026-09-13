@@ -1,11 +1,23 @@
-//! `Shared<T>` — a `Sync`, interior-mutable cell for plugin shared state.
-//! `moonlit_plugin! { state: T }` installs `T` in a `static`, so `T` must be
-//! `Sync`; `Shared` provides that with `Mutex` while staying ergonomic. Single-
-//! threaded wasm means there is never real contention.
+//! Interior-mutable state shared between a plugin's middlewares.
 
 use std::sync::Mutex;
 
-/// An interior-mutable, `Sync` cell for plugin shared state.
+/// A `Sync` cell for state shared between middlewares.
+///
+/// `moonlit_plugin! { state: T }` installs `T` in a `static`, so `T` must be
+/// `Sync`. Wasm is single-threaded, so the `Mutex` inside never contends.
+///
+/// # Examples
+///
+/// ```
+/// use moonlit_pdk::state::Shared;
+///
+/// static SEEN: Shared<u32> = Shared::new(0);
+///
+/// SEEN.set(2);
+/// assert_eq!(SEEN.update(|n| { *n += 1; *n }), 3);
+/// assert_eq!(SEEN.get(), 3);
+/// ```
 pub struct Shared<T>(Mutex<T>);
 
 impl<T> Shared<T> {

@@ -1,9 +1,10 @@
-//! Moonlit plugin SDK: write a plugin as typed `Middleware` structs + one
-//! `moonlit_plugin!` block. See `docs`/README for the authoring model.
+//! Write a Moonlit plugin: one [`Middleware`] impl per step, and one
+//! [`moonlit_plugin!`] block naming them.
 //!
-//! Targets plugin ABI `moonlit:plugin@0.3.0`: plugins carry an optional icon and
-//! each middleware a JSON Schema for its typed `Input` and `Output`
-//! (`Middleware::Input` / `Middleware::Output: JsonSchema`).
+//! Targets plugin ABI `moonlit:plugin@0.3.0`. Each middleware publishes a JSON
+//! Schema for its `Input` and `Output`, which is what `moonlit plugin inspect`
+//! reads. See [`Middleware`] for a worked example and [`testing`] for driving
+//! one in a unit test.
 
 /// Generated WIT bindings. Public because the `moonlit_plugin!` macro output
 /// (expanded in the author crate) references this exact path via

@@ -25,7 +25,26 @@ impl de::Error for ConfigError {
     }
 }
 
-/// Deserialize `T` from a json-value string (the ABI form).
+/// Deserialize `T` from a json-value string, the form the engine sends.
+///
+/// # Examples
+///
+/// ```
+/// use moonlit_pdk::config::from_json_value;
+///
+/// #[derive(serde::Deserialize, Default, Debug, PartialEq)]
+/// #[serde(default)]
+/// struct Cfg { port: i64, debug: bool }
+///
+/// // Every scalar arrives as a string; typed fields coerce.
+/// let cfg: Cfg = from_json_value(r#"{"port":"8080","debug":"true"}"#).unwrap();
+/// assert_eq!(cfg, Cfg { port: 8080, debug: true });
+/// ```
+///
+/// # Errors
+///
+/// Returns [`ConfigError`] if the text is not valid JSON, or if a field cannot
+/// be coerced to its declared type.
 pub fn from_json_value<T: de::DeserializeOwned>(json: &str) -> Result<T, ConfigError> {
     let value: serde_json::Value =
         serde_json::from_str(json).map_err(|e| ConfigError(e.to_string()))?;

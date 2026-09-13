@@ -1,6 +1,4 @@
-//! Randomness access. Routes through the host, which serves `wasi:random` on
-//! the real host (a deterministic seed in tests). Funnelling through `Host`
-//! keeps randomness mockable in native tests.
+//! Randomness, routed through the host so tests can seed it deterministically.
 
 use crate::context::Host;
 

@@ -1,13 +1,39 @@
-//! Optional semantic validation of a plugin's `config:`, run at `init`.
-//!
-//! The `moonlit_plugin!` macro calls [`PluginConfig::validate`] right after
-//! decoding the plugin config. Unlike a decode error (wrapped as
-//! `"invalid plugin config: …"`), the message returned here surfaces VERBATIM
-//! as the init error, so a plugin can emit its exact 1.x contract string.
+//! Optional validation of a plugin's `config:` block, run at `init`.
 
+/// Semantic validation for a plugin's `config:`, beyond what decoding checks.
+///
+/// `moonlit_plugin!` calls [`validate`](PluginConfig::validate) once the config
+/// has decoded. The returned message surfaces verbatim as the `init` error,
+/// where a decode failure would be wrapped in `"invalid plugin config: ..."`.
+///
+/// # Examples
+///
+/// ```
+/// use moonlit_pdk::PluginConfig;
+///
+/// #[derive(Default)]
+/// struct Cfg { token: String }
+///
+/// impl PluginConfig for Cfg {
+///     fn validate(&self) -> Result<(), String> {
+///         if self.token.is_empty() {
+///             return Err("github: `token` is required".into());
+///         }
+///         Ok(())
+///     }
+/// }
+///
+/// assert_eq!(
+///     Cfg::default().validate(),
+///     Err("github: `token` is required".to_string())
+/// );
+/// ```
 pub trait PluginConfig {
-    /// Validate the decoded config. `Err(msg)` fails `init` with `msg` unwrapped.
-    /// Default: accept everything.
+    /// Validate the decoded config.
+    ///
+    /// # Errors
+    ///
+    /// Return `Err(msg)` to fail `init`. `msg` is shown to the user unchanged.
     fn validate(&self) -> Result<(), String> {
         Ok(())
     }
