@@ -42,7 +42,7 @@ pub trait Middleware: Default {
     const NAME: &'static str;
     /// Shown by `plugin inspect` / `list-middlewares`.
     const DESCRIPTION: &'static str = "";
-    /// The step's `with:` block. `Default` so an absent block still binds.
+    /// The step's `config:` block. `Default` so an absent block still binds.
     /// Use [`NoInput`](crate::NoInput) when the step reads no configuration.
     type Input: serde::de::DeserializeOwned + Default + schemars::JsonSchema;
     /// Published for later steps as `steps.NAME.outputs.<field>`. Use
