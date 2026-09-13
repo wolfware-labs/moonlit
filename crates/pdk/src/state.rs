@@ -4,8 +4,9 @@ use std::sync::Mutex;
 
 /// A `Sync` cell for state shared between middlewares.
 ///
-/// `moonlit_plugin! { state: T }` installs `T` in a `static`, so `T` must be
-/// `Sync`. Wasm is single-threaded, so the `Mutex` inside never contends.
+/// `moonlit_plugin! { state: T }` installs it in a `static`, and a `static`
+/// must be `Sync`. `Shared<T>` is `Sync` whenever `T: Send`, which is what the
+/// `Mutex` inside provides. Wasm is single-threaded, so it never contends.
 ///
 /// # Examples
 ///
