@@ -1,9 +1,3 @@
-//! YAML event stream → spanned node tree, with anchor/alias resolution.
-//!
-//! The only module that touches `saphyr-parser`. It produces a schema-agnostic tree; `convert`
-//! maps that tree onto the typed model. Events are first lowered into owned [`Tok`]s so the tree
-//! builder never holds a borrow of the parser output across a recursive call.
-
 use std::collections::HashMap;
 
 use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
@@ -11,7 +5,6 @@ use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
 use crate::config::diagnostic::{ConfigDiagnostic, Source};
 use crate::config::model::Span;
 
-/// A schema-agnostic YAML node with its source span.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node {
     pub value: NodeValue,
@@ -35,7 +28,6 @@ impl Node {
     }
 }
 
-/// An owned lowering of `saphyr_parser::Event`, decoupled from the parser's lifetime.
 #[derive(Clone)]
 enum Tok {
     StreamStart,
@@ -60,7 +52,6 @@ enum EndKind {
     Map,
 }
 
-/// Result of peeking at the next token without consuming it.
 #[derive(Clone, Copy)]
 enum Peek {
     Item,
@@ -72,13 +63,7 @@ fn is_yaml_null(raw: &str) -> bool {
     matches!(raw, "" | "~" | "null" | "Null" | "NULL")
 }
 
-/// Parse the first YAML document in `src.yaml` into a spanned node tree.
 pub fn build_tree(src: &Source) -> Result<Node, ConfigDiagnostic> {
-    // saphyr-parser 0.0.11's `Marker::index()` is a CHAR index — its accessor doc
-    // claiming "bytes" is wrong (the field doc says chars, and the scanner advances the
-    // index per char). miette source spans are BYTE offsets, so map each char index to a
-    // byte offset via the source. `char_to_byte[ci]` is the byte offset of the ci-th char;
-    // the trailing sentinel maps the one-past-the-end index to the byte length.
     let char_to_byte: Vec<usize> = {
         let mut v: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
         v.push(src.yaml.len());

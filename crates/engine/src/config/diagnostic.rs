@@ -1,10 +1,3 @@
-//! Span-rich configuration diagnostics.
-//!
-//! [`ConfigDiagnostic`] is the exit-code-2 error class (§7.2 `EngineError::Config`). It carries the
-//! source YAML so the CLI can render a labeled snippet later (§9.4.5); Phase 2 does not install a
-//! renderer. Diagnostics are built through [`Source`], which threads the YAML text and file label
-//! through the config stages.
-
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -23,19 +16,15 @@ pub struct ConfigDiagnostic {
 }
 
 impl ConfigDiagnostic {
-    /// The human-readable message (exact wording is fixed in the [`Source`] constructors and
-    /// asserted verbatim by tests).
     pub fn message(&self) -> &str {
         &self.message
     }
 
-    /// The labeled span, if this diagnostic points at a source location.
     pub fn span(&self) -> Option<&SourceSpan> {
         self.span.as_ref()
     }
 }
 
-/// The source under diagnosis, threaded through the config stages. `Copy` so stages pass it freely.
 #[derive(Clone, Copy)]
 pub struct Source<'a> {
     pub yaml: &'a str,
@@ -56,12 +45,10 @@ impl<'a> Source<'a> {
         }
     }
 
-    /// A YAML scanner/syntax error at `span`.
     pub fn syntax(&self, info: &str, span: Span) -> ConfigDiagnostic {
         self.make(format!("Invalid YAML: {info}"), Some(span), "here")
     }
 
-    /// A `*alias` referring to an anchor that was never defined.
     pub fn unknown_alias(&self, span: Span) -> ConfigDiagnostic {
         self.make(
             "Unknown YAML alias: no matching anchor was defined.".to_string(),
@@ -70,7 +57,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A node that must be a mapping is not one (`context` names the site, e.g. "a plugin").
     pub fn expected_mapping(&self, context: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Expected a mapping for {context}."),
@@ -79,8 +65,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A value that must be a sequence but is something else. Accepting the wrong shape here used
-    /// to yield an empty collection, so a stage with a malformed body ran and reported success.
     pub fn expected_sequence(&self, context: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Expected a sequence for {context}."),
@@ -89,7 +73,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// An `arguments`/`variables` entry with a non-string value.
     pub fn expected_string(&self, context: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Expected a string value in {context}."),
@@ -98,7 +81,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// `run:` is not `plugin.middleware`.
     pub fn invalid_run(&self, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("'{value}' is not a valid run reference; use the format 'plugin.middleware'."),
@@ -107,7 +89,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A step missing its required `run:`.
     pub fn missing_run(&self, step: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Step '{step}' is missing a 'run' entry."),
@@ -116,7 +97,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A `filesystem:` permission value that isn't one of the recognized access levels.
     pub fn invalid_filesystem(&self, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!(
@@ -127,7 +107,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A non-boolean value where a bool is required (engine-chosen; spec mandates shape only).
     pub fn invalid_bool(&self, field: &str, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Invalid {field} value: {value}. Expected 'true' or 'false'."),
@@ -136,7 +115,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A plugin `url:` that is not an absolute URL with a supported scheme.
     pub fn invalid_url(&self, value: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!(
@@ -148,7 +126,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A plugin with no `url:`.
     pub fn missing_url(&self, plugin: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Plugin '{plugin}' is missing a 'url' entry."),
@@ -157,7 +134,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// No stages found. No span — nothing to point at.
     pub fn no_stages(&self) -> ConfigDiagnostic {
         self.make(
             "No stages defined. A pipeline needs at least one stage.".to_string(),
@@ -166,7 +142,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// Stages present but no plugins.
     pub fn no_plugins(&self, span: Option<Span>) -> ConfigDiagnostic {
         self.make(
             "No plugins declared. Every step runs a middleware from a plugin, so at least one is required."
@@ -176,7 +151,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A `run:` referencing a plugin alias that was not declared (§7.4).
     pub fn plugin_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("No plugin is declared with the alias '{name}'."),
@@ -185,7 +159,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A `run:` naming a middleware the plugin does not export (§7.4).
     pub fn middleware_not_found(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("The plugin does not export a middleware named '{name}'."),
@@ -194,7 +167,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// Two plugins declared with the same alias; the second is rejected rather than shadowing the first.
     pub fn duplicate_plugin(&self, name: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Duplicate plugin name '{name}'. Plugin names must be unique."),
@@ -203,8 +175,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A key the schema does not define. Silently ignoring these hid typos such as `pluigns:`,
-    /// which produced a pipeline with no plugins and no diagnostic at all.
     pub fn unknown_key(&self, key: &str, context: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Unknown {context} key '{key}'."),
@@ -213,8 +183,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// The same schema key given twice. YAML forbids duplicate mapping keys; accepting them and
-    /// keeping the last silently discarded whatever the author wrote first.
     pub fn duplicate_key(&self, key: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Duplicate key '{key}'."),
@@ -223,9 +191,6 @@ impl<'a> Source<'a> {
         )
     }
 
-    /// A schema key present but with no value. The schema is Moonlit's own contract and must be
-    /// precise; a null inside a plugin's arbitrary config map is left alone, because there it may
-    /// be a value the plugin acts on.
     pub fn null_value(&self, key: &str, expected: &str, span: Span) -> ConfigDiagnostic {
         self.make(
             format!("Key '{key}' expects {expected}, but has no value."),
@@ -251,7 +216,6 @@ mod tests {
             d.message(),
             "'gitpush' is not a valid run reference; use the format 'plugin.middleware'."
         );
-        // Display (thiserror) matches the message.
         assert_eq!(format!("{d}"), d.message());
         let ss = d.span().expect("has a span");
         assert_eq!(ss.offset(), 6);

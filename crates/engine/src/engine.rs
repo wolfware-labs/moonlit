@@ -1,9 +1,3 @@
-//! The public engine facade: construction, options, the error taxonomy, and `load_pipeline`
-//! (loader). `run` (the executor loop) lands in Phase 7.
-
-// `EngineError` embeds the large `ConfigDiagnostic` (source text + labels); the spec fixes the
-// fallible surface as `Result<_, EngineError>` unboxed, so silence the large-err lint here exactly
-// as `config/mod.rs` does.
 #![allow(clippy::result_large_err)]
 
 use std::path::PathBuf;
@@ -21,11 +15,8 @@ use crate::host::{HostEventSink, InstanceConfig, PluginInstance, PluginMetadata,
 use crate::pipeline::{ChannelSink, FlatStep, Pipeline, PipelineEvent, PipelineSummary};
 use crate::resolve::{self, PluginSource, ResolveOptions};
 
-/// Engine-wide settings fixed at construction.
 pub struct EngineSettings {
-    /// Cache root override; `None` uses the OS cache dir (`<cache>/moonlit`).
     pub cache_dir: Option<PathBuf>,
-    /// TTL for cached OCI tag→digest resolutions (§8.3).
     pub tag_ttl: Duration,
 }
 
@@ -38,22 +29,15 @@ impl Default for EngineSettings {
     }
 }
 
-/// Per-run options.
 pub struct PipelineOptions {
     pub working_directory: PathBuf,
-    /// Name of the pipeline file actually read, used as the diagnostic source label. A pipeline in
-    /// `release.yaml` must not have its errors reported against `release.yml`.
     pub config_file_name: String,
-    /// Case-insensitive stage names to run; empty = all stages.
     pub stages_filter: Vec<String>,
     pub cli_args: Vec<(String, String)>,
-    /// Consumed by the Phase-7 runner.
     pub step_timeout: Option<Duration>,
-    /// Fail instead of pulling on a cache miss.
     pub offline: bool,
 }
 
-/// The engine error taxonomy. Exit codes: Config=2, PluginLoad=3, Execution=4, Internal=1 (§7.2).
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum EngineError {
     #[error(transparent)]
@@ -64,7 +48,6 @@ pub enum EngineError {
     #[diagnostic(code(moonlit::engine::plugin_load))]
     PluginLoad { plugin: String, message: String },
 
-    // Produced by the Phase-7 runner; declared now to freeze the surface.
     #[error("pipeline execution failed: {0}")]
     #[diagnostic(code(moonlit::engine::execution))]
     Execution(String),
@@ -75,7 +58,6 @@ pub enum EngineError {
 }
 
 impl EngineError {
-    /// Doc-promised exit-code mapping (§7.2).
     pub fn exit_code(&self) -> i32 {
         match self {
             EngineError::Config(_) => 2,
@@ -86,7 +68,6 @@ impl EngineError {
     }
 }
 
-/// The Moonlit engine: a shared `wasmtime::Engine`, the plugin cache, and settings.
 pub struct Engine {
     pub(crate) wasmtime: wasmtime::Engine,
     pub(crate) cache: Arc<Cache>,
@@ -108,22 +89,17 @@ impl Engine {
     }
 }
 
-/// A successfully loaded plugin (task result).
 struct Loaded {
-    // Read by the `JoinSet`-based parallel loader in `load_pipeline` to attribute a completed
-    // task back to its plugin (tasks complete out of declaration order).
     name: String,
     instance: PluginInstance,
     meta: PluginMetadata,
     middlewares: Vec<String>,
 }
 
-/// Resolve a plugin's effective grants: a present block verbatim, else deny-by-default (§3.3).
 fn effective_permissions(p: &Option<Permissions>) -> Permissions {
     p.clone().unwrap_or_else(Permissions::deny)
 }
 
-/// The full URL string a `PluginUrl` was built from.
 fn plugin_url_string(u: &PluginUrl) -> String {
     match u {
         PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => {
@@ -132,8 +108,6 @@ fn plugin_url_string(u: &PluginUrl) -> String {
     }
 }
 
-/// Resolve → instantiate → init → list-middlewares for ONE plugin. All args are owned so this is
-/// `Send + 'static` (Task 5 spawns it on a `JoinSet`). Emits Resolving/PullProgress/Ready.
 #[allow(clippy::too_many_arguments)]
 async fn resolve_instantiate_init(
     wasmtime: wasmtime::Engine,
@@ -220,31 +194,24 @@ async fn resolve_instantiate_init(
 }
 
 impl Engine {
-    /// Load a pipeline: parse → config layers → load+init all plugins → validate middleware refs at
-    /// build time → build a `Pipeline`. Plugins load concurrently via a `JoinSet`; the first
-    /// failure aborts the rest (§7.4).
     pub async fn load_pipeline(
         &self,
         yaml: &str,
         opts: PipelineOptions,
         events: &Sender<PipelineEvent>,
     ) -> Result<Pipeline, EngineError> {
-        // 1. Parse (ConfigDiagnostic -> EngineError::Config via #[from], exit 2).
         let cfg = crate::config::parse_config(yaml, &opts.config_file_name)?;
 
-        // 2. Base + release layers.
         let env: Vec<(String, String)> = std::env::vars().collect();
         let dotenv = std::fs::read_to_string(opts.working_directory.join(".env")).ok();
         let base = Accumulator::build_base_layer(&env, dotenv.as_deref());
         let release =
             Accumulator::build_release_layer(&cfg.variables, &cfg.arguments, &opts.cli_args);
 
-        // Resolver for plugin-config substitution: base + release only (§5.2 step 3).
         let mut subst_acc = Accumulator::new();
         subst_acc.push(base.clone());
         subst_acc.push(release.clone());
 
-        // 3. Substitute each plugin config (serial, declaration order), then load in PARALLEL.
         let mut set: tokio::task::JoinSet<Result<Loaded, EngineError>> =
             tokio::task::JoinSet::new();
         let mut plugin_layers = Vec::new();
@@ -289,7 +256,7 @@ impl Engine {
                     loaded_map.insert(l.name.clone(), l);
                 }
                 Ok(Err(e)) => {
-                    set.shutdown().await; // first failure aborts the rest (§7.4)
+                    set.shutdown().await;
                     return Err(e);
                 }
                 Err(join_err) => {
@@ -301,7 +268,6 @@ impl Engine {
             }
         }
 
-        // Reassemble in declaration order (JoinSet completes out of order).
         let mut loaded: IndexMap<String, Loaded> = IndexMap::new();
         for plugin in &cfg.plugins.value {
             if let Some(l) = loaded_map.remove(&plugin.name) {
@@ -309,7 +275,6 @@ impl Engine {
             }
         }
 
-        // 4. Seed the run accumulator: base + release + per-plugin config layers (declaration order).
         let mut acc = Accumulator::new();
         acc.push(base);
         acc.push(release);
@@ -317,7 +282,6 @@ impl Engine {
             acc.push(layer);
         }
 
-        // 5. Flatten stages (declaration order) + validate middleware refs over ALL steps (§7.4).
         let src = crate::config::diagnostic::Source::new(yaml, &opts.config_file_name);
         let mut flat = Vec::new();
         for stage in &cfg.stages.value {
@@ -344,7 +308,6 @@ impl Engine {
             }
         }
 
-        // 6. Apply the case-insensitive stage filter -> executable steps.
         let steps = if opts.stages_filter.is_empty() {
             flat
         } else {
@@ -358,7 +321,6 @@ impl Engine {
                 .collect()
         };
 
-        // 7. Build the Pipeline (declaration order preserved by the IndexMap).
         let mut plugins = IndexMap::new();
         let mut plugin_meta = IndexMap::new();
         for (name, l) in loaded {
@@ -375,8 +337,6 @@ impl Engine {
         })
     }
 
-    /// Run a loaded pipeline: execute steps sequentially, stream events, return the summary.
-    /// See MVP_SPEC §3.1. Owns `events` so the channel closes when the run ends.
     pub async fn run(
         &self,
         pipeline: Pipeline,

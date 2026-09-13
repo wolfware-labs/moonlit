@@ -1,10 +1,6 @@
-//! `http(s)://` resolution (§4.3): download the component and cache it keyed by `sha256(url)`. URLs
-//! are treated as immutable — a cache hit is reused with no revalidation.
-
 use crate::cache::{Cache, PluginMeta};
 use crate::resolve::{ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin, sha256_hex};
 
-/// Resolve an `http`/`https` source to a cached component path.
 pub(crate) async fn resolve_http(
     url: &str,
     opts: &ResolveOptions,
@@ -106,7 +102,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/plugin.wasm"))
             .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![0u8, 1, 2, 3]))
-            .expect(1) // second call must hit the cache, not the server
+            .expect(1)
             .mount(&server)
             .await;
         let url = format!("{}/plugin.wasm", server.uri());
@@ -127,7 +123,6 @@ mod tests {
         assert!(!first.cached);
         assert_eq!(seen.load(Ordering::SeqCst), 4);
 
-        // Second resolution is served from cache (mock `.expect(1)` verifies no second request).
         let second = resolve_http(&url, &opts, &cache, None).await.unwrap();
         assert!(second.cached);
         assert_eq!(second.wasm_path, first.wasm_path);

@@ -1,5 +1,3 @@
-//! Rendering of the pipeline event stream in three modes: pretty (TTY), plain (CI), json.
-
 pub mod json;
 pub mod plain;
 pub mod pretty;
@@ -7,17 +5,14 @@ pub mod summary;
 
 use moonlit_engine::PipelineEvent;
 
-/// Startup header data (MVP_SPEC §9.4.1). `version` is the CLI's own version.
 pub struct Header {
     pub version: &'static str,
     pub name: Option<String>,
     pub working_dir: String,
     pub config_file: String,
-    /// Configured stage names (peeked) or the active `-s` filter.
     pub stages: Vec<String>,
 }
 
-/// Consumes the event stream. One renderer instance handles a whole run.
 pub trait Renderer: Send {
     fn header(&mut self, header: &Header);
     fn handle(&mut self, event: &PipelineEvent);
@@ -37,7 +32,6 @@ pub fn resolve_mode(opt: Option<OutputMode>, stderr_is_tty: bool) -> OutputMode 
 
 use std::io::IsTerminal;
 
-/// Build the renderer for the resolved mode. Pretty/plain go to stderr; json to stdout.
 pub fn for_mode(opt: Option<OutputMode>, stderr_is_tty: bool, verbose: bool) -> Box<dyn Renderer> {
     match resolve_mode(opt, stderr_is_tty) {
         OutputMode::Pretty => Box::new(pretty::PrettyRenderer::new(verbose)),

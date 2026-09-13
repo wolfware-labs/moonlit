@@ -1,7 +1,3 @@
-//! Single-source plugin resolution (§4.3, §7.3, §8). Turns a plugin URL into a path to verified,
-//! ready-to-instantiate WebAssembly component bytes. This module owns scheme parsing and the shared
-//! error/option/result types; the per-scheme resolvers live in sibling modules.
-
 pub(crate) mod auth;
 pub(crate) mod file;
 pub(crate) mod http;
@@ -12,28 +8,20 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
-/// A plugin source, parsed from its URL. The `oci`/`http` variants keep their string form; `file`
-/// is normalized to an absolute path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginSource {
-    /// OCI reference WITHOUT the `oci://` scheme prefix (`host/namespace/name:tag` or `...@sha256:...`).
     Oci(String),
-    /// Absolute local path to a component file.
     File(PathBuf),
-    /// Full `http`/`https` URL to a component file.
     Http(String),
 }
 
 impl PluginSource {
-    /// Parse a plugin URL (§4.3). Unknown schemes produce [`ResolveError::UnsupportedScheme`]; a URL
-    /// with no scheme produces [`ResolveError::InvalidReference`].
     pub fn parse(url: &str) -> Result<Self, ResolveError> {
         let url = url.trim();
         if let Some(rest) = url.strip_prefix("oci://") {
             return Ok(PluginSource::Oci(rest.to_string()));
         }
         if let Some(rest) = url.strip_prefix("file://") {
-            // `file:///abs/path` -> `/abs/path`; `file://relative` stays as-is.
             return Ok(PluginSource::File(PathBuf::from(rest)));
         }
         if url.starts_with("http://") || url.starts_with("https://") {
@@ -51,12 +39,9 @@ impl PluginSource {
     }
 }
 
-/// Options controlling resolution behavior.
 #[derive(Debug, Clone)]
 pub struct ResolveOptions {
-    /// When true, never touch the network: a cache miss becomes [`ResolveError::OfflineMiss`].
     pub offline: bool,
-    /// How long a cached OCI tag→digest resolution stays fresh (§8.3).
     pub tag_ttl: Duration,
 }
 
@@ -69,26 +54,17 @@ impl Default for ResolveOptions {
     }
 }
 
-/// A resolved plugin: a path to verified component bytes plus provenance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedPlugin {
-    /// Path to the ready-to-instantiate component bytes on disk.
     pub wasm_path: PathBuf,
-    /// The canonical source reference, echoed back.
     pub source: String,
-    /// The content digest (`sha256:...`) for OCI sources; `None` for `file`/`http`.
     pub digest: Option<String>,
-    /// True when resolution completed without any network request.
     pub cached: bool,
-    /// Middleware names declared in the OCI config's `moonlit` block, when present.
     pub middlewares: Option<Vec<String>>,
 }
 
-/// A progress callback: `(bytes_received, total_bytes_if_known)`. The host phase adapts this into
-/// `PluginPullProgress`; this phase never emits pipeline events.
 pub type ProgressFn<'a> = &'a (dyn Fn(u64, Option<u64>) + Send + Sync);
 
-/// Errors from resolution. Maps to exit code 3 (`PluginLoad`) at the future `EngineError` layer.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ResolveError {
     #[error("unsupported plugin URL scheme: '{scheme}'")]
@@ -128,7 +104,6 @@ pub enum ResolveError {
     Io(String),
 }
 
-/// Lowercase hex SHA-256 of a string. Used for content-addressing cache keys.
 pub(crate) fn sha256_hex(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
@@ -137,9 +112,6 @@ pub(crate) fn sha256_hex(input: &str) -> String {
 
 use crate::cache::Cache;
 
-/// Resolve ONE plugin source to verified component bytes on disk (§8). Dispatches by scheme; OCI
-/// credentials are read from the user's home config. This never instantiates a component and never
-/// emits pipeline events — the host/pipeline phase adapts the [`ProgressFn`] into `PluginPullProgress`.
 pub async fn resolve(
     source: &PluginSource,
     opts: &ResolveOptions,
@@ -245,7 +217,6 @@ mod tests {
         );
     }
 
-    // dispatcher tests — added to the existing tests module
     use crate::cache::{Cache, Clock};
 
     struct ZeroClock;
@@ -300,13 +271,10 @@ mod tests {
         assert!(matches!(err, ResolveError::OfflineMiss(_)));
     }
 
-    /// Live smoke test against a real public wasm OCI artifact. Ignored by default (network + TLS).
-    /// Run manually with: `cargo test -p moonlit-engine live_oci -- --ignored --nocapture`.
     #[tokio::test]
     #[ignore = "network: pulls a real public OCI wasm artifact"]
     async fn live_oci_pull_smoke() {
         let (cache, _c) = tmp_cache();
-        // A small, public wasm component artifact. Replace with a Moonlit-published plugin once one exists.
         let source = PluginSource::Oci("ghcr.io/webassembly/wasi/hello-world:latest".to_string());
         let resolved = resolve(&source, &ResolveOptions::default(), &cache, None)
             .await

@@ -1,6 +1,3 @@
-//! Outgoing-HTTP authorization: allow/deny each wasi:http request by its authority
-//! (host), matched against the plugin's `network` allowlist globs.
-
 use globset::GlobSet;
 use http_body_util::BodyExt;
 use hyper::http;
@@ -24,8 +21,6 @@ impl AllowlistHooks {
     }
 }
 
-/// The future `send_request` must hand back, spelled once so the allow and deny
-/// arms can agree on it.
 type SendResult = Box<
     dyn Future<
             Output = Result<
@@ -47,8 +42,6 @@ impl WasiHttpHooks for AllowlistHooks {
     ) -> SendResult {
         let host = request.uri().host().unwrap_or_default().to_string();
 
-        // Deny first, and before anything touches the network: the allowlist is the
-        // sandbox boundary, so the request must not reach a socket at all.
         if !self.allowed.is_match(&host) {
             self.events.log(
                 "",
@@ -60,7 +53,6 @@ impl WasiHttpHooks for AllowlistHooks {
             return Box::new(async move { Err(Error::HttpRequestDenied) });
         }
 
-        // Allowed: same behaviour as the trait's default implementation.
         _ = fut;
         Box::new(async move {
             let (res, io) = default_send_request(request, options).await?;

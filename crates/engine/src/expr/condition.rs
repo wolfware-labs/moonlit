@@ -1,8 +1,3 @@
-//! `condition` / `haltIf` evaluation (§5.3) on top of `rhai`. Only the `output` variable is
-//! exposed, as a coerced map with lowercase key aliases; identifiers are lowercased by a
-//! string-literal-safe pre-pass so member access is case-insensitive. A `condition` that errors
-//! warns and yields `false`; a `haltIf` that errors fails (deliberate deviation, Appendix B).
-
 use chrono::{DateTime, FixedOffset};
 use miette::Diagnostic;
 use rhai::{Array, Dynamic, Engine, Map as RhaiMap, Scope};
@@ -13,13 +8,11 @@ use crate::expr::coerce::{Scalar, coerce};
 use crate::expr::substitute::substitute_with;
 use crate::expr::value::Value;
 
-/// The result of evaluating a `condition` (never fails — errors degrade to `false` + a warning).
 pub struct ConditionOutcome {
     pub value: bool,
     pub warning: Option<String>,
 }
 
-/// A `haltIf` evaluation failure. Distinct from `config::ConfigDiagnostic`.
 #[derive(Debug, Error, Diagnostic)]
 #[error("{message}")]
 #[diagnostic(code(moonlit::condition))]
@@ -37,7 +30,6 @@ impl EvalError {
     }
 }
 
-/// Evaluate a `condition`: any error degrades to `false` with a warning.
 pub fn evaluate_condition(expr: &str, acc: &Accumulator) -> ConditionOutcome {
     match eval(expr, acc) {
         Ok(value) => ConditionOutcome {
@@ -51,7 +43,6 @@ pub fn evaluate_condition(expr: &str, acc: &Accumulator) -> ConditionOutcome {
     }
 }
 
-/// Evaluate a `haltIf`: an error fails with an [`EvalError`].
 pub fn evaluate_halt(expr: &str, acc: &Accumulator) -> Result<bool, EvalError> {
     eval(expr, acc).map_err(|message| EvalError {
         message,
@@ -59,14 +50,6 @@ pub fn evaluate_halt(expr: &str, acc: &Accumulator) -> Result<bool, EvalError> {
     })
 }
 
-/// Compile + evaluate a boolean expression. Non-boolean results are `false`.
-///
-/// Safety note: this runs the expression through a `rhai` [`Engine`] configured as a sandboxed
-/// expression evaluator (see [`build_engine`]) — bounded operations/depth/string/array/map sizes
-/// and `eval` (rhai's own dynamic-code builtin) disabled via `disable_symbol("eval")`. There is
-/// no host filesystem/network/process access exposed to the expression; it can only read the
-/// `output` scope built by [`build_output_scope`]. This is the deliberate `condition`/`haltIf`
-/// mechanism (§5.3), not an arbitrary-code `eval()`.
 fn eval(expr: &str, acc: &Accumulator) -> Result<bool, String> {
     let engine = build_engine();
     let substituted = substitute_condition(expr, acc);
@@ -79,7 +62,6 @@ fn eval(expr: &str, acc: &Accumulator) -> Result<bool, String> {
     }
 }
 
-/// Replace each `$(...)` in a condition with a rhai literal: bool/number bare, else quoted string.
 fn substitute_condition(expr: &str, acc: &Accumulator) -> String {
     substitute_with(expr, acc, |v| match v {
         Some(value) => value_to_literal(&value),
@@ -106,7 +88,6 @@ fn quote_rhai(s: &str) -> String {
     format!("'{escaped}'")
 }
 
-/// A sandboxed rhai engine: bounded operations/depth/sizes, no `eval`, datetime comparisons.
 fn build_engine() -> Engine {
     let mut engine = Engine::new();
     engine.set_max_operations(50_000);
@@ -145,7 +126,6 @@ fn register_datetime(engine: &mut Engine) {
     );
 }
 
-/// Build the `output` scope value: the merged `output` section, coerced, with lowercase aliases.
 fn build_output_scope(acc: &Accumulator) -> Dynamic {
     value_to_dynamic(&acc.merged("output"))
 }
@@ -183,16 +163,9 @@ fn scalar_to_dynamic(s: Scalar) -> Dynamic {
     }
 }
 
-/// Lowercase every character outside string literals so identifiers/keywords are case-insensitive,
-/// and rewrite single-quoted string literals (`'main'`) into rhai's double-quoted form (`"main"`) —
-/// rhai treats `'...'` as a single-char literal, but the spec (§5.3) requires single-quoted strings.
-/// String-literal contents keep their case; escape sequences are preserved (with `\'` mapped to a
-/// bare `'` and a literal `"` escaped to `\"` when moving into double quotes).
 fn normalize_identifiers(expr: &str) -> String {
     let mut out = String::with_capacity(expr.len());
     let mut chars = expr.chars();
-    // None = outside a string; Some('"') = inside a verbatim double-quoted string;
-    // Some('\'') = inside a source single-quoted string being rewritten to double quotes.
     let mut quote: Option<char> = None;
     while let Some(c) = chars.next() {
         match quote {
@@ -333,7 +306,6 @@ mod tests {
     fn deeply_nested_expression_is_rejected_by_limits() {
         let acc = acc_with_output(Value::Map(Default::default()));
         let expr = format!("{}true{}", "(".repeat(200), ")".repeat(200));
-        // Exceeds max expression depth -> eval error -> condition false with a warning.
         let out = evaluate_condition(&expr, &acc);
         assert!(!out.value);
         assert!(out.warning.is_some());
@@ -367,8 +339,6 @@ mod tests {
     #[test]
     fn unresolved_substitution_becomes_empty_string_literal() {
         let acc = acc_with_output(Value::Map(Default::default()));
-        // `$(nosuchkey)` has no `:` fallback segment, so it genuinely resolves to nothing and the
-        // pre-pass injects an empty string literal: `'' == 'main'` -> false, with no error/warning.
         let out = evaluate_condition("$(nosuchkey) == 'main'", &acc);
         assert!(!out.value);
         assert!(out.warning.is_none());
@@ -377,8 +347,6 @@ mod tests {
     #[test]
     fn condition_substitution_applies_default_fallback() {
         let acc = acc_with_output(Value::Map(Default::default()));
-        // `$(args:missing:main)`: the full path and `args:missing` are both unresolved, so `main`
-        // is used as the literal default -> `'main' == 'main'` -> true.
         assert!(evaluate_condition("$(args:missing:main) == 'main'", &acc).value);
     }
 
@@ -386,7 +354,6 @@ mod tests {
     fn literal_quote_in_substituted_value_is_escaped() {
         let mut acc = Accumulator::new();
         acc.push(map(vec![("args", map(vec![("msg", s("it's"))]))]));
-        // If escaping were wrong the expression would fail to parse; here it must compare true.
         assert!(evaluate_condition("$(args:msg) == 'it\\'s'", &acc).value);
     }
 }

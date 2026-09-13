@@ -1,11 +1,5 @@
-//! The runtime value currency for the expression engine: an unspanned `Null | Str | List | Map`
-//! tree (distinct from `config::ConfigValue`, whose children carry YAML spans). Scalars are kept
-//! as raw strings; typing happens later in `coerce`. Provides lossless flatten/unflatten (§5.2)
-//! and string/JSON rendering for embedded substitution (§5.1).
-
 use indexmap::IndexMap;
 
-/// A dynamic runtime value produced by substitution and stored in accumulator layers.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
@@ -15,16 +9,12 @@ pub enum Value {
 }
 
 impl Value {
-    /// Flatten scalar leaves into `:`-joined keys with numeric list indices. `Null` leaves and
-    /// empty containers are omitted (a missing key resolves to null anyway).
     pub fn flatten(&self) -> IndexMap<String, String> {
         let mut out = IndexMap::new();
         flatten_into(self, "", &mut out);
         out
     }
 
-    /// Rebuild a tree from flattened keys. The root is a map; a segment of all-ASCII-digits builds
-    /// a list, otherwise a map. Lossless for maps/lists of string leaves.
     pub fn unflatten(flat: &IndexMap<String, String>) -> Value {
         let mut root = Value::Map(IndexMap::new());
         for (key, val) in flat {
@@ -37,7 +27,6 @@ impl Value {
         root
     }
 
-    /// The embedded-substitution string form: scalar text, empty for null, JSON for structures.
     pub fn to_display_string(&self) -> String {
         match self {
             Value::Null => String::new(),
@@ -46,7 +35,6 @@ impl Value {
         }
     }
 
-    /// Minimal JSON rendering with proper string escaping.
     pub fn to_json_string(&self) -> String {
         match self {
             Value::Null => "null".to_string(),

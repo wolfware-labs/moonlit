@@ -1,8 +1,3 @@
-//! wasmtime component host for `moonlit:plugin@0.1.0` (Phase 5): instantiate one
-//! resolved plugin and call its exports, with the full host ABI + permission
-//! enforcement, including live-streaming `process` spawn/run. Pipeline event
-//! wiring (Phase 6) arrives in a later task.
-
 mod convert;
 mod imports;
 mod net;
@@ -22,28 +17,13 @@ use net::AllowlistHooks;
 pub use convert::{HostError, json_str_to_value, json_to_value, value_to_json};
 pub use convert::{LogLevel, MiddlewareInfo, MiddlewareResult, PluginMetadata, ReleaseContext};
 
-/// Everything needed to instantiate one plugin (Phase 6 fills these from the run).
 pub struct InstanceConfig {
     pub working_directory: PathBuf,
     pub permissions: crate::config::model::Permissions,
-    /// Accumulated, `$()`-substituted config served to the guest via `get-config`.
     pub config_view: serde_json::Value,
-    /// Process env to be filtered by the `env` grant before the guest sees it.
     pub env_snapshot: Vec<(String, String)>,
 }
 
-// Generate host-side bindings for the `plugin-host` world (no wasi:http; see host.wit).
-// wasi:* map to the standard wasmtime-wasi bindings; only moonlit interfaces get
-// Host traits for us to implement. `ChildProc` backs the `child` resource.
-//
-// The macro is invoked inside a private `raw` module: the `plugin-host` world's
-// top-level `use types.{...}` produces plain (unqualified) type aliases (e.g.
-// `MiddlewareInfo`, `PluginMetadata`) in whatever module `bindgen!` is expanded
-// into. Expanding directly into `host` would collide with the crate's own clean
-// public types of the same name (`convert::{MiddlewareInfo, PluginMetadata, ...}`,
-// re-exported below). Nesting keeps those raw aliases contained while still
-// exposing the interface modules at the path the rest of this crate depends on
-// (`crate::host::moonlit::plugin::{host,process,types}`).
 mod raw {
     wasmtime::component::bindgen!({
         path: "wit",
@@ -60,16 +40,11 @@ mod raw {
 use raw::PluginHost;
 pub(crate) use raw::moonlit;
 
-/// Sink for guest-emitted log/progress events. Phase 6 forwards these to the
-/// `mpsc<PipelineEvent>` channel; Phase 5 tests use a recording sink.
 pub trait HostEventSink: Send + Sync {
     fn log(&self, step: &str, level: LogLevel, message: &str);
     fn progress(&self, step: &str, message: &str);
 }
 
-/// Host representation of the `child` resource. The `tokio::process::Child` is NOT
-/// stored here — it lives in the background reader task; `ChildProc` holds only
-/// `Send` channel endpoints so `HostState` (hence the `Store`) stays `Send`.
 pub struct ChildProc {
     rx: tokio::sync::mpsc::Receiver<moonlit::plugin::process::OutputChunk>,
     exit_rx: Option<tokio::sync::oneshot::Receiver<i32>>,
@@ -77,8 +52,6 @@ pub struct ChildProc {
     kill_tx: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
-/// Per-store host state: WASI, WASI-HTTP, the network filter, the event sink, the
-/// served config view, the exec allowlist, and the current step name.
 pub struct HostState {
     table: ResourceTable,
     wasi: WasiCtx,
@@ -111,8 +84,6 @@ impl WasiHttpView for HostState {
 
 pub(crate) fn build_engine() -> anyhow::Result<Engine> {
     let mut config = Config::new();
-    // Deprecated no-op in v46 (async is selected by the *_async APIs); kept behind
-    // allow to match the verified build without a deprecation warning under -D warnings.
     #[allow(deprecated)]
     config.async_support(true);
     config.wasm_component_model(true);
@@ -128,13 +99,10 @@ fn build_linker(engine: &Engine) -> anyhow::Result<Linker<HostState>> {
     Ok(linker)
 }
 
-/// Build a component-model async `Engine`. Phase 6 will own one; exposed now so
-/// integration tests (and callers) can construct the host.
 pub fn test_engine() -> Engine {
     build_engine().expect("engine build")
 }
 
-/// One instantiated plugin, kept alive for the whole run (§3.2 SharedContext).
 pub struct PluginInstance {
     store: Store<HostState>,
     bindings: PluginHost,
@@ -180,10 +148,6 @@ impl PluginInstance {
         Ok(PluginInstance { store, bindings })
     }
 
-    /// A trap during init folds into the returned `String` (both are exit-3 load failures).
-    /// Static metadata, no config required. `moonlit plugin inspect` uses this
-    /// (with `list_middlewares`) so it never has to validate a config to
-    /// describe a component.
     pub async fn describe(&mut self) -> Result<PluginMetadata, HostError> {
         match self.bindings.call_describe(&mut self.store).await {
             Ok(meta) => Ok(convert::metadata(meta)),

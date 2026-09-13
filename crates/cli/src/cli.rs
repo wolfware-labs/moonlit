@@ -1,5 +1,3 @@
-//! Command-line surface: the `clap` derive tree and shared value types.
-
 use std::path::PathBuf;
 use std::time::Duration;
 

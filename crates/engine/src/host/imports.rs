@@ -1,6 +1,3 @@
-//! Hand-written impls of the custom `moonlit:plugin/host` + `/process` interfaces.
-//! wasi:* imports come from wasmtime-wasi and are not implemented here.
-
 use std::process::Stdio;
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -25,7 +22,6 @@ impl MoonlitHost for HostState {
     }
 
     async fn get_config(&mut self, path: String) -> wasmtime::Result<Option<String>> {
-        // `:`-separated lookup into the injected config view; serialize the hit as JSON text.
         let mut cur = &self.config_view;
         for seg in path.split(':') {
             match cur.get(seg) {
@@ -79,7 +75,6 @@ impl ProcessHost for HostState {
             );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
-        // run-to-completion: spawn, drain all lines, wait.
         let mut child = match spawn_streaming(&cmd) {
             Ok(c) => c,
             Err(e) => return Ok(Err(e)),
@@ -132,8 +127,6 @@ impl HostChild for HostState {
     }
 }
 
-/// Spawn a process and stream stdout+stderr live through a channel. The
-/// `tokio::process::Child` moves into the reader task; only Send endpoints return.
 fn spawn_streaming(cmd: &Command) -> Result<ChildProc, String> {
     let mut c = tokio::process::Command::new(&cmd.program);
     c.args(&cmd.args);
@@ -143,8 +136,6 @@ fn spawn_streaming(cmd: &Command) -> Result<ChildProc, String> {
     for (k, v) in &cmd.env {
         c.env(k, v);
     }
-    // Pipe stdin only when the command carries a payload; otherwise leave it
-    // closed so children that read stdin see EOF immediately.
     c.stdin(if cmd.stdin.is_some() {
         Stdio::piped()
     } else {
@@ -157,10 +148,6 @@ fn spawn_streaming(cmd: &Command) -> Result<ChildProc, String> {
         .spawn()
         .map_err(|e| format!("failed to spawn {}: {e}", cmd.program))?;
 
-    // Feed the stdin payload, then close the pipe so the child reads EOF. Done
-    // in a detached task: a payload larger than the pipe buffer would block the
-    // write until the child drains it, so it must run concurrently with the
-    // reader task rather than before we start draining stdout/stderr.
     if let (Some(input), Some(mut stdin)) = (cmd.stdin.clone(), child.stdin.take()) {
         tokio::spawn(async move {
             let _ = stdin.write_all(input.as_bytes()).await;
@@ -232,10 +219,6 @@ async fn reader_task(
 mod tests {
     use super::*;
 
-    /// `cat` with no args echoes stdin to stdout, so a non-empty output proves
-    /// the host actually feeds `command.stdin` to the child. Regression guard:
-    /// `spawn_streaming` used to hard-wire `Stdio::null()`, silently dropping
-    /// stdin — which left `github write-variables`'s `sh` append writing nothing.
     #[tokio::test(flavor = "multi_thread")]
     async fn spawn_streaming_pipes_stdin_to_child() {
         let cmd = Command {
@@ -253,7 +236,6 @@ mod tests {
         assert_eq!(lines, vec!["hello from stdin".to_string()]);
     }
 
-    /// Absent stdin stays closed: `cat` sees immediate EOF and produces nothing.
     #[tokio::test(flavor = "multi_thread")]
     async fn spawn_streaming_without_stdin_reads_eof() {
         let cmd = Command {

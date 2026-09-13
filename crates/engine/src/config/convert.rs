@@ -1,7 +1,3 @@
-//! Spanned node tree → typed [`PipelineConfig`]. Schema keys are matched exactly, duplicates and
-//! unknown keys are rejected, and arbitrary map keys are preserved verbatim. `run`-format and
-//! `url`-scheme validation happen here, where the raw value and span are in hand.
-
 use indexmap::IndexMap;
 
 use crate::config::diagnostic::{ConfigDiagnostic, Source};
@@ -11,7 +7,6 @@ use crate::config::model::{
 };
 use crate::config::tree::{Node, NodeValue};
 
-/// Convert a spanned node tree into the raw (pre-cleanup) pipeline model.
 pub fn convert(root: Node, src: &Source) -> Result<PipelineConfig, ConfigDiagnostic> {
     match &root.value {
         NodeValue::Null => Ok(empty_config(root.span)),
@@ -90,8 +85,6 @@ fn convert_root(
     })
 }
 
-/// Verbatim key of a scalar key node, for exact schema matching; `None` for non-scalar keys.
-/// Schema keys are case-sensitive: `Plugins` is not `plugins`.
 fn schema_key(key: &Node) -> Option<&str> {
     match &key.value {
         NodeValue::Scalar(raw) => Some(raw.as_str()),
@@ -99,7 +92,6 @@ fn schema_key(key: &Node) -> Option<&str> {
     }
 }
 
-/// Verbatim key of a scalar key node (arbitrary maps); `None` for non-scalar keys.
 fn raw_key(key: &Node) -> Option<&str> {
     match &key.value {
         NodeValue::Scalar(raw) => Some(raw.as_str()),
@@ -114,7 +106,6 @@ fn scalar_string(node: &Node) -> Option<String> {
     }
 }
 
-/// `arguments`/`variables`: map<string,string>, verbatim keys, null values dropped, last-wins.
 fn string_map(
     node: &Node,
     context: &str,
@@ -205,7 +196,6 @@ fn convert_url(node: &Node, src: &Source) -> Result<Spanned<PluginUrl>, ConfigDi
     Ok(Spanned::new(url, node.span))
 }
 
-/// A plugin/step `config:` block. Delegates to [`to_config_value`] and unwraps the map.
 fn config_map(node: &Node) -> ConfigMap {
     match to_config_value(node).value {
         ConfigValue::Map(m) => m,
@@ -213,8 +203,6 @@ fn config_map(node: &Node) -> ConfigMap {
     }
 }
 
-/// Recursively convert a node into a spanned [`ConfigValue`]. Scalars stay raw strings; nulls are
-/// KEPT here (null filtering applies only to arguments/variables/stages, not `config:`).
 fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
     let value = match &node.value {
         NodeValue::Null => ConfigValue::Null,
@@ -224,7 +212,7 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
             let mut m = ConfigMap::new();
             for (key, val) in entries {
                 if let NodeValue::Scalar(raw) = &key.value {
-                    m.insert(raw.clone(), to_config_value(val)); // verbatim key, last-wins
+                    m.insert(raw.clone(), to_config_value(val));
                 }
             }
             ConfigValue::Map(m)
@@ -234,8 +222,6 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
 }
 
 fn convert_permissions(node: &Node, src: &Source) -> Result<Permissions, ConfigDiagnostic> {
-    // A non-mapping used to fall through to deny-all. That is safe, but silent: a plugin then
-    // failed at run time with a capability error far from the line that actually caused it.
     let NodeValue::Map(_) = &node.value else {
         return Err(src.expected_mapping("a plugin's permissions", node.span));
     };
@@ -310,8 +296,6 @@ fn convert_stages(node: &Node, src: &Source) -> Result<Spanned<Vec<Stage>>, Conf
 }
 
 fn convert_steps(node: &Node, src: &Source) -> Result<Vec<Step>, ConfigDiagnostic> {
-    // Anything other than a sequence used to fall through to an empty Vec, so a stage with a
-    // malformed body ran with no steps and reported success.
     let NodeValue::Seq(items) = &node.value else {
         return Err(src.expected_sequence("a stage's steps", node.span));
     };
@@ -463,8 +447,6 @@ stages:
 
     #[test]
     fn duplicate_schema_key_is_rejected_not_last_wins() {
-        // Previously last-wins silently discarded the first `name`. Duplicate schema keys
-        // are now an error (see `duplicate_schema_keys_are_rejected` in diagnostic.rs tests).
         let err = parse(
             "name: first\nname: second\nplugins:\n  - name: git\n    url: file:///p.wasm\nstages:\n  s:\n    - name: a\n      run: git.x\n",
         )
@@ -626,9 +608,6 @@ stages:
 
     #[test]
     fn lowercased_key_no_longer_matches_the_schema() {
-        // Before task 5 `haltif` matched `haltIf` because keys were lowercased. Case
-        // sensitivity means it is simply not a schema key, and unknown schema keys are
-        // now an error rather than being silently skipped.
         let yaml = concat!(
             "plugins:\n  - name: p\n    url: file:///p.wasm\n",
             "stages:\n  s:\n    - name: a\n      run: p.x\n      haltif: 'true'\n",
@@ -643,7 +622,6 @@ stages:
 
     #[test]
     fn unknown_top_level_key_is_rejected() {
-        // The typo this exists to catch.
         let yaml = "pluigns:\n  - name: p\n";
         let err = parse(yaml).unwrap_err();
         assert!(
@@ -656,8 +634,6 @@ stages:
 
     #[test]
     fn a_capitalised_schema_key_is_rejected() {
-        // Case sensitivity landed in task 5; with unknown keys now an error, a
-        // case-mismatched key is reported rather than silently skipped.
         let yaml = "Plugins:\n  - name: p\n    url: file:///p.wasm\n";
         let err = parse(yaml).unwrap_err();
         assert!(
@@ -683,7 +659,6 @@ stages:
 
     #[test]
     fn arbitrary_plugin_config_keys_are_still_free_form() {
-        // Only SCHEMA keys are constrained. A plugin's own config is the plugin's contract.
         let yaml = concat!(
             "plugins:\n  - name: p\n    url: file:///p.wasm\n    config:\n      anythingAtAll: 1\n",
             "stages:\n  s:\n    - name: a\n      run: p.x\n",
@@ -693,7 +668,6 @@ stages:
 
     #[test]
     fn duplicate_schema_keys_are_rejected() {
-        // YAML forbids duplicate mapping keys; last-wins silently discarded the first.
         let yaml = "name: a\nname: b\n";
         let err = parse(yaml).unwrap_err();
         assert!(err.message().contains("name"), "got: {}", err.message());
@@ -709,7 +683,6 @@ stages:
 
     #[test]
     fn null_inside_plugin_config_is_preserved() {
-        // A plugin's config is the plugin's contract: null may be meaningful there.
         let yaml = concat!(
             "plugins:\n  - name: p\n    url: file:///p.wasm\n    config:\n      maybe:\n",
             "stages:\n  s:\n    - name: a\n      run: p.x\n",
@@ -762,8 +735,6 @@ stages:
         assert!(err.message().contains("url"), "got: {}", err.message());
     }
 
-    /// A stage body that is not a sequence used to yield an EMPTY stage that ran
-    /// and reported success — the worst shape of silent acceptance in the parser.
     #[test]
     fn a_stage_whose_steps_are_not_a_sequence_is_rejected() {
         let yaml = concat!(
@@ -789,8 +760,6 @@ stages:
         assert!(err.message().contains("build"), "got: {}", err.message());
     }
 
-    /// A malformed `permissions:` silently produced deny-all. Safe, but the plugin
-    /// then failed at run time with a capability error far from the real cause.
     #[test]
     fn permissions_that_are_not_a_mapping_are_rejected() {
         let yaml = "plugins:\n  - name: p\n    url: file:///p.wasm\n    permissions: read-only\n";
@@ -812,7 +781,6 @@ stages:
         }
     }
 
-    /// The guards above must not make valid pipelines stricter than intended.
     #[test]
     fn a_fully_populated_pipeline_still_parses() {
         let yaml = concat!(

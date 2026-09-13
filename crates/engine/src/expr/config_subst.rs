@@ -1,12 +1,8 @@
-//! Recursive `$()` substitution over a parsed config tree (§5.1/§5.2). Bridges the `config` model
-//! into the substitution engine: each scalar string is run through `substitute`, structure preserved.
-
 use crate::config::model::{ConfigMap, ConfigValue};
 use crate::expr::accumulator::Resolve;
 use crate::expr::substitute::substitute;
 use crate::expr::value::Value;
 
-/// Substitute every scalar in `config` against `resolver`, preserving map/list structure.
 pub fn substitute_config(config: &ConfigMap, resolver: &dyn Resolve) -> Value {
     Value::Map(
         config
@@ -57,7 +53,6 @@ mod tests {
 
     #[test]
     fn embedded_substitution_yields_string() {
-        // resolver: { vars: { x: "1" } }
         let layer = Value::Map(IndexMap::from([(
             "vars".to_string(),
             Value::Map(IndexMap::from([(
@@ -78,7 +73,6 @@ mod tests {
 
     #[test]
     fn whole_string_substitution_yields_structure() {
-        // resolver: { obj: { k: "v" } }; config a: "$(obj)" -> the whole map
         let inner = Value::Map(IndexMap::from([(
             "k".to_string(),
             Value::Str("v".to_string()),

@@ -1,24 +1,14 @@
-//! `moonlit login [host]` — authenticate to an OCI registry.
-//!
-//! By default this runs the RFC 8628 device-authorization flow ([`device`]): request a device code,
-//! open the browser to the approval page, and store the minted PAT as a Bearer credential in
-//! `~/.config/moonlit/credentials.toml`. An explicit `--token`/`--username` takes the manual path
-//! (for CI), storing exactly what the caller supplies.
-
 use std::path::Path;
 
 use crate::cli::LoginArgs;
 
 pub(crate) mod device;
 
-/// A credential to persist for one registry host.
 pub(crate) enum Credential {
     Basic { username: String, password: String },
     Bearer { token: String },
 }
 
-/// Upsert a registry credential into `credentials.toml` under `home`, preserving other hosts.
-/// Writes the file with `0600` permissions on unix.
 pub(crate) fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Result<()> {
     let path = home.join(".config/moonlit/credentials.toml");
     let mut doc: toml::Table = std::fs::read_to_string(&path)
@@ -50,23 +40,15 @@ pub(crate) fn write_credential(home: &Path, host: &str, cred: &Credential) -> st
     write_doc_0600(&path, &text)
 }
 
-/// Resolve the user's home directory, or `None` if it cannot be determined. Callers must NOT fall
-/// back to a relative/CWD path: writing the plaintext token to a CWD-relative
-/// `.config/moonlit/credentials.toml` could leak it into whatever directory the command ran in.
 pub(crate) fn home_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir().filter(|p| !p.as_os_str().is_empty())
 }
 
-/// Write `text` to `path` (creating parent dirs) with `0600` permissions on unix, so the plaintext
-/// token is never group/world-readable. Shared by credential upsert and removal.
 fn write_doc_0600(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    // Write to a sibling temp created 0600, then atomically rename over the target. Rename preserves
-    // the temp's 0600, so the plaintext token never exists at looser perms — even when the target
-    // pre-existed group/world-readable (a plain open+truncate would hold the new token at the old
-    // mode until a follow-up chmod).
+
     #[cfg(unix)]
     {
         use std::io::Write as _;
@@ -91,7 +73,6 @@ fn write_doc_0600(path: &Path, text: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Read the stored Bearer token for `host`, if any (used by logout to revoke it server-side).
 pub(crate) fn read_bearer(home: &Path, host: &str) -> Option<String> {
     let path = home.join(".config/moonlit/credentials.toml");
     let doc: toml::Table = std::fs::read_to_string(&path).ok()?.parse().ok()?;
@@ -104,8 +85,6 @@ pub(crate) fn read_bearer(home: &Path, host: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Remove one host's credential entry, preserving siblings and rewriting the file 0600.
-/// Returns `false` if the host (or the whole file) was not present.
 pub(crate) fn remove_credential(home: &Path, host: &str) -> std::io::Result<bool> {
     let path = home.join(".config/moonlit/credentials.toml");
     let mut doc: toml::Table = match std::fs::read_to_string(&path) {
@@ -126,16 +105,12 @@ pub(crate) fn remove_credential(home: &Path, host: &str) -> std::io::Result<bool
 }
 
 pub async fn run(args: LoginArgs) -> i32 {
-    // Manual path (CI / non-device registries): any explicit --token or --username bypasses the
-    // browser device flow and stores exactly what the caller supplied.
     if args.token.is_some() || args.username.is_some() {
         return run_manual(args);
     }
     device::login(args.host).await
 }
 
-/// Store a credential supplied directly by the caller (`--token`/`--username`, or interactive
-/// prompts). No browser flow; used for CI and registries that are not Moonlit's device endpoint.
 fn run_manual(args: LoginArgs) -> i32 {
     let host = args
         .host

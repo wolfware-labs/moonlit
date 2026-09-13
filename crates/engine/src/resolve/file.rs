@@ -1,11 +1,7 @@
-//! `file://` resolution (§4.3): a local component used in the dev loop. Not cached — the file is
-//! validated and its path returned directly, so editing the `.wasm` and re-running takes effect.
-
 use std::path::Path;
 
 use crate::resolve::{ResolveError, ResolvedPlugin};
 
-/// Resolve a `file://` source to its direct path. The file must exist.
 pub(crate) fn resolve_file(path: &Path) -> Result<ResolvedPlugin, ResolveError> {
     if !path.is_file() {
         return Err(ResolveError::NotFound(format!(
@@ -42,7 +38,7 @@ mod tests {
 
     #[test]
     fn missing_file_is_not_found() {
-        let err = resolve_file(std::path::Path::new("/no/such/plugin.wasm")).unwrap_err();
+        let err = resolve_file(Path::new("/no/such/plugin.wasm")).unwrap_err();
         match err {
             ResolveError::NotFound(msg) => assert!(msg.contains("/no/such/plugin.wasm")),
             other => panic!("expected NotFound, got {other:?}"),

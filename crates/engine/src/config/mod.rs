@@ -1,13 +1,3 @@
-//! Pipeline configuration parsing (§4): YAML → validated [`PipelineConfig`] or [`ConfigDiagnostic`].
-//!
-//! Four hand-rolled stages over the `saphyr-parser` event stream: parse → convert → cleanup →
-//! validate. No `$()` substitution, layering, coercion, or conditions — those are Phase 3;
-//! `$(...)` text is preserved verbatim as raw strings.
-
-// The spec (§7.2) fixes the fallible surface as `Result<_, ConfigDiagnostic>` (unboxed).
-// `ConfigDiagnostic` carries the source text + labels and so trips clippy's
-// `result_large_err`; boxing it would contradict the mandated signature and add indirection
-// on the cold error path. We deliberately keep the unboxed error and silence the lint here.
 #![allow(clippy::result_large_err)]
 
 pub mod diagnostic;
@@ -23,10 +13,6 @@ pub use model::PipelineConfig;
 
 use diagnostic::Source;
 
-/// Parse a Moonlit pipeline configuration file.
-///
-/// `source_name` labels the source in diagnostics (e.g. `release.yml`). Runs parse → convert →
-/// cleanup → validate, short-circuiting to a [`ConfigDiagnostic`] on the first failure.
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
     let src = Source::new(yaml, source_name);
     let tree = tree::build_tree(&src)?;
@@ -93,11 +79,6 @@ stages:
 
     #[test]
     fn end_to_end_non_ascii_key_before_error_has_correct_byte_span() {
-        // The `café` stage name is a non-ASCII map key (verbatim, not schema-matched) whose
-        // extra UTF-8 byte (`é` = 2 bytes, 1 char) precedes the bad `run:` value below it. If
-        // the parser's char-index spans were used as byte offsets directly (instead of being
-        // mapped through `char_to_byte`, see `tree.rs`), the diagnostic's span would land one
-        // byte short and this substring check would fail.
         let yaml = "plugins:\n  - name: p\n    url: file:///p.wasm\nstages:\n  café:\n    - name: a\n      run: nodot\n";
         let err = parse_config(yaml, "release.yml").unwrap_err();
         assert_eq!(

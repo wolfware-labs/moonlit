@@ -1,16 +1,9 @@
-//! `moonlit login` device-authorization flow (RFC 8628): request a device code, open the browser to
-//! the approval page, poll until the registry mints a PAT, and store it as a Bearer credential.
-//!
-//! The poll loop is split into a pure state-machine step ([`decide`]) and the async I/O glue
-//! ([`login`]) so the RFC 8628 transitions can be unit-tested without HTTP or a running registry.
-
 use std::time::Duration;
 
 use serde::Deserialize;
 
 use crate::cli::DEFAULT_REGISTRY_HOST;
 
-/// Reply to `POST /api/v1/device/authorize` (registry emits RFC 8628 snake_case fields).
 #[derive(Deserialize)]
 struct AuthorizeResponse {
     device_code: String,
@@ -21,19 +14,16 @@ struct AuthorizeResponse {
     interval: u64,
 }
 
-/// Success reply to `POST /api/v1/device/token` (200).
 #[derive(Deserialize)]
 struct TokenSuccess {
     access_token: String,
 }
 
-/// Error reply to `POST /api/v1/device/token` (400) — an RFC 8628 error string.
 #[derive(Deserialize)]
 struct TokenError {
     error: String,
 }
 
-/// A parsed `/token` poll reply, normalized to the RFC 8628 outcomes we act on.
 pub enum PollResponse {
     Pending,
     SlowDown,
@@ -43,15 +33,12 @@ pub enum PollResponse {
     Approved { access_token: String },
 }
 
-/// The next action after a poll: wait again (possibly slower), finish with a token, or give up.
 pub enum PollDecision {
     KeepWaiting { interval: u64 },
     Done(String),
     Fail(&'static str),
 }
 
-/// Pure state-machine step: map a poll reply + current interval to the next action.
-/// `slow_down` bumps the interval by 5s per RFC 8628 §3.5.
 pub fn decide(resp: PollResponse, interval: u64) -> PollDecision {
     match resp {
         PollResponse::Pending => PollDecision::KeepWaiting { interval },
@@ -65,16 +52,10 @@ pub fn decide(resp: PollResponse, interval: u64) -> PollDecision {
     }
 }
 
-/// How long a single registry request may take. reqwest applies no timeout of its own, and a peer
-/// that completes the TCP handshake and then never answers produces a silently idle connection the
-/// OS will not tear down — so without this the poll loop below can never regain control to re-check
-/// its `expires_in` deadline, and logout can block local removal on a hung revoke.
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Separate, shorter bound on just the connect phase, so an unroutable host fails fast.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Build an HTTP client for registry calls, bounded by `timeout`.
 pub(crate) fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .timeout(timeout)
@@ -82,22 +63,15 @@ pub(crate) fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client>
         .build()
 }
 
-/// Registry base URL: plain `http` only for loopback hosts, `https` otherwise.
 pub(crate) fn base_url(host: &str) -> String {
     let scheme = if is_loopback(host) { "http" } else { "https" };
     format!("{scheme}://{host}")
 }
 
-/// Whether `host` (optionally `host:port`) names the loopback interface. The hostname is matched
-/// EXACTLY: a `starts_with` test would treat `localhost.evil.com` / `127.0.0.1.attacker.com` as
-/// local and silently downgrade those connections to cleartext `http`, exposing the token.
 fn is_loopback(host: &str) -> bool {
     let hostname = if let Some(rest) = host.strip_prefix('[') {
-        // Bracketed IPv6 literal, e.g. `[::1]` or `[::1]:5185`.
         rest.split(']').next().unwrap_or(rest)
     } else {
-        // `host` or `host:port`: strip only a trailing numeric port, and never split a bare IPv6
-        // literal (which itself contains ':').
         match host.rsplit_once(':') {
             Some((h, port))
                 if !h.contains(':')
@@ -112,21 +86,15 @@ fn is_loopback(host: &str) -> bool {
     hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
 }
 
-/// Whether a URL is safe to hand to the OS browser opener: only `http`/`https`, so a hostile or
-/// buggy registry cannot get the CLI to launch an arbitrary scheme (e.g. `file:`) via the
-/// server-provided verification URL.
 fn opens_safely(url: &str) -> bool {
     url.starts_with("https://") || url.starts_with("http://")
 }
 
-/// The token label shown in the portal, e.g. `Moonlit CLI — my-laptop`.
 fn client_name() -> String {
     let host = gethostname::gethostname().to_string_lossy().to_string();
     format!("Moonlit CLI — {host}")
 }
 
-/// Run the full device-authorization flow and store the minted PAT as a Bearer credential.
-/// Returns a process exit code.
 pub async fn login(host_arg: Option<String>) -> i32 {
     let host = host_arg.unwrap_or_else(|| DEFAULT_REGISTRY_HOST.to_string());
     let base = base_url(&host);
@@ -138,7 +106,6 @@ pub async fn login(host_arg: Option<String>) -> i32 {
         }
     };
 
-    // 1. Request a device code.
     let authorize: AuthorizeResponse = match http
         .post(format!("{base}/api/v1/device/authorize"))
         .json(&serde_json::json!({ "clientName": client_name() }))
@@ -159,7 +126,6 @@ pub async fn login(host_arg: Option<String>) -> i32 {
         }
     };
 
-    // 2. Show the code and open the browser (only for an http/https URL).
     println!("First copy your one-time code: {}", authorize.user_code);
     println!("Opening {} …", authorize.verification_uri);
     let opened = opens_safely(&authorize.verification_uri_complete)
@@ -171,9 +137,6 @@ pub async fn login(host_arg: Option<String>) -> i32 {
         );
     }
 
-    // 3. Poll until approved, denied, or expired. Bound the whole wait by the server's `expires_in`
-    // so a registry that never emits `expired_token` can't wedge the CLI forever, and tolerate a few
-    // consecutive transient network errors instead of aborting on the first blip.
     let mut interval = authorize.interval.max(1);
     let deadline = tokio::time::Instant::now() + Duration::from_secs(authorize.expires_in.max(1));
     let mut consecutive_errors = 0u32;
@@ -199,7 +162,7 @@ pub async fn login(host_arg: Option<String>) -> i32 {
                     eprintln!("error: {e}");
                     return 1;
                 }
-                continue; // transient; keep waiting within the deadline
+                continue;
             }
         };
         match decide(resp, interval) {
@@ -214,7 +177,6 @@ pub async fn login(host_arg: Option<String>) -> i32 {
     };
     spinner.stop("Authorized.");
 
-    // 4. Store as Bearer (existing 0600 writer).
     let Some(home) = super::home_dir() else {
         eprintln!("error: could not determine your home directory (is $HOME set?)");
         return 1;
@@ -231,7 +193,6 @@ pub async fn login(host_arg: Option<String>) -> i32 {
     }
 }
 
-/// One `POST /api/v1/device/token` round-trip, parsed into a [`PollResponse`].
 async fn poll_once(
     http: &reqwest::Client,
     base: &str,
@@ -311,13 +272,11 @@ mod tests {
 
     #[test]
     fn base_url_uses_http_for_localhost_https_otherwise() {
-        // Loopback → http (with or without a port, IPv4 and bracketed IPv6).
         assert!(base_url("localhost").starts_with("http://"));
         assert!(base_url("localhost:5185").starts_with("http://"));
         assert!(base_url("127.0.0.1:5185").starts_with("http://"));
         assert!(base_url("[::1]:5185").starts_with("http://"));
         assert!(base_url("::1").starts_with("http://"));
-        // Real hosts → https.
         assert!(base_url("registry.moonlit.rs").starts_with("https://"));
         assert!(base_url("registry.moonlit.rs:443").starts_with("https://"));
     }
@@ -333,9 +292,6 @@ mod tests {
 
     #[tokio::test]
     async fn http_client_gives_up_on_a_server_that_never_responds() {
-        // Accept the connection, then never write a reply. TCP stays healthy, so nothing but a
-        // request timeout can free the caller — and the poll loop re-checks its `expires_in`
-        // deadline only *between* polls, so a hung request would wedge login past expiry.
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         std::thread::spawn(move || {
@@ -357,7 +313,6 @@ mod tests {
 
     #[test]
     fn base_url_does_not_downgrade_loopback_lookalike_hosts() {
-        // A prefix check would wrongly send these over cleartext http; an exact match must not.
         assert!(base_url("localhost.evil.com").starts_with("https://"));
         assert!(base_url("127.0.0.1.attacker.com").starts_with("https://"));
         assert!(base_url("localhostapi.internal").starts_with("https://"));

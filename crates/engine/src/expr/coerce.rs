@@ -1,10 +1,5 @@
-//! Scalar coercion (§5.4): raw config strings are typed in a fixed order —
-//! `bool → i64 → f64 → datetime → String`. Datetime recognition is a deliberately narrow ISO-ish
-//! set (RFC3339 with offset, `T`/space naive datetimes, and date-only), not a liberal parse.
-
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 
-/// A coerced scalar. Datetimes carry a real `chrono` value so conditions can compare them.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Scalar {
     Bool(bool),
@@ -14,7 +9,6 @@ pub enum Scalar {
     Str(String),
 }
 
-/// Coerce a raw string to a [`Scalar`] in the fixed §5.4 order.
 pub fn coerce(raw: &str) -> Scalar {
     if raw.eq_ignore_ascii_case("true") {
         return Scalar::Bool(true);
@@ -71,8 +65,6 @@ mod tests {
 
     #[test]
     fn rfc3339_and_naive_and_date_only_coerce_to_datetime() {
-        // Naive datetimes default to zero offset; DateTime equality is by instant, so all three
-        // 03:04:05 forms equal the RFC3339 UTC value.
         let expected_dt = DateTime::parse_from_rfc3339("2024-01-02T03:04:05Z").unwrap();
         assert_eq!(
             coerce("2024-01-02T03:04:05Z"),

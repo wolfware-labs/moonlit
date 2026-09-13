@@ -1,6 +1,3 @@
-//! `oci://` publishing (§8.1) — the push half of OCI, mirroring `resolve/oci.rs`. Holds the
-//! [`PushClient`] seam (so `publish_plugin` is unit-tested against a mock) plus artifact assembly.
-
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -12,15 +9,10 @@ use oci_client::{Client, Reference};
 use crate::resolve::auth::resolve_auth;
 use crate::resolve::oci::CONFIG_MEDIA_TYPE;
 
-/// Manifest artifactType for Moonlit plugin artifacts (§8.1).
 pub const ARTIFACT_TYPE: &str = "application/vnd.wasm.component.v1+wasm";
-/// The single-layer media type (§8.1).
 pub const LAYER_MEDIA_TYPE: &str = "application/wasm";
-/// The fixed WIT world a Moonlit plugin implements (§8.1).
 pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.3.0";
 
-/// Everything needed to describe a plugin artifact, gathered by the CLI
-/// (component introspection + best-effort crate facts).
 #[derive(Debug, Clone)]
 pub struct PublishMeta {
     pub plugin_name: String,
@@ -32,7 +24,6 @@ pub struct PublishMeta {
     pub sdk_version: Option<String>,
 }
 
-/// The result of a successful push.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishOutcome {
     pub reference: String,
@@ -40,7 +31,6 @@ pub struct PublishOutcome {
     pub size: u64,
 }
 
-/// Publish failure classes (mirrors `ResolveError` classification).
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum PublishError {
     #[error("invalid plugin reference: {0}")]
@@ -57,7 +47,6 @@ pub enum PublishError {
     Io(String),
 }
 
-/// A narrow seam over the OCI push, so `publish_plugin` is testable without a network.
 #[allow(async_fn_in_trait)]
 pub trait PushClient {
     async fn push(
@@ -70,10 +59,8 @@ pub trait PushClient {
     ) -> Result<PushResponse, PublishError>;
 }
 
-/// The real push client, backed by `oci-client` (rustls transport).
 pub struct OciPushClient(Client);
 
-/// Construct the real push client with default configuration.
 pub fn new_push_client() -> OciPushClient {
     OciPushClient(Client::default())
 }
@@ -94,7 +81,6 @@ impl PushClient for OciPushClient {
     }
 }
 
-/// Classify an `oci-client` push error (auth vs everything-else).
 fn map_push_error(err: oci_client::errors::OciDistributionError) -> PublishError {
     let msg = err.to_string();
     let lower = msg.to_lowercase();
@@ -109,7 +95,6 @@ fn map_push_error(err: oci_client::errors::OciDistributionError) -> PublishError
     }
 }
 
-/// Build the OCI config blob, wasm layer, and artifact manifest for a plugin (§8.1). Pure.
 pub(crate) fn assemble_artifact(
     wasm: &[u8],
     meta: &PublishMeta,
@@ -117,7 +102,6 @@ pub(crate) fn assemble_artifact(
     let layer = ImageLayer::new(wasm.to_vec(), LAYER_MEDIA_TYPE.to_string(), None);
     let layer_digest = layer.sha256_digest();
 
-    // The `moonlit` config block (§8.1). `sdkVersion` is omitted entirely when absent.
     let mut moonlit = serde_json::Map::new();
     moonlit.insert("world".into(), PLUGIN_WORLD.into());
     moonlit.insert(
@@ -141,7 +125,6 @@ pub(crate) fn assemble_artifact(
     (config, layer, manifest)
 }
 
-/// OCI image annotations (§8.1); optional fields omitted when empty/None.
 fn build_annotations(meta: &PublishMeta) -> BTreeMap<String, String> {
     let mut a = BTreeMap::new();
     a.insert(
@@ -171,8 +154,6 @@ fn build_annotations(meta: &PublishMeta) -> BTreeMap<String, String> {
     a
 }
 
-/// Publish a plugin component to an `oci://` registry (§8). Resolves credentials from `home`
-/// (Docker config, then Moonlit credentials), assembles the artifact, and pushes it.
 pub async fn publish_plugin<C: PushClient>(
     raw_ref: &str,
     wasm: Vec<u8>,
@@ -197,7 +178,6 @@ pub async fn publish_plugin<C: PushClient>(
     })
 }
 
-/// Extract `sha256:<hex>` from a manifest URL (`…/manifests/sha256:abcd…`).
 fn digest_from_url(url: &str) -> Option<String> {
     let idx = url.find("sha256:")?;
     Some(url[idx..].to_string())
@@ -275,7 +255,6 @@ mod tests {
         assert!(!ann.contains_key("org.opencontainers.image.licenses"));
     }
 
-    // A mock push client that records what it was handed.
     enum MockOutcome {
         Ok { manifest_url: String },
         Auth,

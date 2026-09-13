@@ -1,18 +1,11 @@
-//! The configuration layering "accumulator" (§5.2): an ordered stack of `Value::Map` layers.
-//! Later layers win. `resolve` walks layers top-down for a single path; `merged` deep-merges a
-//! whole top-level section (e.g. `output`) across every layer for condition-scope building.
-
 use indexmap::IndexMap;
 
 use crate::expr::value::Value;
 
-/// Anything that can resolve a `:`-separated path to a value. Implemented by [`Accumulator`];
-/// taken by the substitution engine so it can resolve without depending on the concrete stack.
 pub trait Resolve {
     fn resolve(&self, path: &str) -> Option<Value>;
 }
 
-/// An ordered stack of `Value::Map` layers; later layers win.
 #[derive(Debug, Default)]
 pub struct Accumulator {
     layers: Vec<Value>,
@@ -23,12 +16,10 @@ impl Accumulator {
         Self { layers: Vec::new() }
     }
 
-    /// Push a layer (expected to be a `Value::Map` at the top level).
     pub fn push(&mut self, layer: Value) {
         self.layers.push(layer);
     }
 
-    /// Resolve a `:`-separated path, latest layer first. A resolved `Null` leaf counts as absent.
     pub fn resolve(&self, path: &str) -> Option<Value> {
         for layer in self.layers.iter().rev() {
             if let Some(v) = lookup(layer, path) {
@@ -38,8 +29,6 @@ impl Accumulator {
         None
     }
 
-    /// Deep-merge a top-level section (e.g. `output`) across every layer, later layers winning
-    /// per leaf. Maps merge recursively; scalars and lists replace.
     pub fn merged(&self, section: &str) -> Value {
         let mut out: IndexMap<String, Value> = IndexMap::new();
         for layer in &self.layers {
@@ -52,12 +41,9 @@ impl Accumulator {
         Value::Map(out)
     }
 
-    /// Base layer (§5.2.1): `.env` entries (parsed without touching process env) then
-    /// `MOONLIT_`-prefixed env vars (prefix stripped), env overriding `.env` on collision.
     pub fn build_base_layer(env: &[(String, String)], dotenv: Option<&str>) -> Value {
         let mut map: IndexMap<String, Value> = IndexMap::new();
         if let Some(contents) = dotenv {
-            // `.flatten()` keeps only the Ok pairs; iterating does NOT touch process env.
             for (k, v) in dotenvy::from_read_iter(contents.as_bytes()).flatten() {
                 map.insert(k, Value::Str(v));
             }
@@ -70,7 +56,6 @@ impl Accumulator {
         Value::Map(map)
     }
 
-    /// Release layer (§5.2.2): `{ vars: {...}, args: {...} }`; CLI args override YAML args.
     pub fn build_release_layer(
         vars: &IndexMap<String, String>,
         args: &IndexMap<String, String>,
@@ -212,9 +197,9 @@ mod tests {
         let layer = Accumulator::build_base_layer(&env, Some(dotenv));
         let mut acc = Accumulator::new();
         acc.push(layer);
-        assert_eq!(acc.resolve("TOKEN"), Some(s("from-env"))); // env wins over .env
+        assert_eq!(acc.resolve("TOKEN"), Some(s("from-env")));
         assert_eq!(acc.resolve("GREETING"), Some(s("hello")));
-        assert_eq!(acc.resolve("PATH"), None); // no MOONLIT_ prefix
+        assert_eq!(acc.resolve("PATH"), None);
     }
 
     #[test]
@@ -227,6 +212,6 @@ mod tests {
         acc.push(layer);
         assert_eq!(acc.resolve("vars:channel"), Some(s("stable")));
         assert_eq!(acc.resolve("args:tag"), Some(s("v1")));
-        assert_eq!(acc.resolve("args:skipPush"), Some(s("true"))); // CLI wins
+        assert_eq!(acc.resolve("args:skipPush"), Some(s("true")));
     }
 }
