@@ -1,5 +1,4 @@
-//! Native test harness: drive a middleware against a recording mock host with
-//! no wasm build. `run()` is added alongside the Middleware trait (Task 5).
+//! Drive a middleware against a recording mock host, with no wasm build.
 
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -8,7 +7,27 @@ use crate::context::{Host, LogLevel};
 use crate::http::{HttpRequestData, HttpResponseData};
 use crate::process::{ChildHandle, OutputChunk, ProcessCommand, ProcessOutput};
 
-/// A recording, configurable host for native unit tests.
+/// A recording [`Host`] for native unit tests.
+///
+/// Builder methods script what the host returns; accessors record what the
+/// middleware asked for.
+///
+/// # Examples
+///
+/// ```
+/// use moonlit_pdk::prelude::*;
+/// use moonlit_pdk::testing::MockHost;
+///
+/// let host = MockHost::new()
+///     .with_env("CI", "true")
+///     .with_http_response(200, b"pong");
+///
+/// let ctx = Context::new(&host, "/work".into(), "step".into());
+/// ctx.log_info("starting");
+///
+/// assert_eq!(ctx.env().var("CI").as_deref(), Some("true"));
+/// assert_eq!(host.logs()[0].1, "starting");
+/// ```
 #[derive(Default)]
 pub struct MockHost {
     logs: RefCell<Vec<(LogLevel, String)>>,

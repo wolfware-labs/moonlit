@@ -1,5 +1,4 @@
-//! Shared release-notes markdown generator. github (§11.2) is the first
-//! consumer; gitlab (§11.3) reuses it with a different `commit_url_prefix`.
+//! Release-notes markdown, shared by the github and gitlab plugins.
 
 use serde::{Deserialize, Serialize};
 

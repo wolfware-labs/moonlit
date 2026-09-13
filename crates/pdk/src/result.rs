@@ -4,7 +4,21 @@
 //! output map. A serialization failure degrades the whole result to a loud
 //! `failure(...)`.
 
-/// A middleware outcome in ergonomic form, carrying a typed `Output` on success.
+/// What a [`Middleware`](crate::Middleware) returns.
+///
+/// # Examples
+///
+/// ```
+/// use moonlit_pdk::{MiddlewareResult, NoOutput};
+///
+/// let ok = MiddlewareResult::ok(NoOutput {}).with_warning("`force` is deprecated");
+/// assert!(ok.is_success());
+/// assert_eq!(ok.warnings(), ["`force` is deprecated"]);
+///
+/// let failed: MiddlewareResult<NoOutput> = MiddlewareResult::failure("tag already exists");
+/// assert!(!failed.is_success());
+/// assert_eq!(failed.error_message(), Some("tag already exists"));
+/// ```
 pub struct MiddlewareResult<T> {
     successful: bool,
     error_message: Option<String>,
