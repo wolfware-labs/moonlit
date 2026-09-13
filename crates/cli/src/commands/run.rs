@@ -1,6 +1,3 @@
-//! Pipeline orchestration: spawn a consumer task that drives the renderer for the whole run,
-//! call `load_pipeline` then `run` on the main task, and map the outcome to an exit code.
-
 use moonlit_engine::{Engine, EngineError, PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -11,8 +8,6 @@ use crate::cli::{OutputMode, RunArgs};
 use crate::render::{Header, Renderer};
 use crate::{input, render, signal};
 
-/// Run (or, when `load_only`, just load/validate) a pipeline, rendering the event stream.
-/// Returns `Ok(Some(summary))` on a completed run, `Ok(None)` for `load_only`, or the engine error.
 pub async fn execute(
     engine: &Engine,
     yaml: &str,
@@ -24,7 +19,6 @@ pub async fn execute(
 ) -> Result<Option<PipelineSummary>, EngineError> {
     let (tx, mut rx) = mpsc::channel(256);
 
-    // The consumer owns the renderer + receiver for the whole run (both Send + 'static).
     let consumer = tokio::spawn(async move {
         let mut renderer = renderer;
         renderer.header(&header);
@@ -45,11 +39,6 @@ pub async fn execute(
     };
 
     if load_only {
-        // Drop the pipeline before awaiting the consumer: each plugin instance holds a
-        // ChannelSink with a *clone* of the event sender (for host.log callbacks), so the
-        // channel only closes once the pipeline is gone. Dropping `tx` alone is not enough —
-        // without this, `consumer.await` would block forever. (The run path below is fine
-        // because `engine.run` consumes and drops the pipeline itself.)
         drop(pipeline);
         drop(tx);
         let _ = consumer.await;
@@ -61,7 +50,6 @@ pub async fn execute(
     result.map(Some)
 }
 
-/// Map an outcome to a process exit code: success 0, otherwise the engine's category code.
 pub fn exit_code(outcome: &Result<Option<PipelineSummary>, EngineError>) -> i32 {
     match outcome {
         Ok(_) => 0,
@@ -69,7 +57,6 @@ pub fn exit_code(outcome: &Result<Option<PipelineSummary>, EngineError>) -> i32 
     }
 }
 
-/// Build a `Header` from resolved inputs and the active stage filter.
 fn build_header(resolved: &input::ResolvedInput, stages_filter: &[String]) -> Header {
     let peeked = input::peek_stages(&resolved.yaml);
     let stages = if stages_filter.is_empty() {
@@ -86,10 +73,6 @@ fn build_header(resolved: &input::ResolvedInput, stages_filter: &[String]) -> He
     }
 }
 
-/// Render an owned error: a miette report (pretty/plain, spans intact) or a json error object.
-/// Generic so it serves both `input::InputError` and `EngineError` — both are
-/// `miette::Diagnostic + Send + Sync + 'static`. `code` is precomputed by the caller because
-/// the error is consumed here (miette::Report::new takes ownership).
 fn report<E>(err: E, code: i32, json: bool)
 where
     E: miette::Diagnostic + Send + Sync + 'static,
@@ -103,7 +86,6 @@ where
     }
 }
 
-/// `moonlit run` (and `--dry-run`, which loads only).
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_run: bool) -> i32 {
     let stderr_tty = render::stderr_is_tty();
     let json = render::resolve_mode(output, stderr_tty) == OutputMode::Json;
@@ -147,7 +129,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_r
         dry_run,
     )
     .await;
-    let code = exit_code(&outcome); // free fn from Step 1, exercised in production here
+    let code = exit_code(&outcome);
     if let Err(e) = outcome {
         report(e, code, json);
     }
@@ -162,7 +144,6 @@ mod tests {
     use std::path::Path;
 
     fn fixture_wasm_url() -> String {
-        // cli/ is a sibling of engine/; the prebuilt fixture lives under engine/tests.
         let p =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/tests/fixtures/test_plugin.wasm");
         let p = p.canonicalize().expect("fixture wasm exists");

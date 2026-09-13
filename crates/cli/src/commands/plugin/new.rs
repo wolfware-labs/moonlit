@@ -1,6 +1,3 @@
-//! `moonlit plugin new <name>` — scaffold a plugin crate from embedded templates.
-//! Interactive (cliclack) on a TTY; flag/default-driven off a TTY.
-
 use std::io::IsTerminal;
 use std::path::Path;
 
@@ -96,7 +93,6 @@ fn resolve_values(args: &PluginNewArgs, interactive: bool) -> std::io::Result<Sc
     })
 }
 
-/// A flag wins; else prompt on a TTY (default pre-filled); else use the default.
 fn resolve_one(
     flag: Option<String>,
     interactive: bool,

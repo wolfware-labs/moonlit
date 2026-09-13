@@ -1,29 +1,17 @@
-//! Minimal plugin built on moonlit-pdk, used by the engine integration
-//! tests to prove the SDK produces a real, runnable component. Exercises SDK
-//! core (Echo/Fail) plus the utility modules (process/http/env).
-
 use moonlit_pdk::prelude::*;
 
 #[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 struct EchoInput {
-    /// How many times to echo.
     times: i64,
-    /// A label included in the output.
     label: String,
 }
 
-/// Output published by `echo`. Field names are the runtime output keys, so they
-/// stay snake_case (no camelCase rename) to match what downstream steps read.
 #[derive(Serialize, schemars::JsonSchema)]
 struct EchoOutput {
-    /// Echoes the requested count.
     times: i64,
-    /// Echoes the provided label.
     label: String,
-    /// The step name this middleware ran under.
     step: String,
-    /// The `plugin:name` config value the middleware observed.
     plugin_name: serde_json::Value,
 }
 
@@ -66,7 +54,6 @@ impl Middleware for Fail {
 #[derive(Default)]
 struct RunEcho;
 
-/// Output published by `run-echo`: the captured exit code and stdout.
 #[derive(Serialize, schemars::JsonSchema)]
 struct RunEchoOutput {
     exit_code: i32,
@@ -92,7 +79,6 @@ impl Middleware for RunEcho {
 #[derive(Default)]
 struct SpawnEcho;
 
-/// Output published by `spawn-echo`: the joined streamed lines and exit code.
 #[derive(Serialize, schemars::JsonSchema)]
 struct SpawnEchoOutput {
     exit_code: i32,
@@ -125,15 +111,11 @@ impl Middleware for SpawnEcho {
 #[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 struct HttpGetInput {
-    /// URL scheme, `http` or `https`.
     scheme: String,
-    /// Host authority, e.g. `example.com`.
     authority: String,
-    /// Request path, e.g. `/`.
     path: String,
 }
 
-/// Output published by `http-get`: the response status and body.
 #[derive(Serialize, schemars::JsonSchema)]
 struct HttpGetOutput {
     status: u16,
@@ -160,8 +142,6 @@ impl Middleware for HttpGet {
     }
 }
 
-/// Output published by `read-env`: the observed `SAMPLE_ENV` value. The runtime
-/// output key must stay `SAMPLE_ENV`, so the field is renamed on serialization.
 #[derive(Serialize, schemars::JsonSchema)]
 struct ReadEnvOutput {
     #[serde(rename = "SAMPLE_ENV")]

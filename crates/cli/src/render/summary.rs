@@ -1,12 +1,8 @@
-//! The execution summary table (MVP_SPEC §9.4.4) and duration formatting, shared by the
-//! plain and pretty renderers.
-
 use std::time::Duration;
 
 use comfy_table::{ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
 use moonlit_engine::{PipelineSummary, StepResult};
 
-/// `210ms` under a second, else `3.1s`.
 pub fn fmt_duration(d: Duration) -> String {
     let ms = d.as_millis();
     if ms < 1000 {
@@ -26,7 +22,6 @@ fn status(step: &StepResult) -> &'static str {
     }
 }
 
-/// Build the `Execution Summary` table: Step · Status · Duration · Error.
 pub fn build_table(summary: &PipelineSummary) -> Table {
     let mut table = Table::new();
     table

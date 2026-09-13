@@ -1,6 +1,3 @@
-//! `moonlit validate` — load and check a pipeline without executing it (delegates to the
-//! run orchestration with `load_only = true`).
-
 use crate::cli::{OutputMode, RunArgs, ValidateArgs};
 
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: ValidateArgs) -> i32 {

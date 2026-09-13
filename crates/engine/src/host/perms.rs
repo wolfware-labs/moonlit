@@ -1,6 +1,3 @@
-//! Permission primitives: allowlist globsets (exec/network), the env-view filter,
-//! the filesystem-grant -> preopen-perms mapping, and the WASI context builder.
-
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxBuilder};
 
@@ -17,17 +14,14 @@ fn build_globset(patterns: &[String]) -> GlobSet {
     b.build().unwrap_or_else(|_| GlobSet::empty())
 }
 
-/// Allowlist of permitted program names for `moonlit:plugin/process`.
 pub fn exec_globset(patterns: &[String]) -> GlobSet {
     build_globset(patterns)
 }
 
-/// Allowlist of permitted outgoing-HTTP hosts.
 pub fn network_globset(patterns: &[String]) -> GlobSet {
     build_globset(patterns)
 }
 
-/// Filter an env snapshot to the keys permitted by the `env` grant.
 pub fn filter_env(patterns: &[String], snapshot: &[(String, String)]) -> Vec<(String, String)> {
     let gs = build_globset(patterns);
     snapshot
@@ -37,12 +31,6 @@ pub fn filter_env(patterns: &[String], snapshot: &[(String, String)]) -> Vec<(St
         .collect()
 }
 
-/// Map a filesystem grant to `FsPerms`; `None` = no preopen at all.
-///
-/// wasmtime-wasi 48 collapsed the old `(DirPerms, FilePerms)` pair into a single
-/// `FsPerms`. That is lossless here: this only ever used the two corners of that
-/// square -- everything readable, or everything readable and writable -- never an
-/// asymmetric grant such as a mutable directory of read-only files.
 pub fn filesystem_perms(access: FilesystemAccess) -> Option<FsPerms> {
     match access {
         FilesystemAccess::None => None,
@@ -51,8 +39,6 @@ pub fn filesystem_perms(access: FilesystemAccess) -> Option<FsPerms> {
     }
 }
 
-/// Build the per-instance WASI context: a filtered env view and a working-dir
-/// preopen gated by the `filesystem` grant (`none` => the guest gets no fd at all).
 pub fn build_wasi_ctx(cfg: &InstanceConfig) -> anyhow::Result<WasiCtx> {
     let mut b = WasiCtxBuilder::new();
     for (k, v) in filter_env(&cfg.permissions.env, &cfg.env_snapshot) {

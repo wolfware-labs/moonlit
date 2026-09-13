@@ -1,7 +1,3 @@
-//! The pipeline runner (§3.1): drives a loaded `Pipeline` step-by-step, streams events, and
-//! returns a `PipelineSummary`. Boundary cancellation, during-execute cancellation, and
-//! step-timeout (a fatal abort) are all handled here. See the Phase-7 design doc.
-
 use std::time::{Duration, Instant};
 
 use indexmap::IndexMap;
@@ -49,7 +45,6 @@ pub(crate) async fn run_pipeline(
     let mut poisoned: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for (index, step) in steps.iter().enumerate() {
-        // 1. Boundary cancellation.
         if cancel.is_cancelled() {
             terminal_err = Some(EngineError::Execution(
                 "Pipeline execution was cancelled.".to_string(),
@@ -57,7 +52,6 @@ pub(crate) async fn run_pipeline(
             break;
         }
 
-        // 2. StepStarted.
         let run = format!("{}.{}", step.plugin, step.middleware);
         let _ = events
             .send(PipelineEvent::StepStarted {
@@ -69,7 +63,6 @@ pub(crate) async fn run_pipeline(
             })
             .await;
 
-        // 3. Condition — skip when falsy.
         if let Some(cond) = &step.condition {
             let outcome = evaluate_condition(cond, &acc);
             if let Some(w) = &outcome.warning {
@@ -101,8 +94,6 @@ pub(crate) async fn run_pipeline(
             }
         }
 
-        // A plugin that trapped earlier poisoned its wasm Store (wasmtime denies re-entry for the
-        // whole run). Fail fast instead of re-entering; the pipeline still continues on other plugins.
         if poisoned.contains(&step.plugin) {
             overall_success = false;
             let msg = format!(
@@ -131,12 +122,10 @@ pub(crate) async fn run_pipeline(
             continue;
         }
 
-        // 4. Step config: substitute against the accumulator, push as a layer (§5.2.4).
         let cfg_value = substitute_config(&step.config, &acc);
         acc.push(cfg_value.clone());
         let cfg_json = value_to_json(&cfg_value);
 
-        // 5. Execute.
         any_executed = true;
         let step_started = Instant::now();
         let ctx = ReleaseContext {
@@ -165,14 +154,12 @@ pub(crate) async fn run_pipeline(
         let exec = match outcome {
             ExecOutcome::Completed(r) => r,
             ExecOutcome::Cancelled => {
-                // In-flight cancel: drop the future (poisons the store, never reused) and stop.
                 terminal_err = Some(EngineError::Execution(
                     "Pipeline execution was cancelled by the user.".to_string(),
                 ));
                 break;
             }
             ExecOutcome::TimedOut => {
-                // Fatal abort regardless of continueOnError (poisoned store, never reused).
                 overall_success = false;
                 let to = step_timeout.expect("timeout branch only runs when Some");
                 let msg = format!("Step '{}' timed out after {:?}", step.name, to);
@@ -196,7 +183,6 @@ pub(crate) async fn run_pipeline(
             }
         };
 
-        // 6. Classify.
         let mut successful;
         let mut error_message: Option<String>;
         let step_warnings: Vec<String>;
@@ -206,7 +192,6 @@ pub(crate) async fn run_pipeline(
                 error_message = res.error_message.clone();
                 step_warnings = res.warnings.clone();
 
-                // 7. On success: append outputs (dup key fails), then haltIf.
                 if successful {
                     let mut out_map: IndexMap<String, Value> = IndexMap::new();
                     for (key, jval) in &res.output {
@@ -237,9 +222,6 @@ pub(crate) async fn run_pipeline(
                 }
             }
             Err(host_err) => {
-                // Only a real wasm trap poisons the Store (wasmtime denies re-entry). A non-trap
-                // error (e.g. HostError::BadJson from an Ok call returning invalid-JSON output)
-                // leaves the Store healthy, so the plugin stays usable for later steps.
                 if matches!(host_err, crate::host::HostError::Trap { .. }) {
                     poisoned.insert(step.plugin.clone());
                 }
@@ -249,7 +231,6 @@ pub(crate) async fn run_pipeline(
             }
         }
 
-        // 8. Finalize + StepFinished.
         if !successful {
             overall_success = false;
         }
@@ -270,7 +251,6 @@ pub(crate) async fn run_pipeline(
         results.push(result);
         warnings.extend(step_warnings);
 
-        // 9. Terminal decisions.
         if !successful && !step.continue_on_error {
             let msg = error_message.unwrap_or_default();
             terminal_err = Some(EngineError::Execution(format!(
@@ -290,7 +270,6 @@ pub(crate) async fn run_pipeline(
         }
     }
 
-    // Single finalization: seed warning only on a clean idle run; PipelineFinished always emitted.
     if !any_executed && terminal_err.is_none() {
         warnings.push(SEED_WARNING.to_string());
     }

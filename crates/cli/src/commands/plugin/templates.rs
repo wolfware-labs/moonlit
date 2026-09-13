@@ -1,7 +1,3 @@
-//! Embedded scaffold templates. Placeholders are `{token}`; substitution is a
-//! single-pass token match (no format!), so literal braces in Rust/TOML
-//! bodies need no escaping.
-
 use std::path::PathBuf;
 
 use super::scaffold::ScaffoldValues;
@@ -115,11 +111,6 @@ A Moonlit plugin.
 
 const GITIGNORE: &str = "/target\n";
 
-/// Substitute `{token}` placeholders in one pass. Each `{` is matched against
-/// the known tokens; a match emits the value and skips the token in the
-/// template, so an inserted value is never re-scanned (no double substitution)
-/// and unknown brace sequences in the body (e.g. Rust `format!` args) pass
-/// through untouched.
 fn substitute(template: &str, vars: &[(&str, &str)]) -> String {
     let mut out = String::with_capacity(template.len());
     let mut i = 0;
@@ -140,10 +131,6 @@ fn substitute(template: &str, vars: &[(&str, &str)]) -> String {
     out
 }
 
-/// Escape a string for use inside a TOML basic (double-quoted) string body.
-/// The free-form scaffold fields (`namespace`/`description`/`license`) land only
-/// in `moonlit-plugin.toml`; without this a value containing `"` or a newline
-/// would produce invalid TOML. (`name` is crate-name-validated, so it needs none.)
 fn toml_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
@@ -164,11 +151,8 @@ fn toml_escape(s: &str) -> String {
     out
 }
 
-/// Render every scaffold file as (relative path, contents).
 pub fn render_all(v: &ScaffoldValues) -> Vec<(PathBuf, String)> {
     let artifact = v.name.replace('-', "_");
-    // The three free-form fields are TOML-only tokens; escape them so arbitrary
-    // flag values can never break `moonlit-plugin.toml`'s syntax.
     let namespace = toml_escape(&v.namespace);
     let description = toml_escape(&v.description);
     let license = toml_escape(&v.license);
@@ -244,7 +228,6 @@ mod tests {
 
     #[test]
     fn substitute_does_not_rescan_inserted_values() {
-        // A user value that itself contains a later token must survive literally.
         let vars = [
             ("{description}", "uses {license} here"),
             ("{license}", "MIT"),
@@ -257,14 +240,11 @@ mod tests {
 
     #[test]
     fn substitute_passes_unknown_brace_tokens_through() {
-        // Unknown tokens (e.g. Rust format args in a template body) are untouched.
         assert_eq!(substitute("x {who} y", &[("{name}", "n")]), "x {who} y");
     }
 
     #[test]
     fn plugin_toml_escapes_hostile_field_values() {
-        // A description containing quotes and a newline must still yield valid TOML
-        // that round-trips back to the exact original string.
         let mut v = values();
         v.description = "a \"great\" plugin\nsecond line".to_string();
         v.license = "weird\\license".to_string();

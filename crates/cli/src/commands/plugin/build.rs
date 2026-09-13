@@ -1,5 +1,3 @@
-//! `moonlit plugin build` helpers + command.
-
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, serde::Deserialize)]
@@ -17,7 +15,6 @@ struct RawLib {
     crate_type: Option<Vec<String>>,
 }
 
-/// The subset of a plugin's `Cargo.toml` that `build` needs.
 #[derive(Debug, PartialEq)]
 pub struct PluginManifest {
     pub name: String,
@@ -37,8 +34,6 @@ pub fn parse_manifest(text: &str) -> Result<PluginManifest, String> {
     })
 }
 
-/// Where cargo drops the component, given the target directory and the cdylib target's name.
-/// Cargo substitutes `_` for `-` in artifact filenames.
 pub fn artifact_path(target_dir: &Path, lib_name: &str, release: bool) -> PathBuf {
     let profile = if release { "release" } else { "debug" };
     target_dir
@@ -47,21 +42,12 @@ pub fn artifact_path(target_dir: &Path, lib_name: &str, release: bool) -> PathBu
         .join(format!("{}.wasm", lib_name.replace('-', "_")))
 }
 
-/// Where cargo will actually write, and what it will call the artifact.
 #[derive(Debug, PartialEq)]
 pub struct BuildLayout {
     pub target_dir: PathBuf,
     pub lib_name: String,
 }
 
-/// Ask cargo, rather than guessing from the crate directory.
-///
-/// Two assumptions in the obvious guess are wrong often enough to matter. A crate in a workspace
-/// writes to the WORKSPACE's `target/`, not its own, so `<crate>/target/...` does not exist. And
-/// `[lib] name` may differ from the package name — `moonlit-plugin-git` builds `git.wasm` — so a
-/// filename derived from the package name does not exist either. Both produced the same failure:
-/// cargo reported success and this command reported a missing artifact for the file it had just
-/// built.
 pub fn resolve_layout(crate_dir: &Path) -> Result<BuildLayout, String> {
     let out = std::process::Command::new("cargo")
         .args(["metadata", "--no-deps", "--format-version", "1"])
@@ -80,20 +66,12 @@ pub fn resolve_layout(crate_dir: &Path) -> Result<BuildLayout, String> {
     parse_layout(&meta, crate_dir)
 }
 
-/// Split out from `resolve_layout` so the JSON shape is testable without invoking cargo.
 pub fn parse_layout(meta: &serde_json::Value, crate_dir: &Path) -> Result<BuildLayout, String> {
     let target_dir = meta
         .get("target_directory")
         .and_then(|v| v.as_str())
         .ok_or("cargo metadata has no target_directory")?;
 
-    // `--no-deps` still lists every workspace member, so select the package whose manifest is the
-    // one we were pointed at. cargo reports ABSOLUTE manifest paths while `crate_dir` is whatever
-    // the caller passed (often relative), so both sides are canonicalised before comparing.
-    //
-    // There is deliberately no "just take the first package" fallback. An unmatched path is a bug,
-    // and guessing turns it into a confidently wrong artifact — every crate in a workspace would
-    // resolve to whichever package happened to be listed first.
     let wanted = std::fs::canonicalize(crate_dir.join("Cargo.toml"))
         .unwrap_or_else(|_| crate_dir.join("Cargo.toml"));
     let packages = meta
@@ -139,7 +117,6 @@ pub fn parse_layout(meta: &serde_json::Value, crate_dir: &Path) -> Result<BuildL
     })
 }
 
-/// True if the `wasm32-wasip2` target is installed in the active toolchain.
 pub fn wasm_target_installed() -> bool {
     let Ok(out) = std::process::Command::new("rustc")
         .args(["--print", "sysroot"])
@@ -243,19 +220,6 @@ pub fn run(args: PluginBuildArgs) -> i32 {
     0
 }
 
-/// The `cargo build` invocation for a plugin crate, targeting wasm32-wasip2.
-///
-/// The caller's toolchain configuration is cleared rather than inherited. Once `--target`
-/// is set, host rustflags apply to the *target* artifacts, so a flag chosen for the host
-/// lands on a wasm component that may not accept it. Wrappers are worse, because they
-/// inject flags a level below where anyone would look: `cargo llvm-cov` sets
-/// `RUSTC_WRAPPER` to itself and adds `-C instrument-coverage` for the crates it is
-/// measuring, which fails the component build outright — `profiler_builtins` has no
-/// wasm32-wasip2 build.
-///
-/// Flags meant for the component still work: set them in the plugin crate's own
-/// `.cargo/config.toml`, which is read from the crate directory and can be scoped to the
-/// target. The cost is that a host wrapper such as `sccache` does not cache this build.
 fn cargo_build_command(crate_dir: &Path, release: bool) -> std::process::Command {
     let mut cmd = std::process::Command::new("cargo");
     cmd.current_dir(crate_dir)
@@ -275,10 +239,6 @@ fn cargo_build_command(crate_dir: &Path, release: bool) -> std::process::Command
 mod tests {
     use super::*;
 
-    /// The nested build targets wasm32-wasip2, so the caller's host RUSTFLAGS must not
-    /// reach it. A coverage-instrumented shell is the case that bites: `profiler_builtins`
-    /// has no wasm32-wasip2 build, so an inherited `-C instrument-coverage` fails the
-    /// component build outright with E0463.
     #[test]
     fn build_command_does_not_inherit_host_rustflags() {
         let cmd = cargo_build_command(Path::new("/tmp/plugin"), false);
@@ -353,8 +313,6 @@ mod tests {
         assert!(d.ends_with("target/wasm32-wasip2/debug/my_plugin.wasm"));
     }
 
-    /// A workspace member writes to the WORKSPACE target directory and may name its lib target
-    /// differently from its package. Guessing `<crate>/target/<pkg_name>.wasm` finds neither.
     #[test]
     fn parse_layout_uses_the_workspace_target_dir_and_the_lib_name() {
         let meta = serde_json::json!({
@@ -381,8 +339,6 @@ mod tests {
         );
     }
 
-    /// The bug this replaced: an unmatched path silently resolved to the first package, so every
-    /// crate in a workspace built to the same artifact name.
     #[test]
     fn parse_layout_errors_rather_than_guessing_when_no_package_matches() {
         let meta = serde_json::json!({

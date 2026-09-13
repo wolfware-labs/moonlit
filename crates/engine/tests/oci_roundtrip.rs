@@ -1,10 +1,3 @@
-//! Gated real publish→pull round-trip against a local OCI registry.
-//!
-//! Ignored by default so `cargo test` stays hermetic. To run it, start a registry
-//! (`docker run -d -p 5000:5000 registry:2`) and:
-//!   MOONLIT_TEST_OCI_REGISTRY=localhost:5000 \
-//!     cargo test -p moonlit-engine --test oci_roundtrip -- --ignored
-
 use moonlit_engine::cache::{Cache, SystemClock};
 use moonlit_engine::publish::{PublishMeta, new_push_client, publish_plugin};
 use moonlit_engine::resolve::{PluginSource, ResolveOptions, resolve};

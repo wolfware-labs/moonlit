@@ -1,13 +1,3 @@
-//! Content-addressed on-disk cache for resolved plugins (§7.3, §8.3).
-//!
-//! Layout under `<cache-root>/moonlit/`:
-//! ```text
-//! oci/sha256/<hex>       # OCI layer blobs, content-addressed by digest
-//! plugins/<key>/         # a resolved plugin: plugin.wasm + meta.json
-//! refs/<hash>.json       # OCI tag -> digest resolution cache with a timestamp
-//! ```
-//! OCI keys `plugins/` by the manifest digest; `http` keys by `sha256(url)`; `file` is not cached.
-
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -15,13 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::resolve::sha256_hex;
 
-/// A clock, injectable so TTL logic is testable without sleeping.
 pub trait Clock: Send + Sync {
-    /// Seconds since the Unix epoch.
     fn now_unix(&self) -> u64;
 }
 
-/// The real wall-clock.
 pub struct SystemClock;
 
 impl Clock for SystemClock {
@@ -33,7 +20,6 @@ impl Clock for SystemClock {
     }
 }
 
-/// Metadata persisted alongside a cached plugin (`meta.json`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PluginMeta {
     pub source: String,
@@ -44,34 +30,26 @@ pub struct PluginMeta {
     pub middlewares: Option<Vec<String>>,
 }
 
-/// The tag→digest resolution record stored in `refs/`.
 #[derive(Debug, Serialize, Deserialize)]
 struct RefRecord {
     digest: String,
     resolved_at: u64,
 }
 
-/// What [`Cache::clean`] removed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CleanStats {
-    /// Number of cached plugin directories removed.
     pub plugins: usize,
-    /// Number of content-addressed blob files removed.
     pub blobs: usize,
-    /// Number of tag→digest ref records removed.
     pub refs: usize,
-    /// Total bytes freed across plugins/, oci/, and refs/.
     pub bytes: u64,
 }
 
-/// The plugin content cache.
 pub struct Cache {
     root: PathBuf,
     clock: Box<dyn Clock>,
 }
 
 impl Cache {
-    /// Open the default cache (`<OS cache dir>/moonlit`) with the system clock.
     pub fn new() -> std::io::Result<Self> {
         let base = dirs::cache_dir()
             .ok_or_else(|| std::io::Error::other("could not determine the OS cache directory"))?;
@@ -81,12 +59,10 @@ impl Cache {
         })
     }
 
-    /// Construct a cache rooted at `root` with an explicit clock (used in tests).
     pub fn with_root_and_clock(root: PathBuf, clock: Box<dyn Clock>) -> Self {
         Self { root, clock }
     }
 
-    /// Seconds since the Unix epoch, per this cache's clock.
     pub fn now_unix(&self) -> u64 {
         self.clock.now_unix()
     }
@@ -103,13 +79,11 @@ impl Cache {
         self.plugin_wasm(key).is_file()
     }
 
-    /// Path to a content-addressed blob. `digest` is `algo:hex` (e.g. `sha256:abcd`).
     pub fn blob_path(&self, digest: &str) -> PathBuf {
         let (algo, hex) = digest.split_once(':').unwrap_or(("sha256", digest));
         self.root.join("oci").join(algo).join(hex)
     }
 
-    /// Write a content-addressed blob (idempotent — skips if already present).
     pub fn write_blob(&self, digest: &str, bytes: &[u8]) -> std::io::Result<()> {
         let path = self.blob_path(digest);
         if path.is_file() {
@@ -118,7 +92,6 @@ impl Cache {
         write_atomic(&path, bytes)
     }
 
-    /// Store a resolved plugin's bytes + metadata under `plugins/<key>/`. Returns the wasm path.
     pub fn store_plugin(
         &self,
         key: &str,
@@ -132,13 +105,11 @@ impl Cache {
         Ok(wasm)
     }
 
-    /// Read a cached plugin's metadata, if present and parseable.
     pub fn read_meta(&self, key: &str) -> Option<PluginMeta> {
         let bytes = std::fs::read(self.plugin_dir(key).join("meta.json")).ok()?;
         serde_json::from_slice(&bytes).ok()
     }
 
-    /// Return a cached tag→digest resolution if it is still within `ttl`.
     pub fn read_ref(&self, oci_ref: &str, ttl: Duration) -> Option<String> {
         let bytes = std::fs::read(self.ref_path(oci_ref)).ok()?;
         let record: RefRecord = serde_json::from_slice(&bytes).ok()?;
@@ -150,7 +121,6 @@ impl Cache {
         }
     }
 
-    /// Record a tag→digest resolution stamped with the current time.
     pub fn write_ref(&self, oci_ref: &str, digest: &str) -> std::io::Result<()> {
         let record = RefRecord {
             digest: digest.to_string(),
@@ -166,8 +136,6 @@ impl Cache {
             .join(format!("{}.json", sha256_hex(oci_ref)))
     }
 
-    /// Enumerate cached plugins (`plugins/<key>/meta.json`), sorted by key. Entries whose
-    /// meta.json is missing or unparseable are skipped.
     pub fn list(&self) -> Vec<(String, PluginMeta)> {
         let mut out = Vec::new();
         let Ok(entries) = std::fs::read_dir(self.root.join("plugins")) else {
@@ -186,8 +154,6 @@ impl Cache {
         out
     }
 
-    /// Remove all cached content (`plugins/`, `oci/`, `refs/`), returning what was freed.
-    /// A missing directory contributes zero and is not an error.
     pub fn clean(&self) -> std::io::Result<CleanStats> {
         let plugins_dir = self.root.join("plugins");
         let oci_dir = self.root.join("oci");
@@ -208,22 +174,17 @@ impl Cache {
     }
 }
 
-/// Write `bytes` to `path`, creating parent directories. Writes to a temp sibling then renames so a
-/// crash mid-write never leaves a partial file at `path`.
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let parent = path
         .parent()
         .ok_or_else(|| std::io::Error::other("cache path has no parent directory"))?;
     std::fs::create_dir_all(parent)?;
-    // A uniquely-named temp in the SAME directory (O_EXCL), so the rename is atomic on one
-    // filesystem and two concurrent writers to the same key never share a temp path.
     let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
     std::io::Write::write_all(&mut tmp, bytes)?;
     tmp.persist(path).map_err(|e| e.error)?;
     Ok(())
 }
 
-/// Recursive total byte size of files under `dir` (0 if `dir` does not exist).
 fn dir_size(dir: &Path) -> u64 {
     let mut total = 0;
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -239,14 +200,12 @@ fn dir_size(dir: &Path) -> u64 {
     total
 }
 
-/// Count immediate subdirectories of `dir` (0 if `dir` does not exist).
 fn count_immediate_dirs(dir: &Path) -> usize {
     std::fs::read_dir(dir)
         .map(|it| it.flatten().filter(|e| e.path().is_dir()).count())
         .unwrap_or(0)
 }
 
-/// Count files recursively under `dir` (0 if `dir` does not exist).
 fn count_files_recursive(dir: &Path) -> usize {
     let mut n = 0;
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -269,7 +228,6 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
 
-    /// A controllable clock for TTL tests.
     struct MockClock(Arc<AtomicU64>);
     impl Clock for MockClock {
         fn now_unix(&self) -> u64 {
@@ -339,7 +297,6 @@ mod tests {
         let now = Arc::new(AtomicU64::new(1_000));
         let (cache, _d) = cache_with_clock(now.clone());
         cache.write_ref("reg/x:tag", "sha256:m").unwrap();
-        // 10 minutes later, within a 15-minute TTL
         now.store(1_000 + 600, Ordering::SeqCst);
         assert_eq!(
             cache
@@ -354,7 +311,6 @@ mod tests {
         let now = Arc::new(AtomicU64::new(1_000));
         let (cache, _d) = cache_with_clock(now.clone());
         cache.write_ref("reg/x:tag", "sha256:m").unwrap();
-        // 20 minutes later, past a 15-minute TTL
         now.store(1_000 + 1_200, Ordering::SeqCst);
         assert_eq!(cache.read_ref("reg/x:tag", Duration::from_secs(900)), None);
     }
@@ -368,7 +324,6 @@ mod tests {
         );
     }
 
-    /// A clock that always reports the epoch, for tests that don't care about time.
     struct TestClock;
     impl Clock for TestClock {
         fn now_unix(&self) -> u64 {
@@ -394,7 +349,6 @@ mod tests {
         cache
             .store_plugin("sha256-a", &meta("oci://a"), b"aaa")
             .unwrap();
-        // A plugin dir with no meta.json is skipped.
         std::fs::create_dir_all(cache.plugin_dir("sha256-c")).unwrap();
 
         let listed = cache.list();
@@ -466,7 +420,6 @@ mod tests {
         for h in handles {
             h.join().unwrap();
         }
-        // Final file is intact (exactly the payload), and no stray *.tmp sibling leaked.
         assert_eq!(std::fs::read(&*path).unwrap(), payload);
         let leftovers: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()

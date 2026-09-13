@@ -1,11 +1,6 @@
-//! Structural/semantic validation. Exit-code-2 class validation errors. `run`
-//! format is validated in `convert` (where the raw value and span live); this stage handles only
-//! the cross-cutting rules that need the whole model.
-
 use crate::config::diagnostic::{ConfigDiagnostic, Source};
 use crate::config::model::PipelineConfig;
 
-/// Validate a cleaned pipeline config. Checks stages-first, then plugins (§4.2 order).
 pub fn validate(config: &PipelineConfig, src: &Source) -> Result<(), ConfigDiagnostic> {
     if config.stages.value.is_empty() {
         return Err(src.no_stages());

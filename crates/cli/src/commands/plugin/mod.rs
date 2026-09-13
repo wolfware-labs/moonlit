@@ -1,5 +1,3 @@
-//! `moonlit plugin` — author-facing plugin lifecycle commands.
-
 mod build;
 mod inspect;
 mod introspect;

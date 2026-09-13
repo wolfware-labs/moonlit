@@ -1,8 +1,3 @@
-//! OCI credential resolution (§8.3 step 5). Reads existing credentials only — the `moonlit login`
-//! write flow is CLI territory. Precedence: `~/.docker/config.json` (inline `auth` entries only —
-//! credential helpers/`credsStore` are not consulted) then `~/.config/moonlit/credentials.toml`,
-//! falling back to anonymous.
-
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -36,7 +31,6 @@ struct MoonlitRegistryCred {
     password: Option<String>,
 }
 
-/// Resolve credentials for `host`, reading credential files under `home`.
 pub(crate) fn resolve_auth(host: &str, home: &Path) -> RegistryAuth {
     if let Some(auth) = docker_auth(host, home) {
         return auth;
@@ -84,7 +78,6 @@ mod tests {
     #[test]
     fn reads_inline_docker_basic_auth() {
         let home = tempfile::tempdir().unwrap();
-        // base64("alice:s3cret") = YWxpY2U6czNjcmV0
         write(
             &home.path().join(".docker/config.json"),
             r#"{"auths":{"registry.example.com":{"auth":"YWxpY2U6czNjcmV0"}}}"#,
@@ -156,7 +149,6 @@ mod tests {
     #[test]
     fn ignores_docker_creds_store_entry() {
         let home = tempfile::tempdir().unwrap();
-        // A credsStore-only config has no inline `auth`; we do not shell out to helpers.
         write(
             &home.path().join(".docker/config.json"),
             r#"{"credsStore":"desktop","auths":{}}"#,

@@ -1,10 +1,5 @@
-//! Detect and validate WASI-P2 components (used by `inspect` and `build`).
-
 use wasmparser::{Encoding, Parser, Payload, Validator, WasmFeatures};
 
-/// True if `bytes` is a component (not a core module). Err if not a wasm binary.
-// The header (magic + version) is always the first payload of a valid binary,
-// so this loop only ever runs once; suppress clippy's structural lint for it.
 #[allow(clippy::never_loop)]
 pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
     for payload in Parser::new(0).parse_all(bytes) {
@@ -16,7 +11,6 @@ pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
     Err("empty or headerless wasm binary".to_string())
 }
 
-/// Full structural validation; catches truncated or malformed components.
 pub fn validate(bytes: &[u8]) -> Result<(), String> {
     let mut v = Validator::new_with_features(WasmFeatures::all());
     v.validate_all(bytes)
@@ -28,9 +22,7 @@ pub fn validate(bytes: &[u8]) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    // The smallest valid core module: magic + version 1. Not a component.
     const CORE_MODULE: &[u8] = &[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    // The committed sample is a real component.
     const COMPONENT: &[u8] = include_bytes!("../../../../engine/tests/fixtures/pdk_sample.wasm");
 
     #[test]

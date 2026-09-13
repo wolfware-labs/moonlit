@@ -1,7 +1,3 @@
-//! `$(...)` value substitution (§5.1). Whole-string mode returns the resolved value structurally;
-//! embedded mode splices string forms. The `:default` fallback resolves the full inner path first,
-//! then the segment before the last `:`, and finally treats the trailing segment as a literal.
-
 use std::sync::LazyLock;
 
 use regex::{Captures, Regex};
@@ -11,12 +7,10 @@ use crate::expr::value::Value;
 
 static PLACEHOLDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$\(([^)]+)\)").unwrap());
 
-/// Substitute `$(...)` occurrences in `input` per §5.1.
 pub fn substitute(input: &str, resolver: &dyn Resolve) -> Value {
     if input.trim().is_empty() {
         return Value::Null;
     }
-    // Whole-string mode: the entire input is exactly one placeholder.
     if let Some(caps) = PLACEHOLDER.captures(input) {
         let whole = caps.get(0).unwrap();
         if whole.start() == 0 && whole.end() == input.len() {
@@ -26,14 +20,12 @@ pub fn substitute(input: &str, resolver: &dyn Resolve) -> Value {
     } else {
         return Value::Str(input.to_string());
     }
-    // Embedded mode: splice each match's string form.
     Value::Str(substitute_with(input, resolver, |v| match v {
         Some(val) => val.to_display_string(),
         None => String::new(),
     }))
 }
 
-/// Embedded-style replacement with a custom renderer for each placeholder's resolved value.
 pub(crate) fn substitute_with(
     input: &str,
     resolver: &dyn Resolve,
@@ -46,10 +38,6 @@ pub(crate) fn substitute_with(
         .into_owned()
 }
 
-/// The `:default` fallback (§5.1): resolve the full inner path first; if that fails and `inner`
-/// contains a `:`, resolve the segment before the LAST `:` and — if it resolves — return ITS value;
-/// only when that left segment also fails to resolve is the trailing segment used as a literal
-/// default. Returns `None` when nothing resolves and there is no `:` to split on.
 pub(crate) fn resolve_inner(inner: &str, resolver: &dyn Resolve) -> Option<Value> {
     let inner = inner.trim();
     if inner.is_empty() {
@@ -82,7 +70,6 @@ mod tests {
     }
 
     fn acc() -> Accumulator {
-        // output: { version: { nextVersion: "1.2.0" }, tag: { name: "v1.2.0" } }
         let mut a = Accumulator::new();
         a.push(map(vec![(
             "output",
@@ -117,7 +104,6 @@ mod tests {
 
     #[test]
     fn whole_string_missing_is_null() {
-        // No `:` to split on and nothing resolves -> Null.
         assert_eq!(substitute("$(missingkey)", &acc()), Value::Null);
     }
 
@@ -132,19 +118,15 @@ mod tests {
 
     #[test]
     fn default_used_only_when_left_unresolved() {
-        // full path unresolved, left `BUILD_CONFIGURATION` unresolved -> literal default
         assert_eq!(
             substitute("$(BUILD_CONFIGURATION:Release)", &acc()),
             s("Release")
         );
-        // full path resolves -> `name` is NOT treated as a default
         assert_eq!(substitute("$(output:tag:name)", &acc()), s("v1.2.0"));
     }
 
     #[test]
     fn default_ignored_when_left_resolves() {
-        // Full path unresolved (can't descend into the `nextVersion` scalar), but the left segment
-        // `output:version:nextVersion` resolves -> its value is used and `fallback` is ignored.
         assert_eq!(
             substitute("$(output:version:nextVersion:fallback)", &acc()),
             s("1.2.0")
@@ -153,8 +135,6 @@ mod tests {
 
     #[test]
     fn absent_leaf_returns_resolved_parent_map() {
-        // Documented corner: `output:tag:absent` is unresolved, but `output:tag` resolves to a map,
-        // so rule 2 returns that map rather than treating `absent` as a default.
         assert_eq!(
             substitute("$(output:tag:absent)", &acc()),
             map(vec![("name", s("v1.2.0"))])
