@@ -1,12 +1,8 @@
-use moonlit_engine::{Engine, EngineError, PipelineOptions, PipelineSummary};
-use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
-
-use moonlit_engine::EngineSettings;
-
 use crate::cli::{OutputMode, RunArgs};
 use crate::render::{Header, Renderer};
 use crate::{input, render, signal};
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 pub async fn execute(
     engine: &Engine,
@@ -86,7 +82,7 @@ where
     }
 }
 
-pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_run: bool) -> i32 {
+pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
     let stderr_tty = render::stderr_is_tty();
     let json = render::resolve_mode(output, stderr_tty) == OutputMode::Json;
 
@@ -126,7 +122,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs, dry_r
         header,
         renderer,
         cancel,
-        dry_run,
+        args.dry_run,
     )
     .await;
     let code = exit_code(&outcome);

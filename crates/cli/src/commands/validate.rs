@@ -10,7 +10,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: ValidateArgs) 
         step_timeout: None,
         dry_run: true,
     };
-    let code = super::run::run(output, verbose, run_args, true).await;
+    let code = super::run::run(output, verbose, run_args).await;
     if code == 0 {
         eprintln!("✔ Configuration valid");
     }
