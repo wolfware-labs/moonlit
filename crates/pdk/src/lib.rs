@@ -45,8 +45,6 @@ pub mod state;
 
 pub mod http;
 
-pub mod changelog;
-
 pub mod clock;
 
 pub mod random;
