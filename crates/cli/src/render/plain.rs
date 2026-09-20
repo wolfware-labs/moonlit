@@ -1,9 +1,6 @@
-use std::io::Write;
-
-use moonlit_engine::{LogLevel, PipelineEvent, StepResult};
-
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer};
+use std::io::Write;
 
 pub struct PlainRenderer<W: Write + Send> {
     out: W,

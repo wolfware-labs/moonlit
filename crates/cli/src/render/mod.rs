@@ -1,9 +1,10 @@
+use crate::cli::OutputMode;
+use std::io::{IsTerminal, stderr};
+
 pub mod json;
 pub mod plain;
 pub mod pretty;
 pub mod summary;
-
-use moonlit_engine::PipelineEvent;
 
 pub struct Header {
     pub version: &'static str,
@@ -19,30 +20,20 @@ pub trait Renderer: Send {
     fn finish(&mut self);
 }
 
-use crate::cli::OutputMode;
-
-/// Choose the effective mode: explicit flag wins; otherwise pretty on a TTY, else plain.
-pub fn resolve_mode(opt: Option<OutputMode>, stderr_is_tty: bool) -> OutputMode {
+pub fn resolve_mode(opt: Option<OutputMode>) -> OutputMode {
     match opt {
         Some(m) => m,
-        None if stderr_is_tty => OutputMode::Pretty,
+        None if stderr().is_terminal() => OutputMode::Pretty,
         None => OutputMode::Plain,
     }
 }
 
-use std::io::IsTerminal;
-
-pub fn for_mode(opt: Option<OutputMode>, stderr_is_tty: bool, verbose: bool) -> Box<dyn Renderer> {
-    match resolve_mode(opt, stderr_is_tty) {
+pub fn for_mode(opt: Option<OutputMode>, verbose: bool) -> Box<dyn Renderer> {
+    match resolve_mode(opt) {
         OutputMode::Pretty => Box::new(pretty::PrettyRenderer::new(verbose)),
-        OutputMode::Plain => Box::new(plain::PlainRenderer::new(std::io::stderr(), verbose)),
+        OutputMode::Plain => Box::new(plain::PlainRenderer::new(stderr(), verbose)),
         OutputMode::Json => Box::new(json::JsonRenderer::new(std::io::stdout())),
     }
-}
-
-/// Whether stderr is a terminal (used to auto-select pretty vs plain).
-pub fn stderr_is_tty() -> bool {
-    std::io::stderr().is_terminal()
 }
 
 #[cfg(test)]
