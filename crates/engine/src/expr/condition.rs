@@ -4,7 +4,7 @@ use rhai::{Array, Dynamic, Engine, Map as RhaiMap, Scope};
 use thiserror::Error;
 
 use crate::expr::accumulator::Accumulator;
-use crate::expr::coerce::{Scalar, coerce};
+use crate::expr::scalar::Scalar;
 use crate::expr::substitute::substitute_with;
 use crate::expr::value::Value;
 
@@ -72,7 +72,7 @@ fn substitute_condition(expr: &str, acc: &Accumulator) -> String {
 fn value_to_literal(v: &Value) -> String {
     match v {
         Value::Null => "''".to_string(),
-        Value::Str(s) => match coerce(s) {
+        Value::Str(s) => match s {
             Scalar::Bool(b) => b.to_string(),
             Scalar::Int(i) => i.to_string(),
             Scalar::Float(f) => f.to_string(),
@@ -133,7 +133,7 @@ fn build_output_scope(acc: &Accumulator) -> Dynamic {
 fn value_to_dynamic(v: &Value) -> Dynamic {
     match v {
         Value::Null => Dynamic::UNIT,
-        Value::Str(s) => scalar_to_dynamic(coerce(s)),
+        Value::Str(s) => scalar_to_dynamic(s.into()),
         Value::List(items) => {
             let arr: Array = items.iter().map(value_to_dynamic).collect();
             Dynamic::from_array(arr)

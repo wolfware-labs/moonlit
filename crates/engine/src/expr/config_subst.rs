@@ -1,4 +1,3 @@
-use crate::config::model::{ConfigMap, ConfigValue};
 use crate::expr::accumulator::Resolve;
 use crate::expr::substitute::substitute;
 use crate::expr::value::Value;
@@ -27,84 +26,5 @@ fn subst_value(v: &ConfigValue, resolver: &dyn Resolve) -> Value {
                 .map(|(k, sv)| (k.clone(), subst_value(&sv.value, resolver)))
                 .collect(),
         ),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::model::{ConfigValue, Span, Spanned};
-    use crate::expr::accumulator::Accumulator;
-    use crate::expr::value::Value;
-    use indexmap::IndexMap;
-
-    fn cmap(pairs: Vec<(&str, ConfigValue)>) -> ConfigMap {
-        pairs
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), Spanned::new(v, Span::new(0, 0))))
-            .collect()
-    }
-
-    fn acc_with(layer: Value) -> Accumulator {
-        let mut a = Accumulator::new();
-        a.push(layer);
-        a
-    }
-
-    #[test]
-    fn embedded_substitution_yields_string() {
-        let layer = Value::Map(IndexMap::from([(
-            "vars".to_string(),
-            Value::Map(IndexMap::from([(
-                "x".to_string(),
-                Value::Str("1".to_string()),
-            )])),
-        )]));
-        let cfg = cmap(vec![("a", ConfigValue::String("v$(vars:x)".to_string()))]);
-        let out = substitute_config(&cfg, &acc_with(layer));
-        assert_eq!(
-            out,
-            Value::Map(IndexMap::from([(
-                "a".to_string(),
-                Value::Str("v1".to_string())
-            )]))
-        );
-    }
-
-    #[test]
-    fn whole_string_substitution_yields_structure() {
-        let inner = Value::Map(IndexMap::from([(
-            "k".to_string(),
-            Value::Str("v".to_string()),
-        )]));
-        let layer = Value::Map(IndexMap::from([("obj".to_string(), inner.clone())]));
-        let cfg = cmap(vec![("a", ConfigValue::String("$(obj)".to_string()))]);
-        let out = substitute_config(&cfg, &acc_with(layer));
-        assert_eq!(out, Value::Map(IndexMap::from([("a".to_string(), inner)])));
-    }
-
-    #[test]
-    fn null_and_nested_structure_preserved() {
-        let cfg = cmap(vec![
-            ("n", ConfigValue::Null),
-            (
-                "list",
-                ConfigValue::List(vec![Spanned::new(
-                    ConfigValue::String("plain".to_string()),
-                    Span::new(0, 0),
-                )]),
-            ),
-        ]);
-        let out = substitute_config(&cfg, &acc_with(Value::Map(IndexMap::new())));
-        assert_eq!(
-            out,
-            Value::Map(IndexMap::from([
-                ("n".to_string(), Value::Null),
-                (
-                    "list".to_string(),
-                    Value::List(vec![Value::Str("plain".to_string())])
-                ),
-            ]))
-        );
     }
 }

@@ -35,6 +35,34 @@ impl Value {
         }
     }
 
+    pub fn to_json(&self) -> serde_json::Value {
+        match self {
+            Value::Null => serde_json::Value::Null,
+            Value::Str(s) => serde_json::Value::String(s.clone()),
+            Value::List(items) => {
+                serde_json::Value::Array(items.iter().map(Value::to_json).collect())
+            }
+            Value::Map(m) => {
+                serde_json::Value::Object(m.iter().map(|(k, v)| (k.clone(), v.to_json())).collect())
+            }
+        }
+    }
+
+    pub fn from_json(j: &serde_json::Value) -> Value {
+        match j {
+            serde_json::Value::Null => Value::Null,
+            serde_json::Value::Bool(b) => Value::Str(b.to_string()),
+            serde_json::Value::Number(n) => Value::Str(n.to_string()),
+            serde_json::Value::String(s) => Value::Str(s.clone()),
+            serde_json::Value::Array(a) => Value::List(a.iter().map(Value::from).collect()),
+            serde_json::Value::Object(o) => Value::Map(
+                o.iter()
+                    .map(|(k, v)| (k.clone(), Value::from_json(v)))
+                    .collect(),
+            ),
+        }
+    }
+
     pub fn to_json_string(&self) -> String {
         match self {
             Value::Null => "null".to_string(),
