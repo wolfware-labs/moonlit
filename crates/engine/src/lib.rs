@@ -1,3 +1,4 @@
+pub mod cache;
 mod engine;
 mod expr;
 mod host;

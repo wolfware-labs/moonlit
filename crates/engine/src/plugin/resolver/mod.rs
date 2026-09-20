@@ -1,23 +1,12 @@
-mod cache;
 mod file;
 mod http;
 mod model;
 mod oci;
 
-use crate::plugin::resolver::cache::Cache;
+use crate::cache::Cache;
 pub use crate::plugin::resolver::model::{
     PluginSource, ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin,
 };
-
-//
-
-//
-
-
-
-// trait Resolver {
-//     resolve(path: & str) -> Result<ResolvedPlugin, ResolveError>;
-// }
 
 pub async fn resolve(
     source: &PluginSource,
