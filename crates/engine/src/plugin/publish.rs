@@ -6,9 +6,6 @@ use oci_client::manifest::OciImageManifest;
 use oci_client::secrets::RegistryAuth;
 use oci_client::{Client, Reference};
 
-use crate::resolve::auth::resolve_auth;
-use crate::resolve::oci::CONFIG_MEDIA_TYPE;
-
 pub const ARTIFACT_TYPE: &str = "application/vnd.wasm.component.v1+wasm";
 pub const LAYER_MEDIA_TYPE: &str = "application/wasm";
 pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.3.0";

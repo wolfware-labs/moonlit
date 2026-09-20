@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use moonlit_engine::publish::{PublishMeta, new_push_client, publish_plugin};
-
 use crate::cli::{OutputMode, PluginPublishArgs};
+use crate::publish::{PublishMeta, new_push_client, publish_plugin};
 use crate::render::resolve_mode;
 
 pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
