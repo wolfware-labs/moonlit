@@ -1,6 +1,5 @@
 use wasmparser::{Encoding, Parser, Payload, Validator, WasmFeatures};
 
-#[allow(clippy::never_loop)]
 pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
     for payload in Parser::new(0).parse_all(bytes) {
         match payload.map_err(|e| format!("not a valid wasm binary: {e}"))? {

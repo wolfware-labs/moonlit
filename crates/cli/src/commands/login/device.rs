@@ -52,18 +52,18 @@ pub fn decide(resp: PollResponse, interval: u64) -> PollDecision {
     }
 }
 
-pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-pub(crate) fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
+pub fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .timeout(timeout)
         .connect_timeout(CONNECT_TIMEOUT.min(timeout))
         .build()
 }
 
-pub(crate) fn base_url(host: &str) -> String {
+pub fn base_url(host: &str) -> String {
     let scheme = if is_loopback(host) { "http" } else { "https" };
     format!("{scheme}://{host}")
 }

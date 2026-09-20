@@ -1,10 +1,9 @@
-use std::path::Path;
+mod device;
 
 use crate::cli::LoginArgs;
+use std::path::Path;
 
-pub(crate) mod device;
-
-pub(crate) enum Credential {
+pub enum Credential {
     Basic { username: String, password: String },
     Bearer { token: String },
 }
