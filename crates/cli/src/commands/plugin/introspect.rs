@@ -1,11 +1,5 @@
 use std::sync::Arc;
 
-use moonlit_engine::config::model::Permissions;
-use moonlit_engine::host::{
-    HostEventSink, InstanceConfig, LogLevel, MiddlewareInfo, PluginInstance, PluginMetadata,
-    test_engine,
-};
-
 struct SilentSink;
 impl HostEventSink for SilentSink {
     fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}

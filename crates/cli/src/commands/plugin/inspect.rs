@@ -1,6 +1,4 @@
 use moonlit_engine::cache::Cache;
-use moonlit_engine::host::{MiddlewareInfo, PluginMetadata};
-use moonlit_engine::resolve::{PluginSource, ResolveOptions, resolve};
 
 use super::introspect::introspect;
 use crate::cli::{OutputMode, PluginInspectArgs};

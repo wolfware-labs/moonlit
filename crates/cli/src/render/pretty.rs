@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use console::style;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use moonlit_engine::{LogLevel, PipelineEvent, StepResult};
 
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer};
