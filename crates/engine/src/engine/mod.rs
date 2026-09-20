@@ -1,77 +1,19 @@
-#![allow(clippy::result_large_err)]
+pub mod config;
+pub mod error;
 
+use crate::engine::config::EngineSettings;
+use crate::engine::error::EngineError;
+use indexmap::IndexMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-
-use indexmap::IndexMap;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
-use crate::cache::{Cache, SystemClock};
-use crate::config::model::{Permissions, PluginUrl};
-use crate::expr::{Accumulator, substitute_config};
-use crate::host::{HostEventSink, InstanceConfig, PluginInstance, PluginMetadata, value_to_json};
-use crate::pipeline::{ChannelSink, FlatStep, Pipeline, PipelineEvent, PipelineSummary};
-use crate::resolve::{self, PluginSource, ResolveOptions};
-
-pub struct EngineSettings {
-    pub cache_dir: Option<PathBuf>,
-    pub tag_ttl: Duration,
-}
-
-impl Default for EngineSettings {
-    fn default() -> Self {
-        Self {
-            cache_dir: None,
-            tag_ttl: Duration::from_secs(15 * 60),
-        }
-    }
-}
-
-pub struct PipelineOptions {
-    pub working_directory: PathBuf,
-    pub config_file_name: String,
-    pub stages_filter: Vec<String>,
-    pub cli_args: Vec<(String, String)>,
-    pub step_timeout: Option<Duration>,
-    pub offline: bool,
-}
-
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum EngineError {
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Config(#[from] crate::config::ConfigDiagnostic),
-
-    #[error("failed to load plugin '{plugin}': {message}")]
-    #[diagnostic(code(moonlit::engine::plugin_load))]
-    PluginLoad { plugin: String, message: String },
-
-    #[error("pipeline execution failed: {0}")]
-    #[diagnostic(code(moonlit::engine::execution))]
-    Execution(String),
-
-    #[error(transparent)]
-    #[diagnostic(code(moonlit::engine::internal))]
-    Internal(#[from] anyhow::Error),
-}
-
-impl EngineError {
-    pub fn exit_code(&self) -> i32 {
-        match self {
-            EngineError::Config(_) => 2,
-            EngineError::PluginLoad { .. } => 3,
-            EngineError::Execution(_) => 4,
-            EngineError::Internal(_) => 1,
-        }
-    }
-}
-
 pub struct Engine {
-    pub(crate) wasmtime: wasmtime::Engine,
-    pub(crate) cache: Arc<Cache>,
-    pub(crate) tag_ttl: Duration,
+    wasmtime: wasmtime::Engine,
+    cache: Arc<Cache>,
+    tag_ttl: Duration,
 }
 
 impl Engine {
@@ -87,110 +29,6 @@ impl Engine {
             tag_ttl: settings.tag_ttl,
         })
     }
-}
-
-struct Loaded {
-    name: String,
-    instance: PluginInstance,
-    meta: PluginMetadata,
-    middlewares: Vec<String>,
-}
-
-fn effective_permissions(p: &Option<Permissions>) -> Permissions {
-    p.clone().unwrap_or_else(Permissions::deny)
-}
-
-fn plugin_url_string(u: &PluginUrl) -> String {
-    match u {
-        PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => {
-            s.clone()
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn resolve_instantiate_init(
-    wasmtime: wasmtime::Engine,
-    cache: Arc<Cache>,
-    offline: bool,
-    tag_ttl: Duration,
-    working_directory: PathBuf,
-    env_snapshot: Vec<(String, String)>,
-    name: String,
-    url: String,
-    permissions: Permissions,
-    config_view: serde_json::Value,
-    events: Sender<PipelineEvent>,
-) -> Result<Loaded, EngineError> {
-    let load_err = |message: String| EngineError::PluginLoad {
-        plugin: name.clone(),
-        message,
-    };
-
-    let _ = events
-        .send(PipelineEvent::PluginResolving {
-            name: name.clone(),
-            url: url.clone(),
-        })
-        .await;
-
-    let source = PluginSource::parse(&url).map_err(|e| load_err(e.to_string()))?;
-    let ropts = ResolveOptions { offline, tag_ttl };
-
-    let ev = events.clone();
-    let nm = name.clone();
-    let progress = move |received: u64, total: Option<u64>| {
-        let _ = ev.try_send(PipelineEvent::PluginPullProgress {
-            name: nm.clone(),
-            received,
-            total,
-        });
-    };
-    let progress_fn: &(dyn Fn(u64, Option<u64>) + Send + Sync) = &progress;
-
-    let resolved = resolve::resolve(&source, &ropts, cache.as_ref(), Some(progress_fn))
-        .await
-        .map_err(|e| load_err(e.to_string()))?;
-
-    let bytes = std::fs::read(&resolved.wasm_path)
-        .map_err(|e| load_err(format!("reading {}: {e}", resolved.wasm_path.display())))?;
-
-    let inst_cfg = InstanceConfig {
-        working_directory,
-        permissions,
-        config_view: config_view.clone(),
-        env_snapshot,
-    };
-    let sink: Arc<dyn HostEventSink> = Arc::new(ChannelSink {
-        events: events.clone(),
-    });
-
-    let mut instance = PluginInstance::instantiate(&wasmtime, &bytes, inst_cfg, sink)
-        .await
-        .map_err(|e| load_err(e.to_string()))?;
-    let meta = instance.init(&config_view).await.map_err(load_err)?;
-    let middlewares = instance
-        .list_middlewares()
-        .await
-        .map_err(|e| load_err(e.to_string()))?
-        .into_iter()
-        .map(|m| m.name)
-        .collect();
-
-    let _ = events
-        .send(PipelineEvent::PluginReady {
-            name: name.clone(),
-            version: meta.version.clone(),
-            cached: resolved.cached,
-        })
-        .await;
-
-    Ok(Loaded {
-        name,
-        instance,
-        meta,
-        middlewares,
-    })
 }
 
 impl Engine {
@@ -347,18 +185,107 @@ impl Engine {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+//------------------------------------------------------------------------------
 
-    #[test]
-    fn omitted_permissions_defaults_to_deny() {
-        assert_eq!(effective_permissions(&None), Permissions::deny());
-    }
+struct Loaded {
+    name: String,
+    instance: PluginInstance,
+    meta: PluginMetadata,
+    middlewares: Vec<String>,
+}
 
-    #[test]
-    fn present_permissions_are_used_verbatim() {
-        let p = Permissions::deny();
-        assert_eq!(effective_permissions(&Some(p.clone())), p);
+fn effective_permissions(p: &Option<Permissions>) -> Permissions {
+    p.clone().unwrap_or_else(Permissions::deny)
+}
+
+fn plugin_url_string(u: &PluginUrl) -> String {
+    match u {
+        PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => {
+            s.clone()
+        }
     }
+}
+
+async fn resolve_instantiate_init(
+    wasmtime: wasmtime::Engine,
+    cache: Arc<Cache>,
+    offline: bool,
+    tag_ttl: Duration,
+    working_directory: PathBuf,
+    env_snapshot: Vec<(String, String)>,
+    name: String,
+    url: String,
+    permissions: Permissions,
+    config_view: serde_json::Value,
+    events: Sender<PipelineEvent>,
+) -> Result<Loaded, EngineError> {
+    let load_err = |message: String| EngineError::PluginLoad {
+        plugin: name.clone(),
+        message,
+    };
+
+    let _ = events
+        .send(PipelineEvent::PluginResolving {
+            name: name.clone(),
+            url: url.clone(),
+        })
+        .await;
+
+    let source = PluginSource::parse(&url).map_err(|e| load_err(e.to_string()))?;
+    let ropts = ResolveOptions { offline, tag_ttl };
+
+    let ev = events.clone();
+    let nm = name.clone();
+    let progress = move |received: u64, total: Option<u64>| {
+        let _ = ev.try_send(PipelineEvent::PluginPullProgress {
+            name: nm.clone(),
+            received,
+            total,
+        });
+    };
+    let progress_fn: &(dyn Fn(u64, Option<u64>) + Send + Sync) = &progress;
+
+    let resolved = resolve::resolve(&source, &ropts, cache.as_ref(), Some(progress_fn))
+        .await
+        .map_err(|e| load_err(e.to_string()))?;
+
+    let bytes = std::fs::read(&resolved.wasm_path)
+        .map_err(|e| load_err(format!("reading {}: {e}", resolved.wasm_path.display())))?;
+
+    let inst_cfg = InstanceConfig {
+        working_directory,
+        permissions,
+        config_view: config_view.clone(),
+        env_snapshot,
+    };
+    let sink: Arc<dyn HostEventSink> = Arc::new(ChannelSink {
+        events: events.clone(),
+    });
+
+    let mut instance = PluginInstance::instantiate(&wasmtime, &bytes, inst_cfg, sink)
+        .await
+        .map_err(|e| load_err(e.to_string()))?;
+    let meta = instance.init(&config_view).await.map_err(load_err)?;
+    let middlewares = instance
+        .list_middlewares()
+        .await
+        .map_err(|e| load_err(e.to_string()))?
+        .into_iter()
+        .map(|m| m.name)
+        .collect();
+
+    let _ = events
+        .send(PipelineEvent::PluginReady {
+            name: name.clone(),
+            version: meta.version.clone(),
+            cached: resolved.cached,
+        })
+        .await;
+
+    Ok(Loaded {
+        name,
+        instance,
+        meta,
+        middlewares,
+    })
 }
