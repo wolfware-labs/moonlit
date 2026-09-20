@@ -1,4 +1,4 @@
-use crate::plugin::resolver::cache::{Cache, PluginMeta};
+use crate::cache::{Cache, PluginMeta};
 use crate::plugin::resolver::{ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin};
 
 pub async fn resolve_http(
