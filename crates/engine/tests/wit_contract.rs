@@ -1,11 +1,11 @@
 use wit_parser::{PackageId, Resolve, TypeDefKind, WorldId, WorldItem, WorldKey};
 
 fn load() -> (Resolve, PackageId, WorldId) {
-    let wit_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/wit");
+    let wit_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../pdk/wit");
     let mut resolve = Resolve::new();
     let (package_id, _paths) = resolve
         .push_dir(wit_dir)
-        .expect("engine/wit must resolve (contract valid + WASI deps vendored)");
+        .expect("crates/pdk/wit must resolve (contract valid + WASI deps vendored)");
     let world_id = *resolve.packages[package_id]
         .worlds
         .get("plugin")

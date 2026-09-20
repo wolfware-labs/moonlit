@@ -1,3 +1,8 @@
+// The canonical moonlit:plugin contract. It lives here, not in the engine,
+// because moonlit-pdk is the only crate published to crates.io and so must
+// carry the WIT inside its own package; moonlit-engine is `publish = false`
+// and binds this tree by relative path (`path: "../pdk/wit"`).
+
 package moonlit:plugin@0.3.0;
 
 /// Core data types shared across the plugin ABI.

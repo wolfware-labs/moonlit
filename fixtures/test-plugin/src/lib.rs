@@ -1,5 +1,5 @@
 wit_bindgen::generate!({
-    path: "../../engine/wit",
+    path: "../../crates/pdk/wit",
     world: "plugin",
     generate_all,
 });

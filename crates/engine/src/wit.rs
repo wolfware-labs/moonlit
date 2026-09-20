@@ -5,7 +5,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
 wasmtime::component::bindgen!({
-    path: "wit",
+    path: "../pdk/wit",
     world: "plugin-host",
     imports: { default: async | trappable },
     exports: { default: async },
