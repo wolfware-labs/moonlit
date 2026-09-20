@@ -1,8 +1,7 @@
+use crate::plugin::resolver::{ResolveError, ResolvedPlugin};
 use std::path::Path;
 
-use crate::resolve::{ResolveError, ResolvedPlugin};
-
-pub(crate) fn resolve_file(path: &Path) -> Result<ResolvedPlugin, ResolveError> {
+pub fn resolve_file(path: &Path) -> Result<ResolvedPlugin, ResolveError> {
     if !path.is_file() {
         return Err(ResolveError::NotFound(format!(
             "no plugin component at '{}'",

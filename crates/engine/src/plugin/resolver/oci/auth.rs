@@ -31,7 +31,7 @@ struct MoonlitRegistryCred {
     password: Option<String>,
 }
 
-pub(crate) fn resolve_auth(host: &str, home: &Path) -> RegistryAuth {
+pub fn resolve_auth(host: &str, home: &Path) -> RegistryAuth {
     if let Some(auth) = docker_auth(host, home) {
         return auth;
     }
