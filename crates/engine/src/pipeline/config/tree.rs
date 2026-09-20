@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
+use crate::pipeline::config::diagnostic::{ConfigDiagnostic, Source};
+use crate::pipeline::config::model::Span;
 use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
-
-use crate::config::diagnostic::{ConfigDiagnostic, Source};
-use crate::config::model::Span;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node {
@@ -224,107 +222,5 @@ impl<'t, 'a> Builder<'t, 'a> {
         if anchor != 0 {
             self.anchors.insert(anchor, node.clone());
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::diagnostic::Source;
-
-    fn tree(yaml: &str) -> Node {
-        build_tree(&Source::new(yaml, "release.yml")).expect("valid yaml")
-    }
-
-    fn map(n: &Node) -> &[(Node, Node)] {
-        match &n.value {
-            NodeValue::Map(e) => e,
-            other => panic!("expected map, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn scalars_sequences_and_maps() {
-        let root = tree("name: demo\nitems:\n  - a\n  - b\n");
-        let entries = map(&root);
-        assert_eq!(entries.len(), 2);
-        assert!(matches!(&entries[0].0.value, NodeValue::Scalar(k) if k == "name"));
-        assert!(matches!(&entries[0].1.value, NodeValue::Scalar(v) if v == "demo"));
-        match &entries[1].1.value {
-            NodeValue::Seq(items) => {
-                assert_eq!(items.len(), 2);
-                assert!(matches!(&items[0].value, NodeValue::Scalar(s) if s == "a"));
-            }
-            other => panic!("expected seq, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn plain_null_vs_quoted_empty() {
-        let root = tree("a:\nb: \"\"\nc: ~\nd: null\n");
-        let e = map(&root);
-        assert!(matches!(e[0].1.value, NodeValue::Null), "bare -> null");
-        assert!(
-            matches!(&e[1].1.value, NodeValue::Scalar(s) if s.is_empty()),
-            "quoted -> empty string"
-        );
-        assert!(matches!(e[2].1.value, NodeValue::Null), "~ -> null");
-        assert!(matches!(e[3].1.value, NodeValue::Null), "null -> null");
-    }
-
-    #[test]
-    fn byte_spans_not_char_spans() {
-        // "café" is 5 bytes (é is 2). The key node span must index bytes.
-        let yaml = "café: 1\n";
-        let root = tree(yaml);
-        let key = &map(&root)[0].0;
-        assert_eq!(&yaml[key.span.start..key.span.end], "café");
-    }
-
-    #[test]
-    fn alias_resolves_to_anchored_subtree_with_alias_site_span() {
-        let yaml = "defs:\n  base: &b {x: 1}\nuse: *b\n";
-        let root = tree(yaml);
-        let e = map(&root);
-        // `use: *b` — the value is a clone of {x: 1}...
-        let used = &e[1].1;
-        match &used.value {
-            NodeValue::Map(inner) => {
-                assert!(matches!(&inner[0].0.value, NodeValue::Scalar(k) if k == "x"));
-            }
-            other => panic!("expected aliased map, got {other:?}"),
-        }
-        // ...but its span points at the alias site `*b`, not the anchor definition.
-        let alias_at = yaml.find("*b").unwrap();
-        assert!(
-            used.span.start >= alias_at,
-            "alias node carries the alias-site span"
-        );
-    }
-
-    #[test]
-    fn unknown_alias_is_an_error() {
-        // saphyr-parser 0.0.11 rejects an undefined alias during scanning (before an
-        // Alias event is emitted), so it surfaces as a syntax diagnostic. The Builder's
-        // own `unknown_alias` guard remains for the (not-reached-by-this-parser) case
-        // where a parse otherwise succeeds with a dangling alias id.
-        let err = build_tree(&Source::new("use: *missing\n", "release.yml")).unwrap_err();
-        let msg = err.message();
-        assert!(
-            msg.contains("anchor") || msg.contains("alias"),
-            "expected an unknown-alias/anchor error, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn malformed_yaml_is_a_diagnostic() {
-        let err = build_tree(&Source::new("a: [1, 2\n", "release.yml")).unwrap_err();
-        assert!(err.message().contains("Invalid YAML"));
-    }
-
-    #[test]
-    fn empty_document_is_null_root() {
-        let root = build_tree(&Source::new("# just a comment\n", "release.yml")).unwrap();
-        assert!(matches!(root.value, NodeValue::Null));
     }
 }

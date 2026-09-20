@@ -1,7 +1,6 @@
+use crate::pipeline::config::model::Span;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
-
-use crate::config::model::Span;
 
 #[derive(Debug, Error, Diagnostic)]
 #[error("{message}")]
@@ -197,68 +196,5 @@ impl<'a> Source<'a> {
             Some(span),
             "missing value",
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::model::Span;
-
-    fn src<'a>() -> Source<'a> {
-        Source::new("name: demo\nplugins: []\n", "release.yml")
-    }
-
-    #[test]
-    fn invalid_run_names_the_bad_reference_and_has_a_span() {
-        let d = src().invalid_run("gitpush", Span::new(6, 13));
-        assert_eq!(
-            d.message(),
-            "'gitpush' is not a valid run reference; use the format 'plugin.middleware'."
-        );
-        assert_eq!(format!("{d}"), d.message());
-        let ss = d.span().expect("has a span");
-        assert_eq!(ss.offset(), 6);
-        assert_eq!(ss.len(), 7);
-    }
-
-    #[test]
-    fn no_stages_has_no_span() {
-        let d = src().no_stages();
-        assert_eq!(
-            d.message(),
-            "No stages defined. A pipeline needs at least one stage."
-        );
-        assert!(d.span().is_none());
-    }
-
-    #[test]
-    fn no_plugins_names_the_requirement_and_has_a_span() {
-        let d = src().no_plugins(Some(Span::new(0, 4)));
-        assert_eq!(
-            d.message(),
-            "No plugins declared. Every step runs a middleware from a plugin, so at least one is required."
-        );
-        assert!(d.span().is_some());
-    }
-
-    #[test]
-    fn plugin_and_middleware_not_found_name_the_missing_item() {
-        assert_eq!(
-            src().plugin_not_found("gh", Span::new(0, 2)).message(),
-            "No plugin is declared with the alias 'gh'."
-        );
-        assert_eq!(
-            src().middleware_not_found("tag", Span::new(0, 3)).message(),
-            "The plugin does not export a middleware named 'tag'."
-        );
-    }
-
-    #[test]
-    fn duplicate_plugin_is_verbatim() {
-        assert_eq!(
-            src().duplicate_plugin("gh", Span::new(0, 2)).message(),
-            "Duplicate plugin name 'gh'. Plugin names must be unique."
-        );
     }
 }

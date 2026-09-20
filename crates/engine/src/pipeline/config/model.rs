@@ -11,7 +11,6 @@ impl Span {
         Self { start, end }
     }
 
-    /// A zero-length span at a single offset.
     pub fn point(at: usize) -> Self {
         Self { start: at, end: at }
     }
