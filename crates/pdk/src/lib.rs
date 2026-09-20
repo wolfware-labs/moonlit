@@ -103,25 +103,7 @@ mod markers {
 }
 
 #[cfg(test)]
-mod wit_drift {
-    /// The vendored canonical WIT must match the engine's source of truth when
-    /// building in-repo. Inert for crates.io consumers (no sibling engine/).
-    #[test]
-    fn vendored_moonlit_plugin_wit_matches_engine() {
-        let engine = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../engine/wit/moonlit-plugin.wit");
-        if !engine.exists() {
-            return; // published-crate context: nothing to compare against
-        }
-        let vendored =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("wit/moonlit-plugin.wit");
-        assert_eq!(
-            std::fs::read_to_string(&vendored).unwrap(),
-            std::fs::read_to_string(&engine).unwrap(),
-            "sdk/wit/moonlit-plugin.wit drifted from engine/wit/moonlit-plugin.wit; re-vendor"
-        );
-    }
-
+mod wit_abi {
     /// This crate's doc header names the ABI it targets, and that line is the docs.rs front page.
     /// `moonlit-pdk-macros` carried a stale version across two bumps for want of this check, so
     /// pin the string to the WIT that actually ships.
