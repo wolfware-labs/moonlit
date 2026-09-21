@@ -17,3 +17,7 @@ pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, Con
     validate::validate(&config, &src)?;
     Ok(config)
 }
+
+impl PipelineConfig {
+    
+}

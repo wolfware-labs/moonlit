@@ -2,7 +2,7 @@
 pub enum EngineError {
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Config(#[from] crate::config::ConfigDiagnostic),
+    Config(#[from] ConfigDiagnostic),
 
     #[error("failed to load plugin '{plugin}': {message}")]
     #[diagnostic(code(moonlit::engine::plugin_load))]
