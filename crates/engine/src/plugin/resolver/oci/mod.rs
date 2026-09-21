@@ -1,7 +1,7 @@
 mod auth;
 mod client;
 
-use crate::plugin::resolver::cache::{Cache, PluginMeta};
+use crate::cache::{Cache, PluginMeta};
 use crate::plugin::resolver::oci::client::OciClient;
 use crate::plugin::resolver::{ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin};
 use oci_client::Reference;
