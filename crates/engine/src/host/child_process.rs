@@ -1,31 +1,26 @@
-use crate::host::ChildProc;
-use crate::wit::moonlit::plugin::process::{Command, OutputChunk, StdioStream};
+use crate::host::wit::moonlit::plugin::process::{Command, OutputChunk, StdioStream};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
-wasmtime::component::bindgen!({
-    path: "../pdk/wit",
-    world: "plugin-host",
-    imports: { default: async | trappable },
-    exports: { default: async },
-    with: {
-        "wasi": wasmtime_wasi::p2::bindings,
-        "moonlit:plugin/process.child": crate::host::ChildProc,
-    },
-});
+pub struct ChildProc {
+    pub rx: mpsc::Receiver<OutputChunk>,
+    pub exit_rx: Option<oneshot::Receiver<i32>>,
+    pub exit_cached: Option<i32>,
+    pub kill_tx: Option<oneshot::Sender<()>>,
+}
 
-impl Command {
-    pub fn spawn_streaming(&self) -> Result<ChildProc, String> {
-        let mut c = tokio::process::Command::new(&self.program);
-        c.args(&self.args);
-        if let Some(cwd) = &self.cwd {
+impl ChildProc {
+    pub fn start(command: &Command) -> Result<Self, String> {
+        let mut c = tokio::process::Command::new(&command.program);
+        c.args(&command.args);
+        if let Some(cwd) = &command.cwd {
             c.current_dir(cwd);
         }
-        for (k, v) in &self.env {
+        for (k, v) in &command.env {
             c.env(k, v);
         }
-        c.stdin(if self.stdin.is_some() {
+        c.stdin(if command.stdin.is_some() {
             Stdio::piped()
         } else {
             Stdio::null()
@@ -35,9 +30,9 @@ impl Command {
 
         let mut child = c
             .spawn()
-            .map_err(|e| format!("failed to spawn {}: {e}", self.program))?;
+            .map_err(|e| format!("failed to spawn {}: {e}", command.program))?;
 
-        if let (Some(input), Some(mut stdin)) = (self.stdin.clone(), child.stdin.take()) {
+        if let (Some(input), Some(mut stdin)) = (command.stdin.clone(), child.stdin.take()) {
             tokio::spawn(async move {
                 let _ = stdin.write_all(input.as_bytes()).await;
                 let _ = stdin.shutdown().await;

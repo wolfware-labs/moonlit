@@ -1,8 +1,8 @@
+use crate::host::HostEventSink;
+use crate::host::child_process::ChildProc;
 use crate::host::net::AllowlistHooks;
-use crate::host::{ChildProc, HostEventSink};
-use crate::wit::moonlit::plugin::host::Host as MoonlitHost;
-use crate::wit::moonlit::plugin::process::{Command, Host as ProcessHost, HostChild, OutputChunk};
-use crate::wit::moonlit::plugin::types::LogLevel;
+use crate::host::wit::moonlit::plugin::process::{Command, OutputChunk};
+use crate::logging::LogLevel;
 use std::sync::Arc;
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
@@ -17,6 +17,27 @@ pub struct HostState {
     config_view: serde_json::Value,
     exec_allow: globset::GlobSet,
     current_step: String,
+}
+
+impl HostState {
+    pub fn new(
+        wasi: WasiCtx,
+        hooks: AllowlistHooks,
+        events: Arc<dyn HostEventSink>,
+        config_view: serde_json::Value,
+        exec_allow: globset::GlobSet,
+    ) -> Self {
+        Self {
+            table: ResourceTable::new(),
+            wasi,
+            http: WasiHttpCtx::new(),
+            hooks,
+            events,
+            config_view,
+            exec_allow,
+            current_step: String::new(),
+        }
+    }
 }
 
 impl WasiView for HostState {
@@ -77,7 +98,7 @@ impl ProcessHost for HostState {
             );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
-        match crate::host::imports::spawn_streaming(&cmd) {
+        match ChildProc::start(&cmd) {
             Ok(child) => Ok(Ok(self.table.push(child)?)),
             Err(e) => Ok(Err(e)),
         }
@@ -98,7 +119,7 @@ impl ProcessHost for HostState {
             );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
-        let mut child = match crate::host::imports::spawn_streaming(&cmd) {
+        let mut child = match ChildProc::start(&cmd) {
             Ok(c) => c,
             Err(e) => return Ok(Err(e)),
         };
