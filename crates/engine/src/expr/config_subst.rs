@@ -1,4 +1,4 @@
-use crate::expr::accumulator::Resolve;
+use crate::expr::Resolve;
 use crate::expr::substitute::substitute;
 use crate::expr::value::Value;
 

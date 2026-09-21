@@ -3,7 +3,6 @@ use miette::Diagnostic;
 use rhai::{Array, Dynamic, Engine, Map as RhaiMap, Scope};
 use thiserror::Error;
 
-use crate::expr::accumulator::Accumulator;
 use crate::expr::scalar::Scalar;
 use crate::expr::substitute::substitute_with;
 use crate::expr::value::Value;
