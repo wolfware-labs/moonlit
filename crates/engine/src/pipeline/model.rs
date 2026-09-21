@@ -137,15 +137,6 @@ pub struct InstanceConfig {
     pub env_snapshot: Vec<(String, String)>,
 }
 
-// impl Pipeline {
-//     pub fn step_count(&self) -> usize {
-//         self.steps.len()
-//     }
-//     pub fn plugin_names(&self) -> Vec<&str> {
-//         self.plugins.keys().map(String::as_str).collect()
-//     }
-// }
-
 mod serializers {
     use serde::Serializer;
     use std::time::Duration;

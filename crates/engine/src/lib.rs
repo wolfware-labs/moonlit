@@ -1,8 +1,7 @@
 pub mod cache;
-mod engine;
+pub mod engine;
 mod expr;
 mod host;
-mod logging;
-mod pipeline;
-mod plugin;
-mod wit;
+pub mod logging;
+pub mod pipeline;
+pub mod plugin;
