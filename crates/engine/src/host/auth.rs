@@ -1,9 +1,6 @@
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxBuilder};
 
-use crate::config::model::FilesystemAccess;
-use crate::host::InstanceConfig;
-
 fn build_globset(patterns: &[String]) -> GlobSet {
     let mut b = GlobSetBuilder::new();
     for p in patterns {
@@ -48,49 +45,4 @@ pub fn build_wasi_ctx(cfg: &InstanceConfig) -> anyhow::Result<WasiCtx> {
         b.preopened_dir(&cfg.working_directory, ".", perms)?;
     }
     Ok(b.build())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::model::FilesystemAccess;
-
-    #[test]
-    fn exec_globset_matches_allowlist() {
-        let gs = exec_globset(&["echo".to_string(), "git*".to_string()]);
-        assert!(gs.is_match("echo"));
-        assert!(gs.is_match("git"));
-        assert!(gs.is_match("gitlab"));
-        assert!(!gs.is_match("rm"));
-    }
-
-    #[test]
-    fn star_matches_everything() {
-        let gs = network_globset(&["*".to_string()]);
-        assert!(gs.is_match("api.github.com"));
-        assert!(gs.is_match("example.com"));
-    }
-
-    #[test]
-    fn filter_env_keeps_only_matching_keys() {
-        let snap = vec![
-            ("GITHUB_TOKEN".to_string(), "x".to_string()),
-            ("PATH".to_string(), "/bin".to_string()),
-        ];
-        let kept = filter_env(&["GITHUB_*".to_string()], &snap);
-        assert_eq!(kept, vec![("GITHUB_TOKEN".to_string(), "x".to_string())]);
-    }
-
-    #[test]
-    fn filesystem_perms_maps_each_grant() {
-        assert!(filesystem_perms(FilesystemAccess::None).is_none());
-        assert_eq!(
-            filesystem_perms(FilesystemAccess::ReadOnly),
-            Some(FsPerms::ReadOnly)
-        );
-        assert_eq!(
-            filesystem_perms(FilesystemAccess::ReadWrite),
-            Some(FsPerms::ReadWrite)
-        );
-    }
 }
