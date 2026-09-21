@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use comfy_table::{ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
+use moonlit_engine::pipeline::{PipelineSummary, StepResult};
 
 pub fn fmt_duration(d: Duration) -> String {
     let ms = d.as_millis();

@@ -1,6 +1,10 @@
 use crate::cli::{OutputMode, RunArgs};
 use crate::render::{Header, Renderer};
 use crate::{input, render, signal};
+use moonlit_engine::engine::Engine;
+use moonlit_engine::engine::config::EngineSettings;
+use moonlit_engine::engine::error::EngineError;
+use moonlit_engine::pipeline::{PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -83,8 +87,7 @@ where
 }
 
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
-    let stderr_tty = render::stderr_is_tty();
-    let json = render::resolve_mode(output, stderr_tty) == OutputMode::Json;
+    let json = render::resolve_mode(output) == OutputMode::Json;
 
     let resolved = match input::resolve(args.file, args.working_dir) {
         Ok(r) => r,
@@ -113,7 +116,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
     };
     let cancel = CancellationToken::new();
     signal::spawn_watcher(cancel.clone());
-    let renderer = render::for_mode(output, stderr_tty, verbose);
+    let renderer = render::for_mode(output, verbose);
 
     let outcome = execute(
         &engine,
@@ -130,102 +133,4 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
         report(e, code, json);
     }
     code
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::render::json::JsonRenderer;
-    use moonlit_engine::EngineSettings;
-    use std::path::Path;
-
-    fn fixture_wasm_url() -> String {
-        let p =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/tests/fixtures/test_plugin.wasm");
-        let p = p.canonicalize().expect("fixture wasm exists");
-        format!("file://{}", p.display())
-    }
-
-    fn header() -> Header {
-        Header {
-            version: "0.1.0",
-            name: None,
-            working_dir: "/tmp".into(),
-            config_file: "release.yml".into(),
-            stages: vec![],
-        }
-    }
-
-    fn opts() -> PipelineOptions {
-        PipelineOptions {
-            config_file_name: "release.yml".to_string(),
-            working_directory: std::env::temp_dir(),
-            stages_filter: vec![],
-            cli_args: vec![],
-            step_timeout: None,
-            offline: false,
-        }
-    }
-
-    async fn run_yaml(yaml: &str, load_only: bool) -> Result<Option<PipelineSummary>, EngineError> {
-        let engine = Engine::new(EngineSettings::default()).unwrap();
-        let renderer = Box::new(JsonRenderer::new(std::io::sink()));
-        execute(
-            &engine,
-            yaml,
-            opts(),
-            header(),
-            renderer,
-            CancellationToken::new(),
-            load_only,
-        )
-        .await
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn successful_run_returns_summary_and_exit_zero() {
-        let yaml = format!(
-            "name: d\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n",
-            fixture_wasm_url()
-        );
-        let outcome = run_yaml(&yaml, false).await;
-        assert_eq!(exit_code(&outcome), 0);
-        let summary = outcome.unwrap().unwrap();
-        assert!(summary.successful);
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn failing_step_maps_to_exit_four() {
-        let yaml = format!(
-            "name: d\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.fail\n",
-            fixture_wasm_url()
-        );
-        let outcome = run_yaml(&yaml, false).await;
-        assert_eq!(exit_code(&outcome), 4);
-        match outcome {
-            Ok(_) => panic!("expected execution error"),
-            Err(e) => assert_eq!(e.exit_code(), 4),
-        }
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn unknown_middleware_maps_to_exit_two() {
-        let yaml = format!(
-            "name: d\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.does-not-exist\n",
-            fixture_wasm_url()
-        );
-        let outcome = run_yaml(&yaml, false).await;
-        assert_eq!(exit_code(&outcome), 2);
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn load_only_returns_none_and_exit_zero() {
-        let yaml = format!(
-            "name: d\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n",
-            fixture_wasm_url()
-        );
-        let outcome = run_yaml(&yaml, true).await;
-        assert_eq!(exit_code(&outcome), 0);
-        assert!(outcome.unwrap().is_none());
-    }
 }

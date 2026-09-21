@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use moonlit_engine::plugin::{MiddlewareInfo, PluginMetadata};
 
 struct SilentSink;
 impl HostEventSink for SilentSink {

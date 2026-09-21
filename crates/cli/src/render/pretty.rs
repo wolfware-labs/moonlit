@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use console::style;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer};
+use console::style;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::{PipelineEvent, StepResult};
 
 pub struct PrettyRenderer {
     mp: MultiProgress,

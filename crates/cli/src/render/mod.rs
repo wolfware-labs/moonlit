@@ -1,4 +1,5 @@
 use crate::cli::OutputMode;
+use moonlit_engine::pipeline::PipelineEvent;
 use std::io::{IsTerminal, stderr};
 
 pub mod json;

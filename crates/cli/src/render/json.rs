@@ -1,4 +1,5 @@
 use super::{Header, Renderer};
+use moonlit_engine::pipeline::PipelineEvent;
 use std::io::Write;
 
 pub struct JsonRenderer<W: Write + Send> {
