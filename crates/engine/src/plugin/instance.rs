@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use crate::host::state::HostState;
+use wasmtime::Store;
 
 pub struct PluginInstance {
     store: Store<HostState>,
@@ -6,44 +7,7 @@ pub struct PluginInstance {
 }
 
 impl PluginInstance {
-    pub async fn instantiate(
-        engine: &Engine,
-        component_bytes: &[u8],
-        cfg: InstanceConfig,
-        events: Arc<dyn HostEventSink>,
-    ) -> Result<PluginInstance, HostError> {
-        let linker = build_linker(engine).map_err(|e| HostError::Link(e.to_string()))?;
-        let wasi =
-            perms::build_wasi_ctx(&cfg).map_err(|e| HostError::Instantiate(e.to_string()))?;
-        events.log(
-            "",
-            LogLevel::Debug,
-            &format!(
-                "plugin grants — network={:?} exec={:?} env={:?} filesystem={:?}",
-                cfg.permissions.network,
-                cfg.permissions.exec,
-                cfg.permissions.env,
-                cfg.permissions.filesystem
-            ),
-        );
-        let state = HostState {
-            table: ResourceTable::new(),
-            wasi,
-            http: WasiHttpCtx::new(),
-            hooks: AllowlistHooks::new(&cfg.permissions, events.clone()),
-            events,
-            config_view: cfg.config_view,
-            exec_allow: perms::exec_globset(&cfg.permissions.exec),
-            current_step: String::new(),
-        };
-        let mut store = Store::new(engine, state);
-        let component = Component::from_binary(engine, component_bytes)
-            .map_err(|e| HostError::Instantiate(e.to_string()))?;
-        let bindings = PluginHost::instantiate_async(&mut store, &component, &linker)
-            .await
-            .map_err(|e| HostError::Instantiate(e.to_string()))?;
-        Ok(PluginInstance { store, bindings })
-    }
+    pub fn new() -> Self {}
 
     pub async fn describe(&mut self) -> Result<PluginMetadata, HostError> {
         match self.bindings.call_describe(&mut self.store).await {
