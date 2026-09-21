@@ -1,16 +1,21 @@
 use crate::cli::{OutputMode, RunArgs};
+use crate::manifest::resolve_manifest_path;
 use crate::render::{Header, Renderer};
-use crate::{input, render, signal};
+use crate::{manifest, render, signal};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::engine::error::EngineError;
 use moonlit_engine::pipeline::{PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+use moonlit_engine::pipeline::manifest::PipelineManifest;
 
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
     let json = render::resolve_mode(output) == OutputMode::Json;
-    let resolved = match input::resolve(args.file, args.working_dir) {
+    let manifest_path = resolve_manifest_path(args.working_dir, args.file.map(|x| x.as_str()));
+
+    let manifest = PipelineManifest::from_file(manifest_path)
+    let resolved = match manifest::resolve(args.file, args.working_dir) {
         Ok(r) => r,
         Err(e) => {
             let code = e.exit_code();
@@ -48,7 +53,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
         cancel,
         args.dry_run,
     )
-    .await;
+        .await;
     let code = exit_code(&outcome);
     if let Err(e) = outcome {
         report(e, code, json);
@@ -98,15 +103,8 @@ async fn execute(
     result.map(Some)
 }
 
-pub fn exit_code(outcome: &Result<Option<PipelineSummary>, EngineError>) -> i32 {
-    match outcome {
-        Ok(_) => 0,
-        Err(e) => e.exit_code(),
-    }
-}
-
-fn build_header(resolved: &input::ResolvedInput, stages_filter: &[String]) -> Header {
-    let peeked = input::peek_stages(&resolved.yaml);
+fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {
+    let peeked = manifest.peek_stages();
     let stages = if stages_filter.is_empty() {
         peeked
     } else {
@@ -114,7 +112,7 @@ fn build_header(resolved: &input::ResolvedInput, stages_filter: &[String]) -> He
     };
     Header {
         version: env!("CARGO_PKG_VERSION"),
-        name: input::peek_name(&resolved.yaml),
+        name: manifest.peek_name(),
         working_dir: resolved.working_directory.display().to_string(),
         config_file: resolved.chosen_name.clone(),
         stages,

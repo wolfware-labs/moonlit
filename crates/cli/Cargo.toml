@@ -46,6 +46,7 @@ dirs.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 open = "5"
 gethostname = "1"
+anyhow.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
