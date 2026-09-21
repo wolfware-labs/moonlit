@@ -1,11 +1,9 @@
 use crate::cli::DEFAULT_REGISTRY_HOST;
-use crate::commands::login::model::{
-    AuthorizeResponse, PollDecision, PollResponse, TokenError, TokenSuccess,
+use crate::commands::auth::login::model::{
+    AuthorizeResponse, Credential, PollDecision, PollResponse, TokenError, TokenSuccess,
 };
+use crate::commands::auth::{REQUEST_TIMEOUT, base_url, home_dir, http_client};
 use std::time::Duration;
-
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub async fn login(host_arg: Option<String>) -> i32 {
     let host = host_arg.unwrap_or_else(|| DEFAULT_REGISTRY_HOST.to_string());
@@ -89,11 +87,11 @@ pub async fn login(host_arg: Option<String>) -> i32 {
     };
     spinner.stop("Authorized.");
 
-    let Some(home) = super::home_dir() else {
+    let Some(home) = home_dir() else {
         eprintln!("error: could not determine your home directory (is $HOME set?)");
         return 1;
     };
-    match super::write_credential(&home, &host, &super::Credential::Bearer { token }) {
+    match super::write_credential(&home, &host, &Credential::Bearer { token }) {
         Ok(()) => {
             println!("Logged in to {host}.");
             0
@@ -144,36 +142,6 @@ fn decide(resp: PollResponse, interval: u64) -> PollDecision {
         PollResponse::Expired => PollDecision::Fail("login timed out; run `moonlit login` again"),
         PollResponse::InvalidGrant => PollDecision::Fail("invalid device code"),
     }
-}
-
-fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .connect_timeout(CONNECT_TIMEOUT.min(timeout))
-        .build()
-}
-
-fn base_url(host: &str) -> String {
-    let scheme = if is_loopback(host) { "http" } else { "https" };
-    format!("{scheme}://{host}")
-}
-
-fn is_loopback(host: &str) -> bool {
-    let hostname = if let Some(rest) = host.strip_prefix('[') {
-        rest.split(']').next().unwrap_or(rest)
-    } else {
-        match host.rsplit_once(':') {
-            Some((h, port))
-                if !h.contains(':')
-                    && !port.is_empty()
-                    && port.bytes().all(|b| b.is_ascii_digit()) =>
-            {
-                h
-            }
-            _ => host,
-        }
-    };
-    hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
 }
 
 fn opens_safely(url: &str) -> bool {
