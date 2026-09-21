@@ -1,4 +1,4 @@
-mod device;
+pub(crate) mod device;
 
 use crate::cli::LoginArgs;
 use std::path::Path;

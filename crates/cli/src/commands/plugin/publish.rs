@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-
 use crate::cli::{OutputMode, PluginPublishArgs};
-use crate::publish::{PublishMeta, new_push_client, publish_plugin};
 use crate::render::resolve_mode;
+use moonlit_engine::plugin::{PublishMeta, new_push_client, publish_plugin};
+use std::path::PathBuf;
 
 pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
     let doc: toml::Value = toml::from_str(lock_text).ok()?;
@@ -131,8 +130,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     let raw_ref = strip_oci_scheme(&args.reference);
     match publish_plugin(raw_ref, bytes, publish_meta, &home, &client).await {
         Ok(outcome) => {
-            let stdout_tty = std::io::IsTerminal::is_terminal(&std::io::stdout());
-            match resolve_mode(output, stdout_tty) {
+            match resolve_mode(output) {
                 OutputMode::Json => println!(
                     "{}",
                     serde_json::json!({

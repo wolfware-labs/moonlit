@@ -19,8 +19,7 @@ pub fn run(output: Option<OutputMode>, cmd: CacheCommand) -> i32 {
 
 fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
     let items = cache.list();
-    let stdout_tty = std::io::IsTerminal::is_terminal(&std::io::stdout());
-    match resolve_mode(output, stdout_tty) {
+    match resolve_mode(output) {
         OutputMode::Json => {
             let arr: Vec<_> = items
                 .iter()
