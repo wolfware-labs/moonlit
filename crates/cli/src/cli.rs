@@ -118,7 +118,7 @@ pub struct PluginPublishArgs {
 pub struct RunArgs {
     /// Pipeline file (default: release.yml, then release.yaml).
     #[arg(short = 'f', long = "file")]
-    pub file: Option<PathBuf>,
+    pub file: Option<String>,
 
     /// Working directory (default: current).
     #[arg(short = 'w', long = "working-dir")]

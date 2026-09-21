@@ -2100,6 +2100,7 @@ dependencies = [
 name = "moonlit"
 version = "2.0.0"
 dependencies = [
+ "anyhow",
  "assert_cmd",
  "clap",
  "cliclack",
@@ -2149,6 +2150,7 @@ dependencies = [
  "saphyr-parser",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.20",
