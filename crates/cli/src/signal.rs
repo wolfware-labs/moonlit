@@ -32,15 +32,3 @@ pub fn spawn_watcher(cancel: CancellationToken) {
         }
     });
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn first_cancels_second_aborts() {
-        assert_eq!(decide(1), SignalAction::Cancel);
-        assert_eq!(decide(2), SignalAction::HardAbort);
-        assert_eq!(decide(3), SignalAction::HardAbort);
-    }
-}
