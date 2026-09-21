@@ -4,7 +4,10 @@ pub mod error;
 use crate::cache::{Cache, SystemClock};
 use crate::engine::config::EngineSettings;
 use crate::engine::error::EngineError;
+use crate::host::ReleaseContext;
+use crate::host::error::HostError;
 use crate::host::state::HostState;
+use crate::pipeline::{MiddlewareResult, Pipeline, PipelineEvent, PipelineSummary, StepResult};
 use indexmap::IndexMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -15,7 +18,7 @@ use wasmtime::component::{HasSelf, Linker};
 const SEED_WARNING: &str = "No middlewares registered in the pipeline.";
 
 enum ExecOutcome {
-    Completed(Result<crate::host::MiddlewareResult, crate::host::HostError>),
+    Completed(Result<MiddlewareResult, EngineError>),
     Cancelled,
     TimedOut,
 }
@@ -44,8 +47,14 @@ impl Engine {
         let mut linker: Linker<HostState> = Linker::new(&self.wasmtime);
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
         wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker)?;
-        crate::host::wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)?;
-        crate::host::wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)?;
+        crate::host::wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(
+            &mut linker,
+            |s| s,
+        )?;
+        crate::host::wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(
+            &mut linker,
+            |s| s,
+        )?;
         Ok(linker)
     }
 
@@ -254,7 +263,7 @@ impl Engine {
                     }
                 }
                 Err(host_err) => {
-                    if matches!(host_err, crate::host::HostError::Trap { .. }) {
+                    if matches!(host_err, HostError::Trap { .. }) {
                         poisoned.insert(step.plugin.clone());
                     }
                     successful = false;
@@ -303,7 +312,7 @@ impl Engine {
         }
 
         if !any_executed && terminal_err.is_none() {
-            warnings.push(crate::pipeline::runner::SEED_WARNING.to_string());
+            warnings.push(SEED_WARNING.to_string());
         }
         let summary = PipelineSummary {
             steps: results,

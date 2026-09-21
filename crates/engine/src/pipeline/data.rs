@@ -13,7 +13,14 @@ impl Resolve for PipelineData {
 
 impl PipelineData {
     pub fn new() -> Self {
-        Self { layers: Vec::new() }
+        let env: Vec<(String, String)> = std::env::vars().collect();
+        let dotenv = std::fs::read_to_string(opts.working_directory.join(".env")).ok();
+        let base = Self::build_base_layer(&env, dotenv.as_deref());
+        let release = Self::build_release_layer(&cfg.variables, &cfg.arguments, &opts.cli_args);
+
+        let mut subst_acc = Self { layers: Vec::new() };
+        subst_acc.push(base.clone());
+        subst_acc.push(release.clone());
     }
 
     pub fn push(&mut self, layer: crate::expr::value::Value) {

@@ -4,6 +4,8 @@ mod model;
 
 use crate::engine::Engine;
 use crate::engine::error::EngineError;
+use crate::pipeline::config::PipelineConfig;
+use crate::pipeline::data::PipelineData;
 use crate::pipeline::model::FlatStep;
 pub use crate::pipeline::model::{
     MiddlewareResult, PipelineEvent, PipelineOptions, PipelineSummary, StepResult,
@@ -13,6 +15,7 @@ use indexmap::IndexMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
+use tokio::task::JoinSet;
 
 pub struct Pipeline {
     plugins: IndexMap<String, Plugin>,
@@ -24,27 +27,16 @@ pub struct Pipeline {
 impl Pipeline {
     pub async fn load(
         engine: &Engine,
-        yaml: &str,
+        config: &PipelineConfig,
         opts: PipelineOptions,
         events: &Sender<PipelineEvent>,
     ) -> Result<Self, EngineError> {
-        let cfg = crate::config::parse_config(yaml, &opts.config_file_name)?;
+        let data = PipelineData::new();
 
-        let env: Vec<(String, String)> = std::env::vars().collect();
-        let dotenv = std::fs::read_to_string(opts.working_directory.join(".env")).ok();
-        let base = Accumulator::build_base_layer(&env, dotenv.as_deref());
-        let release =
-            Accumulator::build_release_layer(&cfg.variables, &cfg.arguments, &opts.cli_args);
-
-        let mut subst_acc = Accumulator::new();
-        subst_acc.push(base.clone());
-        subst_acc.push(release.clone());
-
-        let mut set: tokio::task::JoinSet<Result<crate::engine::Loaded, EngineError>> =
-            tokio::task::JoinSet::new();
+        let mut set: JoinSet<Result<crate::engine::Loaded, EngineError>> = JoinSet::new();
         let mut plugin_layers = Vec::new();
         for plugin in &cfg.plugins.value {
-            let cfg_value = substitute_config(&plugin.config, &subst_acc);
+            let cfg_value = substitute_config(&plugin.config, &data);
             let config_view = value_to_json(&cfg_value);
             plugin_layers.push(cfg_value);
 
@@ -110,7 +102,7 @@ impl Pipeline {
             acc.push(layer);
         }
 
-        let src = crate::config::diagnostic::Source::new(yaml, &opts.config_file_name);
+        let src = crate::config::diagnostic::Source::new(content, &opts.config_file_name);
         let mut flat = Vec::new();
         for stage in &cfg.stages.value {
             for step in &stage.steps {
