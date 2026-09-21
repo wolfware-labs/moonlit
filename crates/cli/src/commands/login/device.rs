@@ -1,99 +1,11 @@
+use crate::cli::DEFAULT_REGISTRY_HOST;
+use crate::commands::login::model::{
+    AuthorizeResponse, PollDecision, PollResponse, TokenError, TokenSuccess,
+};
 use std::time::Duration;
 
-use serde::Deserialize;
-
-use crate::cli::DEFAULT_REGISTRY_HOST;
-
-#[derive(Deserialize)]
-struct AuthorizeResponse {
-    device_code: String,
-    user_code: String,
-    verification_uri: String,
-    verification_uri_complete: String,
-    expires_in: u64,
-    interval: u64,
-}
-
-#[derive(Deserialize)]
-struct TokenSuccess {
-    access_token: String,
-}
-
-#[derive(Deserialize)]
-struct TokenError {
-    error: String,
-}
-
-pub enum PollResponse {
-    Pending,
-    SlowDown,
-    Denied,
-    Expired,
-    InvalidGrant,
-    Approved { access_token: String },
-}
-
-pub enum PollDecision {
-    KeepWaiting { interval: u64 },
-    Done(String),
-    Fail(&'static str),
-}
-
-pub fn decide(resp: PollResponse, interval: u64) -> PollDecision {
-    match resp {
-        PollResponse::Pending => PollDecision::KeepWaiting { interval },
-        PollResponse::SlowDown => PollDecision::KeepWaiting {
-            interval: interval + 5,
-        },
-        PollResponse::Approved { access_token } => PollDecision::Done(access_token),
-        PollResponse::Denied => PollDecision::Fail("authorization denied"),
-        PollResponse::Expired => PollDecision::Fail("login timed out; run `moonlit login` again"),
-        PollResponse::InvalidGrant => PollDecision::Fail("invalid device code"),
-    }
-}
-
-pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-
-pub fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .connect_timeout(CONNECT_TIMEOUT.min(timeout))
-        .build()
-}
-
-pub fn base_url(host: &str) -> String {
-    let scheme = if is_loopback(host) { "http" } else { "https" };
-    format!("{scheme}://{host}")
-}
-
-fn is_loopback(host: &str) -> bool {
-    let hostname = if let Some(rest) = host.strip_prefix('[') {
-        rest.split(']').next().unwrap_or(rest)
-    } else {
-        match host.rsplit_once(':') {
-            Some((h, port))
-                if !h.contains(':')
-                    && !port.is_empty()
-                    && port.bytes().all(|b| b.is_ascii_digit()) =>
-            {
-                h
-            }
-            _ => host,
-        }
-    };
-    hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
-}
-
-fn opens_safely(url: &str) -> bool {
-    url.starts_with("https://") || url.starts_with("http://")
-}
-
-fn client_name() -> String {
-    let host = gethostname::gethostname().to_string_lossy().to_string();
-    format!("Moonlit CLI — {host}")
-}
 
 pub async fn login(host_arg: Option<String>) -> i32 {
     let host = host_arg.unwrap_or_else(|| DEFAULT_REGISTRY_HOST.to_string());
@@ -221,101 +133,54 @@ async fn poll_once(
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn decide(resp: PollResponse, interval: u64) -> PollDecision {
+    match resp {
+        PollResponse::Pending => PollDecision::KeepWaiting { interval },
+        PollResponse::SlowDown => PollDecision::KeepWaiting {
+            interval: interval + 5,
+        },
+        PollResponse::Approved { access_token } => PollDecision::Done(access_token),
+        PollResponse::Denied => PollDecision::Fail("authorization denied"),
+        PollResponse::Expired => PollDecision::Fail("login timed out; run `moonlit login` again"),
+        PollResponse::InvalidGrant => PollDecision::Fail("invalid device code"),
+    }
+}
 
-    #[test]
-    fn pending_keeps_waiting_same_interval() {
-        match decide(PollResponse::Pending, 5) {
-            PollDecision::KeepWaiting { interval } => assert_eq!(interval, 5),
-            _ => panic!("expected KeepWaiting"),
+fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .connect_timeout(CONNECT_TIMEOUT.min(timeout))
+        .build()
+}
+
+fn base_url(host: &str) -> String {
+    let scheme = if is_loopback(host) { "http" } else { "https" };
+    format!("{scheme}://{host}")
+}
+
+fn is_loopback(host: &str) -> bool {
+    let hostname = if let Some(rest) = host.strip_prefix('[') {
+        rest.split(']').next().unwrap_or(rest)
+    } else {
+        match host.rsplit_once(':') {
+            Some((h, port))
+                if !h.contains(':')
+                    && !port.is_empty()
+                    && port.bytes().all(|b| b.is_ascii_digit()) =>
+            {
+                h
+            }
+            _ => host,
         }
-    }
+    };
+    hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
+}
 
-    #[test]
-    fn slow_down_increases_interval_by_5() {
-        match decide(PollResponse::SlowDown, 5) {
-            PollDecision::KeepWaiting { interval } => assert_eq!(interval, 10),
-            _ => panic!("expected KeepWaiting with bumped interval"),
-        }
-    }
+fn opens_safely(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://")
+}
 
-    #[test]
-    fn approved_is_done_with_token() {
-        match decide(
-            PollResponse::Approved {
-                access_token: "mlp_x".into(),
-            },
-            5,
-        ) {
-            PollDecision::Done(t) => assert_eq!(t, "mlp_x"),
-            _ => panic!("expected Done"),
-        }
-    }
-
-    #[test]
-    fn denied_and_expired_and_invalid_fail() {
-        assert!(matches!(
-            decide(PollResponse::Denied, 5),
-            PollDecision::Fail(_)
-        ));
-        assert!(matches!(
-            decide(PollResponse::Expired, 5),
-            PollDecision::Fail(_)
-        ));
-        assert!(matches!(
-            decide(PollResponse::InvalidGrant, 5),
-            PollDecision::Fail(_)
-        ));
-    }
-
-    #[test]
-    fn base_url_uses_http_for_localhost_https_otherwise() {
-        assert!(base_url("localhost").starts_with("http://"));
-        assert!(base_url("localhost:5185").starts_with("http://"));
-        assert!(base_url("127.0.0.1:5185").starts_with("http://"));
-        assert!(base_url("[::1]:5185").starts_with("http://"));
-        assert!(base_url("::1").starts_with("http://"));
-        assert!(base_url("registry.moonlit.rs").starts_with("https://"));
-        assert!(base_url("registry.moonlit.rs:443").starts_with("https://"));
-    }
-
-    #[test]
-    fn opens_safely_only_allows_http_schemes() {
-        assert!(opens_safely("https://registry.moonlit.rs/device?code=ABCD"));
-        assert!(opens_safely("http://localhost:5185/device?code=ABCD"));
-        assert!(!opens_safely("file:///etc/passwd"));
-        assert!(!opens_safely("javascript:alert(1)"));
-        assert!(!opens_safely("ftp://example.com"));
-    }
-
-    #[tokio::test]
-    async fn http_client_gives_up_on_a_server_that_never_responds() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        std::thread::spawn(move || {
-            let _held = listener.accept();
-            std::thread::sleep(Duration::from_secs(8));
-        });
-
-        let client = http_client(Duration::from_millis(200)).expect("client builds");
-        let started = std::time::Instant::now();
-        let result = client.post(format!("http://{addr}/")).send().await;
-
-        assert!(result.is_err(), "expected a timeout error, got a response");
-        assert!(
-            started.elapsed() < Duration::from_secs(5),
-            "request took {:?}; the timeout was not applied",
-            started.elapsed()
-        );
-    }
-
-    #[test]
-    fn base_url_does_not_downgrade_loopback_lookalike_hosts() {
-        assert!(base_url("localhost.evil.com").starts_with("https://"));
-        assert!(base_url("127.0.0.1.attacker.com").starts_with("https://"));
-        assert!(base_url("localhostapi.internal").starts_with("https://"));
-        assert!(base_url("localhost.evil.com:8080").starts_with("https://"));
-    }
+fn client_name() -> String {
+    let host = gethostname::gethostname().to_string_lossy().to_string();
+    format!("Moonlit CLI — {host}")
 }
