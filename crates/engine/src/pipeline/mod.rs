@@ -1,5 +1,6 @@
 mod config;
 mod data;
+pub mod manifest;
 mod model;
 
 use crate::engine::Engine;
