@@ -1,7 +1,7 @@
 use clap::Parser;
 use moonlit::cli::{Cli, Command};
-use moonlit::commands;
-use moonlit::commands::{run, version};
+use moonlit::commands::auth::{login, logout};
+use moonlit::commands::{cache, plugin, run, validate, version};
 use std::process::exit;
 
 #[tokio::main]
@@ -19,11 +19,11 @@ async fn main() {
         }
         Some(Command::Version) => version::run(),
         Some(Command::Run(a)) => run::run(output, verbose, a).await,
-        Some(Command::Validate(a)) => commands::validate::run(output, verbose, a).await,
-        Some(Command::Plugin(p)) => commands::plugin::run(output, verbose, p).await,
-        Some(Command::Login(a)) => commands::login::run(a).await,
-        Some(Command::Logout(a)) => commands::logout::run(a).await,
-        Some(Command::Cache(c)) => commands::cache::run(output, c),
+        Some(Command::Validate(a)) => validate::run(output, verbose, a).await,
+        Some(Command::Plugin(p)) => plugin::run(output, verbose, p).await,
+        Some(Command::Login(a)) => login::run(a).await,
+        Some(Command::Logout(a)) => logout::run(a).await,
+        Some(Command::Cache(c)) => cache::run(output, c),
     };
     exit(code);
 }

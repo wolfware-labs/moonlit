@@ -2,7 +2,8 @@ pub(crate) mod device;
 mod model;
 
 use crate::cli::LoginArgs;
-use crate::commands::login::model::Credential;
+use crate::commands::auth::login::model::Credential;
+use crate::commands::auth::{home_dir, write_doc_0600};
 use std::path::Path;
 
 pub async fn run(args: LoginArgs) -> i32 {
@@ -98,68 +99,4 @@ fn write_credential(home: &Path, host: &str, cred: &Credential) -> std::io::Resu
 
     let text = toml::to_string_pretty(&doc).map_err(std::io::Error::other)?;
     write_doc_0600(&path, &text)
-}
-
-fn home_dir() -> Option<std::path::PathBuf> {
-    dirs::home_dir().filter(|p| !p.as_os_str().is_empty())
-}
-
-fn write_doc_0600(path: &Path, text: &str) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    #[cfg(unix)]
-    {
-        use std::io::Write as _;
-        use std::os::unix::fs::OpenOptionsExt;
-        let mut tmp_os = path.as_os_str().to_os_string();
-        tmp_os.push(".tmp");
-        let tmp = std::path::PathBuf::from(tmp_os);
-        let mut f = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(&tmp)?;
-        f.write_all(text.as_bytes())?;
-        f.sync_all()?;
-        std::fs::rename(&tmp, path)?;
-    }
-    #[cfg(not(unix))]
-    {
-        std::fs::write(path, text)?;
-    }
-    Ok(())
-}
-
-fn read_bearer(home: &Path, host: &str) -> Option<String> {
-    let path = home.join(".config/moonlit/credentials.toml");
-    let doc: toml::Table = std::fs::read_to_string(&path).ok()?.parse().ok()?;
-    doc.get("registries")?
-        .as_table()?
-        .get(host)?
-        .as_table()?
-        .get("token")?
-        .as_str()
-        .map(str::to_string)
-}
-
-fn remove_credential(home: &Path, host: &str) -> std::io::Result<bool> {
-    let path = home.join(".config/moonlit/credentials.toml");
-    let mut doc: toml::Table = match std::fs::read_to_string(&path) {
-        Ok(t) => t.parse().unwrap_or_default(),
-        Err(_) => return Ok(false),
-    };
-
-    let Some(registries) = doc.get_mut("registries").and_then(|r| r.as_table_mut()) else {
-        return Ok(false);
-    };
-    if registries.remove(host).is_none() {
-        return Ok(false);
-    }
-
-    let text = toml::to_string_pretty(&doc).map_err(std::io::Error::other)?;
-    write_doc_0600(&path, &text)?;
-    Ok(true)
 }
