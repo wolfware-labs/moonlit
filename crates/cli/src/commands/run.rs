@@ -8,7 +8,55 @@ use moonlit_engine::pipeline::{PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-pub async fn execute(
+pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
+    let json = render::resolve_mode(output) == OutputMode::Json;
+    let resolved = match input::resolve(args.file, args.working_dir) {
+        Ok(r) => r,
+        Err(e) => {
+            let code = e.exit_code();
+            report(e, code, json);
+            return code;
+        }
+    };
+    let header = build_header(&resolved, &args.stages);
+    let opts = PipelineOptions {
+        working_directory: resolved.working_directory.clone(),
+        config_file_name: resolved.chosen_name.clone(),
+        stages_filter: args.stages.clone(),
+        cli_args: args.args.clone(),
+        step_timeout: args.step_timeout,
+        offline: args.offline,
+    };
+    let engine = match Engine::new(EngineSettings::default()) {
+        Ok(e) => e,
+        Err(e) => {
+            let code = e.exit_code();
+            report(e, code, json);
+            return code;
+        }
+    };
+    let cancel = CancellationToken::new();
+    signal::spawn_watcher(cancel.clone());
+    let renderer = render::for_mode(output, verbose);
+
+    let outcome = execute(
+        &engine,
+        &resolved.yaml,
+        opts,
+        header,
+        renderer,
+        cancel,
+        args.dry_run,
+    )
+    .await;
+    let code = exit_code(&outcome);
+    if let Err(e) = outcome {
+        report(e, code, json);
+    }
+    code
+}
+
+async fn execute(
     engine: &Engine,
     yaml: &str,
     opts: PipelineOptions,
@@ -84,53 +132,4 @@ where
     } else {
         eprintln!("{:?}", miette::Report::new(err));
     }
-}
-
-pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
-    let json = render::resolve_mode(output) == OutputMode::Json;
-
-    let resolved = match input::resolve(args.file, args.working_dir) {
-        Ok(r) => r,
-        Err(e) => {
-            let code = e.exit_code();
-            report(e, code, json);
-            return code;
-        }
-    };
-    let header = build_header(&resolved, &args.stages);
-    let opts = PipelineOptions {
-        working_directory: resolved.working_directory.clone(),
-        config_file_name: resolved.chosen_name.clone(),
-        stages_filter: args.stages.clone(),
-        cli_args: args.args.clone(),
-        step_timeout: args.step_timeout,
-        offline: args.offline,
-    };
-    let engine = match Engine::new(EngineSettings::default()) {
-        Ok(e) => e,
-        Err(e) => {
-            let code = e.exit_code();
-            report(e, code, json);
-            return code;
-        }
-    };
-    let cancel = CancellationToken::new();
-    signal::spawn_watcher(cancel.clone());
-    let renderer = render::for_mode(output, verbose);
-
-    let outcome = execute(
-        &engine,
-        &resolved.yaml,
-        opts,
-        header,
-        renderer,
-        cancel,
-        args.dry_run,
-    )
-    .await;
-    let code = exit_code(&outcome);
-    if let Err(e) = outcome {
-        report(e, code, json);
-    }
-    code
 }
