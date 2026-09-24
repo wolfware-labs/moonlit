@@ -58,7 +58,7 @@ impl Renderer for PrettyRenderer {
         if let Some(name) = &h.name {
             self.print(format!("🚀 Executing release pipeline: {name}"));
         }
-        self.print(format!("📁 Working directory: {}", h.working_dir));
+        self.print(format!("📁 Working directory: {}", h.working_dir.display()));
         let stages = if h.stages.is_empty() {
             "all".to_string()
         } else {

@@ -1,24 +1,11 @@
 use moonlit_engine::pipeline::manifest::error::PipelineManifestError;
-use std::path::PathBuf;
+use std::env;
+use std::path::{Path, PathBuf};
 
 const DEFAULT_NAMES: [&str; 2] = ["release.yml", "release.yaml"];
 
-pub fn resolve_manifest_path(
-    working_dir: Option<PathBuf>,
-    file_name: Option<&str>,
-) -> Result<PathBuf, PipelineManifestError> {
-    let working_dir = working_dir.unwrap_or_else(|| PathBuf::from("."));
-    if !working_dir.is_dir() {
-        return Err(PipelineManifestError::new(format!(
-            "Working directory '{}' does not exist.",
-            working_dir.display()
-        )));
-    }
-
-    let working_dir = working_dir
-        .canonicalize()
-        .map_err(|e| PipelineManifestError::new(format!("resolving working directory: {e}")))?;
-
+pub fn resolve_manifest_path(file_name: Option<&Path>) -> Result<PathBuf, PipelineManifestError> {
+    let working_dir = env::current_dir().map_err(|e| PipelineManifestError::new(e.to_string()))?;
     let Some(file_name) = file_name else {
         return DEFAULT_NAMES
             .iter()
@@ -31,17 +18,6 @@ pub fn resolve_manifest_path(
             )));
     };
 
-    //     let ext_ok = file_name
-    //         .extension()
-    //         .and_then(|e| e.to_str())
-    //         .map(|e| e.eq_ignore_ascii_case("yml") || e.eq_ignore_ascii_case("yaml"))
-    //         .unwrap_or(false);
-    //     if !ext_ok {
-    //         return Err(anyhow!(
-    //             "Pipeline file '{}' must have a .yml or .yaml extension.",
-    //             file_name
-    //         ));
-    //     }
     let path = working_dir.join(file_name);
     if !path.is_file() {
         return Err(PipelineManifestError::new(format!(

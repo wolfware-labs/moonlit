@@ -31,7 +31,7 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
         if let Some(name) = &h.name {
             let _ = writeln!(self.out, "Executing release pipeline: {name}");
         }
-        let _ = writeln!(self.out, "Working directory: {}", h.working_dir);
+        let _ = writeln!(self.out, "Working directory: {}", h.working_dir.display());
         let stages = if h.stages.is_empty() {
             "all".to_string()
         } else {

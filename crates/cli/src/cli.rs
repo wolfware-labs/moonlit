@@ -116,16 +116,12 @@ pub struct PluginPublishArgs {
 
 #[derive(Debug, clap::Args)]
 pub struct RunArgs {
-    /// Pipeline file (default: release.yml, then release.yaml).
-    #[arg(short = 'f', long = "file")]
-    pub file: Option<String>,
-
-    /// Working directory (default: current).
-    #[arg(short = 'w', long = "working-dir")]
-    pub working_dir: Option<PathBuf>,
+    /// Release manifest file path (default: ./release.{yaml,yml}).
+    #[arg(short = 'f', long = "file-path")]
+    pub file_path: Option<PathBuf>,
 
     /// Stage(s) to run; repeatable and comma-separated.
-    #[arg(short = 's', long = "stage", value_delimiter = ',')]
+    #[arg(short = 's', long = "stages", value_delimiter = ',')]
     pub stages: Vec<String>,
 
     /// Pipeline argument(s), `key=value`; repeatable.

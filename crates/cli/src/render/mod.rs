@@ -1,6 +1,7 @@
 use crate::cli::OutputMode;
 use moonlit_engine::pipeline::PipelineEvent;
 use std::io::{IsTerminal, stderr};
+use std::path::PathBuf;
 
 pub mod json;
 pub mod plain;
@@ -10,9 +11,26 @@ pub mod summary;
 pub struct Header {
     pub version: &'static str,
     pub name: Option<String>,
-    pub working_dir: String,
+    pub working_dir: PathBuf,
     pub config_file: String,
     pub stages: Vec<String>,
+}
+
+impl Header {
+    pub fn new(
+        working_dir: PathBuf,
+        config_file: String,
+        stages: &[String],
+        name: Option<String>,
+    ) -> Self {
+        Self {
+            version: env!("CARGO_PKG_VERSION"),
+            name,
+            working_dir,
+            config_file,
+            stages: stages.iter().map(|x| x.clone()).collect(),
+        }
+    }
 }
 
 pub trait Renderer: Send {
