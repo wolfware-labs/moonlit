@@ -2,26 +2,27 @@ use crate::cli::{OutputMode, RunArgs};
 use crate::manifest::resolve_manifest_path;
 use crate::render::{Header, Renderer};
 use crate::{manifest, render, signal};
-// use moonlit_engine::engine::Engine;
-// use moonlit_engine::engine::config::EngineSettings;
-// use moonlit_engine::engine::error::EngineError;
-// use moonlit_engine::pipeline::{PipelineOptions, PipelineSummary};
+use moonlit_engine::engine::Engine;
+use moonlit_engine::engine::config::EngineSettings;
+use moonlit_engine::pipeline::PipelineOptions;
+use moonlit_engine::pipeline::manifest::PipelineManifest;
+use moonlit_engine::pipeline::manifest::error::PipelineManifestError;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-use moonlit_engine::pipeline::manifest::PipelineManifest;
 
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
     let json = render::resolve_mode(output) == OutputMode::Json;
-    let manifest_path = match resolve_manifest_path(args.working_dir, args.file.as_deref()) {
-      Ok(p) => p,
-      Err(e) => {
-          let code = e.exit_code();
-          report(e, code, json);
-          return code;
-      }
+
+    let manifest_path = match resolve_manifest_path(args.file_path.as_deref()) {
+        Ok(p) => p,
+        Err(e) => {
+            let code = e.exit_code();
+            report(e, code, json);
+            return code;
+        }
     };
 
-    
     let manifest = match PipelineManifest::from_file(manifest_path) {
         Ok(m) => m,
         Err(e) => {
@@ -30,37 +31,33 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
             return code;
         }
     };
-    
+
+    let header = build_header(&manifest, &args.stages);
+
+    let opts = PipelineOptions {
+        working_directory: manifest.working_dir.clone(),
+        config_file_name: manifest.peek_name().unwrap(),
+        stages_filter: args.stages.clone(),
+        cli_args: args.args.clone(),
+        step_timeout: args.step_timeout,
+        offline: args.offline,
+    };
+
+    let engine = match Engine::new(EngineSettings::default()) {
+        Ok(e) => e,
+        Err(e) => {
+            let code = e.exit_code();
+            report(e, code, json);
+            return code;
+        }
+    };
+
+    let cancel = CancellationToken::new();
+    signal::spawn_watcher(cancel.clone());
+    let renderer = render::for_mode(output, verbose);
+
     0
-    // let resolved = match manifest::resolve(args.file, args.working_dir) {
-    //     Ok(r) => r,
-    //     Err(e) => {
-    //         let code = e.exit_code();
-    //         report(e, code, json);
-    //         return code;
-    //     }
-    // };
-    // let header = build_header(&resolved, &args.stages);
-    // let opts = PipelineOptions {
-    //     working_directory: resolved.working_directory.clone(),
-    //     config_file_name: resolved.chosen_name.clone(),
-    //     stages_filter: args.stages.clone(),
-    //     cli_args: args.args.clone(),
-    //     step_timeout: args.step_timeout,
-    //     offline: args.offline,
-    // };
-    // let engine = match Engine::new(EngineSettings::default()) {
-    //     Ok(e) => e,
-    //     Err(e) => {
-    //         let code = e.exit_code();
-    //         report(e, code, json);
-    //         return code;
-    //     }
-    // };
-    // let cancel = CancellationToken::new();
-    // signal::spawn_watcher(cancel.clone());
-    // let renderer = render::for_mode(output, verbose);
-    // 
+
     // let outcome = execute(
     //     &engine,
     //     &resolved.yaml,
@@ -70,7 +67,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
     //     cancel,
     //     args.dry_run,
     // )
-    //     .await;
+    // .await;
     // let code = exit_code(&outcome);
     // if let Err(e) = outcome {
     //     report(e, code, json);
@@ -88,7 +85,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
 //     load_only: bool,
 // ) -> Result<Option<PipelineSummary>, EngineError> {
 //     let (tx, mut rx) = mpsc::channel(256);
-
+//
 //     let consumer = tokio::spawn(async move {
 //         let mut renderer = renderer;
 //         renderer.header(&header);
@@ -97,7 +94,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
 //         }
 //         renderer.finish();
 //     });
-
+//
 //     let load = engine.load_pipeline(yaml, opts, &tx).await;
 //     let pipeline = match load {
 //         Ok(p) => p,
@@ -107,34 +104,33 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
 //             return Err(e);
 //         }
 //     };
-
+//
 //     if load_only {
 //         drop(pipeline);
 //         drop(tx);
 //         let _ = consumer.await;
 //         return Ok(None);
 //     }
-
+//
 //     let result = engine.run(pipeline, tx, cancel).await; // moves tx; closes channel on return
 //     let _ = consumer.await;
 //     result.map(Some)
 // }
-
-// fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {
-//     let peeked = manifest.peek_stages();
-//     let stages = if stages_filter.is_empty() {
-//         peeked
-//     } else {
-//         stages_filter.to_vec()
-//     };
-//     Header {
-//         version: env!("CARGO_PKG_VERSION"),
-//         name: manifest.peek_name(),
-//         working_dir: resolved.working_directory.display().to_string(),
-//         config_file: resolved.chosen_name.clone(),
-//         stages,
-//     }
-// }
+//
+fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {
+    let peeked = manifest.peek_stages();
+    let stages = if stages_filter.is_empty() {
+        peeked
+    } else {
+        stages_filter.to_vec()
+    };
+    Header::new(
+        manifest.working_dir.clone(),
+        manifest.file_name.clone(),
+        &stages,
+        manifest.peek_name(),
+    )
+}
 
 fn report<E>(err: E, code: i32, json: bool)
 where
