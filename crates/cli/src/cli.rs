@@ -30,8 +30,8 @@ pub enum OutputMode {
 pub enum Command {
     /// Run a release pipeline.
     Run(RunArgs),
-    /// Parse, resolve plugins, and verify middleware refs without executing.
-    Validate(ValidateArgs),
+//     /// Parse, resolve plugins, and verify middleware refs without executing.
+//     Validate(ValidateArgs),
     /// Scaffold, build, and inspect plugins.
     #[command(subcommand)]
     Plugin(PluginCommand),
@@ -56,14 +56,14 @@ pub enum CacheCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum PluginCommand {
-    /// Print a component's metadata and middlewares.
-    Inspect(PluginInspectArgs),
+//     /// Print a component's metadata and middlewares.
+//     Inspect(PluginInspectArgs),
     /// Scaffold a new plugin crate.
     New(PluginNewArgs),
     /// Build the plugin in the current directory to a WASI-P2 component.
     Build(PluginBuildArgs),
-    /// Publish a built component to an OCI registry.
-    Publish(PluginPublishArgs),
+//     /// Publish a built component to an OCI registry.
+//     Publish(PluginPublishArgs),
 }
 
 #[derive(Debug, clap::Args)]

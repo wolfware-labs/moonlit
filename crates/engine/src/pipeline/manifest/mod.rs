@@ -1,23 +1,9 @@
-use serde::Deserialize;
+pub mod error;
+mod model;
+
+use crate::pipeline::manifest::error::PipelineManifestError;
+pub use crate::pipeline::manifest::model::ManifestPeek;
 use std::path::PathBuf;
-
-#[derive(Deserialize)]
-struct ManifestPeek {
-    name: Option<String>,
-    stages: Option<indexmap::IndexMap<String, serde::de::IgnoredAny>>,
-}
-
-#[derive(Debug)]
-pub struct PipelineManifestError(pub String);
-
-impl PipelineManifestError {
-    fn new(message: impl Into<String>) -> Self {
-        Self(message.into())
-    }
-    pub fn exit_code(&self) -> i32 {
-        2
-    }
-}
 
 pub struct PipelineManifest {
     path: PathBuf,
