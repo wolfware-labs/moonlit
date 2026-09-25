@@ -32,16 +32,16 @@ impl From<crate::host::ReleaseContext> for ReleaseContext {
     }
 }
 
-impl From<PluginMetadata> for crate::plugin::PluginMetadata {
-    fn from(value: PluginMetadata) -> Self {
-        Self {
-            name: value.name,
-            version: value.version,
-            description: value.description,
-            icon: value.icon,
-        }
-    }
-}
+// impl From<PluginMetadata> for crate::plugin::PluginMetadata {
+//     fn from(value: PluginMetadata) -> Self {
+//         Self {
+//             name: value.name,
+//             version: value.version,
+//             description: value.description,
+//             icon: value.icon,
+//         }
+//     }
+// }
 
 impl From<MiddlewareResult>
     for Result<crate::pipeline::MiddlewareResult, crate::host::error::HostError>
@@ -61,16 +61,16 @@ impl From<MiddlewareResult>
     }
 }
 
-impl From<MiddlewareInfo> for crate::plugin::MiddlewareInfo {
-    fn from(value: MiddlewareInfo) -> Self {
-        Self {
-            name: value.name,
-            description: value.description,
-            input_schema: value.input_schema,
-            output_schema: value.output_schema,
-        }
-    }
-}
+// impl From<MiddlewareInfo> for crate::plugin::MiddlewareInfo {
+//     fn from(value: MiddlewareInfo) -> Self {
+//         Self {
+//             name: value.name,
+//             description: value.description,
+//             input_schema: value.input_schema,
+//             output_schema: value.output_schema,
+//         }
+//     }
+// }
 
 fn json_str_to_value(
     s: &str,
