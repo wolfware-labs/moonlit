@@ -1,8 +1,11 @@
 use crate::host::HostEventSink;
 use crate::host::child_process::ChildProc;
 use crate::host::net::AllowlistHooks;
-use crate::host::wit::moonlit::plugin::process::{Command, OutputChunk};
-use crate::logging::LogLevel;
+use crate::host::wit::moonlit::plugin::host::Host as MoonlitHost;
+use crate::host::wit::moonlit::plugin::process::{
+    Command, Host as ProcessHost, HostChild, OutputChunk,
+};
+use crate::host::wit::moonlit::plugin::types::LogLevel;
 use std::sync::Arc;
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
