@@ -1,3 +1,5 @@
+use crate::pipeline::config::ConfigDiagnostic;
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum EngineError {
     #[error(transparent)]

@@ -7,7 +7,7 @@ mod validate;
 
 pub use crate::pipeline::config::diagnostic::ConfigDiagnostic;
 use crate::pipeline::config::diagnostic::Source;
-pub use crate::pipeline::config::model::PipelineConfig;
+pub use crate::pipeline::config::model::{FilesystemAccess, Permissions, PipelineConfig};
 
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
     let src = Source::new(yaml, source_name);

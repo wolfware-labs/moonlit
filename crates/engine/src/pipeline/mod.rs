@@ -1,4 +1,4 @@
-// mod config;
+pub mod config;
 // mod data;
 pub mod manifest;
 mod model;
@@ -8,6 +8,7 @@ mod model;
 // use crate::pipeline::config::PipelineConfig;
 // use crate::pipeline::data::PipelineData;
 // use crate::pipeline::model::FlatStep;
+pub(crate) use crate::pipeline::model::InstanceConfig;
 pub use crate::pipeline::model::{
     MiddlewareResult, PipelineEvent, PipelineOptions, PipelineSummary, StepResult,
 };

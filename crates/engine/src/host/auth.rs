@@ -1,3 +1,5 @@
+use crate::pipeline::InstanceConfig;
+use crate::pipeline::config::FilesystemAccess;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxBuilder};
 

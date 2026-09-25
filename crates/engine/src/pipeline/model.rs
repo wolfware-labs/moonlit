@@ -1,5 +1,6 @@
 // use crate::host::HostEventSink;
 use crate::logging::LogLevel;
+use crate::pipeline::config::Permissions;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -130,12 +131,12 @@ pub struct MiddlewareResult {
     pub output: Vec<(String, serde_json::Value)>,
 }
 
-// pub struct InstanceConfig {
-//     pub working_directory: PathBuf,
-//     pub permissions: crate::config::model::Permissions,
-//     pub config_view: serde_json::Value,
-//     pub env_snapshot: Vec<(String, String)>,
-// }
+pub struct InstanceConfig {
+    pub working_directory: PathBuf,
+    pub permissions: Permissions,
+    pub config_view: serde_json::Value,
+    pub env_snapshot: Vec<(String, String)>,
+}
 
 mod serializers {
     use serde::Serializer;

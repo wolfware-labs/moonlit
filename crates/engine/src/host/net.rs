@@ -1,11 +1,12 @@
 use crate::host::HostEventSink;
+use crate::host::auth::network_globset;
+use crate::pipeline::config::Permissions;
 use globset::GlobSet;
 use http_body_util::BodyExt;
 use hyper::http;
 use std::future::Future;
 use std::sync::Arc;
 use wasmtime_wasi_http::{Error, RequestOptions, WasiBody, WasiHttpHooks, default_send_request};
-use crate::host::auth::network_globset;
 
 pub struct AllowlistHooks {
     allowed: GlobSet,
