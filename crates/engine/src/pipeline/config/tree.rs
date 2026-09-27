@@ -19,6 +19,7 @@ pub enum NodeValue {
 }
 
 impl Node {
+  #[must_use]
   fn null(span: Span) -> Self {
     Node {
       value: NodeValue::Null,
@@ -54,6 +55,7 @@ enum Peek {
   Eof,
 }
 
+#[must_use]
 fn is_yaml_null(raw: &str) -> bool {
   matches!(raw, "" | "~" | "null" | "Null" | "NULL")
 }
@@ -116,7 +118,8 @@ struct Builder<'t, 'a> {
   src: &'t ConfigSource<'a>,
 }
 
-impl<'t, 'a> Builder<'t, 'a> {
+impl Builder<'_, '_> {
+  #[must_use]
   fn peek(&self, want: EndKind) -> Peek {
     match self.toks.get(self.pos) {
       None => Peek::Eof,

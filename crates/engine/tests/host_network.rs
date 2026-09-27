@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use moonlit_engine::config::model::{FilesystemAccess, Permissions};
-use moonlit_engine::plugin::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions};
+use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::{Plugin, PluginInstanceConfig};
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -31,8 +33,8 @@ impl HostEventSink for CapturingSink {
   fn progress(&self, _s: &str, _m: &str) {}
 }
 
-fn cfg_with_network(network: Vec<String>) -> InstanceConfig {
-  InstanceConfig {
+fn cfg_with_network(network: Vec<String>) -> PluginInstanceConfig {
+  PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions: Permissions {
       network,
@@ -67,8 +69,8 @@ async fn allowed_host_round_trips() {
     .mount(&server)
     .await;
 
-  let eng = moonlit_engine::plugin::host::test_engine();
-  let mut p = PluginInstance::instantiate(
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(
     &eng,
     FIXTURE,
     cfg_with_network(vec!["127.0.0.1".to_string()]),
@@ -92,10 +94,10 @@ async fn denied_host_is_blocked_before_the_socket() {
     .mount(&server)
     .await;
 
-  let eng = moonlit_engine::plugin::host::test_engine();
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
   // allowlist a different host -> the request to 127.0.0.1 is denied by the filter.
   let sink = Arc::new(CapturingSink::default());
-  let mut p = PluginInstance::instantiate(
+  let mut p = Plugin::instantiate(
     &eng,
     FIXTURE,
     cfg_with_network(vec!["api.github.com".to_string()]),

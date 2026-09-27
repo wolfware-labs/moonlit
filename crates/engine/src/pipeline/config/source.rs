@@ -5,6 +5,7 @@ pub struct ConfigSource<'a> {
 }
 
 impl<'a> ConfigSource<'a> {
+  #[must_use]
   pub fn new(yaml: &'a str, name: &'a str) -> Self {
     Self { yaml, name }
   }

@@ -7,6 +7,7 @@ const ARTIFACT_TYPE: &str = "application/vnd.wasm.component.v1+wasm";
 pub const LAYER_MEDIA_TYPE: &str = "application/wasm";
 pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.3.0";
 
+#[must_use = "an assembled artifact does nothing until it is pushed"]
 pub struct PluginArtifact {
   pub(crate) config: Config,
   pub(crate) layer: ImageLayer,
@@ -48,6 +49,7 @@ impl PluginArtifact {
     Self { config, layer, manifest }
   }
 
+  #[must_use]
   fn build_annotations(meta: &PluginArtifactMetadata) -> BTreeMap<String, String> {
     let mut a = BTreeMap::new();
     a.insert("org.opencontainers.image.title".into(), meta.plugin_name.clone());

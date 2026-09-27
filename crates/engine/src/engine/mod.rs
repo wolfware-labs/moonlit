@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 pub mod config;
 pub mod error;
 
@@ -13,20 +15,20 @@ use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(Clone)]
 pub struct Engine {
-  wasm_engine: wasmtime::Engine,
+  wasmtime: wasmtime::Engine,
   cache: Arc<Cache>,
   tag_ttl: Duration,
 }
 
 impl Engine {
   pub fn new(settings: EngineSettings) -> Result<Self, EngineError> {
-    let wasm_engine = Self::build_engine()?;
+    let wasmtime = Self::build_engine()?;
     let cache = match settings.cache_dir {
       Some(dir) => Cache::with_root_and_clock(dir, Box::new(SystemClock)),
       None => Cache::new().map_err(|e| EngineError::Internal(e.into()))?,
     };
     Ok(Self {
-      wasm_engine,
+      wasmtime,
       cache: Arc::new(cache),
       tag_ttl: settings.tag_ttl,
     })
@@ -44,28 +46,31 @@ impl Engine {
     Ok(wasmtime::Engine::new(&config).map_err(anyhow::Error::from)?)
   }
 
+  #[must_use]
   pub fn build_store<T>(&self, data: T) -> Store<T> {
-    Store::new(&self.wasm_engine, data)
+    Store::new(&self.wasmtime, data)
   }
 
   pub fn load_component(&self, component_bytes: &[u8]) -> Result<Component, EngineError> {
-    Component::from_binary(&self.wasm_engine, component_bytes).map_err(|e| EngineError::ComponentLoad(e.to_string()))
+    Component::from_binary(&self.wasmtime, component_bytes).map_err(|e| EngineError::ComponentLoad(e.to_string()))
   }
 
   pub fn build_linker<T>(&self) -> Result<Linker<T>, EngineError>
   where
     T: WasiView + WasiHttpView,
   {
-    let mut linker: Linker<T> = Linker::new(&self.wasm_engine);
+    let mut linker: Linker<T> = Linker::new(&self.wasmtime);
     wasmtime_wasi::p2::add_to_linker_async(&mut linker).map_err(anyhow::Error::from)?;
     wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker).map_err(anyhow::Error::from)?;
     Ok(linker)
   }
 
+  #[must_use]
   pub(crate) fn cache(&self) -> &Cache {
     &self.cache
   }
 
+  #[must_use]
   pub(crate) fn tag_ttl(&self) -> Duration {
     self.tag_ttl
   }

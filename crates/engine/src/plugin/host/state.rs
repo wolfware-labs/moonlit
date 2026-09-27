@@ -21,6 +21,7 @@ pub struct HostState {
 }
 
 impl HostState {
+  #[must_use]
   pub fn new(
     wasi: WasiCtx,
     hooks: AllowlistHooks,
@@ -41,7 +42,7 @@ impl HostState {
   }
 
   pub fn set_step(&mut self, step: &str) {
-    self.current_step = step.to_owned();
+    step.clone_into(&mut self.current_step);
   }
 }
 
@@ -158,5 +159,126 @@ impl HostChild for HostState {
   async fn drop(&mut self, rep: Resource<ChildProcess>) -> wasmtime::Result<()> {
     let _ = self.table.delete(rep)?;
     Ok(())
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::pipeline::config::{FilesystemAccess, Permissions};
+  use crate::plugin::host::exec_globset;
+  use std::sync::Mutex;
+  use wasmtime_wasi::WasiCtxBuilder;
+
+  #[derive(Default)]
+  struct RecordingSink {
+    logs: Mutex<Vec<(crate::logging::LogLevel, String)>>,
+  }
+
+  impl HostEventSink for RecordingSink {
+    fn log(&self, _step: &str, level: crate::logging::LogLevel, message: &str) {
+      self.logs.lock().unwrap().push((level, message.to_string()));
+    }
+    fn progress(&self, _step: &str, _message: &str) {}
+  }
+
+  fn state(exec: &[&str], sink: &Arc<RecordingSink>) -> HostState {
+    let permissions = Permissions {
+      network: vec![],
+      exec: exec.iter().map(ToString::to_string).collect(),
+      env: vec![],
+      filesystem: FilesystemAccess::None,
+    };
+    let events: Arc<dyn HostEventSink> = sink.clone();
+    HostState::new(
+      WasiCtxBuilder::new().build(),
+      AllowlistHooks::new(&permissions, events.clone()),
+      events,
+      serde_json::json!({}),
+      exec_globset(&permissions.exec),
+    )
+  }
+
+  fn command(program: &str, args: &[&str]) -> Command {
+    Command {
+      program: program.to_string(),
+      args: args.iter().map(ToString::to_string).collect(),
+      cwd: None,
+      env: vec![],
+      stdin: None,
+    }
+  }
+
+  fn handle(child: &Resource<ChildProcess>) -> Resource<ChildProcess> {
+    Resource::new_borrow(child.rep())
+  }
+
+  #[tokio::test]
+  async fn spawn_of_a_program_outside_the_allowlist_is_refused_and_logged() {
+    let sink = Arc::new(RecordingSink::default());
+    let mut host = state(&["git"], &sink);
+
+    let result = ProcessHost::spawn(&mut host, command("sh", &[])).await.unwrap();
+
+    assert!(matches!(&result, Err(msg) if msg == "program 'sh' not permitted"));
+    let logs = sink.logs.lock().unwrap();
+    assert!(
+      logs
+        .iter()
+        .any(|(level, msg)| *level == crate::logging::LogLevel::Warn && msg.contains("permissions.exec"))
+    );
+  }
+
+  #[tokio::test]
+  async fn spawn_and_run_report_programs_that_cannot_start() {
+    let sink = Arc::new(RecordingSink::default());
+    let mut host = state(&["*"], &sink);
+
+    let spawned = ProcessHost::spawn(&mut host, command("moonlit-no-such-program", &[]))
+      .await
+      .unwrap();
+    let ran = ProcessHost::run(&mut host, command("moonlit-no-such-program", &[]))
+      .await
+      .unwrap();
+
+    assert!(matches!(&spawned, Err(msg) if msg.starts_with("failed to spawn moonlit-no-such-program")));
+    assert!(matches!(&ran, Err(msg) if msg.starts_with("failed to spawn moonlit-no-such-program")));
+  }
+
+  #[tokio::test]
+  async fn a_spawned_child_streams_lines_and_caches_its_exit_code() {
+    let sink = Arc::new(RecordingSink::default());
+    let mut host = state(&["sh"], &sink);
+
+    let child = ProcessHost::spawn(&mut host, command("sh", &["-c", "echo first"]))
+      .await
+      .unwrap()
+      .unwrap();
+    let line = HostChild::next_line(&mut host, handle(&child)).await.unwrap();
+    let end = HostChild::next_line(&mut host, handle(&child)).await.unwrap();
+    let code = HostChild::wait(&mut host, handle(&child)).await.unwrap();
+    let again = HostChild::wait(&mut host, handle(&child)).await.unwrap();
+    HostChild::drop(&mut host, child).await.unwrap();
+
+    assert_eq!(line.map(|chunk| chunk.line), Some("first".to_string()));
+    assert!(end.is_none());
+    assert_eq!(code, 0);
+    assert_eq!(again, 0);
+  }
+
+  #[tokio::test]
+  async fn a_killed_child_stops_and_a_second_kill_is_harmless() {
+    let sink = Arc::new(RecordingSink::default());
+    let mut host = state(&["sleep"], &sink);
+
+    let child = ProcessHost::spawn(&mut host, command("sleep", &["30"]))
+      .await
+      .unwrap()
+      .unwrap();
+    HostChild::kill(&mut host, handle(&child)).await.unwrap();
+    HostChild::kill(&mut host, handle(&child)).await.unwrap();
+    let code = HostChild::wait(&mut host, handle(&child)).await.unwrap();
+
+    assert_ne!(code, 0);
   }
 }

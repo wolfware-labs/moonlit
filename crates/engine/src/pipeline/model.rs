@@ -119,6 +119,53 @@ mod serializers {
   use std::time::Duration;
 
   pub fn serialize_duration_ms<S: Serializer>(d: &Duration, s: S) -> Result<S::Ok, S::Error> {
-    s.serialize_u64(d.as_millis() as u64)
+    s.serialize_u64(u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn step(duration: Duration) -> StepResult {
+    StepResult {
+      name: "s1".to_string(),
+      successful: true,
+      skipped: false,
+      duration,
+      error_message: None,
+      warnings: vec![],
+    }
+  }
+
+  #[test]
+  fn events_serialize_with_a_type_tag_and_millisecond_durations() {
+    let event = PipelineEvent::StepFinished {
+      step: "s1".to_string(),
+      result: step(Duration::from_millis(1500)),
+    };
+    let json = serde_json::to_value(&event).unwrap();
+    assert_eq!(json["type"], "step_finished");
+    assert_eq!(json["result"]["duration_ms"], 1500);
+  }
+
+  #[test]
+  fn summaries_serialize_the_total_duration_in_milliseconds() {
+    let summary = PipelineSummary {
+      steps: vec![step(Duration::ZERO)],
+      successful: true,
+      halted: false,
+      total_duration: Duration::from_secs(2),
+      warnings: vec![],
+    };
+    let json = serde_json::to_value(&summary).unwrap();
+    assert_eq!(json["total_duration_ms"], 2000);
+    assert_eq!(json["steps"][0]["duration_ms"], 0);
+  }
+
+  #[test]
+  fn durations_beyond_u64_milliseconds_saturate() {
+    let json = serde_json::to_value(step(Duration::MAX)).unwrap();
+    assert_eq!(json["duration_ms"], u64::MAX);
   }
 }

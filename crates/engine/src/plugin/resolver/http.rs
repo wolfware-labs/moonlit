@@ -1,4 +1,4 @@
-use crate::cache::{Cache, PluginMeta};
+use crate::cache::{Cache, PluginMeta, url_key};
 use crate::plugin::resolver::{ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin};
 
 pub async fn resolve_http(
@@ -7,9 +7,10 @@ pub async fn resolve_http(
   cache: &Cache,
   progress: Option<ProgressFn<'_>>,
 ) -> Result<ResolvedPlugin, ResolveError> {
-  if cache.has_plugin(url) {
+  let key = url_key(url);
+  if cache.has_plugin(&key) {
     return Ok(ResolvedPlugin {
-      wasm_path: cache.plugin_wasm(url),
+      wasm_path: cache.plugin_wasm(&key),
       source: url.to_string(),
       digest: None,
       cached: true,
@@ -57,7 +58,7 @@ pub async fn resolve_http(
     middlewares: None,
   };
   let wasm_path = cache
-    .store_plugin(url, &meta, &bytes)
+    .store_plugin(&key, &meta, &bytes)
     .map_err(|e| ResolveError::Io(format!("caching {url}: {e}")))?;
 
   Ok(ResolvedPlugin {

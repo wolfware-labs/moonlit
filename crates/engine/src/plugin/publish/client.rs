@@ -1,6 +1,6 @@
 use crate::plugin::artifact::{PluginArtifact, PluginArtifactMetadata};
 use crate::plugin::publish::error::PublishError;
-use crate::plugin::resolver::oci::auth::resolve_auth;
+use crate::plugin::resolver::oci::auth::{is_auth_failure, resolve_auth};
 use oci_client::client::PushResponse;
 use oci_client::secrets::RegistryAuth;
 use oci_client::{Client, Reference};
@@ -25,8 +25,20 @@ pub struct PublishOutcome {
 
 pub struct OciPushClient(Client);
 
+#[must_use]
 pub fn new_push_client() -> OciPushClient {
   OciPushClient(Client::default())
+}
+
+#[cfg(test)]
+impl OciPushClient {
+  #[must_use]
+  fn with_plain_http_for(registry: &str) -> Self {
+    Self(Client::new(oci_client::client::ClientConfig {
+      protocol: oci_client::client::ClientProtocol::HttpsExcept(vec![registry.to_string()]),
+      ..Default::default()
+    }))
+  }
 }
 
 impl PushClient for OciPushClient {
@@ -46,14 +58,14 @@ impl PushClient for OciPushClient {
         Some(artifact.manifest.clone()),
       )
       .await
-      .map_err(map_push_error)
+      .map_err(|e| map_push_error(&e))
   }
 }
 
-fn map_push_error(err: oci_client::errors::OciDistributionError) -> PublishError {
+#[must_use]
+fn map_push_error(err: &oci_client::errors::OciDistributionError) -> PublishError {
   let msg = err.to_string();
-  let lower = msg.to_lowercase();
-  if lower.contains("unauthorized") || lower.contains("authentication") || lower.contains("401") || lower.contains("403") {
+  if is_auth_failure(err) {
     PublishError::Auth(msg)
   } else {
     PublishError::Network(msg)
@@ -82,6 +94,7 @@ pub async fn publish_plugin<C: PushClient>(
   })
 }
 
+#[must_use]
 fn digest_from_url(url: &str) -> Option<String> {
   let idx = url.find("sha256:")?;
   Some(url[idx..].to_string())
@@ -174,11 +187,8 @@ mod tests {
       seen: std::sync::Mutex::new(None),
       outcome: MockOutcome::Auth,
     };
-    let err = match publish_plugin("reg/w/git:1", b"\0asm".to_vec(), metadata(), home.path(), &client).await {
-      Ok(_) => panic!("expected auth failure"),
-      Err(e) => e,
-    };
-    assert!(matches!(err, PublishError::Auth(_)));
+    let result = publish_plugin("reg/w/git:1", b"\0asm".to_vec(), metadata(), home.path(), &client).await;
+    assert!(matches!(result, Err(PublishError::Auth(_))), "{result:?}");
   }
 
   #[tokio::test]
@@ -190,10 +200,108 @@ mod tests {
         manifest_url: "sha256:x".into(),
       },
     };
-    let err = match publish_plugin("::not a ref::", b"x".to_vec(), metadata(), home.path(), &client).await {
-      Ok(_) => panic!("expected invalid reference"),
-      Err(e) => e,
-    };
-    assert!(matches!(err, PublishError::InvalidReference(_)));
+    let result = publish_plugin("::not a ref::", b"x".to_vec(), metadata(), home.path(), &client).await;
+    assert!(matches!(result, Err(PublishError::InvalidReference(_))), "{result:?}");
+  }
+
+  async fn push_registry() -> (wiremock::MockServer, String) {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    let host = server.address().to_string();
+    Mock::given(method("GET"))
+      .and(path("/v2/"))
+      .respond_with(ResponseTemplate::new(200))
+      .mount(&server)
+      .await;
+    (server, host)
+  }
+
+  #[tokio::test]
+  async fn oci_push_client_uploads_blobs_and_the_manifest() {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, ResponseTemplate};
+    let (server, host) = push_registry().await;
+    let session = "/v2/w/git/blobs/uploads/session";
+    Mock::given(method("POST"))
+      .and(path("/v2/w/git/blobs/uploads/"))
+      .respond_with(ResponseTemplate::new(202).insert_header("Location", session))
+      .mount(&server)
+      .await;
+    Mock::given(method("PATCH"))
+      .and(path(session))
+      .respond_with(
+        ResponseTemplate::new(202)
+          .insert_header("Location", session)
+          .insert_header("Range", "0-8"),
+      )
+      .mount(&server)
+      .await;
+    Mock::given(method("PUT"))
+      .and(path(session))
+      .respond_with(ResponseTemplate::new(201).insert_header("Location", "/v2/w/git/blobs/sha256:blob"))
+      .mount(&server)
+      .await;
+    Mock::given(method("PUT"))
+      .and(path("/v2/w/git/manifests/2.0.0"))
+      .respond_with(ResponseTemplate::new(201).insert_header("Location", "/v2/w/git/manifests/sha256:feed"))
+      .mount(&server)
+      .await;
+    let home = tempfile::tempdir().unwrap();
+
+    let outcome = publish_plugin(
+      &format!("{host}/w/git:2.0.0"),
+      b"\0asm-body".to_vec(),
+      metadata(),
+      home.path(),
+      &OciPushClient::with_plain_http_for(&host),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(outcome.reference, format!("oci://{host}/w/git:2.0.0"));
+    assert_eq!(outcome.digest, "sha256:feed");
+    assert_eq!(outcome.size, 9);
+  }
+
+  async fn push_failing_with(status: u16) -> Result<PublishOutcome, PublishError> {
+    use wiremock::matchers::method;
+    use wiremock::{Mock, ResponseTemplate};
+    let (server, host) = push_registry().await;
+    Mock::given(method("POST"))
+      .respond_with(ResponseTemplate::new(status).set_body_string("nope"))
+      .mount(&server)
+      .await;
+    let home = tempfile::tempdir().unwrap();
+    publish_plugin(
+      &format!("{host}/w/git:2.0.0"),
+      b"\0asm".to_vec(),
+      metadata(),
+      home.path(),
+      &OciPushClient::with_plain_http_for(&host),
+    )
+    .await
+  }
+
+  #[tokio::test]
+  async fn oci_push_client_maps_a_401_to_an_auth_error() {
+    let result = push_failing_with(401).await;
+    assert!(matches!(result, Err(PublishError::Auth(_))), "{result:?}");
+  }
+
+  #[tokio::test]
+  async fn oci_push_client_maps_server_errors_to_network_errors() {
+    let result = push_failing_with(500).await;
+    assert!(matches!(result, Err(PublishError::Network(_))), "{result:?}");
+  }
+
+  #[test]
+  fn digest_is_unknown_when_the_manifest_url_has_none() {
+    assert_eq!(digest_from_url("https://reg/v2/w/git/manifests/2.0.0"), None);
+  }
+
+  #[test]
+  fn the_production_push_client_is_constructible() {
+    let _client = new_push_client();
   }
 }

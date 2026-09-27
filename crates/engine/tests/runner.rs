@@ -1,7 +1,10 @@
 use std::path::Path;
 use std::time::Duration;
 
-use moonlit_engine::{Engine, EngineError, EngineSettings, PipelineEvent, PipelineOptions};
+use moonlit_engine::engine::Engine;
+use moonlit_engine::engine::config::EngineSettings;
+use moonlit_engine::pipeline::manifest::PipelineManifest;
+use moonlit_engine::pipeline::{Pipeline, PipelineError, PipelineEvent, PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc::{Receiver, channel};
 use tokio_util::sync::CancellationToken;
 
@@ -10,10 +13,16 @@ fn fixture_url() -> String {
   format!("file://{}", p.display())
 }
 
+fn manifest(yaml: &str) -> PipelineManifest {
+  PipelineManifest {
+    working_dir: std::env::temp_dir(),
+    file_name: "release.yml".to_string(),
+    content: yaml.to_string(),
+  }
+}
+
 fn opts() -> PipelineOptions {
   PipelineOptions {
-    config_file_name: "release.yml".to_string(),
-    working_directory: std::env::temp_dir(),
     stages_filter: vec![],
     cli_args: vec![],
     step_timeout: None,
@@ -29,14 +38,11 @@ fn drain(rx: &mut Receiver<PipelineEvent>) -> Vec<PipelineEvent> {
   out
 }
 
-async fn load_and_run(
-  yaml: &str,
-  o: PipelineOptions,
-) -> (Result<moonlit_engine::PipelineSummary, EngineError>, Vec<PipelineEvent>) {
+async fn load_and_run(yaml: &str, o: PipelineOptions) -> (Result<PipelineSummary, PipelineError>, Vec<PipelineEvent>) {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, mut rx) = channel(1024);
-  let pipeline = eng.load_pipeline(yaml, o, &tx).await.expect("load ok");
-  let result = eng.run(pipeline, tx, CancellationToken::new()).await;
+  let pipeline = Pipeline::load(&eng, &manifest(yaml), o, &tx).await.expect("load ok");
+  let result = pipeline.run(tx, CancellationToken::new()).await;
   let events = drain(&mut rx);
   (result, events)
 }
@@ -99,14 +105,13 @@ async fn failing_step_without_continue_on_error_stops_with_exit_4() {
     url = fixture_url()
   );
   let (result, _events) = load_and_run(&yaml, opts()).await;
-  let err = match result {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = result else {
+    panic!("must fail");
   };
   assert_eq!(err.exit_code(), 4);
   match err {
-    EngineError::Execution(msg) => {
-      assert_eq!(msg, "An error occurred while executing middleware fail: intentional failure")
+    PipelineError::Execution(msg) => {
+      assert_eq!(msg, "An error occurred while executing middleware fail: intentional failure");
     }
     other => panic!("expected Execution, got {other:?}"),
   }
@@ -179,12 +184,11 @@ async fn duplicate_output_key_fails_the_step() {
     url = fixture_url()
   );
   let (result, _events) = load_and_run(&yaml, opts()).await;
-  let err = match result {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = result else {
+    panic!("must fail");
   };
   match err {
-    EngineError::Execution(msg) => assert!(msg.contains("Key 'k' already exists"), "got {msg}"),
+    PipelineError::Execution(msg) => assert!(msg.contains("Key 'k' already exists"), "got {msg}"),
     other => panic!("expected Execution, got {other:?}"),
   }
 }
@@ -215,9 +219,8 @@ async fn halt_if_evaluation_error_fails_the_step() {
     url = fixture_url()
   );
   let (result, _events) = load_and_run(&yaml, opts()).await;
-  let err = match result {
-    Ok(_) => panic!("a broken haltIf must fail the step"),
-    Err(e) => e,
+  let Err(err) = result else {
+    panic!("a broken haltIf must fail the step");
   };
   assert_eq!(err.exit_code(), 4);
 }
@@ -250,13 +253,12 @@ async fn step_timeout_is_a_fatal_abort_even_with_continue_on_error() {
     url = fixture_url()
   );
   let (result, _events) = load_and_run(&yaml, o).await;
-  let err = match result {
-    Ok(_) => panic!("timeout must abort"),
-    Err(e) => e,
+  let Err(err) = result else {
+    panic!("timeout must abort");
   };
   assert_eq!(err.exit_code(), 4);
   match err {
-    EngineError::Execution(msg) => assert!(msg.contains("timed out"), "got {msg}"),
+    PipelineError::Execution(msg) => assert!(msg.contains("timed out"), "got {msg}"),
     other => panic!("expected Execution, got {other:?}"),
   }
 }
@@ -269,15 +271,14 @@ async fn cancel_before_a_step_stops_with_the_boundary_message() {
     "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n",
     url = fixture_url()
   );
-  let pipeline = eng.load_pipeline(&yaml, opts(), &tx).await.expect("load ok");
+  let pipeline = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await.expect("load ok");
   let cancel = CancellationToken::new();
   cancel.cancel(); // already cancelled before the first boundary check
-  let err = match eng.run(pipeline, tx, cancel).await {
-    Ok(_) => panic!("must stop"),
-    Err(e) => e,
+  let Err(err) = pipeline.run(tx, cancel).await else {
+    panic!("must stop");
   };
   match err {
-    EngineError::Execution(msg) => assert_eq!(msg, "Pipeline execution was cancelled."),
+    PipelineError::Execution(msg) => assert_eq!(msg, "Pipeline execution was cancelled."),
     other => panic!("expected Execution, got {other:?}"),
   }
 }
@@ -290,20 +291,19 @@ async fn cancel_during_execute_stops_with_the_user_message() {
     "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: slow\n      run: tp.sleep\n      config:\n        ms: \"600000\"\n",
     url = fixture_url()
   );
-  let pipeline = eng.load_pipeline(&yaml, opts(), &tx).await.expect("load ok");
+  let pipeline = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await.expect("load ok");
   let cancel = CancellationToken::new();
   let canceller = cancel.clone();
   tokio::spawn(async move {
     tokio::time::sleep(Duration::from_millis(150)).await;
     canceller.cancel();
   });
-  let err = match eng.run(pipeline, tx, cancel).await {
-    Ok(_) => panic!("must be cancelled"),
-    Err(e) => e,
+  let Err(err) = pipeline.run(tx, cancel).await else {
+    panic!("must be cancelled");
   };
   match err {
-    EngineError::Execution(msg) => {
-      assert_eq!(msg, "Pipeline execution was cancelled by the user.")
+    PipelineError::Execution(msg) => {
+      assert_eq!(msg, "Pipeline execution was cancelled by the user.");
     }
     other => panic!("expected Execution, got {other:?}"),
   }

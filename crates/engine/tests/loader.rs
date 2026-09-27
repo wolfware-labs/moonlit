@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use moonlit_engine::{Engine, EngineError, EngineSettings, PipelineOptions};
+use moonlit_engine::engine::Engine;
+use moonlit_engine::engine::config::EngineSettings;
+use moonlit_engine::pipeline::manifest::PipelineManifest;
+use moonlit_engine::pipeline::{Pipeline, PipelineError, PipelineEvent, PipelineOptions};
 use tokio::sync::mpsc::channel;
 
 fn fixture_url() -> String {
@@ -8,10 +11,16 @@ fn fixture_url() -> String {
   format!("file://{}", p.display())
 }
 
+fn manifest(yaml: &str) -> PipelineManifest {
+  PipelineManifest {
+    working_dir: std::env::temp_dir(),
+    file_name: "release.yml".to_string(),
+    content: yaml.to_string(),
+  }
+}
+
 fn opts() -> PipelineOptions {
   PipelineOptions {
-    working_directory: std::env::temp_dir(),
-    config_file_name: "release.yml".to_string(),
     stages_filter: vec![],
     cli_args: vec![],
     step_timeout: None,
@@ -31,8 +40,7 @@ fn one_plugin_yaml(run: &str) -> String {
 async fn load_pipeline_happy_path_emits_resolving_then_ready() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, mut rx) = channel(64);
-  let pipeline = eng
-    .load_pipeline(&one_plugin_yaml("tp.log-and-output"), opts(), &tx)
+  let pipeline = Pipeline::load(&eng, &manifest(&one_plugin_yaml("tp.log-and-output")), opts(), &tx)
     .await
     .expect("load ok");
   assert_eq!(pipeline.step_count(), 1);
@@ -44,7 +52,7 @@ async fn load_pipeline_happy_path_emits_resolving_then_ready() {
   let mut names_seen = Vec::new();
   let mut ready_version = None;
   while let Ok(ev) = rx.try_recv() {
-    use moonlit_engine::PipelineEvent::*;
+    use PipelineEvent::*;
     match ev {
       PluginResolving { name, .. } => names_seen.push(("resolving", name)),
       PluginReady { name, version, .. } => {
@@ -65,14 +73,13 @@ async fn load_pipeline_happy_path_emits_resolving_then_ready() {
 async fn middleware_not_found_is_exit_2_config_error() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, _rx) = channel(64);
-  let err = match eng.load_pipeline(&one_plugin_yaml("tp.nosuch"), opts(), &tx).await {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(&one_plugin_yaml("tp.nosuch")), opts(), &tx).await else {
+    panic!("must fail");
   };
   assert_eq!(err.exit_code(), 2);
   match err {
-    EngineError::Config(d) => {
-      assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.")
+    PipelineError::Config(d) => {
+      assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.");
     }
     other => panic!("expected Config, got {other:?}"),
   }
@@ -83,14 +90,13 @@ async fn plugin_not_found_is_exit_2_config_error() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, _rx) = channel(64);
   // tp loads fine, but the step references an undeclared alias `other`.
-  let err = match eng.load_pipeline(&one_plugin_yaml("other.log-and-output"), opts(), &tx).await {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(&one_plugin_yaml("other.log-and-output")), opts(), &tx).await else {
+    panic!("must fail");
   };
   assert_eq!(err.exit_code(), 2);
   match err {
-    EngineError::Config(d) => {
-      assert_eq!(d.message(), "No plugin is declared with the alias 'other'.")
+    PipelineError::Config(d) => {
+      assert_eq!(d.message(), "No plugin is declared with the alias 'other'.");
     }
     other => panic!("expected Config, got {other:?}"),
   }
@@ -102,12 +108,11 @@ async fn resolve_failure_is_exit_3_plugin_load() {
   let (tx, _rx) = channel(64);
   let yaml =
     "name: d\nplugins:\n  - name: tp\n    url: file:///no/such/plugin.wasm\nstages:\n  b:\n    - name: s\n      run: tp.x\n";
-  let err = match eng.load_pipeline(yaml, opts(), &tx).await {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(yaml), opts(), &tx).await else {
+    panic!("must fail");
   };
   assert_eq!(err.exit_code(), 3);
-  assert!(matches!(err, EngineError::PluginLoad { .. }));
+  assert!(matches!(err, PipelineError::PluginLoad { .. }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -118,12 +123,11 @@ async fn init_domain_error_is_exit_3_plugin_load() {
     "name: d\nplugins:\n  - name: tp\n    url: {}\n    config:\n      failInit: 'true'\nstages:\n  b:\n    - name: s\n      run: tp.log-and-output\n",
     fixture_url()
   );
-  let err = match eng.load_pipeline(&yaml, opts(), &tx).await {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail");
   };
   assert_eq!(err.exit_code(), 3);
-  assert!(matches!(err, EngineError::PluginLoad { .. }));
+  assert!(matches!(err, PipelineError::PluginLoad { .. }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -131,12 +135,11 @@ async fn zero_plugins_is_exit_2_config_error() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, _rx) = channel(64);
   let yaml = "name: d\nstages:\n  b:\n    - name: s\n      run: p.x\n";
-  let err = match eng.load_pipeline(yaml, opts(), &tx).await {
-    Ok(_) => panic!("must fail"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(yaml), opts(), &tx).await else {
+    panic!("must fail");
   };
   assert_eq!(err.exit_code(), 2);
-  assert!(matches!(err, EngineError::Config(_)));
+  assert!(matches!(err, PipelineError::Config(_)));
 }
 
 fn two_plugin_yaml(url_a: &str, url_b: &str) -> String {
@@ -150,8 +153,7 @@ async fn loads_multiple_plugins_concurrently() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, _rx) = channel(256);
   let url = fixture_url();
-  let pipeline = eng
-    .load_pipeline(&two_plugin_yaml(&url, &url), opts(), &tx)
+  let pipeline = Pipeline::load(&eng, &manifest(&two_plugin_yaml(&url, &url)), opts(), &tx)
     .await
     .expect("both load");
   // Declaration order preserved despite concurrent completion.
@@ -165,10 +167,10 @@ async fn new_fixture_middlewares_are_registered() {
   let (tx, _rx) = channel(64);
   // Each of these loads only if build-time middleware validation finds the middleware.
   for mw in ["tp.fail", "tp.dup-output", "tp.sleep"] {
-    eng
-      .load_pipeline(&one_plugin_yaml(mw), opts(), &tx)
+    let pipeline = Pipeline::load(&eng, &manifest(&one_plugin_yaml(mw)), opts(), &tx)
       .await
       .unwrap_or_else(|_| panic!("{mw} must be a registered middleware"));
+    assert_eq!(pipeline.step_count(), 1);
   }
 }
 
@@ -177,15 +179,11 @@ async fn first_failure_aborts_without_panicking() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, _rx) = channel(256);
   let good = fixture_url();
-  let err = match eng
-    .load_pipeline(&two_plugin_yaml(&good, "file:///no/such.wasm"), opts(), &tx)
-    .await
-  {
-    Ok(_) => panic!("one bad url fails the load"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(&two_plugin_yaml(&good, "file:///no/such.wasm")), opts(), &tx).await else {
+    panic!("one bad url fails the load");
   };
   assert_eq!(err.exit_code(), 3);
-  assert!(matches!(err, EngineError::PluginLoad { .. }));
+  assert!(matches!(err, PipelineError::PluginLoad { .. }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -200,14 +198,13 @@ async fn middleware_validation_covers_stages_excluded_by_the_filter() {
     "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: ok\n      run: tp.log-and-output\n  other:\n    - name: bad\n      run: tp.nosuch\n",
     url = fixture_url()
   );
-  let err = match eng.load_pipeline(&yaml, o, &tx).await {
-    Ok(_) => panic!("must fail on the excluded stage's bad middleware"),
-    Err(e) => e,
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml), o, &tx).await else {
+    panic!("must fail on the excluded stage's bad middleware");
   };
   assert_eq!(err.exit_code(), 2);
   match err {
-    EngineError::Config(d) => {
-      assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.")
+    PipelineError::Config(d) => {
+      assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.");
     }
     other => panic!("expected Config, got {other:?}"),
   }

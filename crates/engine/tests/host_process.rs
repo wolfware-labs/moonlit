@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use moonlit_engine::config::model::{FilesystemAccess, Permissions};
-use moonlit_engine::plugin::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions};
+use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::{Plugin, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 
@@ -29,8 +31,8 @@ impl HostEventSink for CapturingSink {
   fn progress(&self, _s: &str, _m: &str) {}
 }
 
-fn cfg_with_exec(exec: Vec<String>) -> InstanceConfig {
-  InstanceConfig {
+fn cfg_with_exec(exec: Vec<String>) -> PluginInstanceConfig {
+  PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions: Permissions {
       network: vec!["*".to_string()],
@@ -52,8 +54,8 @@ fn ctx(s: &str) -> ReleaseContext {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn run_process_succeeds_when_program_permitted() {
-  let eng = moonlit_engine::plugin::host::test_engine();
-  let mut p = PluginInstance::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["echo".to_string()]), Arc::new(NullSink))
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["echo".to_string()]), Arc::new(NullSink))
     .await
     .unwrap();
   let r = p.execute("run-process", ctx("run"), &serde_json::json!({})).await.unwrap();
@@ -66,10 +68,10 @@ async fn run_process_succeeds_when_program_permitted() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn run_process_denied_when_program_not_permitted() {
-  let eng = moonlit_engine::plugin::host::test_engine();
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
   // allowlist permits only "ls"; the guest runs "echo" -> denied.
   let sink = Arc::new(CapturingSink::default());
-  let mut p = PluginInstance::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), sink.clone())
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), sink.clone())
     .await
     .unwrap();
   let r = p.execute("run-process", ctx("run"), &serde_json::json!({})).await.unwrap();
@@ -87,8 +89,8 @@ async fn run_process_denied_when_program_not_permitted() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn spawn_stream_delivers_lines_live_in_order() {
-  let eng = moonlit_engine::plugin::host::test_engine();
-  let mut p = PluginInstance::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["sh".to_string()]), Arc::new(NullSink))
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["sh".to_string()]), Arc::new(NullSink))
     .await
     .unwrap();
   let r = p

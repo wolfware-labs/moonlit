@@ -67,6 +67,7 @@ pub struct Permissions {
 }
 
 impl Permissions {
+  #[must_use]
   pub fn full_trust() -> Self {
     Self {
       network: vec!["*".to_string()],
@@ -76,6 +77,7 @@ impl Permissions {
     }
   }
 
+  #[must_use]
   pub fn deny() -> Self {
     Self {
       network: vec![],

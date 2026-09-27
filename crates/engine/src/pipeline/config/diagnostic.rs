@@ -16,10 +16,12 @@ pub struct ConfigDiagnostic {
 }
 
 impl ConfigDiagnostic {
+  #[must_use]
   pub fn invalid_syntax(source: &ConfigSource, info: &str, span: Span) -> ConfigDiagnostic {
     Self::make(source.name, source.yaml, format!("Invalid YAML: {info}"), Some(span), "here")
   }
 
+  #[must_use]
   pub fn unknown_alias(source: &ConfigSource, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -30,6 +32,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn expected_mapping(source: &ConfigSource, context: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -40,6 +43,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn expected_sequence(source: &ConfigSource, context: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -50,6 +54,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn expected_string(source: &ConfigSource, context: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -60,6 +65,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn invalid_run(source: &ConfigSource, value: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -70,6 +76,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn missing_run(source: &ConfigSource, step: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -80,6 +87,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn invalid_filesystem(source: &ConfigSource, value: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -90,6 +98,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn invalid_bool(source: &ConfigSource, field: &str, value: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -100,6 +109,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn invalid_url(source: &ConfigSource, value: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -113,6 +123,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn missing_url(source: &ConfigSource, plugin: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -123,6 +134,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn no_stages(source: &ConfigSource) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -133,6 +145,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn no_plugins(source: &ConfigSource, span: Option<Span>) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -143,6 +156,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn plugin_not_found(source: &ConfigSource, name: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -153,6 +167,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn middleware_not_found(source: &ConfigSource, name: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -163,6 +178,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn duplicate_plugin(source: &ConfigSource, name: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -173,6 +189,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn unknown_key(source: &ConfigSource, key: &str, context: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -183,6 +200,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn duplicate_key(source: &ConfigSource, key: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -193,6 +211,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   pub fn null_value(source: &ConfigSource, key: &str, expected: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,
@@ -203,6 +222,7 @@ impl ConfigDiagnostic {
     )
   }
 
+  #[must_use]
   fn make(config_name: &str, config_content: &str, message: String, span: Option<Span>, label: &str) -> ConfigDiagnostic {
     ConfigDiagnostic {
       message,
@@ -212,11 +232,27 @@ impl ConfigDiagnostic {
     }
   }
 
+  #[must_use]
   pub fn message(&self) -> &str {
     &self.message
   }
 
+  #[must_use]
   pub fn span(&self) -> Option<&SourceSpan> {
     self.span.as_ref()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn unknown_alias_labels_the_alias_site() {
+    let source = ConfigSource::new("a: *missing\n", "release.yml");
+    let diagnostic = ConfigDiagnostic::unknown_alias(&source, Span::new(3, 11));
+    assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
+    let span = diagnostic.span().expect("span");
+    assert_eq!((span.offset(), span.len()), (3, 8));
   }
 }

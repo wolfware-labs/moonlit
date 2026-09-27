@@ -91,3 +91,66 @@ impl ChildProcess {
     let _ = exit_tx.send(code);
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  async fn collect(mut child: ChildProcess) -> (Vec<OutputChunk>, i32) {
+    let mut chunks = Vec::new();
+    while let Some(chunk) = child.rx.recv().await {
+      chunks.push(chunk);
+    }
+    let code = child.exit_rx.take().unwrap().await.unwrap();
+    (chunks, code)
+  }
+
+  #[tokio::test]
+  async fn passes_stdin_env_and_cwd_and_separates_stderr() {
+    let dir = tempfile::tempdir().unwrap();
+    let command = Command {
+      program: "sh".to_string(),
+      args: vec![
+        "-c".to_string(),
+        "cat; echo \"$MOONLIT_CHILD_VAR\"; echo oops >&2; ls".to_string(),
+      ],
+      cwd: Some(dir.path().display().to_string()),
+      env: vec![("MOONLIT_CHILD_VAR".to_string(), "from-env".to_string())],
+      stdin: Some("from-stdin\n".to_string()),
+    };
+    std::fs::write(dir.path().join("marker.txt"), b"").unwrap();
+
+    let (chunks, code) = collect(ChildProcess::start(&command).unwrap()).await;
+
+    let stdout: Vec<&str> = chunks
+      .iter()
+      .filter(|c| matches!(c.stream, StdioStream::Stdout))
+      .map(|c| c.line.as_str())
+      .collect();
+    let stderr: Vec<&str> = chunks
+      .iter()
+      .filter(|c| matches!(c.stream, StdioStream::Stderr))
+      .map(|c| c.line.as_str())
+      .collect();
+    assert_eq!(code, 0);
+    assert!(stdout.contains(&"from-stdin"), "{stdout:?}");
+    assert!(stdout.contains(&"from-env"), "{stdout:?}");
+    assert!(stdout.contains(&"marker.txt"), "{stdout:?}");
+    assert_eq!(stderr, vec!["oops"]);
+  }
+
+  #[test]
+  fn a_missing_program_fails_to_start() {
+    let command = Command {
+      program: "moonlit-no-such-program".to_string(),
+      args: vec![],
+      cwd: None,
+      env: vec![],
+      stdin: None,
+    };
+
+    let result = ChildProcess::start(&command);
+
+    assert!(matches!(&result, Err(msg) if msg.starts_with("failed to spawn moonlit-no-such-program")));
+  }
+}

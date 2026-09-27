@@ -1,8 +1,10 @@
 use std::io::Write;
 use std::sync::Arc;
 
-use moonlit_engine::config::model::{FilesystemAccess, Permissions};
-use moonlit_engine::plugin::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions};
+use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -23,8 +25,8 @@ fn perms(network: Vec<&str>, exec: Vec<&str>) -> Permissions {
   }
 }
 
-fn cfg(permissions: Permissions, env_snapshot: Vec<(String, String)>) -> InstanceConfig {
-  InstanceConfig {
+fn cfg(permissions: Permissions, env_snapshot: Vec<(String, String)>) -> PluginInstanceConfig {
+  PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions,
     config_view: serde_json::json!({}),
@@ -39,9 +41,9 @@ fn ctx(step: &str) -> ReleaseContext {
   }
 }
 
-async fn instance(config: InstanceConfig) -> PluginInstance {
-  let eng = moonlit_engine::plugin::host::test_engine();
-  PluginInstance::instantiate(&eng, FIXTURE, config, Arc::new(NullSink))
+async fn instance(config: PluginInstanceConfig) -> PluginInstance {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  Plugin::instantiate(&eng, FIXTURE, config, Arc::new(NullSink))
     .await
     .expect("pdk-sample instantiates")
 }

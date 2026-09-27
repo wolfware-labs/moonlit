@@ -9,17 +9,23 @@ pub trait Clock: Send + Sync {
   fn now_unix(&self) -> u64;
 }
 
+#[must_use]
 fn sha256_hex(input: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(input.as_bytes());
   hex::encode(hasher.finalize())
 }
 
+#[must_use]
+pub(crate) fn url_key(url: &str) -> String {
+  format!("url-{}", sha256_hex(url))
+}
+
 pub struct SystemClock;
 
 impl Clock for SystemClock {
   fn now_unix(&self) -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
   }
 }
 
@@ -54,33 +60,39 @@ pub struct Cache {
 
 impl Cache {
   pub fn new() -> std::io::Result<Self> {
-    let base = dirs::cache_dir().ok_or_else(|| std::io::Error::other("could not determine the OS cache directory"))?;
+    let root = crate::paths::cache_dir().ok_or_else(|| std::io::Error::other("could not determine the OS cache directory"))?;
     Ok(Self {
-      root: base.join("moonlit"),
+      root,
       clock: Box::new(SystemClock),
     })
   }
 
+  #[must_use]
   pub fn with_root_and_clock(root: PathBuf, clock: Box<dyn Clock>) -> Self {
     Self { root, clock }
   }
 
+  #[must_use]
   pub fn now_unix(&self) -> u64 {
     self.clock.now_unix()
   }
 
+  #[must_use]
   pub fn plugin_dir(&self, key: &str) -> PathBuf {
     self.root.join("plugins").join(key)
   }
 
+  #[must_use]
   pub fn plugin_wasm(&self, key: &str) -> PathBuf {
     self.plugin_dir(key).join("plugin.wasm")
   }
 
+  #[must_use]
   pub fn has_plugin(&self, key: &str) -> bool {
     self.plugin_wasm(key).is_file()
   }
 
+  #[must_use]
   pub fn blob_path(&self, digest: &str) -> PathBuf {
     let (algo, hex) = digest.split_once(':').unwrap_or(("sha256", digest));
     self.root.join("oci").join(algo).join(hex)
@@ -102,11 +114,13 @@ impl Cache {
     Ok(wasm)
   }
 
+  #[must_use]
   pub fn read_meta(&self, key: &str) -> Option<PluginMeta> {
     let bytes = std::fs::read(self.plugin_dir(key).join("meta.json")).ok()?;
     serde_json::from_slice(&bytes).ok()
   }
 
+  #[must_use]
   pub fn read_ref(&self, oci_ref: &str, ttl: Duration) -> Option<String> {
     let bytes = std::fs::read(self.ref_path(oci_ref)).ok()?;
     let record: RefRecord = serde_json::from_slice(&bytes).ok()?;
@@ -123,10 +137,12 @@ impl Cache {
     write_atomic(&self.ref_path(oci_ref), &bytes)
   }
 
+  #[must_use]
   fn ref_path(&self, oci_ref: &str) -> PathBuf {
     self.root.join("refs").join(format!("{}.json", sha256_hex(oci_ref)))
   }
 
+  #[must_use]
   pub fn list(&self) -> Vec<(String, PluginMeta)> {
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(self.root.join("plugins")) else {
@@ -186,6 +202,7 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
   }
 }
 
+#[must_use]
 fn dir_size(dir: &Path) -> u64 {
   let mut total = 0;
   if let Ok(entries) = std::fs::read_dir(dir) {
@@ -201,12 +218,12 @@ fn dir_size(dir: &Path) -> u64 {
   total
 }
 
+#[must_use]
 fn count_immediate_dirs(dir: &Path) -> usize {
-  std::fs::read_dir(dir)
-    .map(|it| it.flatten().filter(|e| e.path().is_dir()).count())
-    .unwrap_or(0)
+  std::fs::read_dir(dir).map_or(0, |it| it.flatten().filter(|e| e.path().is_dir()).count())
 }
 
+#[must_use]
 fn count_files_recursive(dir: &Path) -> usize {
   let mut n = 0;
   if let Ok(entries) = std::fs::read_dir(dir) {
@@ -289,7 +306,7 @@ mod tests {
     cache.write_ref("reg/x:tag", "sha256:m").unwrap();
     now.store(1_000 + 600, Ordering::SeqCst);
     assert_eq!(
-      cache.read_ref("reg/x:tag", Duration::from_secs(900)).as_deref(),
+      cache.read_ref("reg/x:tag", Duration::from_mins(15)).as_deref(),
       Some("sha256:m")
     );
   }
@@ -300,13 +317,13 @@ mod tests {
     let (cache, _d) = cache_with_clock(now.clone());
     cache.write_ref("reg/x:tag", "sha256:m").unwrap();
     now.store(1_000 + 1_200, Ordering::SeqCst);
-    assert_eq!(cache.read_ref("reg/x:tag", Duration::from_secs(900)), None);
+    assert_eq!(cache.read_ref("reg/x:tag", Duration::from_mins(15)), None);
   }
 
   #[test]
   fn read_ref_missing_is_none() {
     let (cache, _d) = cache_with_clock(Arc::new(AtomicU64::new(0)));
-    assert_eq!(cache.read_ref("reg/never:tag", Duration::from_secs(900)), None);
+    assert_eq!(cache.read_ref("reg/never:tag", Duration::from_mins(15)), None);
   }
 
   struct TestClock;
@@ -402,9 +419,43 @@ mod tests {
     assert_eq!(std::fs::read(&*path).unwrap(), payload);
     let leftovers: Vec<_> = std::fs::read_dir(dir.path())
       .unwrap()
-      .filter_map(|e| e.ok())
-      .filter(|e| e.path().extension().map(|x| x == "tmp").unwrap_or(false))
+      .filter_map(std::result::Result::ok)
+      .filter(|e| e.path().extension().is_some_and(|x| x == "tmp"))
       .collect();
     assert!(leftovers.is_empty(), "leaked temp files: {leftovers:?}");
+  }
+
+  #[test]
+  fn write_blob_keeps_an_existing_blob() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(SystemClock));
+    cache.write_blob("sha256:abc", b"first").unwrap();
+    cache.write_blob("sha256:abc", b"second").unwrap();
+    assert_eq!(std::fs::read(cache.blob_path("sha256:abc")).unwrap(), b"first");
+  }
+
+  #[test]
+  fn list_ignores_stray_files_in_the_plugins_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(SystemClock));
+    std::fs::create_dir_all(dir.path().join("plugins")).unwrap();
+    std::fs::write(dir.path().join("plugins").join("stray.txt"), b"x").unwrap();
+    assert!(cache.list().is_empty());
+  }
+
+  #[test]
+  fn write_atomic_fails_when_the_target_is_a_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("occupied");
+    std::fs::create_dir_all(target.join("child")).unwrap();
+    assert!(super::write_atomic(&target, b"bytes").is_err());
+  }
+
+  #[test]
+  fn url_keys_are_filesystem_safe_and_stable() {
+    let key = super::url_key("https://example.com:8443/plugins/git.wasm?x=1");
+    assert_eq!(key, super::url_key("https://example.com:8443/plugins/git.wasm?x=1"));
+    assert!(key.starts_with("url-"));
+    assert!(key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'), "{key}");
   }
 }

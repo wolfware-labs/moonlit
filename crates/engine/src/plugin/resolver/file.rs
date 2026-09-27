@@ -35,10 +35,10 @@ mod tests {
   #[test]
   fn missing_file_is_not_found() {
     let err = resolve_file(Path::new("/no/such/plugin.wasm")).unwrap_err();
-    match err {
-      ResolveError::NotFound(msg) => assert!(msg.contains("/no/such/plugin.wasm")),
-      other => panic!("expected NotFound, got {other:?}"),
-    }
+    assert!(
+      matches!(&err, ResolveError::NotFound(msg) if msg.contains("/no/such/plugin.wasm")),
+      "{err:?}"
+    );
   }
 
   #[test]

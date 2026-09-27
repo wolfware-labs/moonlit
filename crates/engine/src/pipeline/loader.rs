@@ -93,7 +93,9 @@ async fn load_plugins(
   while let Some(joined) = tasks.join_next().await {
     let result = match joined {
       Ok(result) => result,
-      Err(join_error) => Err(PipelineError::Internal(anyhow::anyhow!("plugin load task failed: {join_error}"))),
+      Err(join_error) => Err(PipelineError::Internal(anyhow::anyhow!(
+        "plugin load task failed: {join_error}"
+      ))),
     };
     match result {
       Ok(plugin) => {
@@ -157,8 +159,8 @@ async fn load_plugin(
     .await
     .map_err(|e| load_error(e.to_string()))?;
 
-  let bytes = std::fs::read(&resolved.wasm_path)
-    .map_err(|e| load_error(format!("reading {}: {e}", resolved.wasm_path.display())))?;
+  let bytes =
+    std::fs::read(&resolved.wasm_path).map_err(|e| load_error(format!("reading {}: {e}", resolved.wasm_path.display())))?;
   let instance_config = PluginInstanceConfig {
     working_directory: working_dir,
     permissions,
@@ -227,6 +229,7 @@ fn flatten_steps(
   Ok(steps)
 }
 
+#[must_use]
 fn plugin_url(url: &PluginUrl) -> String {
   match url {
     PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => s.clone(),

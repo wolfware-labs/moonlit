@@ -20,6 +20,7 @@ pub struct PluginInstanceConfig {
 }
 
 impl PluginInstance {
+  #[must_use]
   pub fn new(store: Store<HostState>, bindings: PluginHost) -> Self {
     Self { store, bindings }
   }
@@ -67,7 +68,7 @@ impl PluginInstance {
 
   pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, PluginError> {
     match self.bindings.call_list_middlewares(&mut self.store).await {
-      Ok(list) => Ok(list.into_iter().map(|i| i.into()).collect()),
+      Ok(list) => Ok(list.into_iter().map(std::convert::Into::into).collect()),
       Err(e) => Err(PluginError::Trap {
         op: "list-middlewares".to_string(),
         message: format!("{e:?}"),

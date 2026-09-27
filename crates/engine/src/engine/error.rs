@@ -16,11 +16,22 @@ pub enum EngineError {
 }
 
 impl EngineError {
+  #[must_use]
   pub fn exit_code(&self) -> i32 {
     match self {
       EngineError::Pipeline(e) => e.exit_code(),
-      EngineError::ComponentLoad(_) => 4,
+      EngineError::ComponentLoad(_) => 3,
       EngineError::Internal(_) => 1,
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn component_load_failures_exit_like_plugin_load_failures() {
+    assert_eq!(EngineError::ComponentLoad("bad".to_string()).exit_code(), 3);
   }
 }

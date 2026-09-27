@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
-use moonlit_engine::config::model::Permissions;
-use moonlit_engine::plugin::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::Permissions;
+use moonlit_engine::plugin::host::HostEventSink;
+use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 
@@ -11,8 +13,8 @@ impl HostEventSink for NullSink {
   fn progress(&self, _step: &str, _message: &str) {}
 }
 
-fn full_trust_config() -> InstanceConfig {
-  InstanceConfig {
+fn full_trust_config() -> PluginInstanceConfig {
+  PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions: Permissions::full_trust(),
     config_view: serde_json::json!({}),
@@ -20,14 +22,13 @@ fn full_trust_config() -> InstanceConfig {
   }
 }
 
-async fn engine() -> wasmtime::Engine {
-  // reuse the crate's builder via a fresh instance path
-  moonlit_engine::plugin::host::test_engine()
+fn engine() -> moonlit_engine::engine::Engine {
+  moonlit_engine::engine::Engine::try_default().unwrap()
 }
 
 async fn instance() -> PluginInstance {
-  let eng = engine().await;
-  PluginInstance::instantiate(&eng, FIXTURE, full_trust_config(), Arc::new(NullSink))
+  let eng = engine();
+  Plugin::instantiate(&eng, FIXTURE, full_trust_config(), Arc::new(NullSink))
     .await
     .expect("instantiation (wasi:http + custom imports linked) must succeed")
 }

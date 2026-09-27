@@ -84,7 +84,7 @@ impl Default for ResolveOptions {
   fn default() -> Self {
     Self {
       offline: false,
-      tag_ttl: Duration::from_secs(15 * 60),
+      tag_ttl: Duration::from_mins(15),
     }
   }
 }

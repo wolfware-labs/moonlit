@@ -14,6 +14,7 @@ pub struct AllowlistHooks {
 }
 
 impl AllowlistHooks {
+  #[must_use]
   pub fn new(p: &Permissions, events: Arc<dyn HostEventSink>) -> Self {
     Self {
       allowed: network_globset(&p.network),

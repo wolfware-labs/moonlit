@@ -5,14 +5,17 @@ pub struct Span {
 }
 
 impl Span {
+  #[must_use]
   pub fn new(start: usize, end: usize) -> Self {
     Self { start, end }
   }
 
+  #[must_use]
   pub fn point(at: usize) -> Self {
     Self { start: at, end: at }
   }
 
+  #[must_use]
   pub fn to_source_span(self) -> miette::SourceSpan {
     (self.start, self.end.saturating_sub(self.start)).into()
   }
@@ -25,6 +28,7 @@ pub struct Spanned<T> {
 }
 
 impl<T> Spanned<T> {
+  #[must_use]
   pub fn new(value: T, span: Span) -> Self {
     Self { value, span }
   }

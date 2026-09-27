@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use std::fmt::Write as _;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -9,24 +10,7 @@ pub enum Value {
 }
 
 impl Value {
-  pub fn flatten(&self) -> IndexMap<String, String> {
-    let mut out = IndexMap::new();
-    flatten_into(self, "", &mut out);
-    out
-  }
-
-  pub fn unflatten(flat: &IndexMap<String, String>) -> Value {
-    let mut root = Value::Map(IndexMap::new());
-    for (key, val) in flat {
-      let segments: Vec<&str> = key.split(':').collect();
-      if segments.is_empty() {
-        continue;
-      }
-      insert_path(&mut root, &segments, val);
-    }
-    root
-  }
-
+  #[must_use]
   pub fn to_display_string(&self) -> String {
     match self {
       Value::Null => String::new(),
@@ -35,6 +19,7 @@ impl Value {
     }
   }
 
+  #[must_use]
   pub fn to_json(&self) -> serde_json::Value {
     match self {
       Value::Null => serde_json::Value::Null,
@@ -44,6 +29,7 @@ impl Value {
     }
   }
 
+  #[must_use]
   pub fn from_json(j: &serde_json::Value) -> Value {
     match j {
       serde_json::Value::Null => Value::Null,
@@ -55,6 +41,7 @@ impl Value {
     }
   }
 
+  #[must_use]
   pub fn to_json_string(&self) -> String {
     match self {
       Value::Null => "null".to_string(),
@@ -73,93 +60,7 @@ impl Value {
     }
   }
 }
-
-fn is_index(seg: &str) -> bool {
-  !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_digit())
-}
-
-fn flatten_into(v: &Value, prefix: &str, out: &mut IndexMap<String, String>) {
-  match v {
-    Value::Null => {}
-    Value::Str(s) => {
-      if !prefix.is_empty() {
-        out.insert(prefix.to_string(), s.clone());
-      }
-    }
-    Value::List(items) => {
-      for (i, item) in items.iter().enumerate() {
-        let key = if prefix.is_empty() {
-          i.to_string()
-        } else {
-          format!("{prefix}:{i}")
-        };
-        flatten_into(item, &key, out);
-      }
-    }
-    Value::Map(m) => {
-      for (k, item) in m {
-        let key = if prefix.is_empty() {
-          k.clone()
-        } else {
-          format!("{prefix}:{k}")
-        };
-        flatten_into(item, &key, out);
-      }
-    }
-  }
-}
-
-fn insert_path(parent: &mut Value, segments: &[&str], val: &str) {
-  let key = segments[0];
-  if segments.len() == 1 {
-    put_child(parent, key, Value::Str(val.to_string()));
-    return;
-  }
-  let want_list = is_index(segments[1]);
-  let child = child_slot(parent, key, want_list);
-  insert_path(child, &segments[1..], val);
-}
-
-fn put_child(parent: &mut Value, key: &str, value: Value) {
-  match parent {
-    Value::Map(m) => {
-      m.insert(key.to_string(), value);
-    }
-    Value::List(l) => {
-      let i: usize = key.parse().expect("list index segment");
-      while l.len() <= i {
-        l.push(Value::Null);
-      }
-      l[i] = value;
-    }
-    _ => unreachable!("parent is always a container"),
-  }
-}
-
-fn child_slot<'a>(parent: &'a mut Value, key: &str, want_list: bool) -> &'a mut Value {
-  let fresh = || {
-    if want_list {
-      Value::List(Vec::new())
-    } else {
-      Value::Map(IndexMap::new())
-    }
-  };
-  match parent {
-    Value::Map(m) => m.entry(key.to_string()).or_insert_with(fresh),
-    Value::List(l) => {
-      let i: usize = key.parse().expect("list index segment");
-      while l.len() <= i {
-        l.push(Value::Null);
-      }
-      if !matches!(l[i], Value::List(_) | Value::Map(_)) {
-        l[i] = fresh();
-      }
-      &mut l[i]
-    }
-    _ => unreachable!("parent is always a container"),
-  }
-}
-
+#[must_use]
 fn json_escape(s: &str) -> String {
   let mut out = String::with_capacity(s.len() + 2);
   out.push('"');
@@ -170,10 +71,77 @@ fn json_escape(s: &str) -> String {
       '\n' => out.push_str("\\n"),
       '\r' => out.push_str("\\r"),
       '\t' => out.push_str("\\t"),
-      c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+      c if (c as u32) < 0x20 => {
+        let _ = write!(out, "\\u{:04x}", c as u32);
+      }
       c => out.push(c),
     }
   }
   out.push('"');
   out
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn sample() -> Value {
+    Value::Map(IndexMap::from([
+      ("name".to_string(), Value::Str("demo".to_string())),
+      (
+        "items".to_string(),
+        Value::List(vec![Value::Null, Value::Str("x".to_string())]),
+      ),
+    ]))
+  }
+
+  #[test]
+  fn display_string_is_raw_for_scalars_and_json_for_containers() {
+    assert_eq!(Value::Null.to_display_string(), "");
+    assert_eq!(Value::Str("plain".to_string()).to_display_string(), "plain");
+    assert_eq!(sample().to_display_string(), r#"{"name":"demo","items":[null,"x"]}"#);
+  }
+
+  #[test]
+  fn json_string_escapes_special_characters() {
+    let value = Value::Str("q\" b\\ n\n r\r t\t c\u{1}".to_string());
+    assert_eq!(value.to_json_string(), r#""q\" b\\ n\n r\r t\t c\u0001""#);
+  }
+
+  #[test]
+  fn json_string_escapes_map_keys() {
+    let value = Value::Map(IndexMap::from([("k\"ey".to_string(), Value::Null)]));
+    assert_eq!(value.to_json_string(), r#"{"k\"ey":null}"#);
+  }
+
+  #[test]
+  fn to_json_builds_the_matching_serde_value() {
+    assert_eq!(
+      sample().to_json(),
+      serde_json::json!({ "name": "demo", "items": [null, "x"] })
+    );
+  }
+
+  #[test]
+  fn from_json_stringifies_booleans_and_numbers() {
+    let json = serde_json::json!({ "flag": true, "count": 3, "ratio": 1.5, "list": [null, "s"] });
+    let value = Value::from_json(&json);
+    assert_eq!(
+      value,
+      Value::Map(IndexMap::from([
+        ("flag".to_string(), Value::Str("true".to_string())),
+        ("count".to_string(), Value::Str("3".to_string())),
+        ("ratio".to_string(), Value::Str("1.5".to_string())),
+        (
+          "list".to_string(),
+          Value::List(vec![Value::Null, Value::Str("s".to_string())]),
+        ),
+      ]))
+    );
+  }
+
+  #[test]
+  fn json_round_trip_preserves_strings_and_structure() {
+    assert_eq!(Value::from_json(&sample().to_json()), sample());
+  }
 }

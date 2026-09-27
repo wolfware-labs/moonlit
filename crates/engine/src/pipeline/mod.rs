@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 pub mod config;
 mod data;
 mod error;
@@ -16,6 +18,7 @@ use indexmap::IndexMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[must_use = "a loaded pipeline does nothing until `.run()` is called"]
 pub struct Pipeline {
   plugins: IndexMap<String, PluginInstance>,
   steps: Vec<FlatStep>,
@@ -25,10 +28,12 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
+  #[must_use]
   pub fn step_count(&self) -> usize {
     self.steps.len()
   }
 
+  #[must_use]
   pub fn plugin_names(&self) -> Vec<&str> {
     self.plugins.keys().map(String::as_str).collect()
   }

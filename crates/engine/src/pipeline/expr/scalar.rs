@@ -30,6 +30,7 @@ impl From<&str> for Scalar {
   }
 }
 
+#[must_use]
 fn parse_datetime(s: &str) -> Option<DateTime<FixedOffset>> {
   if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
     return Some(dt);

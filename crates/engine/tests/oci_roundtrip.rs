@@ -1,6 +1,6 @@
 use moonlit_engine::cache::{Cache, SystemClock};
-use moonlit_engine::publish::{PublishMeta, new_push_client, publish_plugin};
-use moonlit_engine::resolve::{PluginSource, ResolveOptions, resolve};
+use moonlit_engine::plugin::publish::{PluginArtifactMetadata, new_push_client, publish_plugin};
+use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
 
 #[tokio::test]
 #[ignore = "requires a local OCI registry (set MOONLIT_TEST_OCI_REGISTRY)"]
@@ -12,7 +12,7 @@ async fn publish_then_pull_roundtrips() {
 
   let wasm = include_bytes!("fixtures/pdk_sample.wasm").to_vec();
   let raw_ref = format!("{host}/moonlit-test/sample:0.0.1");
-  let meta = PublishMeta {
+  let meta = PluginArtifactMetadata {
     plugin_name: "sample".into(),
     version: "0.0.1".into(),
     description: "roundtrip fixture".into(),
@@ -32,7 +32,7 @@ async fn publish_then_pull_roundtrips() {
   // Pull it back into a fresh, isolated cache.
   let cache_dir = tempfile::tempdir().unwrap();
   let cache = Cache::with_root_and_clock(cache_dir.path().to_path_buf(), Box::new(SystemClock));
-  let source = PluginSource::parse(&format!("oci://{raw_ref}")).unwrap();
+  let source = format!("oci://{raw_ref}").parse::<PluginSource>().unwrap();
   let resolved = resolve(&source, &ResolveOptions::default(), &cache, None)
     .await
     .expect("pull should succeed");

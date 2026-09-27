@@ -76,3 +76,18 @@ fn json_str_to_value(s: &str, context: &str) -> Result<serde_json::Value, crate:
     source,
   })
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use moonlit::plugin::types::LogLevel as WitLogLevel;
+
+  #[test]
+  fn every_guest_log_level_maps_to_the_engine_level() {
+    assert_eq!(LogLevel::from(WitLogLevel::Trace), LogLevel::Trace);
+    assert_eq!(LogLevel::from(WitLogLevel::Debug), LogLevel::Debug);
+    assert_eq!(LogLevel::from(WitLogLevel::Info), LogLevel::Info);
+    assert_eq!(LogLevel::from(WitLogLevel::Warn), LogLevel::Warn);
+    assert_eq!(LogLevel::from(WitLogLevel::Error), LogLevel::Error);
+  }
+}

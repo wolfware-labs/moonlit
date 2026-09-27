@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use moonlit_engine::config::model::Permissions;
-use moonlit_engine::plugin::host::{HostError, HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::Permissions;
+use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::{Plugin, PluginError, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 
@@ -19,8 +21,8 @@ impl HostEventSink for RecordingSink {
   }
 }
 
-fn cfg() -> InstanceConfig {
-  InstanceConfig {
+fn cfg() -> PluginInstanceConfig {
+  PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions: Permissions::full_trust(),
     config_view: serde_json::json!({ "plugin": { "name": "test-plugin" } }),
@@ -37,9 +39,9 @@ fn ctx(step: &str) -> ReleaseContext {
 
 #[tokio::test]
 async fn execute_log_and_output_returns_result_and_emits_events() {
-  let eng = moonlit_engine::plugin::host::test_engine();
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
   let sink = Arc::new(RecordingSink::default());
-  let mut p = PluginInstance::instantiate(&eng, FIXTURE, cfg(), sink.clone()).await.unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg(), sink.clone()).await.unwrap();
 
   let result = p
     .execute("log-and-output", ctx("compile"), &serde_json::json!({ "k": 1 }))
@@ -61,10 +63,13 @@ async fn execute_log_and_output_returns_result_and_emits_events() {
 
 #[tokio::test]
 async fn panicking_middleware_surfaces_as_trap() {
-  let eng = moonlit_engine::plugin::host::test_engine();
-  let mut p = PluginInstance::instantiate(&eng, FIXTURE, cfg(), Arc::new(RecordingSink::default()))
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg(), Arc::new(RecordingSink::default()))
     .await
     .unwrap();
   let err = p.execute("boom", ctx("boom"), &serde_json::json!({})).await.unwrap_err();
-  assert!(matches!(err, HostError::Trap { .. }), "guest panic must be HostError::Trap");
+  assert!(
+    matches!(err, PluginError::Trap { .. }),
+    "guest panic must be PluginError::Trap"
+  );
 }

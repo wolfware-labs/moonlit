@@ -3,6 +3,7 @@ use std::path::Path;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
+use oci_client::errors::{OciDistributionError, OciErrorCode};
 use oci_client::secrets::RegistryAuth;
 use serde::Deserialize;
 
@@ -31,6 +32,7 @@ struct MoonlitRegistryCred {
   password: Option<String>,
 }
 
+#[must_use]
 pub fn resolve_auth(host: &str, home: &Path) -> RegistryAuth {
   if let Some(auth) = docker_auth(host, home) {
     return auth;
@@ -41,6 +43,7 @@ pub fn resolve_auth(host: &str, home: &Path) -> RegistryAuth {
   RegistryAuth::Anonymous
 }
 
+#[must_use]
 fn docker_auth(host: &str, home: &Path) -> Option<RegistryAuth> {
   let bytes = std::fs::read(home.join(".docker/config.json")).ok()?;
   let config: DockerConfig = serde_json::from_slice(&bytes).ok()?;
@@ -52,6 +55,7 @@ fn docker_auth(host: &str, home: &Path) -> Option<RegistryAuth> {
   Some(RegistryAuth::Basic(user.to_string(), pass.to_string()))
 }
 
+#[must_use]
 fn moonlit_auth(host: &str, home: &Path) -> Option<RegistryAuth> {
   let text = std::fs::read_to_string(home.join(".config/moonlit/credentials.toml")).ok()?;
   let creds: MoonlitCredentials = toml::from_str(&text).ok()?;
@@ -63,6 +67,20 @@ fn moonlit_auth(host: &str, home: &Path) -> Option<RegistryAuth> {
     return Some(RegistryAuth::Basic(u.clone(), p.clone()));
   }
   None
+}
+
+#[must_use]
+pub(crate) fn is_auth_failure(err: &OciDistributionError) -> bool {
+  match err {
+    OciDistributionError::UnauthorizedError { .. }
+    | OciDistributionError::AuthenticationFailure(_)
+    | OciDistributionError::ServerError { code: 401 | 403, .. } => true,
+    OciDistributionError::RegistryError { envelope, .. } => envelope
+      .errors
+      .iter()
+      .any(|e| matches!(e.code, OciErrorCode::Unauthorized | OciErrorCode::Denied)),
+    _ => false,
+  }
 }
 
 #[cfg(test)]
@@ -82,13 +100,11 @@ mod tests {
       &home.path().join(".docker/config.json"),
       r#"{"auths":{"registry.example.com":{"auth":"YWxpY2U6czNjcmV0"}}}"#,
     );
-    match resolve_auth("registry.example.com", home.path()) {
-      RegistryAuth::Basic(u, p) => {
-        assert_eq!(u, "alice");
-        assert_eq!(p, "s3cret");
-      }
-      other => panic!("expected Basic, got {other:?}"),
-    }
+    let auth = resolve_auth("registry.example.com", home.path());
+    assert!(
+      matches!(&auth, RegistryAuth::Basic(u, p) if u == "alice" && p == "s3cret"),
+      "{auth:?}"
+    );
   }
 
   #[test]
@@ -115,10 +131,8 @@ mod tests {
       &home.path().join(".config/moonlit/credentials.toml"),
       "[registries.\"registry.moonlit.rs\"]\ntoken = \"abc123\"\n",
     );
-    match resolve_auth("registry.moonlit.rs", home.path()) {
-      RegistryAuth::Bearer(t) => assert_eq!(t, "abc123"),
-      other => panic!("expected Bearer, got {other:?}"),
-    }
+    let auth = resolve_auth("registry.moonlit.rs", home.path());
+    assert!(matches!(&auth, RegistryAuth::Bearer(t) if t == "abc123"), "{auth:?}");
   }
 
   #[test]
@@ -128,13 +142,11 @@ mod tests {
       &home.path().join(".config/moonlit/credentials.toml"),
       "[registries.\"reg.example.com\"]\nusername = \"bob\"\npassword = \"pw\"\n",
     );
-    match resolve_auth("reg.example.com", home.path()) {
-      RegistryAuth::Basic(u, p) => {
-        assert_eq!(u, "bob");
-        assert_eq!(p, "pw");
-      }
-      other => panic!("expected Basic, got {other:?}"),
-    }
+    let auth = resolve_auth("reg.example.com", home.path());
+    assert!(
+      matches!(&auth, RegistryAuth::Basic(u, p) if u == "bob" && p == "pw"),
+      "{auth:?}"
+    );
   }
 
   #[test]
@@ -149,6 +161,19 @@ mod tests {
     write(
       &home.path().join(".docker/config.json"),
       r#"{"credsStore":"desktop","auths":{}}"#,
+    );
+    assert!(matches!(
+      resolve_auth("reg.example.com", home.path()),
+      RegistryAuth::Anonymous
+    ));
+  }
+
+  #[test]
+  fn a_moonlit_entry_without_a_token_or_full_basic_pair_is_anonymous() {
+    let home = tempfile::tempdir().unwrap();
+    write(
+      &home.path().join(".config/moonlit/credentials.toml"),
+      "[registries.\"reg.example.com\"]\nusername = \"bob\"\n",
     );
     assert!(matches!(
       resolve_auth("reg.example.com", home.path()),

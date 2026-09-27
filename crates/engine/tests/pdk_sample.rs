@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
-use moonlit_engine::config::model::Permissions;
-use moonlit_engine::plugin::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext};
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::Permissions;
+use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/pdk_sample.wasm");
 
@@ -11,8 +13,8 @@ impl HostEventSink for NullSink {
   fn progress(&self, _step: &str, _message: &str) {}
 }
 
-fn cfg() -> InstanceConfig {
-  InstanceConfig {
+fn cfg() -> PluginInstanceConfig {
+  PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions: Permissions::full_trust(),
     config_view: serde_json::json!({ "plugin": { "name": "pdk-sample" } }),
@@ -28,8 +30,8 @@ fn ctx(step: &str) -> ReleaseContext {
 }
 
 async fn instance() -> PluginInstance {
-  let eng = moonlit_engine::plugin::host::test_engine();
-  PluginInstance::instantiate(&eng, FIXTURE, cfg(), Arc::new(NullSink))
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  Plugin::instantiate(&eng, FIXTURE, cfg(), Arc::new(NullSink))
     .await
     .expect("pdk-sample instantiates")
 }

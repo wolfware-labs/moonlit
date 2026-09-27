@@ -38,7 +38,7 @@ fn plugin_world_constant_matches_the_shipped_wit() {
     name.version.as_ref().expect("the WIT package declares a version")
   );
   assert_eq!(
-    moonlit_engine::publish::PLUGIN_WORLD,
+    moonlit_engine::plugin::publish::PLUGIN_WORLD,
     expected,
     "PLUGIN_WORLD must name the WIT this engine ships. Bumping the contract means bumping this \
          constant AND the registry's PublishService.SupportedWorld in the same window - the \
@@ -48,8 +48,8 @@ fn plugin_world_constant_matches_the_shipped_wit() {
 
 /// Names of the fields declared by a `record` type in the `types` interface.
 fn record_field_names<'a>(resolve: &'a Resolve, package_id: PackageId, record: &str) -> Vec<&'a str> {
-  let types_id = resolve.packages[package_id].interfaces["types"];
-  let type_id = resolve.interfaces[types_id].types[record];
+  let interface_id = resolve.packages[package_id].interfaces["types"];
+  let type_id = resolve.interfaces[interface_id].types[record];
   match &resolve.types[type_id].kind {
     TypeDefKind::Record(rec) => rec.fields.iter().map(|f| f.name.as_str()).collect(),
     other => panic!("`{record}` must be a record, found {other:?}"),

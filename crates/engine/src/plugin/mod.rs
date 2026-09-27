@@ -27,9 +27,7 @@ pub struct PluginMetadata {
   pub icon: Option<String>,
 }
 
-pub struct Plugin {
-  metadata: PluginMetadata,
-}
+pub struct Plugin;
 
 impl Plugin {
   pub async fn instantiate(

@@ -12,18 +12,21 @@ use tokio_util::sync::CancellationToken;
 
 const SEED_WARNING: &str = "No middlewares registered in the pipeline.";
 
+#[must_use = "an execution outcome must be settled into a step result"]
 enum ExecOutcome {
   Completed(Result<MiddlewareResult, PluginError>),
   Cancelled,
   TimedOut,
 }
 
+#[must_use = "the step flow decides whether the run continues"]
 enum StepFlow {
   Continue,
   Halt,
   Stop(PipelineError),
 }
 
+#[must_use = "a settled step must be recorded"]
 struct Settled {
   successful: bool,
   error_message: Option<String>,
@@ -129,7 +132,9 @@ impl Pipeline {
       ExecOutcome::TimedOut => {
         let timeout = self.step_timeout.expect("only a configured timeout can elapse");
         let message = format!("Step '{}' timed out after {:?}", step.name, timeout);
-        state.record(StepResult::failed(&step.name, started.elapsed(), &message)).await;
+        state
+          .record(StepResult::failed(&step.name, started.elapsed(), &message))
+          .await;
         StepFlow::Stop(PipelineError::Execution(message))
       }
       ExecOutcome::Completed(result) => {
@@ -167,7 +172,10 @@ impl Pipeline {
       step_name: step.name.clone(),
     };
     let timeout = self.step_timeout;
-    let instance = self.plugins.get_mut(&step.plugin).expect("load resolves every plugin a step runs");
+    let instance = self
+      .plugins
+      .get_mut(&step.plugin)
+      .expect("load resolves every plugin a step runs");
     let deadline = async move {
       match timeout {
         Some(duration) => tokio::time::sleep(duration).await,
@@ -177,9 +185,9 @@ impl Pipeline {
 
     tokio::select! {
       biased;
-      _ = cancel.cancelled() => ExecOutcome::Cancelled,
+      () = cancel.cancelled() => ExecOutcome::Cancelled,
       result = instance.execute(&step.middleware, context, config) => ExecOutcome::Completed(result),
-      _ = deadline => ExecOutcome::TimedOut,
+      () = deadline => ExecOutcome::TimedOut,
     }
   }
 
@@ -248,6 +256,7 @@ impl Pipeline {
 }
 
 impl RunState {
+  #[must_use]
   fn new(events: Sender<PipelineEvent>) -> Self {
     Self {
       events,
@@ -304,6 +313,7 @@ impl RunState {
 }
 
 impl StepResult {
+  #[must_use]
   fn skipped(name: &str, warning: Option<String>) -> Self {
     Self {
       name: name.to_string(),
@@ -315,6 +325,7 @@ impl StepResult {
     }
   }
 
+  #[must_use]
   fn failed(name: &str, duration: Duration, message: &str) -> Self {
     Self {
       name: name.to_string(),
