@@ -1,5 +1,6 @@
 pub mod config;
 mod data;
+mod error;
 mod expr;
 pub mod manifest;
 mod model;
@@ -8,6 +9,7 @@ use crate::engine::Engine;
 use crate::engine::error::EngineError;
 use crate::pipeline::config::PipelineConfig;
 pub(crate) use crate::pipeline::data::PipelineData;
+use crate::pipeline::error::PipelineError;
 use crate::pipeline::model::FlatStep;
 pub use crate::pipeline::model::{PipelineEvent, PipelineOptions, PipelineSummary, StepResult};
 use crate::plugin::Plugin;
@@ -26,12 +28,7 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-  pub async fn load(
-    engine: &Engine,
-    config: &PipelineConfig,
-    opts: PipelineOptions,
-    events: &Sender<PipelineEvent>,
-  ) -> Result<Self, EngineError> {
+  pub async fn load(engine: &Engine, config: &PipelineConfig, opts: PipelineOptions) -> Result<Self, PipelineError> {
     let data = PipelineData::new();
 
     let mut set: JoinSet<Result<crate::engine::Loaded, EngineError>> = JoinSet::new();
@@ -100,7 +97,7 @@ impl Pipeline {
       acc.push(layer);
     }
 
-    let src = crate::config::diagnostic::Source::new(content, &opts.config_file_name);
+    let src = Source::new(content, &opts.config_file_name);
     let mut flat = Vec::new();
     for stage in &cfg.stages.value {
       for step in &stage.steps {
