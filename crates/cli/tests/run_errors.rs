@@ -10,6 +10,14 @@ fn fixture_wasm_url() -> String {
   format!("file://{}", p.display())
 }
 
+fn unwrapped_stderr(output: &std::process::Output) -> String {
+  String::from_utf8_lossy(&output.stderr)
+    .split_whitespace()
+    .filter(|word| *word != "│")
+    .collect::<Vec<_>>()
+    .join(" ")
+}
+
 fn write_release(path: &Path) {
   let yaml = format!(
     "name: demo\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n  other:\n    - name: s2\n      run: tp.log-and-output\n",
@@ -57,22 +65,21 @@ fn pretty_run_succeeds_without_a_terminal() {
 #[test]
 fn run_without_a_pipeline_file_names_the_defaults() {
   let dir = tempfile::tempdir().unwrap();
-  moonlit_in(dir.path())
-    .args(["run", "--output", "plain"])
-    .assert()
-    .code(2)
-    .stderr(contains("No pipeline file found"))
-    .stderr(contains("release.yml, release.yaml"));
+  let assert = moonlit_in(dir.path()).args(["run", "--output", "plain"]).assert().code(2);
+  let stderr = unwrapped_stderr(assert.get_output());
+  assert!(stderr.contains("No pipeline file found"), "{stderr}");
+  assert!(stderr.contains("(looked for release.yml, release.yaml)"), "{stderr}");
 }
 
 #[test]
 fn run_with_a_missing_file_reports_it() {
   let dir = tempfile::tempdir().unwrap();
-  moonlit_in(dir.path())
+  let assert = moonlit_in(dir.path())
     .args(["run", "--output", "plain", "-f", "missing.yml"])
     .assert()
-    .code(2)
-    .stderr(contains("does not exist"));
+    .code(2);
+  let stderr = unwrapped_stderr(assert.get_output());
+  assert!(stderr.contains("missing.yml' does not exist."), "{stderr}");
 }
 
 #[test]
