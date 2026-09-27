@@ -1,5 +1,6 @@
 use crate::cli::{OutputMode, PluginPublishArgs};
 use crate::render::resolve_mode;
+use moonlit_engine::plugin::publish::{PluginArtifactMetadata, new_push_client, publish_plugin};
 use std::path::PathBuf;
 
 pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
@@ -108,7 +109,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     .ok()
     .and_then(|t| sdk_version_from_lock(&t));
 
-  let publish_meta = PublishMeta {
+  let publish_meta = PluginArtifactMetadata {
     plugin_name: meta.name.clone(),
     version: meta.version.clone(),
     description: meta.description.clone(),
