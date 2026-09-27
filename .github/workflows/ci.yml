@@ -36,7 +36,7 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: test
-        run: cargo test --all
+        run: cargo test --all --no-fail-fast
       # The docker job packages this rather than building its own. Copy, not
       # move: the cache saves `target`, so removing it would force a relink.
       - name: Stage the CLI binary for the docker job
@@ -81,7 +81,7 @@ jobs:
         shell: pwsh
         run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\usr\bin"
       - name: test
-        run: cargo test --all
+        run: cargo test --all --no-fail-fast
 
   coverage:
     name: coverage
@@ -117,7 +117,7 @@ jobs:
           # they would otherwise evict the plain test artifacts on every run.
           key: ${{ runner.os }}-cargo-llvmcov-${{ hashFiles('**/Cargo.lock') }}
       - name: Generate coverage
-        run: cargo llvm-cov --all --lcov --output-path lcov.info --fail-under-lines 95
+        run: cargo llvm-cov --all --no-fail-fast --lcov --output-path lcov.info --fail-under-lines 95
       - name: Upload to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
