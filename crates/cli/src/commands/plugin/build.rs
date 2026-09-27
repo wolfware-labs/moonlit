@@ -26,14 +26,14 @@ pub fn parse_manifest(text: &str) -> Result<PluginManifest, String> {
   let is_cdylib = raw
     .lib
     .and_then(|l| l.crate_type)
-    .map(|types| types.iter().any(|t| t == "cdylib"))
-    .unwrap_or(false);
+    .is_some_and(|types| types.iter().any(|t| t == "cdylib"));
   Ok(PluginManifest {
     name: raw.package.name,
     is_cdylib,
   })
 }
 
+#[must_use]
 pub fn artifact_path(target_dir: &Path, lib_name: &str, release: bool) -> PathBuf {
   let profile = if release { "release" } else { "debug" };
   target_dir
@@ -80,13 +80,10 @@ pub fn parse_layout(meta: &serde_json::Value, crate_dir: &Path) -> Result<BuildL
   let package = packages
     .iter()
     .find(|p| {
-      p.get("manifest_path")
-        .and_then(|v| v.as_str())
-        .map(|m| {
-          let listed = Path::new(m);
-          std::fs::canonicalize(listed).unwrap_or_else(|_| listed.to_path_buf()) == wanted
-        })
-        .unwrap_or(false)
+      p.get("manifest_path").and_then(|v| v.as_str()).is_some_and(|m| {
+        let listed = Path::new(m);
+        std::fs::canonicalize(listed).unwrap_or_else(|_| listed.to_path_buf()) == wanted
+      })
     })
     .ok_or_else(|| format!("cargo metadata lists no package whose manifest is {}", wanted.display()))?;
 
@@ -97,8 +94,7 @@ pub fn parse_layout(meta: &serde_json::Value, crate_dir: &Path) -> Result<BuildL
       targets.iter().find(|t| {
         t.get("kind")
           .and_then(|k| k.as_array())
-          .map(|kinds| kinds.iter().any(|k| k.as_str() == Some("cdylib")))
-          .unwrap_or(false)
+          .is_some_and(|kinds| kinds.iter().any(|k| k.as_str() == Some("cdylib")))
       })
     })
     .and_then(|t| t.get("name"))
@@ -111,6 +107,7 @@ pub fn parse_layout(meta: &serde_json::Value, crate_dir: &Path) -> Result<BuildL
   })
 }
 
+#[must_use]
 pub fn wasm_target_installed() -> bool {
   let Ok(out) = std::process::Command::new("rustc").args(["--print", "sysroot"]).output() else {
     return false;
@@ -124,7 +121,8 @@ pub fn wasm_target_installed() -> bool {
 
 use crate::cli::PluginBuildArgs;
 
-pub fn run(args: PluginBuildArgs) -> i32 {
+#[must_use]
+pub fn run(args: &PluginBuildArgs) -> i32 {
   let crate_dir = args.manifest_path.clone().unwrap_or_else(|| PathBuf::from("."));
 
   let manifest_file = crate_dir.join("Cargo.toml");
@@ -200,6 +198,7 @@ pub fn run(args: PluginBuildArgs) -> i32 {
   0
 }
 
+#[must_use]
 fn cargo_build_command(crate_dir: &Path, release: bool) -> std::process::Command {
   let mut cmd = std::process::Command::new("cargo");
   cmd

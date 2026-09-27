@@ -26,8 +26,8 @@ fn successful_run_exits_zero() {
   write_release(dir.path(), "log-and-output");
   Command::cargo_bin("moonlit")
     .unwrap()
-    .args(["run", "--output", "plain", "-w"])
-    .arg(dir.path())
+    .args(["run", "--output", "plain", "-f"])
+    .arg(dir.path().join("release.yml"))
     .assert()
     .success();
 }
@@ -38,8 +38,8 @@ fn failing_step_exits_four() {
   write_release(dir.path(), "fail");
   Command::cargo_bin("moonlit")
     .unwrap()
-    .args(["run", "--output", "plain", "-w"])
-    .arg(dir.path())
+    .args(["run", "--output", "plain", "-f"])
+    .arg(dir.path().join("release.yml"))
     .assert()
     .code(4);
 }
@@ -50,8 +50,8 @@ fn unknown_middleware_exits_two() {
   write_release(dir.path(), "does-not-exist");
   Command::cargo_bin("moonlit")
     .unwrap()
-    .args(["run", "--output", "plain", "-w"])
-    .arg(dir.path())
+    .args(["run", "--output", "plain", "-f"])
+    .arg(dir.path().join("release.yml"))
     .assert()
     .code(2);
 }
@@ -62,8 +62,8 @@ fn validate_of_good_pipeline_exits_zero() {
   write_release(dir.path(), "log-and-output");
   Command::cargo_bin("moonlit")
     .unwrap()
-    .args(["validate", "-w"])
-    .arg(dir.path())
+    .args(["validate", "-f"])
+    .arg(dir.path().join("release.yml"))
     .assert()
     .success();
 }
@@ -74,8 +74,8 @@ fn json_mode_emits_finished_event() {
   write_release(dir.path(), "log-and-output");
   let out = Command::cargo_bin("moonlit")
     .unwrap()
-    .args(["run", "--output", "json", "-w"])
-    .arg(dir.path())
+    .args(["run", "--output", "json", "-f"])
+    .arg(dir.path().join("release.yml"))
     .assert()
     .success();
   let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
@@ -94,8 +94,8 @@ fn diagnostics_name_the_file_that_was_actually_read() {
   fs::write(dir.path().join("release.yaml"), "pluigns:\n  - name: p\n").unwrap();
   let out = Command::cargo_bin("moonlit")
     .unwrap()
-    .args(["run", "--output", "plain", "-w"])
-    .arg(dir.path())
+    .args(["run", "--output", "plain", "-f"])
+    .arg(dir.path().join("release.yaml"))
     .output()
     .unwrap();
   let text = format!(

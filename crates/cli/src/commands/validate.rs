@@ -1,5 +1,6 @@
 use crate::cli::{OutputMode, RunArgs, ValidateArgs};
 
+#[must_use]
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: ValidateArgs) -> i32 {
   let run_args = RunArgs {
     file_path: args.file_path,

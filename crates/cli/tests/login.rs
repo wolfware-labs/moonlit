@@ -18,7 +18,7 @@ fn stores_basic_credentials_under_home() {
   let home = tempfile::tempdir().unwrap();
   Command::cargo_bin("moonlit")
     .unwrap()
-    .env("HOME", home.path())
+    .env("MOONLIT_HOME", home.path())
     .args(["login", "ghcr.io", "--username", "alice", "--token", "pat"])
     .assert()
     .success()

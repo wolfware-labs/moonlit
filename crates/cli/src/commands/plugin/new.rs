@@ -6,7 +6,8 @@ use crate::cli::PluginNewArgs;
 use super::scaffold::{ScaffoldValues, is_valid_crate_name, pdk_dep_line};
 use super::templates::render_all;
 
-pub fn run(args: PluginNewArgs) -> i32 {
+#[must_use]
+pub fn run(args: &PluginNewArgs) -> i32 {
   if !is_valid_crate_name(&args.name) {
     eprintln!(
       "error: '{}' is not a valid crate name (start with a letter; letters, digits, '-', '_')",
@@ -22,7 +23,7 @@ pub fn run(args: PluginNewArgs) -> i32 {
   }
 
   let interactive = std::io::stdin().is_terminal() && std::io::stderr().is_terminal();
-  let values = match resolve_values(&args, interactive) {
+  let values = match resolve_values(args, interactive) {
     Ok(v) => v,
     Err(e) => {
       eprintln!("error: {e}");
@@ -40,6 +41,7 @@ pub fn run(args: PluginNewArgs) -> i32 {
   0
 }
 
+#[must_use]
 fn default_namespace() -> String {
   std::process::Command::new("git")
     .args(["config", "user.name"])

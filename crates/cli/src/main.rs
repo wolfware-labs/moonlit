@@ -2,10 +2,10 @@ use clap::Parser;
 use moonlit::cli::{Cli, Command};
 use moonlit::commands::auth::{login, logout};
 use moonlit::commands::{cache, plugin, run, validate, version};
-use std::process::exit;
+use std::process::ExitCode;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> ExitCode {
   let args = Cli::parse();
   let output = args.output;
   let verbose = args.verbose;
@@ -23,7 +23,7 @@ async fn main() {
     Some(Command::Plugin(p)) => plugin::run(output, verbose, p).await,
     Some(Command::Login(a)) => login::run(a).await,
     Some(Command::Logout(a)) => logout::run(a).await,
-    Some(Command::Cache(c)) => cache::run(output, c),
+    Some(Command::Cache(c)) => cache::run(output, &c),
   };
-  exit(code);
+  u8::try_from(code).map_or(ExitCode::FAILURE, ExitCode::from)
 }

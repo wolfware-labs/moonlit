@@ -2,6 +2,7 @@ use crate::cli::{DEFAULT_REGISTRY_HOST, LogoutArgs};
 use crate::commands::auth::{REQUEST_TIMEOUT, base_url, home_dir, http_client, read_bearer, write_doc_0600};
 use std::path::Path;
 
+#[must_use]
 pub async fn run(args: LogoutArgs) -> i32 {
   let host = args.host.unwrap_or_else(|| DEFAULT_REGISTRY_HOST.to_string());
   let Some(home) = home_dir() else {
@@ -19,7 +20,7 @@ pub async fn run(args: LogoutArgs) -> i32 {
         .bearer_auth(&token)
         .send()
         .await
-        .and_then(|r| r.error_for_status())
+        .and_then(reqwest::Response::error_for_status)
         .is_ok(),
       Err(_) => false,
     };

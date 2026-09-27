@@ -24,3 +24,17 @@ fn bare_invocation_prints_help() {
     "bare `moonlit` must not print the version banner, stdout: {stdout}"
   );
 }
+
+#[test]
+fn truecolor_terminal_gets_the_logo_banner() {
+  let out = Command::cargo_bin("moonlit")
+    .unwrap()
+    .env("COLORTERM", "truecolor")
+    .env("CLICOLOR_FORCE", "1")
+    .env("COLUMNS", "120")
+    .arg("version")
+    .assert()
+    .success();
+  let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
+  assert!(stdout.contains("\x1b]8;;https://moonlit.rs/"), "stdout: {stdout:?}");
+}

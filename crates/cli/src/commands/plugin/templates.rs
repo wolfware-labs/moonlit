@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use super::scaffold::ScaffoldValues;
@@ -92,7 +93,7 @@ description = "{description}"
 license = "{license}"
 "#;
 
-const README: &str = r#"# {name}
+const README: &str = r"# {name}
 
 A Moonlit plugin.
 
@@ -107,7 +108,7 @@ A Moonlit plugin.
 ## Inspect
 
     moonlit plugin inspect target/wasm32-wasip2/release/{artifact}.wasm
-"#;
+";
 
 const GITIGNORE: &str = "/target\n";
 
@@ -143,7 +144,7 @@ fn toml_escape(s: &str) -> String {
       '\u{08}' => out.push_str("\\b"),
       '\u{0c}' => out.push_str("\\f"),
       c if (c < '\u{20}') || c == '\u{7f}' => {
-        out.push_str(&format!("\\u{:04X}", c as u32));
+        let _ = write!(out, "\\u{:04X}", c as u32);
       }
       c => out.push(c),
     }
@@ -251,5 +252,18 @@ mod tests {
     let files = render_all(&values());
     let readme = &files.iter().find(|(p, _)| p.to_str() == Some("README.md")).unwrap().1;
     assert!(readme.contains("my_plugin.wasm"));
+  }
+}
+
+#[cfg(test)]
+mod escape_tests {
+  use super::toml_escape;
+
+  #[test]
+  fn toml_escape_handles_every_control_character() {
+    assert_eq!(
+      toml_escape("a\\b\"c\nd\re\tf\u{08}g\u{0c}h\u{01}i\u{7f}"),
+      "a\\\\b\\\"c\\nd\\re\\tf\\bg\\fh\\u0001i\\u007F"
+    );
   }
 }

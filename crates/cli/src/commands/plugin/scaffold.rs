@@ -9,6 +9,7 @@ pub struct ScaffoldValues {
   pub pdk_dep: String,
 }
 
+#[must_use]
 pub fn is_valid_crate_name(name: &str) -> bool {
   let mut chars = name.chars();
   match chars.next() {
@@ -18,9 +19,10 @@ pub fn is_valid_crate_name(name: &str) -> bool {
   chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
+#[must_use]
 pub fn pdk_dep_line(pdk_path: Option<&Path>) -> String {
   match pdk_path {
-    Some(p) => format!("{{ path = \"{}\" }}", p.display()),
+    Some(p) => format!("{{ path = {} }}", toml::Value::String(p.display().to_string())),
     None => "\"0.1.0\"".to_string(),
   }
 }
@@ -48,5 +50,12 @@ mod tests {
   #[test]
   fn sdk_dep_path_when_given() {
     assert_eq!(pdk_dep_line(Some(Path::new("/repo/sdk"))), "{ path = \"/repo/sdk\" }");
+  }
+
+  #[test]
+  fn sdk_dep_path_escapes_backslashes() {
+    let line = pdk_dep_line(Some(Path::new(r"C:\repo\sdk")));
+    let doc: toml::Table = format!("dep = {line}").parse().unwrap();
+    assert_eq!(doc["dep"]["path"].as_str(), Some(r"C:\repo\sdk"));
   }
 }

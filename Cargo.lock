@@ -2106,11 +2106,11 @@ dependencies = [
  "cliclack",
  "comfy-table",
  "console",
- "dirs",
  "gethostname",
  "humantime",
  "indexmap",
  "indicatif",
+ "libc",
  "miette",
  "moonlit-engine",
  "open",
@@ -2125,6 +2125,7 @@ dependencies = [
  "tokio-util",
  "toml 1.1.6+spec-1.1.0",
  "wasmparser 0.258.0",
+ "wiremock",
 ]
 
 [[package]]

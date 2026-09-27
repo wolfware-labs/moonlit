@@ -6,6 +6,7 @@ use moonlit_engine::plugin::PluginMetadata;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
 
+#[must_use]
 pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
   let bytes = if let Ok(source) = &args.target.parse::<PluginSource>() {
     let cache = match Cache::new() {
@@ -15,7 +16,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
         return 3;
       }
     };
-    let resolved = match resolve(&source, &ResolveOptions::default(), &cache, None).await {
+    let resolved = match resolve(source, &ResolveOptions::default(), &cache, None).await {
       Ok(r) => r,
       Err(e) => {
         eprintln!("error: {e}");

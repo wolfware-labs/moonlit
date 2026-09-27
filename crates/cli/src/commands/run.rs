@@ -9,6 +9,7 @@ use moonlit_engine::pipeline::{Pipeline, PipelineError, PipelineOptions, Pipelin
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+#[must_use]
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
   let json = render::resolve_mode(output) == OutputMode::Json;
 
@@ -21,7 +22,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
     }
   };
 
-  let manifest = match PipelineManifest::from_file(manifest_path) {
+  let manifest = match PipelineManifest::from_file(&manifest_path) {
     Ok(m) => m,
     Err(e) => {
       let code = e.exit_code();
@@ -102,6 +103,7 @@ async fn execute(
   result.map(Some)
 }
 
+#[must_use]
 fn exit_code(outcome: &Result<Option<PipelineSummary>, PipelineError>) -> i32 {
   match outcome {
     Ok(_) => 0,
@@ -109,6 +111,7 @@ fn exit_code(outcome: &Result<Option<PipelineSummary>, PipelineError>) -> i32 {
   }
 }
 
+#[must_use]
 fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {
   let peeked = manifest.peek_stages();
   let stages = if stages_filter.is_empty() {

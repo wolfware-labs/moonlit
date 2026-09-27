@@ -1,9 +1,11 @@
+use comfy_table::{Table, presets::UTF8_BORDERS_ONLY};
 use moonlit_engine::cache::Cache;
 
 use crate::cli::{CacheCommand, OutputMode};
 use crate::render::resolve_mode;
 
-pub fn run(output: Option<OutputMode>, cmd: CacheCommand) -> i32 {
+#[must_use]
+pub fn run(output: Option<OutputMode>, cmd: &CacheCommand) -> i32 {
   let cache = match Cache::new() {
     Ok(c) => c,
     Err(e) => {
@@ -17,6 +19,7 @@ pub fn run(output: Option<OutputMode>, cmd: CacheCommand) -> i32 {
   }
 }
 
+#[must_use]
 fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
   let items = cache.list();
   match resolve_mode(output) {
@@ -41,7 +44,7 @@ fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
       }
       for (_key, m) in &items {
         let digest = m.digest.as_deref().unwrap_or("-");
-        let mw = m.middlewares.as_ref().map(|v| v.len()).unwrap_or(0);
+        let mw = m.middlewares.as_ref().map_or(0, std::vec::Vec::len);
         println!("{}  {}  {} bytes  {} middlewares", m.source, digest, m.size, mw);
       }
     }
@@ -50,14 +53,13 @@ fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
         println!("cache is empty");
         return 0;
       }
-      use comfy_table::{Table, presets::UTF8_BORDERS_ONLY};
       let mut table = Table::new();
       table.load_style(UTF8_BORDERS_ONLY);
       table.set_header(["Reference", "Digest", "Size", "Middlewares"]);
       for (_key, m) in &items {
         let digest = m.digest.as_deref().unwrap_or("-");
         let short = digest.get(..19).unwrap_or(digest);
-        let mw = m.middlewares.as_ref().map(|v| v.len()).unwrap_or(0);
+        let mw = m.middlewares.as_ref().map_or(0, std::vec::Vec::len);
         table.add_row([m.source.clone(), short.to_string(), format!("{} B", m.size), mw.to_string()]);
       }
       println!("{table}");
@@ -66,6 +68,7 @@ fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
   0
 }
 
+#[must_use]
 fn clean(cache: &Cache) -> i32 {
   match cache.clean() {
     Ok(stats) => {

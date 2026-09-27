@@ -6,6 +6,7 @@ pub enum SignalAction {
   HardAbort,
 }
 
+#[must_use]
 pub fn decide(count: u32) -> SignalAction {
   if count <= 1 {
     SignalAction::Cancel
@@ -31,4 +32,25 @@ pub fn spawn_watcher(cancel: CancellationToken) {
       }
     }
   });
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn first_interrupt_cancels_and_later_ones_abort() {
+    assert_eq!(decide(0), SignalAction::Cancel);
+    assert_eq!(decide(1), SignalAction::Cancel);
+    assert_eq!(decide(2), SignalAction::HardAbort);
+    assert_eq!(decide(7), SignalAction::HardAbort);
+  }
+
+  #[tokio::test]
+  async fn watcher_leaves_the_token_alone_without_a_signal() {
+    let cancel = CancellationToken::new();
+    spawn_watcher(cancel.clone());
+    tokio::task::yield_now().await;
+    assert!(!cancel.is_cancelled());
+  }
 }

@@ -6,6 +6,7 @@ use crate::commands::auth::login::model::Credential;
 use crate::commands::auth::{home_dir, write_doc_0600};
 use std::path::Path;
 
+#[must_use]
 pub async fn run(args: LoginArgs) -> i32 {
   if args.token.is_some() || args.username.is_some() {
     return run_manual(args);
@@ -13,6 +14,7 @@ pub async fn run(args: LoginArgs) -> i32 {
   device::login(args.host).await
 }
 
+#[must_use]
 fn run_manual(args: LoginArgs) -> i32 {
   let host = args.host.unwrap_or_else(|| crate::cli::DEFAULT_REGISTRY_HOST.to_string());
   let interactive = std::io::IsTerminal::is_terminal(&std::io::stdin());
@@ -27,13 +29,14 @@ fn run_manual(args: LoginArgs) -> i32 {
   };
   let token = match args.token {
     Some(t) => t,
-    None if interactive => match cliclack::password("Token").interact() {
-      Ok(t) => t,
-      Err(_) => {
+    None if interactive => {
+      if let Ok(t) = cliclack::password("Token").interact() {
+        t
+      } else {
         eprintln!("error: login cancelled");
         return 2;
       }
-    },
+    }
     None => {
       eprintln!("error: login requires --token in a non-interactive terminal");
       return 2;

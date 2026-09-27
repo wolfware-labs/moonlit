@@ -5,7 +5,7 @@ use predicates::str::contains;
 fn login_basic(home: &std::path::Path, host: &str) {
   Command::cargo_bin("moonlit")
     .unwrap()
-    .env("HOME", home)
+    .env("MOONLIT_HOME", home)
     .args(["login", host, "--username", "alice", "--token", "pat"])
     .assert()
     .success();
@@ -25,7 +25,7 @@ fn logout_removes_a_basic_credential() {
 
   Command::cargo_bin("moonlit")
     .unwrap()
-    .env("HOME", home.path())
+    .env("MOONLIT_HOME", home.path())
     .args(["logout", "ghcr.io", "--local"])
     .assert()
     .success()
@@ -41,7 +41,7 @@ fn logout_reports_not_logged_in_for_an_unknown_host() {
 
   Command::cargo_bin("moonlit")
     .unwrap()
-    .env("HOME", home.path())
+    .env("MOONLIT_HOME", home.path())
     .args(["logout", "other.example.com", "--local"])
     .assert()
     .success()
@@ -62,7 +62,7 @@ fn logout_preserves_other_hosts() {
 
   Command::cargo_bin("moonlit")
     .unwrap()
-    .env("HOME", home.path())
+    .env("MOONLIT_HOME", home.path())
     .args(["logout", "ghcr.io", "--local"])
     .assert()
     .success();

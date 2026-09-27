@@ -3,6 +3,7 @@ use crate::render::resolve_mode;
 use moonlit_engine::plugin::publish::{PluginArtifactMetadata, new_push_client, publish_plugin};
 use std::path::PathBuf;
 
+#[must_use]
 pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
   let doc: toml::Value = toml::from_str(lock_text).ok()?;
   let packages = doc.get("package")?.as_array()?;
@@ -14,6 +15,7 @@ pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
   None
 }
 
+#[must_use]
 fn strip_oci_scheme(reference: &str) -> &str {
   reference.strip_prefix("oci://").unwrap_or(reference)
 }
@@ -28,6 +30,7 @@ struct CratePackage {
   license: Option<String>,
 }
 
+#[must_use]
 fn read_crate_facts(crate_dir: &std::path::Path) -> (Option<String>, Option<String>) {
   let Ok(text) = std::fs::read_to_string(crate_dir.join("Cargo.toml")) else {
     return (None, None);
@@ -38,35 +41,13 @@ fn read_crate_facts(crate_dir: &std::path::Path) -> (Option<String>, Option<Stri
   }
 }
 
+#[must_use]
 pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
   let crate_dir = args.manifest_path.clone().unwrap_or_else(|| PathBuf::from("."));
 
-  let file = match &args.file {
-    Some(f) => f.clone(),
-    None => {
-      let manifest_file = crate_dir.join("Cargo.toml");
-      let text = match std::fs::read_to_string(&manifest_file) {
-        Ok(t) => t,
-        Err(e) => {
-          eprintln!("error: cannot read {}: {e}", manifest_file.display());
-          eprintln!("  fix: run from the plugin crate directory or pass --file");
-          return 2;
-        }
-      };
-      if let Err(e) = super::build::parse_manifest(&text) {
-        eprintln!("error: {e}");
-        return 2;
-      }
-      let layout = match super::build::resolve_layout(&crate_dir) {
-        Ok(l) => l,
-        Err(e) => {
-          eprintln!("error: {e}");
-          eprintln!("  fix: pass --file with the path to the built component");
-          return 2;
-        }
-      };
-      super::build::artifact_path(&layout.target_dir, &layout.lib_name, true)
-    }
+  let file = match component_path(&args, &crate_dir) {
+    Ok(file) => file,
+    Err(code) => return code,
   };
   let bytes = match std::fs::read(&file) {
     Ok(b) => b,
@@ -119,7 +100,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     sdk_version,
   };
 
-  let home = dirs::home_dir().unwrap_or_default();
+  let home = moonlit_engine::paths::home_dir().unwrap_or_default();
   let client = new_push_client();
   let raw_ref = strip_oci_scheme(&args.reference);
   match publish_plugin(raw_ref, bytes, publish_meta, &home, &client).await {
@@ -143,6 +124,33 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     Err(e) => {
       eprintln!("error: {e}");
       3
+    }
+  }
+}
+
+fn component_path(args: &PluginPublishArgs, crate_dir: &std::path::Path) -> Result<PathBuf, i32> {
+  if let Some(f) = &args.file {
+    return Ok(f.clone());
+  }
+  let manifest_file = crate_dir.join("Cargo.toml");
+  let text = match std::fs::read_to_string(&manifest_file) {
+    Ok(t) => t,
+    Err(e) => {
+      eprintln!("error: cannot read {}: {e}", manifest_file.display());
+      eprintln!("  fix: run from the plugin crate directory or pass --file");
+      return Err(2);
+    }
+  };
+  if let Err(e) = super::build::parse_manifest(&text) {
+    eprintln!("error: {e}");
+    return Err(2);
+  }
+  match super::build::resolve_layout(crate_dir) {
+    Ok(layout) => Ok(super::build::artifact_path(&layout.target_dir, &layout.lib_name, true)),
+    Err(e) => {
+      eprintln!("error: {e}");
+      eprintln!("  fix: pass --file with the path to the built component");
+      Err(2)
     }
   }
 }
@@ -174,6 +182,32 @@ version = "0.4.1"
   #[test]
   fn strips_oci_scheme_when_present() {
     assert_eq!(strip_oci_scheme("oci://ghcr.io/acme/p:1.0.0"), "ghcr.io/acme/p:1.0.0");
+  }
+
+  #[test]
+  fn crate_facts_come_from_the_package_table() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+      dir.path().join("Cargo.toml"),
+      "[package]
+name = \"p\"
+repository = \"https://example.com/p\"
+license = \"MIT\"
+",
+    )
+    .unwrap();
+    assert_eq!(
+      read_crate_facts(dir.path()),
+      (Some("https://example.com/p".to_string()), Some("MIT".to_string()))
+    );
+  }
+
+  #[test]
+  fn crate_facts_are_empty_without_a_readable_manifest() {
+    let dir = tempfile::tempdir().unwrap();
+    assert_eq!(read_crate_facts(dir.path()), (None, None));
+    std::fs::write(dir.path().join("Cargo.toml"), "not toml [").unwrap();
+    assert_eq!(read_crate_facts(dir.path()), (None, None));
   }
 
   #[test]

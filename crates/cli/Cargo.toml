@@ -42,7 +42,6 @@ tokio-util.workspace = true
 humantime.workspace = true
 wasmparser.workspace = true
 cliclack.workspace = true
-dirs.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 open = "5"
 gethostname = "1"
@@ -52,3 +51,10 @@ anyhow.workspace = true
 assert_cmd.workspace = true
 tempfile.workspace = true
 predicates = "3"
+wiremock.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+
+[lints]
+workspace = true

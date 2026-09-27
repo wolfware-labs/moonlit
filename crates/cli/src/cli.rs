@@ -186,3 +186,26 @@ pub fn parse_kv(s: &str) -> Result<(String, String), String> {
 fn parse_step_timeout(s: &str) -> Result<Duration, String> {
   humantime::parse_duration(s).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn key_value_splits_on_the_first_equals() {
+    assert_eq!(parse_kv("a=b=c"), Ok(("a".to_string(), "b=c".to_string())));
+    assert_eq!(parse_kv("a="), Ok(("a".to_string(), String::new())));
+  }
+
+  #[test]
+  fn key_value_needs_a_key_and_an_equals() {
+    assert!(parse_kv("novalue").unwrap_err().contains("expected key=value"));
+    assert!(parse_kv("=value").is_err());
+  }
+
+  #[test]
+  fn step_timeout_accepts_human_durations() {
+    assert_eq!(parse_step_timeout("1m30s"), Ok(Duration::from_secs(90)));
+    assert!(parse_step_timeout("soon").is_err());
+  }
+}

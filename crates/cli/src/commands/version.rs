@@ -24,6 +24,7 @@ const RST: &str = "\x1b[0m";
 
 const TEXT_COL: usize = 39;
 
+#[must_use]
 pub fn run() -> i32 {
   let version = env!("CARGO_PKG_VERSION");
   if fancy() {
@@ -34,10 +35,9 @@ pub fn run() -> i32 {
   0
 }
 
+#[must_use]
 fn fancy() -> bool {
-  let truecolor = std::env::var("COLORTERM")
-    .map(|v| v.contains("truecolor") || v.contains("24bit"))
-    .unwrap_or(false);
+  let truecolor = std::env::var("COLORTERM").is_ok_and(|v| v.contains("truecolor") || v.contains("24bit"));
   let wide_enough = Term::stdout().size().1 as usize >= 76;
   console::colors_enabled() && truecolor && wide_enough
 }
@@ -68,5 +68,26 @@ fn print_fancy(version: &str) {
       print!("{RST}\x1b[{TEXT_COL}G{text}");
     }
     println!();
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn plain_and_fancy_banners_render_without_panicking() {
+    print_plain("1.2.3");
+    print_fancy("1.2.3");
+  }
+
+  #[test]
+  fn logo_is_taller_than_the_text_block() {
+    assert!(LOGO.lines().count() >= 5);
+  }
+
+  #[test]
+  fn version_command_succeeds() {
+    assert_eq!(run(), 0);
   }
 }
