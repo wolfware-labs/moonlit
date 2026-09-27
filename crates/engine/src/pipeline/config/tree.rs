@@ -1,5 +1,5 @@
 use crate::pipeline::config::diagnostic::{ConfigDiagnostic, Source};
-use crate::pipeline::config::model::Span;
+use crate::pipeline::config::span::Span;
 use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
 use std::collections::HashMap;
 

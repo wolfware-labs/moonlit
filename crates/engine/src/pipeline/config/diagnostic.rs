@@ -1,4 +1,4 @@
-use crate::pipeline::config::model::Span;
+use crate::pipeline::config::span::Span;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 

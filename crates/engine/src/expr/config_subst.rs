@@ -1,6 +1,7 @@
 use crate::expr::Resolve;
 use crate::expr::substitute::substitute;
 use crate::expr::value::Value;
+use crate::pipeline::config::{ConfigMap, ConfigValue};
 
 pub fn substitute_config(config: &ConfigMap, resolver: &dyn Resolve) -> Value {
   Value::Map(

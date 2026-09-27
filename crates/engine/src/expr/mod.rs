@@ -4,7 +4,7 @@ mod scalar;
 mod substitute;
 mod value;
 
-use crate::expr::value::Value;
+pub use crate::expr::value::Value;
 
 pub trait Resolve {
   fn resolve(&self, path: &str) -> Option<Value>;

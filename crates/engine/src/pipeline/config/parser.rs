@@ -1,19 +1,33 @@
-use crate::pipeline::config::diagnostic::{ConfigDiagnostic, Source};
-use crate::pipeline::config::model::{
-  ConfigMap, ConfigValue, FilesystemAccess, Permissions, PipelineConfig, Plugin, PluginUrl, Run, Span, Spanned, Stage, Step,
-};
+use crate::pipeline::config::diagnostic::Source;
+use crate::pipeline::config::model::{ConfigValue, Plugin, PluginUrl, Run, Stage, Step};
+use crate::pipeline::config::span::{Span, Spanned};
 use crate::pipeline::config::tree::{Node, NodeValue};
+use crate::pipeline::config::{ConfigDiagnostic, ConfigMap, FilesystemAccess, Permissions, PipelineConfig, tree, validate};
 use indexmap::IndexMap;
 
-pub fn convert(root: Node, src: &Source) -> Result<PipelineConfig, ConfigDiagnostic> {
+pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
+  let src = Source::new(yaml, source_name);
+  let tree = tree::build_tree(&src)?;
+  let config = convert(tree, &src)?;
+  let config = cleanup(config);
+  validate::validate(&config, &src)?;
+  Ok(config)
+}
+
+fn cleanup(mut config: PipelineConfig) -> PipelineConfig {
+  config.name = config.name.trim().to_string();
+  config
+}
+
+fn convert(root: Node, src: &Source) -> Result<PipelineConfig, ConfigDiagnostic> {
   match &root.value {
-    NodeValue::Null => Ok(empty_config(root.span)),
+    NodeValue::Null => Ok(create_empty(root.span)),
     NodeValue::Map(entries) => convert_root(entries, root.span, src),
     _ => Err(src.expected_mapping("the release configuration", root.span)),
   }
 }
 
-fn empty_config(span: Span) -> PipelineConfig {
+fn create_empty(span: Span) -> PipelineConfig {
   PipelineConfig {
     name: String::new(),
     arguments: IndexMap::new(),
