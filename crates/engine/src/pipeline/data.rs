@@ -15,9 +15,9 @@ impl Resolve for PipelineData {
 }
 
 impl PipelineData {
-  pub fn new(cfg: PipelineConfig) -> Self {
-    let env_layer = Self::build_env_layer(&cfg.current_dir);
-    let release_layer = Self::build_release_layer(&cfg.variables, &cfg.arguments);
+  pub fn new(config: PipelineConfig) -> Self {
+    let env_layer = Self::build_env_layer(&config.current_dir);
+    let release_layer = Self::build_release_layer(&config.variables, &config.arguments);
 
     Self {
       layers: vec![env_layer, release_layer],
