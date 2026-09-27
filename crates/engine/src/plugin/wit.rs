@@ -7,7 +7,7 @@ wasmtime::component::bindgen!({
     exports: { default: async },
     with: {
         "wasi": wasmtime_wasi::p2::bindings,
-        "moonlit:plugin/process.child": crate::host::ChildProc,
+        "moonlit:plugin/process.child": crate::plugin::host::ChildProcess,
     },
 });
 
@@ -23,8 +23,8 @@ impl From<moonlit::plugin::types::LogLevel> for LogLevel {
     }
 }
 
-impl From<crate::host::ReleaseContext> for ReleaseContext {
-    fn from(value: crate::host::ReleaseContext) -> Self {
+impl From<crate::plugin::host::ReleaseContext> for ReleaseContext {
+    fn from(value: crate::plugin::host::ReleaseContext) -> Self {
         ReleaseContext {
             working_directory: value.working_directory.clone(),
             step_name: value.step_name.clone(),
@@ -32,19 +32,19 @@ impl From<crate::host::ReleaseContext> for ReleaseContext {
     }
 }
 
-// impl From<PluginMetadata> for crate::plugin::PluginMetadata {
-//     fn from(value: PluginMetadata) -> Self {
-//         Self {
-//             name: value.name,
-//             version: value.version,
-//             description: value.description,
-//             icon: value.icon,
-//         }
-//     }
-// }
+impl From<PluginMetadata> for crate::plugin::PluginMetadata {
+    fn from(value: PluginMetadata) -> Self {
+        Self {
+            name: value.name,
+            version: value.version,
+            description: value.description,
+            icon: value.icon,
+        }
+    }
+}
 
 impl From<MiddlewareResult>
-    for Result<crate::pipeline::MiddlewareResult, crate::host::error::HostError>
+    for Result<crate::plugin::middleware::MiddlewareResult, crate::plugin::error::PluginError>
 {
     fn from(value: MiddlewareResult) -> Self {
         let mut output = Vec::with_capacity(value.output.len());
@@ -52,7 +52,7 @@ impl From<MiddlewareResult>
             let value = json_str_to_value(&json, &format!("output key '{k}'"))?;
             output.push((k, value));
         }
-        Ok(crate::pipeline::MiddlewareResult {
+        Ok(crate::plugin::middleware::MiddlewareResult {
             successful: value.successful,
             error_message: value.error_message,
             warnings: value.warnings,
@@ -61,22 +61,22 @@ impl From<MiddlewareResult>
     }
 }
 
-// impl From<MiddlewareInfo> for crate::plugin::MiddlewareInfo {
-//     fn from(value: MiddlewareInfo) -> Self {
-//         Self {
-//             name: value.name,
-//             description: value.description,
-//             input_schema: value.input_schema,
-//             output_schema: value.output_schema,
-//         }
-//     }
-// }
+impl From<MiddlewareInfo> for crate::plugin::middleware::MiddlewareInfo {
+    fn from(value: MiddlewareInfo) -> Self {
+        Self {
+            name: value.name,
+            description: value.description,
+            input_schema: value.input_schema,
+            output_schema: value.output_schema,
+        }
+    }
+}
 
 fn json_str_to_value(
     s: &str,
     context: &str,
-) -> Result<serde_json::Value, crate::host::error::HostError> {
-    serde_json::from_str(s).map_err(|source| crate::host::error::HostError::BadJson {
+) -> Result<serde_json::Value, crate::plugin::error::PluginError> {
+    serde_json::from_str(s).map_err(|source| crate::plugin::error::PluginError::BadJson {
         context: context.to_string(),
         source,
     })

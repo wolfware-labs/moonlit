@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use moonlit_engine::config::model::Permissions;
-use moonlit_engine::host::{
-    HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext,
+use moonlit_engine::plugin::host::{
+  HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext,
 };
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/pdk_sample.wasm");
@@ -30,7 +30,7 @@ fn ctx(step: &str) -> ReleaseContext {
 }
 
 async fn instance() -> PluginInstance {
-    let eng = moonlit_engine::host::test_engine();
+    let eng = moonlit_engine::plugin::host::test_engine();
     PluginInstance::instantiate(&eng, FIXTURE, cfg(), Arc::new(NullSink))
         .await
         .expect("pdk-sample instantiates")

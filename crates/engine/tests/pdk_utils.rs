@@ -2,8 +2,8 @@ use std::io::Write;
 use std::sync::Arc;
 
 use moonlit_engine::config::model::{FilesystemAccess, Permissions};
-use moonlit_engine::host::{
-    HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext,
+use moonlit_engine::plugin::host::{
+  HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext,
 };
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -42,7 +42,7 @@ fn ctx(step: &str) -> ReleaseContext {
 }
 
 async fn instance(config: InstanceConfig) -> PluginInstance {
-    let eng = moonlit_engine::host::test_engine();
+    let eng = moonlit_engine::plugin::host::test_engine();
     PluginInstance::instantiate(&eng, FIXTURE, config, Arc::new(NullSink))
         .await
         .expect("pdk-sample instantiates")

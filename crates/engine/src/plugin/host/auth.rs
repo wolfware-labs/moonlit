@@ -1,5 +1,5 @@
-use crate::pipeline::InstanceConfig;
 use crate::pipeline::config::FilesystemAccess;
+use crate::plugin::instance::PluginInstanceConfig;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxBuilder};
 
@@ -38,7 +38,7 @@ pub fn filesystem_perms(access: FilesystemAccess) -> Option<FsPerms> {
     }
 }
 
-pub fn build_wasi_ctx(cfg: &InstanceConfig) -> anyhow::Result<WasiCtx> {
+pub fn build_wasi_ctx(cfg: &PluginInstanceConfig) -> anyhow::Result<WasiCtx> {
     let mut b = WasiCtxBuilder::new();
     for (k, v) in filter_env(&cfg.permissions.env, &cfg.env_snapshot) {
         b.env(&k, &v);

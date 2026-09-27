@@ -8,10 +8,7 @@ mod model;
 // use crate::pipeline::config::PipelineConfig;
 // use crate::pipeline::data::PipelineData;
 // use crate::pipeline::model::FlatStep;
-pub(crate) use crate::pipeline::model::InstanceConfig;
-pub use crate::pipeline::model::{
-    MiddlewareResult, PipelineEvent, PipelineOptions, PipelineSummary, StepResult,
-};
+pub use crate::pipeline::model::{PipelineEvent, PipelineOptions, PipelineSummary, StepResult};
 // use crate::plugin::Plugin;
 // use indexmap::IndexMap;
 // use std::path::PathBuf;

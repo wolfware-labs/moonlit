@@ -4,16 +4,11 @@ pub mod error;
 use crate::cache::{Cache, SystemClock};
 use crate::engine::config::EngineSettings;
 use crate::engine::error::EngineError;
-use crate::host::ReleaseContext;
-use crate::host::error::HostError;
-use crate::host::state::HostState;
-use crate::pipeline::{MiddlewareResult, PipelineEvent, PipelineSummary, StepResult};
-use indexmap::IndexMap;
+use crate::plugin::middleware::MiddlewareResult;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::mpsc::Sender;
-use tokio_util::sync::CancellationToken;
-use wasmtime::component::{HasSelf, Linker};
+use std::time::Duration;
+use wasmtime::component::{Component, HasSelf, Linker};
+use wasmtime::{Config, Store};
 
 const SEED_WARNING: &str = "No middlewares registered in the pipeline.";
 
@@ -24,34 +19,51 @@ enum ExecOutcome {
 }
 
 pub struct Engine {
-    wasmtime: wasmtime::Engine,
+    wasm_engine: wasmtime::Engine,
     cache: Arc<Cache>,
     tag_ttl: Duration,
 }
 
 impl Engine {
     pub fn new(settings: EngineSettings) -> Result<Self, EngineError> {
-        let wasmtime = crate::host::build_engine().map_err(EngineError::Internal)?;
+        let wasm_engine = Self::build_engine()?;
         let cache = match settings.cache_dir {
             Some(dir) => Cache::with_root_and_clock(dir, Box::new(SystemClock)),
             None => Cache::new().map_err(|e| EngineError::Internal(e.into()))?,
         };
         Ok(Self {
-            wasmtime,
+            wasm_engine,
             cache: Arc::new(cache),
             tag_ttl: settings.tag_ttl,
         })
     }
 
-    pub fn build_linker(&self) -> anyhow::Result<Linker<HostState>> {
-        let mut linker: Linker<HostState> = Linker::new(&self.wasmtime);
+    fn build_engine() -> Result<wasmtime::Engine, EngineError> {
+        let mut config = Config::new();
+        #[allow(deprecated)]
+        config.async_support(true);
+        config.wasm_component_model(true);
+        Ok(wasmtime::Engine::new(&config)?)
+    }
+
+    pub fn build_store<T>(&self, data: T) -> Store<T> {
+        Store::new(&self.wasm_engine, data)
+    }
+
+    pub fn load_component(&self, component_bytes: &[u8]) -> Result<Component, EngineError> {
+        let component = Component::from_binary(&self.wasm_engine, component_bytes)
+            .map_err(|e| EngineError::ComponentLoad(e.to_string()))?;
+    }
+
+    pub fn build_linker<T>(&self) -> Result<Linker<T>, EngineError> {
+        let mut linker: Linker<T> = Linker::new(&self.wasm_engine);
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
         wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker)?;
-        crate::host::wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(
+        crate::plugin::wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(
             &mut linker,
             |s| s,
         )?;
-        crate::host::wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(
+        crate::plugin::wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(
             &mut linker,
             |s| s,
         )?;
@@ -72,11 +84,11 @@ impl Engine {
     //         step_timeout,
     //         plugin_meta: _,
     //     } = pipeline;
-    // 
+    //
     //     let started = Instant::now();
     //     let total = steps.len();
     //     let wd = working_directory.display().to_string();
-    // 
+    //
     //     let mut results: Vec<StepResult> = Vec::new();
     //     let mut warnings: Vec<String> = Vec::new();
     //     let mut any_executed = false;
@@ -84,7 +96,7 @@ impl Engine {
     //     let mut halted = false;
     //     let mut terminal_err: Option<EngineError> = None;
     //     let mut poisoned: std::collections::HashSet<String> = std::collections::HashSet::new();
-    // 
+    //
     //     for (index, step) in steps.iter().enumerate() {
     //         if cancel.is_cancelled() {
     //             terminal_err = Some(EngineError::Execution(
@@ -92,7 +104,7 @@ impl Engine {
     //             ));
     //             break;
     //         }
-    // 
+    //
     //         let run = format!("{}.{}", step.plugin, step.middleware);
     //         let _ = events
     //             .send(PipelineEvent::StepStarted {
@@ -103,7 +115,7 @@ impl Engine {
     //                 run,
     //             })
     //             .await;
-    // 
+    //
     //         if let Some(cond) = &step.condition {
     //             let outcome = evaluate_condition(cond, &acc);
     //             if let Some(w) = &outcome.warning {
@@ -134,7 +146,7 @@ impl Engine {
     //                 continue;
     //             }
     //         }
-    // 
+    //
     //         if poisoned.contains(&step.plugin) {
     //             overall_success = false;
     //             let msg = format!(
@@ -162,11 +174,11 @@ impl Engine {
     //             }
     //             continue;
     //         }
-    // 
+    //
     //         let cfg_value = substitute_config(&step.config, &acc);
     //         acc.push(cfg_value.clone());
     //         let cfg_json = value_to_json(&cfg_value);
-    // 
+    //
     //         any_executed = true;
     //         let step_started = Instant::now();
     //         let ctx = ReleaseContext {
@@ -223,7 +235,7 @@ impl Engine {
     //                 break;
     //             }
     //         };
-    // 
+    //
     //         let mut successful;
     //         let mut error_message: Option<String>;
     //         let step_warnings: Vec<String>;
@@ -232,7 +244,7 @@ impl Engine {
     //                 successful = res.successful;
     //                 error_message = res.error_message.clone();
     //                 step_warnings = res.warnings.clone();
-    // 
+    //
     //                 if successful {
     //                     let mut out_map: IndexMap<String, Value> = IndexMap::new();
     //                     for (key, jval) in &res.output {
@@ -271,7 +283,7 @@ impl Engine {
     //                 step_warnings = Vec::new();
     //             }
     //         }
-    // 
+    //
     //         if !successful {
     //             overall_success = false;
     //         }
@@ -291,7 +303,7 @@ impl Engine {
     //             .await;
     //         results.push(result);
     //         warnings.extend(step_warnings);
-    // 
+    //
     //         if !successful && !step.continue_on_error {
     //             let msg = error_message.unwrap_or_default();
     //             terminal_err = Some(EngineError::Execution(format!(
@@ -310,7 +322,7 @@ impl Engine {
     //             break;
     //         }
     //     }
-    // 
+    //
     //     if !any_executed && terminal_err.is_none() {
     //         warnings.push(SEED_WARNING.to_string());
     //     }
@@ -326,7 +338,7 @@ impl Engine {
     //             summary: summary.clone(),
     //         })
     //         .await;
-    // 
+    //
     //     match terminal_err {
     //         Some(e) => Err(e),
     //         None => Ok(summary),

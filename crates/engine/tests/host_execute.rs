@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use moonlit_engine::config::model::Permissions;
-use moonlit_engine::host::{
-    HostError, HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext,
+use moonlit_engine::plugin::host::{
+  HostError, HostEventSink, InstanceConfig, LogLevel, PluginInstance, ReleaseContext,
 };
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
@@ -45,7 +45,7 @@ fn ctx(step: &str) -> ReleaseContext {
 
 #[tokio::test]
 async fn execute_log_and_output_returns_result_and_emits_events() {
-    let eng = moonlit_engine::host::test_engine();
+    let eng = moonlit_engine::plugin::host::test_engine();
     let sink = Arc::new(RecordingSink::default());
     let mut p = PluginInstance::instantiate(&eng, FIXTURE, cfg(), sink.clone())
         .await
@@ -97,7 +97,7 @@ async fn execute_log_and_output_returns_result_and_emits_events() {
 
 #[tokio::test]
 async fn panicking_middleware_surfaces_as_trap() {
-    let eng = moonlit_engine::host::test_engine();
+    let eng = moonlit_engine::plugin::host::test_engine();
     let mut p =
         PluginInstance::instantiate(&eng, FIXTURE, cfg(), Arc::new(RecordingSink::default()))
             .await

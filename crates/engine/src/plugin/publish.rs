@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::plugin::resolver::oci::CONFIG_MEDIA_TYPE;
+use crate::plugin::resolver::oci::auth::resolve_auth;
 use oci_client::client::{Config, ImageLayer, PushResponse};
 use oci_client::manifest::OciImageManifest;
 use oci_client::secrets::RegistryAuth;

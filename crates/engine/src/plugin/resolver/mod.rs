@@ -1,7 +1,7 @@
 mod file;
 mod http;
 mod model;
-mod oci;
+pub mod oci;
 
 use crate::cache::Cache;
 pub use crate::plugin::resolver::model::{

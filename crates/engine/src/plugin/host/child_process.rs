@@ -1,16 +1,16 @@
-use crate::host::wit::moonlit::plugin::process::{Command, OutputChunk, StdioStream};
+use crate::plugin::wit::moonlit::plugin::process::{Command, OutputChunk, StdioStream};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot};
 
-pub struct ChildProc {
+pub struct ChildProcess {
     pub rx: mpsc::Receiver<OutputChunk>,
     pub exit_rx: Option<oneshot::Receiver<i32>>,
     pub exit_cached: Option<i32>,
     pub kill_tx: Option<oneshot::Sender<()>>,
 }
 
-impl ChildProc {
+impl ChildProcess {
     pub fn start(command: &Command) -> Result<Self, String> {
         let mut c = tokio::process::Command::new(&command.program);
         c.args(&command.args);
@@ -56,7 +56,7 @@ impl ChildProc {
             child, stdout, stderr, tx, exit_tx, kill_rx,
         ));
 
-        Ok(ChildProc {
+        Ok(ChildProcess {
             rx,
             exit_rx: Some(exit_rx),
             exit_cached: None,

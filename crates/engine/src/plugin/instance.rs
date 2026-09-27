@@ -1,4 +1,10 @@
-use crate::host::state::HostState;
+use crate::pipeline::config::Permissions;
+use crate::plugin::host::ReleaseContext;
+use crate::plugin::host::state::HostState;
+use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
+use crate::plugin::wit::PluginHost;
+use crate::plugin::{PluginError, PluginMetadata};
+use std::path::PathBuf;
 use wasmtime::Store;
 
 pub struct PluginInstance {
@@ -6,13 +12,22 @@ pub struct PluginInstance {
     bindings: PluginHost,
 }
 
-impl PluginInstance {
-    pub fn new() -> Self {}
+pub struct PluginInstanceConfig {
+    pub working_directory: PathBuf,
+    pub permissions: Permissions,
+    pub config_view: serde_json::Value,
+    pub env_snapshot: Vec<(String, String)>,
+}
 
-    pub async fn describe(&mut self) -> Result<PluginMetadata, HostError> {
+impl PluginInstance {
+    pub fn new(store: Store<HostState>, bindings: PluginHost) -> Self {
+        Self { store, bindings }
+    }
+
+    pub async fn describe(&mut self) -> Result<PluginMetadata, PluginError> {
         match self.bindings.call_describe(&mut self.store).await {
             Ok(meta) => Ok(convert::metadata(meta)),
-            Err(e) => Err(HostError::Trap {
+            Err(e) => Err(PluginError::Trap {
                 op: "describe".to_string(),
                 message: format!("{e:?}"),
             }),
@@ -37,7 +52,7 @@ impl PluginInstance {
         middleware: &str,
         ctx: ReleaseContext,
         config: &serde_json::Value,
-    ) -> Result<MiddlewareResult, HostError> {
+    ) -> Result<MiddlewareResult, PluginError> {
         self.store.data_mut().current_step = ctx.step_name.clone();
         let raw_ctx = convert::release_context_to_raw(&ctx);
         let json = config.to_string();
@@ -47,17 +62,17 @@ impl PluginInstance {
             .await
         {
             Ok(raw) => convert::middleware_result(raw),
-            Err(e) => Err(HostError::Trap {
+            Err(e) => Err(PluginError::Trap {
                 op: format!("execute {middleware}"),
                 message: format!("{e:?}"),
             }),
         }
     }
 
-    pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, HostError> {
+    pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, PluginError> {
         match self.bindings.call_list_middlewares(&mut self.store).await {
             Ok(list) => Ok(list.into_iter().map(convert::middleware_info).collect()),
-            Err(e) => Err(HostError::Trap {
+            Err(e) => Err(PluginError::Trap {
                 op: "list-middlewares".to_string(),
                 message: format!("{e:?}"),
             }),

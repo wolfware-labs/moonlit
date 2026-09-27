@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use moonlit_engine::config::model::Permissions;
-use moonlit_engine::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance};
+use moonlit_engine::plugin::host::{HostEventSink, InstanceConfig, LogLevel, PluginInstance};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
 
@@ -22,7 +22,7 @@ fn full_trust_config() -> InstanceConfig {
 
 async fn engine() -> wasmtime::Engine {
     // reuse the crate's builder via a fresh instance path
-    moonlit_engine::host::test_engine()
+    moonlit_engine::plugin::host::test_engine()
 }
 
 async fn instance() -> PluginInstance {

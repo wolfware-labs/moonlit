@@ -1,4 +1,4 @@
-mod auth;
+pub mod auth;
 mod client;
 
 use crate::cache::{Cache, PluginMeta};
@@ -7,7 +7,7 @@ use crate::plugin::resolver::{ProgressFn, ResolveError, ResolveOptions, Resolved
 use oci_client::Reference;
 use oci_client::manifest::OciImageManifest;
 
-const CONFIG_MEDIA_TYPE: &str = "application/vnd.wasm.config.v0+json";
+pub const CONFIG_MEDIA_TYPE: &str = "application/vnd.wasm.config.v0+json";
 const LAYER_MEDIA_TYPES: [&str; 2] = [
     "application/wasm",
     "application/vnd.wasm.content.layer.v1+wasm",

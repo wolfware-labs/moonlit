@@ -1,10 +1,10 @@
-// use crate::host::HostEventSink;
 use crate::logging::LogLevel;
-use crate::pipeline::config::Permissions;
+use crate::pipeline::config::ConfigMap;
+use crate::plugin::host::HostEventSink;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::time::Duration;
-// use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::Sender;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -83,36 +83,36 @@ pub struct PipelineSummary {
     pub warnings: Vec<String>,
 }
 
-// pub struct ChannelSink {
-//     pub events: Sender<PipelineEvent>,
-// }
+pub struct ChannelSink {
+    pub events: Sender<PipelineEvent>,
+}
 
-// impl HostEventSink for ChannelSink {
-//     fn log(&self, step: &str, level: LogLevel, message: &str) {
-//         let _ = self.events.try_send(PipelineEvent::StepLog {
-//             step: step.to_string(),
-//             level,
-//             message: message.to_string(),
-//         });
-//     }
-//     fn progress(&self, step: &str, message: &str) {
-//         let _ = self.events.try_send(PipelineEvent::StepProgress {
-//             step: step.to_string(),
-//             message: message.to_string(),
-//         });
-//     }
-// }
+impl HostEventSink for ChannelSink {
+    fn log(&self, step: &str, level: LogLevel, message: &str) {
+        let _ = self.events.try_send(PipelineEvent::StepLog {
+            step: step.to_string(),
+            level,
+            message: message.to_string(),
+        });
+    }
+    fn progress(&self, step: &str, message: &str) {
+        let _ = self.events.try_send(PipelineEvent::StepProgress {
+            step: step.to_string(),
+            message: message.to_string(),
+        });
+    }
+}
 
-// pub struct FlatStep {
-//     pub stage: String,
-//     pub name: String,
-//     pub plugin: String,
-//     pub middleware: String,
-//     pub condition: Option<String>,
-//     pub halt_if: Option<String>,
-//     pub continue_on_error: bool,
-//     pub config: ConfigMap,
-// }
+pub struct FlatStep {
+    pub stage: String,
+    pub name: String,
+    pub plugin: String,
+    pub middleware: String,
+    pub condition: Option<String>,
+    pub halt_if: Option<String>,
+    pub continue_on_error: bool,
+    pub config: ConfigMap,
+}
 
 pub struct PipelineOptions {
     pub working_directory: PathBuf,
@@ -121,21 +121,6 @@ pub struct PipelineOptions {
     pub cli_args: Vec<(String, String)>,
     pub step_timeout: Option<Duration>,
     pub offline: bool,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct MiddlewareResult {
-    pub successful: bool,
-    pub error_message: Option<String>,
-    pub warnings: Vec<String>,
-    pub output: Vec<(String, serde_json::Value)>,
-}
-
-pub struct InstanceConfig {
-    pub working_directory: PathBuf,
-    pub permissions: Permissions,
-    pub config_view: serde_json::Value,
-    pub env_snapshot: Vec<(String, String)>,
 }
 
 mod serializers {

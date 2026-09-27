@@ -1,6 +1,6 @@
-use crate::host::HostEventSink;
-use crate::host::auth::network_globset;
 use crate::pipeline::config::Permissions;
+use crate::plugin::host::HostEventSink;
+use crate::plugin::host::auth::network_globset;
 use globset::GlobSet;
 use http_body_util::BodyExt;
 use hyper::http;
@@ -45,9 +45,9 @@ impl WasiHttpHooks for AllowlistHooks {
 
         if !self.allowed.is_match(&host) {
             self.events.log(
-                "",
-                crate::host::LogLevel::Warn,
-                &format!(
+              "",
+              crate::plugin::host::LogLevel::Warn,
+              &format!(
                     "blocked from connecting to '{host}' — add it to the plugin's permissions.network"
                 ),
             );

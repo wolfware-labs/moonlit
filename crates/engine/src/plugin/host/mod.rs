@@ -1,25 +1,18 @@
 mod auth;
 mod child_process;
-pub mod error;
+// pub mod error;
 mod net;
 pub mod state;
-pub mod wit;
 
 use crate::logging::LogLevel;
-pub use child_process::ChildProc;
+pub use auth::{build_wasi_ctx, exec_globset};
+pub use child_process::ChildProcess;
+pub use net::AllowlistHooks;
 use wasmtime::{Config, Engine};
 
 pub trait HostEventSink: Send + Sync {
     fn log(&self, step: &str, level: LogLevel, message: &str);
     fn progress(&self, step: &str, message: &str);
-}
-
-pub fn build_engine() -> anyhow::Result<Engine> {
-    let mut config = Config::new();
-    #[allow(deprecated)]
-    config.async_support(true);
-    config.wasm_component_model(true);
-    Ok(Engine::new(&config)?)
 }
 
 #[derive(Clone, Debug, PartialEq)]

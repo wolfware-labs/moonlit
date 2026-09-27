@@ -1,11 +1,11 @@
-use crate::host::HostEventSink;
-use crate::host::child_process::ChildProc;
-use crate::host::net::AllowlistHooks;
-use crate::host::wit::moonlit::plugin::host::Host as MoonlitHost;
-use crate::host::wit::moonlit::plugin::process::{
+use crate::plugin::host::HostEventSink;
+use crate::plugin::host::child_process::ChildProcess;
+use crate::plugin::host::net::AllowlistHooks;
+use crate::plugin::wit::moonlit::plugin::host::Host as MoonlitHost;
+use crate::plugin::wit::moonlit::plugin::process::{
     Command, Host as ProcessHost, HostChild, OutputChunk,
 };
-use crate::host::wit::moonlit::plugin::types::LogLevel;
+use crate::plugin::wit::moonlit::plugin::types::LogLevel;
 use std::sync::Arc;
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
@@ -89,11 +89,11 @@ impl ProcessHost for HostState {
     async fn spawn(
         &mut self,
         cmd: Command,
-    ) -> wasmtime::Result<Result<Resource<ChildProc>, String>> {
+    ) -> wasmtime::Result<Result<Resource<ChildProcess>, String>> {
         if !self.exec_allow.is_match(&cmd.program) {
             self.events.log(
                 &self.current_step,
-                crate::host::LogLevel::Warn,
+                crate::plugin::host::LogLevel::Warn,
                 &format!(
                     "blocked from running '{}' — add it to permissions.exec",
                     cmd.program
@@ -101,7 +101,7 @@ impl ProcessHost for HostState {
             );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
-        match ChildProc::start(&cmd) {
+        match ChildProcess::start(&cmd) {
             Ok(child) => Ok(Ok(self.table.push(child)?)),
             Err(e) => Ok(Err(e)),
         }
@@ -114,7 +114,7 @@ impl ProcessHost for HostState {
         if !self.exec_allow.is_match(&cmd.program) {
             self.events.log(
                 &self.current_step,
-                crate::host::LogLevel::Warn,
+                crate::plugin::host::LogLevel::Warn,
                 &format!(
                     "blocked from running '{}' — add it to permissions.exec",
                     cmd.program
@@ -122,7 +122,7 @@ impl ProcessHost for HostState {
             );
             return Ok(Err(format!("program '{}' not permitted", cmd.program)));
         }
-        let mut child = match ChildProc::start(&cmd) {
+        let mut child = match ChildProcess::start(&cmd) {
             Ok(c) => c,
             Err(e) => return Ok(Err(e)),
         };
@@ -141,13 +141,13 @@ impl ProcessHost for HostState {
 impl HostChild for HostState {
     async fn next_line(
         &mut self,
-        self_: Resource<ChildProc>,
+        self_: Resource<ChildProcess>,
     ) -> wasmtime::Result<Option<OutputChunk>> {
         let child = self.table.get_mut(&self_)?;
         Ok(child.rx.recv().await)
     }
 
-    async fn wait(&mut self, self_: Resource<ChildProc>) -> wasmtime::Result<i32> {
+    async fn wait(&mut self, self_: Resource<ChildProcess>) -> wasmtime::Result<i32> {
         let child = self.table.get_mut(&self_)?;
         if let Some(code) = child.exit_cached {
             return Ok(code);
@@ -160,7 +160,7 @@ impl HostChild for HostState {
         Ok(code)
     }
 
-    async fn kill(&mut self, self_: Resource<ChildProc>) -> wasmtime::Result<()> {
+    async fn kill(&mut self, self_: Resource<ChildProcess>) -> wasmtime::Result<()> {
         let child = self.table.get_mut(&self_)?;
         if let Some(tx) = child.kill_tx.take() {
             let _ = tx.send(());
@@ -168,7 +168,7 @@ impl HostChild for HostState {
         Ok(())
     }
 
-    async fn drop(&mut self, rep: Resource<ChildProc>) -> wasmtime::Result<()> {
+    async fn drop(&mut self, rep: Resource<ChildProcess>) -> wasmtime::Result<()> {
         let _ = self.table.delete(rep)?;
         Ok(())
     }

@@ -1,39 +1,44 @@
+mod error;
 mod instance;
-mod model;
+pub mod middleware;
 mod publish;
 mod resolver;
+pub mod wit;
+// mod expr;
+pub mod host;
 
 use crate::engine::Engine;
-use crate::host::HostEventSink;
-use crate::host::state::HostState;
-use crate::host::wit::PluginHost;
 use crate::logging::LogLevel;
-use crate::plugin::instance::PluginInstance;
-pub use crate::plugin::model::{MiddlewareInfo, PluginMetadata};
+use crate::plugin::error::PluginError;
+use crate::plugin::host::{AllowlistHooks, build_wasi_ctx, exec_globset};
+use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
 pub use crate::plugin::publish::{PublishMeta, new_push_client, publish_plugin};
 pub use crate::plugin::resolver::PluginSource;
+use crate::plugin::wit::PluginHost;
+use host::HostEventSink;
+use host::state::HostState;
 use std::sync::Arc;
-use wasmtime::Store;
-use wasmtime::component::Component;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PluginMetadata {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub icon: Option<String>,
+}
 
 pub struct Plugin {
     metadata: PluginMetadata,
-}
-
-pub enum PluginError {
-    Compile(String),
-    Instantiate(String),
 }
 
 impl Plugin {
     pub async fn instantiate(
         engine: &Engine,
         component_bytes: &[u8],
-        cfg: InstanceConfig,
+        cfg: PluginInstanceConfig,
         events: Arc<dyn HostEventSink>,
     ) -> Result<PluginInstance, PluginError> {
-        let wasi =
-            auth::build_wasi_ctx(&cfg).map_err(|e| PluginError::Instantiate(e.to_string()))?;
+        let wasi = build_wasi_ctx(&cfg).map_err(|e| PluginError::Instantiate(e.to_string()))?;
         events.log(
             "",
             LogLevel::Debug,
@@ -45,19 +50,23 @@ impl Plugin {
                 cfg.permissions.filesystem
             ),
         );
-        let state = HostState::new(
+
+        let mut store = engine.build_store(HostState::new(
             wasi,
             AllowlistHooks::new(&cfg.permissions, events.clone()),
             events,
             cfg.config_view,
-            perms::exec_globset(&cfg.permissions.exec),
-        );
-        let mut store = Store::new(engine, state);
-        let component = Component::from_binary(engine, component_bytes)
-            .map_err(|e| PluginError::Load(e.to_string()))?;
+            exec_globset(&cfg.permissions.exec),
+        ));
+
+        let component = engine.load_component(component_bytes)?;
+
+        let linker = engine.build_linker()?;
+
         let bindings = PluginHost::instantiate_async(&mut store, &component, &linker)
             .await
-            .map_err(|e| PluginError::Instantiate(e.to_string()))?;
-        Ok(PluginInstance { store, bindings })
+            .map_err(|e| crate::plugin::error::PluginError::Instantiate(e.to_string()))?;
+
+        Ok(PluginInstance::new(store, bindings))
     }
 }
