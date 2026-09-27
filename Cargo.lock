@@ -2118,7 +2118,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
- "wasmparser 0.258.0",
+ "wasmparser 0.259.0",
  "wiremock",
 ]
 
@@ -2157,7 +2157,7 @@ dependencies = [
  "wasmtime-wasi-http",
  "wat",
  "wiremock",
- "wit-parser 0.258.0",
+ "wit-parser 0.259.0",
 ]
 
 [[package]]
@@ -3966,6 +3966,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "indexmap",
  "semver",
+ "serde",
 ]
 
 [[package]]
