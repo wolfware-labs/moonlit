@@ -3,6 +3,8 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+const PERSIST_RETRIES: u32 = 10;
+
 pub trait Clock: Send + Sync {
   fn now_unix(&self) -> u64;
 }
@@ -170,8 +172,18 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
   std::fs::create_dir_all(parent)?;
   let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
   std::io::Write::write_all(&mut tmp, bytes)?;
-  tmp.persist(path).map_err(|e| e.error)?;
-  Ok(())
+  let mut retries = 0;
+  loop {
+    match tmp.persist(path) {
+      Ok(_) => return Ok(()),
+      Err(e) if e.error.kind() == std::io::ErrorKind::PermissionDenied && retries < PERSIST_RETRIES => {
+        retries += 1;
+        tmp = e.file;
+        std::thread::sleep(Duration::from_millis(5 * u64::from(retries)));
+      }
+      Err(e) => return Err(e.error),
+    }
+  }
 }
 
 fn dir_size(dir: &Path) -> u64 {
