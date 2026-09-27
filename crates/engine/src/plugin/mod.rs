@@ -17,7 +17,6 @@ use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
 use host::state::HostState;
 use std::sync::Arc;
-use wasmtime::component::HasSelf;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PluginMetadata {
@@ -58,12 +57,8 @@ impl Plugin {
       .load_component(component_bytes)
       .map_err(|e| PluginError::Compile(e.to_string()))?;
 
-    let mut linker = engine.build_linker().map_err(|e| PluginError::Link(format!("{e:#}")))?;
-
-    wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)
-      .map_err(|e| PluginError::Link(format!("{e:#}")))?;
-    wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)
-      .map_err(|e| PluginError::Link(format!("{e:#}")))?;
+    let mut linker = engine.new_linker();
+    host::link(&mut linker).map_err(|e| PluginError::Link(format!("{e:#}")))?;
 
     let bindings = PluginHost::instantiate_async(&mut store, &component, &linker)
       .await

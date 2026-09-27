@@ -10,8 +10,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Config, Store};
-use wasmtime_wasi::WasiView;
-use wasmtime_wasi_http::WasiHttpView;
 
 #[derive(Clone)]
 pub struct Engine {
@@ -56,14 +54,9 @@ impl Engine {
     Component::from_binary(&self.wasmtime, component_bytes).map_err(|e| EngineError::ComponentLoad(format!("{e:#}")))
   }
 
-  pub fn build_linker<T>(&self) -> Result<Linker<T>, EngineError>
-  where
-    T: WasiView + WasiHttpView,
-  {
-    let mut linker: Linker<T> = Linker::new(&self.wasmtime);
-    wasmtime_wasi::p2::add_to_linker_async(&mut linker).map_err(anyhow::Error::from)?;
-    wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker).map_err(anyhow::Error::from)?;
-    Ok(linker)
+  #[must_use]
+  pub fn new_linker<T>(&self) -> Linker<T> {
+    Linker::new(&self.wasmtime)
   }
 
   #[must_use]
