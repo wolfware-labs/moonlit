@@ -7,8 +7,10 @@ use crate::engine::error::EngineError;
 use crate::plugin::middleware::MiddlewareResult;
 use std::sync::Arc;
 use std::time::Duration;
-use wasmtime::component::{Component, HasSelf, Linker};
+use wasmtime::component::{Component, Linker};
 use wasmtime::{Config, Store};
+use wasmtime_wasi::WasiView;
+use wasmtime_wasi_http::WasiHttpView;
 
 const SEED_WARNING: &str = "No middlewares registered in the pipeline.";
 
@@ -51,22 +53,17 @@ impl Engine {
     }
 
     pub fn load_component(&self, component_bytes: &[u8]) -> Result<Component, EngineError> {
-        let component = Component::from_binary(&self.wasm_engine, component_bytes)
-            .map_err(|e| EngineError::ComponentLoad(e.to_string()))?;
+        Component::from_binary(&self.wasm_engine, component_bytes)
+            .map_err(|e| EngineError::ComponentLoad(e.to_string()))
     }
 
-    pub fn build_linker<T>(&self) -> Result<Linker<T>, EngineError> {
+    pub fn build_linker<T>(&self) -> Result<Linker<T>, EngineError>
+    where
+        T: WasiView + WasiHttpView,
+    {
         let mut linker: Linker<T> = Linker::new(&self.wasm_engine);
         wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
         wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker)?;
-        crate::plugin::wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(
-            &mut linker,
-            |s| s,
-        )?;
-        crate::plugin::wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(
-            &mut linker,
-            |s| s,
-        )?;
         Ok(linker)
     }
 

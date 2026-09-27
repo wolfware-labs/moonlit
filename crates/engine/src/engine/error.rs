@@ -8,7 +8,12 @@ pub enum EngineError {
 
     #[error("failed to load plugin '{plugin}': {message}")]
     #[diagnostic(code(moonlit::engine::plugin_load))]
-    PluginLoad { plugin: String, message: String },
+    PluginLoad {
+        plugin: String,
+        message: String,
+    },
+
+    ComponentLoad(String),
 
     #[error("pipeline execution failed: {0}")]
     #[diagnostic(code(moonlit::engine::execution))]
