@@ -1,4 +1,5 @@
-use crate::pipeline::config::diagnostic::{ConfigDiagnostic, Source};
+use crate::pipeline::config::diagnostic::ConfigDiagnostic;
+use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::Span;
 use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
 use std::collections::HashMap;
@@ -57,7 +58,7 @@ fn is_yaml_null(raw: &str) -> bool {
   matches!(raw, "" | "~" | "null" | "Null" | "NULL")
 }
 
-pub fn build_tree(src: &Source) -> Result<Node, ConfigDiagnostic> {
+pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
   let char_to_byte: Vec<usize> = {
     let mut v: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
     v.push(src.yaml.len());
@@ -76,7 +77,7 @@ pub fn build_tree(src: &Source) -> Result<Node, ConfigDiagnostic> {
     let (ev, pspan) = item.map_err(|e| {
       let len = src.yaml.len();
       let byte = char_to_byte.get(e.marker().index()).copied().unwrap_or(len);
-      src.syntax(e.info(), Span::point(byte))
+      ConfigDiagnostic::invalid_syntax(src, e.info(), Span::point(byte))
     })?;
     let span = to_span(pspan);
     let tok = match ev {
@@ -112,7 +113,7 @@ struct Builder<'t, 'a> {
   toks: &'t [(Tok, Span)],
   pos: usize,
   anchors: HashMap<usize, Node>,
-  src: &'t Source<'a>,
+  src: &'t ConfigSource<'a>,
 }
 
 impl<'t, 'a> Builder<'t, 'a> {
@@ -202,7 +203,7 @@ impl<'t, 'a> Builder<'t, 'a> {
           node.span = span; // carry the alias site's span, not the anchor's
           Ok(node)
         }
-        None => Err(self.src.unknown_alias(span)),
+        None => Err(ConfigDiagnostic::unknown_alias(self.src, span)),
       },
       // Framing tokens shouldn't reach here; treat defensively as empty.
       Tok::StreamStart | Tok::StreamEnd | Tok::DocStart | Tok::DocEnd | Tok::SeqEnd | Tok::MapEnd => Ok(Node::null(span)),
