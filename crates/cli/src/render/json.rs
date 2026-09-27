@@ -1,63 +1,51 @@
+use super::{Header, Renderer};
+use moonlit_engine::pipeline::PipelineEvent;
 use std::io::Write;
 
-use moonlit_engine::PipelineEvent;
-
-use super::{Header, Renderer};
-
 pub struct JsonRenderer<W: Write + Send> {
-    out: W,
+  out: W,
 }
 
 impl<W: Write + Send> JsonRenderer<W> {
-    pub fn new(out: W) -> Self {
-        Self { out }
-    }
+  #[must_use]
+  pub fn new(out: W) -> Self {
+    Self { out }
+  }
 }
 
 impl<W: Write + Send> Renderer for JsonRenderer<W> {
-    fn header(&mut self, _header: &Header) {}
+  fn header(&mut self, _header: &Header) {}
 
-    fn handle(&mut self, event: &PipelineEvent) {
-        if let Ok(line) = serde_json::to_string(event) {
-            let _ = writeln!(self.out, "{line}");
-        }
+  fn handle(&mut self, event: &PipelineEvent) {
+    if let Ok(line) = serde_json::to_string(event) {
+      let _ = writeln!(self.out, "{line}");
     }
+  }
 
-    fn finish(&mut self) {
-        let _ = self.out.flush();
-    }
+  fn finish(&mut self) {
+    let _ = self.out.flush();
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use moonlit_engine::LogLevel;
+  use super::*;
+  use crate::render::fixtures::header;
 
-    #[test]
-    fn each_event_is_one_tagged_json_line() {
-        let mut buf: Vec<u8> = Vec::new();
-        {
-            let mut r = JsonRenderer::new(&mut buf);
-            r.header(&Header {
-                version: "0.1.0",
-                name: Some("p".into()),
-                working_dir: "/w".into(),
-                config_file: "release.yml".into(),
-                stages: vec![],
-            });
-            r.handle(&PipelineEvent::StepLog {
-                step: "s".into(),
-                level: LogLevel::Info,
-                message: "hi".into(),
-            });
-            r.finish();
-        }
-        let out = String::from_utf8(buf).unwrap();
-        // Header emits nothing; exactly one event line.
-        assert_eq!(out.lines().count(), 1, "{out}");
-        assert_eq!(
-            out.trim(),
-            r#"{"type":"step_log","step":"s","level":"info","message":"hi"}"#
-        );
+  #[test]
+  fn writes_one_json_line_per_event_and_nothing_for_the_header() {
+    let mut out = Vec::new();
+    {
+      let mut r = JsonRenderer::new(&mut out);
+      r.header(&header(None, &[]));
+      r.handle(&PipelineEvent::PipelineHalted {
+        after_step: "s1".into(),
+        halt_if: "x".into(),
+      });
+      r.finish();
     }
+    let text = String::from_utf8(out).unwrap();
+    assert_eq!(text.lines().count(), 1);
+    assert!(text.contains(r#""type":"pipeline_halted""#));
+  }
 }

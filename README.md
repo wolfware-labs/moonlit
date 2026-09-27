@@ -127,7 +127,7 @@ flowchart LR
     plug -- "step output as JSON" --> run
 ```
 
-The plugin ABI is authored in WIT at `crates/engine/wit/moonlit-plugin.wit`. Dynamic config and
+The plugin ABI is authored in WIT at `crates/pdk/wit/moonlit-plugin.wit`. Dynamic config and
 step outputs cross that boundary as JSON and are bridged to a typed value tree on the Rust
 side. A plugin never sees host memory or host handles it was not granted.
 

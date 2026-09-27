@@ -12,6 +12,11 @@ repository = "https://github.com/wolfware-labs/moonlit"
 homepage = "https://moonlit.rs/"
 rust-version = "1.97"
 
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
 [workspace.dependencies]
 wit-parser = "0.258"
 wit-bindgen = "0.62.0"
@@ -37,9 +42,9 @@ dirs = "7"
 base64 = "0.23"
 wiremock = "0.6"
 tempfile = "3"
-wasmtime = { version = "48.0.2", features = ["component-model", "async"] }
-wasmtime-wasi = "48.0.2"
-wasmtime-wasi-http = "48.0.2"
+wasmtime = { version = "49.0.1", features = ["component-model", "async"] }
+wasmtime-wasi = { version = "49.0.1", default-features = false, features = ["p2"] }
+wasmtime-wasi-http = { version = "49.0.1", default-features = false, features = ["default-send-request", "p2"] }
 wasmparser = "0.258"
 anyhow = "1"
 hyper = "1"

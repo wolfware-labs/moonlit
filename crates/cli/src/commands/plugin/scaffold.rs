@@ -2,54 +2,60 @@ use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScaffoldValues {
-    pub name: String,
-    pub namespace: String,
-    pub description: String,
-    pub license: String,
-    pub pdk_dep: String,
+  pub name: String,
+  pub namespace: String,
+  pub description: String,
+  pub license: String,
+  pub pdk_dep: String,
 }
 
+#[must_use]
 pub fn is_valid_crate_name(name: &str) -> bool {
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_alphabetic() => {}
-        _ => return false,
-    }
-    chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+  let mut chars = name.chars();
+  match chars.next() {
+    Some(c) if c.is_ascii_alphabetic() => {}
+    _ => return false,
+  }
+  chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
+#[must_use]
 pub fn pdk_dep_line(pdk_path: Option<&Path>) -> String {
-    match pdk_path {
-        Some(p) => format!("{{ path = \"{}\" }}", p.display()),
-        None => "\"0.1.0\"".to_string(),
-    }
+  match pdk_path {
+    Some(p) => format!("{{ path = {} }}", toml::Value::String(p.display().to_string())),
+    None => "\"0.1.0\"".to_string(),
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn valid_and_invalid_crate_names() {
-        assert!(is_valid_crate_name("git"));
-        assert!(is_valid_crate_name("my-plugin"));
-        assert!(is_valid_crate_name("my_plugin2"));
-        assert!(!is_valid_crate_name(""));
-        assert!(!is_valid_crate_name("2fast"));
-        assert!(!is_valid_crate_name("has space"));
-        assert!(!is_valid_crate_name("dots.bad"));
-    }
+  #[test]
+  fn valid_and_invalid_crate_names() {
+    assert!(is_valid_crate_name("git"));
+    assert!(is_valid_crate_name("my-plugin"));
+    assert!(is_valid_crate_name("my_plugin2"));
+    assert!(!is_valid_crate_name(""));
+    assert!(!is_valid_crate_name("2fast"));
+    assert!(!is_valid_crate_name("has space"));
+    assert!(!is_valid_crate_name("dots.bad"));
+  }
 
-    #[test]
-    fn sdk_dep_defaults_to_crates_io() {
-        assert_eq!(pdk_dep_line(None), "\"0.1.0\"");
-    }
+  #[test]
+  fn sdk_dep_defaults_to_crates_io() {
+    assert_eq!(pdk_dep_line(None), "\"0.1.0\"");
+  }
 
-    #[test]
-    fn sdk_dep_path_when_given() {
-        assert_eq!(
-            pdk_dep_line(Some(Path::new("/repo/sdk"))),
-            "{ path = \"/repo/sdk\" }"
-        );
-    }
+  #[test]
+  fn sdk_dep_path_when_given() {
+    assert_eq!(pdk_dep_line(Some(Path::new("/repo/sdk"))), "{ path = \"/repo/sdk\" }");
+  }
+
+  #[test]
+  fn sdk_dep_path_escapes_backslashes() {
+    let line = pdk_dep_line(Some(Path::new(r"C:\repo\sdk")));
+    let doc: toml::Table = format!("dep = {line}").parse().unwrap();
+    assert_eq!(doc["dep"]["path"].as_str(), Some(r"C:\repo\sdk"));
+  }
 }

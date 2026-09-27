@@ -1,0 +1,71 @@
+#![allow(clippy::result_large_err)]
+
+pub mod config;
+pub mod error;
+
+use crate::cache::{Cache, SystemClock};
+use crate::engine::config::EngineSettings;
+use crate::engine::error::EngineError;
+use std::sync::Arc;
+use std::time::Duration;
+use wasmtime::component::{Component, Linker};
+use wasmtime::{Config, Store};
+
+#[derive(Clone)]
+pub struct Engine {
+  wasmtime: wasmtime::Engine,
+  cache: Arc<Cache>,
+  tag_ttl: Duration,
+}
+
+impl Engine {
+  pub fn new(settings: EngineSettings) -> Result<Self, EngineError> {
+    let wasmtime = Self::build_engine()?;
+    let cache = match settings.cache_dir {
+      Some(dir) => Cache::with_root_and_clock(dir, Box::new(SystemClock)),
+      None => Cache::new().map_err(|e| EngineError::Internal(e.into()))?,
+    };
+    Ok(Self {
+      wasmtime,
+      cache: Arc::new(cache),
+      tag_ttl: settings.tag_ttl,
+    })
+  }
+
+  pub fn try_default() -> Result<Self, EngineError> {
+    Self::new(EngineSettings::default())
+  }
+
+  fn build_engine() -> Result<wasmtime::Engine, EngineError> {
+    let mut config = Config::new();
+    #[allow(deprecated)]
+    config.async_support(true);
+    config.wasm_component_model(true);
+    config.wasm_component_model_async(false);
+    Ok(wasmtime::Engine::new(&config).map_err(anyhow::Error::from)?)
+  }
+
+  #[must_use]
+  pub fn build_store<T>(&self, data: T) -> Store<T> {
+    Store::new(&self.wasmtime, data)
+  }
+
+  pub fn load_component(&self, component_bytes: &[u8]) -> Result<Component, EngineError> {
+    Component::from_binary(&self.wasmtime, component_bytes).map_err(|e| EngineError::ComponentLoad(format!("{e:#}")))
+  }
+
+  #[must_use]
+  pub fn new_linker<T>(&self) -> Linker<T> {
+    Linker::new(&self.wasmtime)
+  }
+
+  #[must_use]
+  pub(crate) fn cache(&self) -> &Cache {
+    &self.cache
+  }
+
+  #[must_use]
+  pub(crate) fn tag_ttl(&self) -> Duration {
+    self.tag_ttl
+  }
+}

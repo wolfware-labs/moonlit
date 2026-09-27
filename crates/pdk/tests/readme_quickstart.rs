@@ -17,8 +17,8 @@ use moonlit_pdk::prelude::*;
 #[derive(Deserialize, Default, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase", default)]
 struct GreetInput {
-    /// Who to greet; defaults to "world" when empty.
-    name: String,
+  /// Who to greet; defaults to "world" when empty.
+  name: String,
 }
 
 /// Output published for downstream steps to read as
@@ -26,30 +26,30 @@ struct GreetInput {
 #[derive(Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct GreetOutput {
-    /// The greeting message, e.g. `hello, world`.
-    greeting: String,
+  /// The greeting message, e.g. `hello, world`.
+  greeting: String,
 }
 
 #[derive(Default)]
 struct Greet;
 
 impl Middleware for Greet {
-    const NAME: &'static str = "greet";
-    const DESCRIPTION: &'static str = "logs and returns a greeting";
-    type Input = GreetInput;
-    type Output = GreetOutput;
+  const NAME: &'static str = "greet";
+  const DESCRIPTION: &'static str = "logs and returns a greeting";
+  type Input = GreetInput;
+  type Output = GreetOutput;
 
-    fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output> {
-        let who = if input.name.is_empty() {
-            "world".to_string()
-        } else {
-            input.name
-        };
-        ctx.log_info(&format!("greeting {who}"));
-        MiddlewareResult::ok(GreetOutput {
-            greeting: format!("hello, {who}"),
-        })
-    }
+  fn execute(&self, ctx: &Context, input: Self::Input) -> MiddlewareResult<Self::Output> {
+    let who = if input.name.is_empty() {
+      "world".to_string()
+    } else {
+      input.name
+    };
+    ctx.log_info(&format!("greeting {who}"));
+    MiddlewareResult::ok(GreetOutput {
+      greeting: format!("hello, {who}"),
+    })
+  }
 }
 
 moonlit_plugin! { name: "greet-plugin", middlewares: [Greet] }
@@ -57,39 +57,43 @@ moonlit_plugin! { name: "greet-plugin", middlewares: [Greet] }
 
 /// Pull the text between the two marker comments out of this very file.
 fn compiled_example() -> String {
-    let source = include_str!("readme_quickstart.rs");
-    let body = source
-        .split_once("// README-EXAMPLE-START\n")
-        .expect("start marker present")
-        .1;
-    body.split_once("// README-EXAMPLE-END")
-        .expect("end marker present")
-        .0
-        .trim()
-        .to_string()
+  let source = include_str!("readme_quickstart.rs").replace("\r\n", "\n");
+  let body = source
+    .split_once("// README-EXAMPLE-START\n")
+    .expect("start marker present")
+    .1;
+  body
+    .split_once("// README-EXAMPLE-END")
+    .expect("end marker present")
+    .0
+    .trim()
+    .to_string()
 }
 
-/// Pull the first ```rust fenced block out of the README.
+/// Pull the first `` ```rust `` fenced block out of the README.
 fn readme_example() -> String {
-    let readme = include_str!("../README.md");
-    let after_fence = readme
-        .split_once("```rust\n")
-        .expect("README has a rust code block")
-        .1;
-    after_fence
-        .split_once("```")
-        .expect("code block is closed")
-        .0
-        .trim()
-        .to_string()
+  let readme = include_str!("../README.md").replace("\r\n", "\n");
+  let after_fence = readme.split_once("```rust\n").expect("README has a rust code block").1;
+  after_fence
+    .split_once("```")
+    .expect("code block is closed")
+    .0
+    .trim()
+    .to_string()
+}
+
+/// The README keeps the conventional 4-space indent while the workspace rustfmt uses 2 spaces,
+/// so compare line content and ignore leading indentation.
+fn without_indent(code: &str) -> String {
+  code.lines().map(str::trim_start).collect::<Vec<_>>().join("\n")
 }
 
 #[test]
 fn readme_quickstart_is_the_compiled_example() {
-    assert_eq!(
-        readme_example(),
-        compiled_example(),
-        "sdk/README.md's quickstart has drifted from the compiled example in this file. \
+  assert_eq!(
+    without_indent(&readme_example()),
+    without_indent(&compiled_example()),
+    "sdk/README.md's quickstart has drifted from the compiled example in this file. \
          The README is the crates.io front page - update both together."
-    );
+  );
 }

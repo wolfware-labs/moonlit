@@ -1,31 +1,27 @@
+use moonlit_engine::engine::Engine;
+use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::Permissions;
+use moonlit_engine::plugin::host::HostEventSink;
+use moonlit_engine::plugin::middleware::MiddlewareInfo;
+use moonlit_engine::plugin::{Plugin, PluginInstanceConfig, PluginMetadata};
 use std::sync::Arc;
-
-use moonlit_engine::config::model::Permissions;
-use moonlit_engine::host::{
-    HostEventSink, InstanceConfig, LogLevel, MiddlewareInfo, PluginInstance, PluginMetadata,
-    test_engine,
-};
 
 struct SilentSink;
 impl HostEventSink for SilentSink {
-    fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-    fn progress(&self, _step: &str, _message: &str) {}
+  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
+  fn progress(&self, _step: &str, _message: &str) {}
 }
 
-pub(super) async fn introspect(
-    bytes: &[u8],
-) -> Result<(PluginMetadata, Vec<MiddlewareInfo>), String> {
-    let engine = test_engine();
-    let cfg = InstanceConfig {
-        working_directory: std::env::temp_dir(),
-        permissions: Permissions::deny(),
-        config_view: serde_json::json!({}),
-        env_snapshot: vec![],
-    };
-    let mut inst = PluginInstance::instantiate(&engine, bytes, cfg, Arc::new(SilentSink))
-        .await
-        .map_err(|e| e.to_string())?;
-    let meta = inst.describe().await.map_err(|e| e.to_string())?;
-    let mws = inst.list_middlewares().await.map_err(|e| e.to_string())?;
-    Ok((meta, mws))
+pub(super) async fn introspect(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<MiddlewareInfo>)> {
+  let engine = Engine::try_default()?;
+  let cfg = PluginInstanceConfig {
+    working_directory: std::env::temp_dir(),
+    permissions: Permissions::deny(),
+    config_view: serde_json::json!({}),
+    env_snapshot: vec![],
+  };
+  let mut plugin_instance = Plugin::instantiate(&engine, bytes, cfg, Arc::new(SilentSink)).await?;
+  let meta = plugin_instance.describe().await?;
+  let mws = plugin_instance.list_middlewares().await?;
+  Ok((meta, mws))
 }

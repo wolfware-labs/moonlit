@@ -17,44 +17,44 @@ use moonlit_pdk::prelude::*;
 
 #[derive(Default)]
 struct Counter {
-    hits: std::sync::Mutex<u32>,
+  hits: std::sync::Mutex<u32>,
 }
 
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
 struct PluginCfg {
-    token: String,
+  token: String,
 }
 
 impl PluginConfig for PluginCfg {
-    fn validate(&self) -> Result<(), String> {
-        if self.token.trim().is_empty() {
-            return Err("token is required.".to_string());
-        }
-        Ok(())
+  fn validate(&self) -> Result<(), String> {
+    if self.token.trim().is_empty() {
+      return Err("token is required.".to_string());
     }
+    Ok(())
+  }
 }
 
 #[derive(serde::Serialize, schemars::JsonSchema)]
 struct BetaOutput {
-    token: String,
-    hits: u32,
+  token: String,
+  hits: u32,
 }
 
 #[derive(Default)]
 struct Beta;
 impl Middleware for Beta {
-    const NAME: &'static str = "beta";
-    const DESCRIPTION: &'static str = "second";
-    type Input = NoInput;
-    type Output = BetaOutput;
-    fn execute(&self, ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
-        let mut hits = ctx.state::<Counter>().hits.lock().unwrap();
-        *hits += 1;
-        let hits = *hits;
-        let token = ctx.plugin_config::<PluginCfg>().token.clone();
-        MiddlewareResult::ok(BetaOutput { token, hits })
-    }
+  const NAME: &'static str = "beta";
+  const DESCRIPTION: &'static str = "second";
+  type Input = NoInput;
+  type Output = BetaOutput;
+  fn execute(&self, ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+    let mut hits = ctx.state::<Counter>().hits.lock().unwrap();
+    *hits += 1;
+    let hits = *hits;
+    let token = ctx.plugin_config::<PluginCfg>().token.clone();
+    MiddlewareResult::ok(BetaOutput { token, hits })
+  }
 }
 
 moonlit_plugin! {
@@ -66,52 +66,52 @@ moonlit_plugin! {
 
 #[test]
 fn state_and_config_flow_through_generated_code() {
-    // Non-object plugin-config: `from_json_value::<PluginCfg>` fails to decode
-    // (a bare JSON string cannot deserialize into a struct), so `init` returns
-    // `Err` (engine exit 3). The `__MOONLIT_PLUGIN_CONFIG.set` is never reached.
-    #[allow(clippy::single_match)]
-    match <MoonlitComponent as Guest>::init("\"not-an-object\"".to_string()) {
-        Ok(_) => panic!("expected Err for non-object plugin config"),
-        Err(_) => (),
-    }
+  // Non-object plugin-config: `from_json_value::<PluginCfg>` fails to decode
+  // (a bare JSON string cannot deserialize into a struct), so `init` returns
+  // `Err` (engine exit 3). The `__MOONLIT_PLUGIN_CONFIG.set` is never reached.
+  #[allow(clippy::single_match)]
+  match <MoonlitComponent as Guest>::init("\"not-an-object\"".to_string()) {
+    Ok(_) => panic!("expected Err for non-object plugin config"),
+    Err(_) => (),
+  }
 
-    // Blank token: parses, then `validate()` fails — verbatim message, no `.set`.
-    match <MoonlitComponent as Guest>::init(r#"{"token":""}"#.to_string()) {
-        Ok(_) => panic!("blank token must fail init"),
-        Err(e) => assert_eq!(e, "token is required."),
-    }
+  // Blank token: parses, then `validate()` fails — verbatim message, no `.set`.
+  match <MoonlitComponent as Guest>::init(r#"{"token":""}"#.to_string()) {
+    Ok(_) => panic!("blank token must fail init"),
+    Err(e) => assert_eq!(e, "token is required."),
+  }
 
-    // Valid plugin-config: init succeeds and stores it (the earlier failed
-    // attempts returned before calling `.set`, so this `.set` is the first and
-    // only successful one for the process-global OnceLock).
-    let meta = <MoonlitComponent as Guest>::init(r#"{"token":"abc"}"#.to_string())
-        .expect("valid plugin config must init successfully");
-    assert_eq!(meta.name, "stateful");
+  // Valid plugin-config: init succeeds and stores it (the earlier failed
+  // attempts returned before calling `.set`, so this `.set` is the first and
+  // only successful one for the process-global OnceLock).
+  let meta =
+    <MoonlitComponent as Guest>::init(r#"{"token":"abc"}"#.to_string()).expect("valid plugin config must init successfully");
+  assert_eq!(meta.name, "stateful");
 
-    // Execute the sole middleware: `state` lazily default-inits `Counter` and
-    // increments it; `plugin_config` reads the value stored above.
-    let result = <MoonlitComponent as Guest>::execute(
-        "beta".to_string(),
-        ReleaseContext {
-            working_directory: "/w".to_string(),
-            step_name: "s".to_string(),
-        },
-        "{}".to_string(),
-    );
+  // Execute the sole middleware: `state` lazily default-inits `Counter` and
+  // increments it; `plugin_config` reads the value stored above.
+  let result = <MoonlitComponent as Guest>::execute(
+    "beta".to_string(),
+    ReleaseContext {
+      working_directory: "/w".to_string(),
+      step_name: "s".to_string(),
+    },
+    "{}".to_string(),
+  );
 
-    assert!(result.successful);
-    let output: std::collections::HashMap<_, _> = result.output.into_iter().collect();
-    assert_eq!(output["token"], "\"abc\"");
-    assert_eq!(output["hits"], "1");
+  assert!(result.successful);
+  let output: std::collections::HashMap<_, _> = result.output.into_iter().collect();
+  assert_eq!(output["token"], "\"abc\"");
+  assert_eq!(output["hits"], "1");
 }
 
 #[test]
 fn describe_returns_metadata_without_validating_config() {
-    // `describe` is the config-free metadata path (`moonlit plugin inspect` uses
-    // it): it must return name/version even though this plugin's `validate()`
-    // rejects the blank config `init` would be handed. It never touches the
-    // plugin-config `OnceLock`, so it is independent of init ordering.
-    let meta = <MoonlitComponent as Guest>::describe();
-    assert_eq!(meta.name, "stateful");
-    assert_eq!(meta.version, env!("CARGO_PKG_VERSION"));
+  // `describe` is the config-free metadata path (`moonlit plugin inspect` uses
+  // it): it must return name/version even though this plugin's `validate()`
+  // rejects the blank config `init` would be handed. It never touches the
+  // plugin-config `OnceLock`, so it is independent of init ordering.
+  let meta = <MoonlitComponent as Guest>::describe();
+  assert_eq!(meta.name, "stateful");
+  assert_eq!(meta.version, env!("CARGO_PKG_VERSION"));
 }

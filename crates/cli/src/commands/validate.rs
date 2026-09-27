@@ -1,18 +1,18 @@
 use crate::cli::{OutputMode, RunArgs, ValidateArgs};
 
+#[must_use]
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: ValidateArgs) -> i32 {
-    let run_args = RunArgs {
-        file: args.file,
-        working_dir: args.working_dir,
-        stages: vec![],
-        args: vec![],
-        offline: false,
-        step_timeout: None,
-        dry_run: true,
-    };
-    let code = super::run::run(output, verbose, run_args, true).await;
-    if code == 0 {
-        eprintln!("✔ Configuration valid");
-    }
-    code
+  let run_args = RunArgs {
+    file_path: args.file_path,
+    stages: vec![],
+    args: vec![],
+    offline: false,
+    step_timeout: None,
+    dry_run: true,
+  };
+  let code = super::run::run(output, verbose, run_args).await;
+  if code == 0 {
+    eprintln!("✔ Configuration valid");
+  }
+  code
 }
