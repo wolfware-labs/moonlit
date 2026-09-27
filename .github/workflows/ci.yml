@@ -52,6 +52,37 @@ jobs:
           path: dist/linux/amd64/moonlit
           retention-days: 1
 
+  test-os:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    permissions:
+      contents: read
+    env:
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache cargo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      # The wasm test fixtures run `echo`, `ls` and `sh`; Git for Windows ships
+      # them in usr\bin, which the runner does not put on PATH by default.
+      - name: Put Git's POSIX tools on PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\usr\bin"
+      - name: test
+        run: cargo test --all
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest
@@ -86,7 +117,7 @@ jobs:
           # they would otherwise evict the plain test artifacts on every run.
           key: ${{ runner.os }}-cargo-llvmcov-${{ hashFiles('**/Cargo.lock') }}
       - name: Generate coverage
-        run: cargo llvm-cov --all --lcov --output-path lcov.info
+        run: cargo llvm-cov --all --lcov --output-path lcov.info --fail-under-lines 95
       - name: Upload to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
@@ -94,6 +125,44 @@ jobs:
           use_oidc: true
           # A coverage upload outage must not fail a PR; the check job is the gate.
           fail_ci_if_error: false
+
+  mutants:
+    name: mutants (PR diff)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@4e14a60b36eb62630dcc25614f0be0659ab8830c # cargo-mutants
+        with:
+          tool: cargo-mutants
+      - name: Cache cargo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-mutants-${{ hashFiles('**/Cargo.lock') }}
+      - name: Diff against the base branch
+        run: git diff "origin/${{ github.base_ref }}...HEAD" > pr.diff
+      - name: Mutate only the changed lines
+        run: cargo mutants --in-diff pr.diff --no-shuffle --package moonlit-engine --package moonlit
+      - name: Upload the mutants report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mutants-report
+          path: mutants.out
+          retention-days: 7
 
   docker:
     name: docker image
