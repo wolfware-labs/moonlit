@@ -40,7 +40,7 @@ impl Engine {
     })
   }
 
-  pub fn default() -> Result<Self, EngineError> {
+  pub fn try_default() -> Result<Self, EngineError> {
     Self::new(EngineSettings::default())
   }
 
