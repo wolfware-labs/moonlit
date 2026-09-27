@@ -27,6 +27,7 @@ impl<T> Shared<T> {
     Self(Mutex::new(value))
   }
   /// Clone the current value out.
+  #[must_use]
   pub fn get(&self) -> T
   where
     T: Clone,

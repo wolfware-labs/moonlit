@@ -54,6 +54,7 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
+  #[must_use]
   pub fn new(host: &'a dyn Host, working_dir: String, step_name: String) -> Self {
     Self {
       host,
@@ -90,35 +91,42 @@ impl<'a> Context<'a> {
     self.host.report_progress(msg);
   }
 
+  #[must_use]
   pub fn working_dir(&self) -> &str {
     &self.working_dir
   }
+  #[must_use]
   pub fn step_name(&self) -> &str {
     &self.step_name
   }
 
   /// Raw accumulated config at `path` (`:`-separated), parsed from json-value.
+  #[must_use]
   pub fn get_config(&self, path: &str) -> Option<serde_json::Value> {
     let raw = self.host.get_config(path)?;
     serde_json::from_str(&raw).ok()
   }
   /// Config at `path`, coerced (§5.4) into `T`. `None` if absent or on error.
+  #[must_use]
   pub fn get_config_as<T: serde::de::DeserializeOwned>(&self, path: &str) -> Option<T> {
     let raw = self.host.get_config(path)?;
     crate::config::from_json_value(&raw).ok()
   }
 
   /// Environment access.
+  #[must_use]
   pub fn env(&self) -> crate::env::Env<'a> {
     crate::env::Env::new(self.host)
   }
 
   /// Monotonic clock access.
+  #[must_use]
   pub fn clock(&self) -> crate::clock::Clock<'a> {
     crate::clock::Clock::new(self.host)
   }
 
   /// Randomness access.
+  #[must_use]
   pub fn random(&self) -> crate::random::Random<'a> {
     crate::random::Random::new(self.host)
   }
@@ -129,11 +137,13 @@ impl<'a> Context<'a> {
   }
 
   /// Blocking HTTP client.
+  #[must_use]
   pub fn http(&self) -> crate::http::Http<'a> {
     crate::http::Http::new(self.host)
   }
 
   /// The plugin's shared state. Panics if the plugin declared no `state:`.
+  #[must_use]
   pub fn state<T: 'static>(&self) -> &T {
     self
       .state
@@ -142,6 +152,7 @@ impl<'a> Context<'a> {
       .expect("state type mismatch")
   }
   /// The typed plugin-level config. Panics if the plugin declared no `config:`.
+  #[must_use]
   pub fn plugin_config<T: 'static>(&self) -> &T {
     self
       .plugin_config
@@ -173,6 +184,18 @@ mod tests {
   }
 
   #[test]
+  fn debug_and_warn_logs_route_to_host() {
+    let host = MockHost::new();
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    ctx.log_debug("d");
+    ctx.log_warn("w");
+    assert_eq!(
+      host.logs(),
+      vec![(LogLevel::Debug, "d".to_string()), (LogLevel::Warn, "w".to_string())]
+    );
+  }
+
+  #[test]
   fn get_config_parses_and_coerces() {
     let host = MockHost::new().with_config("plugin:port", "\"8080\"");
     let ctx = Context::new(&host, "/w".into(), "s".into());
@@ -198,7 +221,7 @@ mod tests {
     struct S;
     let host = MockHost::new();
     let ctx = Context::new(&host, "/w".into(), "s".into());
-    ctx.state::<S>();
+    let _ = ctx.state::<S>();
   }
 
   #[test]
@@ -207,6 +230,6 @@ mod tests {
     struct C;
     let host = MockHost::new();
     let ctx = Context::new(&host, "/w".into(), "s".into());
-    ctx.plugin_config::<C>();
+    let _ = ctx.plugin_config::<C>();
   }
 }

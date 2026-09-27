@@ -8,14 +8,17 @@ pub struct Random<'a> {
 }
 
 impl<'a> Random<'a> {
+  #[must_use]
   pub(crate) fn new(host: &'a dyn Host) -> Self {
     Self { host }
   }
   /// `n` random bytes from the host (at least `n`).
+  #[must_use]
   pub fn bytes(&self, n: usize) -> Vec<u8> {
     self.host.random_bytes(n)
   }
-  /// A random UUIDv4 string (`8-4-4-4-12` lowercase hex).
+  /// A random `UUIDv4` string (`8-4-4-4-12` lowercase hex).
+  #[must_use]
   pub fn uuid(&self) -> String {
     let mut b = self.host.random_bytes(16);
     b.resize(16, 0); // defensive: contract is >= 16, but never index OOB

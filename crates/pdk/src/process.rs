@@ -51,6 +51,7 @@ pub struct Output {
 }
 
 impl Output {
+  #[must_use]
   fn from_raw(raw: ProcessOutput) -> Self {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
@@ -67,20 +68,24 @@ impl Output {
     }
   }
   /// True when the process exited 0.
+  #[must_use]
   pub fn success(&self) -> bool {
     self.exit_code == 0
   }
   /// stdout lines joined with '\n'.
+  #[must_use]
   pub fn stdout(&self) -> String {
     self.stdout.join("\n")
   }
   /// stderr lines joined with '\n'.
+  #[must_use]
   pub fn stderr(&self) -> String {
     self.stderr.join("\n")
   }
 }
 
 /// Maps an output line to a log level (or `None` to suppress).
+#[must_use = "a line handler does nothing until it is passed to `.stream()`"]
 #[allow(clippy::type_complexity)]
 pub struct LineHandler {
   classify: Box<dyn Fn(&OutputChunk) -> Option<LogLevel>>,
@@ -120,12 +125,14 @@ impl LineHandler {
   pub fn custom(f: impl Fn(&OutputChunk) -> Option<LogLevel> + 'static) -> Self {
     Self { classify: Box::new(f) }
   }
+  #[must_use]
   fn level_for(&self, chunk: &OutputChunk) -> Option<LogLevel> {
     (self.classify)(chunk)
   }
 }
 
 /// Fluent subprocess builder, created via `ctx.command(program)`.
+#[must_use = "a command does nothing until `.run()`, `.spawn()` or `.stream()` is called"]
 pub struct Command<'a> {
   host: &'a dyn Host,
   cmd: ProcessCommand,
@@ -141,12 +148,10 @@ impl<'a> Command<'a> {
       },
     }
   }
-  #[must_use]
   pub fn arg(mut self, a: impl Into<String>) -> Self {
     self.cmd.args.push(a.into());
     self
   }
-  #[must_use]
   pub fn args<I, S>(mut self, args: I) -> Self
   where
     I: IntoIterator<Item = S>,
@@ -155,17 +160,14 @@ impl<'a> Command<'a> {
     self.cmd.args.extend(args.into_iter().map(Into::into));
     self
   }
-  #[must_use]
   pub fn cwd(mut self, dir: impl Into<String>) -> Self {
     self.cmd.cwd = Some(dir.into());
     self
   }
-  #[must_use]
   pub fn env(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
     self.cmd.env.push((k.into(), v.into()));
     self
   }
-  #[must_use]
   pub fn envs<I, K, V>(mut self, vars: I) -> Self
   where
     I: IntoIterator<Item = (K, V)>,
@@ -175,7 +177,6 @@ impl<'a> Command<'a> {
     self.cmd.env.extend(vars.into_iter().map(|(k, v)| (k.into(), v.into())));
     self
   }
-  #[must_use]
   pub fn stdin(mut self, input: impl Into<String>) -> Self {
     self.cmd.stdin = Some(input.into());
     self
@@ -189,6 +190,10 @@ impl<'a> Command<'a> {
 
   /// Spawn and stream: route each line through `handler` to the host log, and
   /// also capture everything into the returned `Output`.
+  #[expect(
+    clippy::needless_pass_by_value,
+    reason = "public SDK API: plugin authors pass a handler inline"
+  )]
   pub fn stream(&self, handler: LineHandler) -> Result<Output, String> {
     let mut child = self.host.process_spawn(&self.cmd)?;
     let mut chunks = Vec::new();
@@ -213,6 +218,7 @@ impl<'a> Command<'a> {
 }
 
 /// A live child process handle.
+#[must_use = "a spawned process should be read with `.next_line()` or awaited with `.wait()`"]
 pub struct Child<'a> {
   handle: Box<dyn ChildHandle>,
   _marker: std::marker::PhantomData<&'a ()>,
@@ -220,6 +226,7 @@ pub struct Child<'a> {
 
 impl Child<'_> {
   /// Next output line, or `None` when the process has exited.
+  #[must_use]
   pub fn next_line(&mut self) -> Option<OutputChunk> {
     self.handle.next_line()
   }
@@ -303,10 +310,83 @@ mod tests {
   fn spawn_failure_is_err_not_panic() {
     let host = MockHost::new().with_process_error("program 'x' not permitted");
     let ctx = Context::new(&host, "/w".into(), "s".into());
-    match ctx.command("x").run() {
-      Ok(_) => panic!("expected spawn failure"),
-      Err(e) => assert!(e.contains("not permitted"), "got: {e}"),
-    }
+    let e = ctx.command("x").run().err().expect("expected spawn failure");
+    assert!(e.contains("not permitted"), "got: {e}");
+  }
+
+  #[test]
+  fn spawn_and_stream_failures_are_err() {
+    let host = MockHost::new()
+      .with_process_error("spawn denied")
+      .with_process_error("stream denied");
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    assert_eq!(ctx.command("x").spawn().err().expect("spawn error"), "spawn denied");
+    assert_eq!(
+      ctx.command("x").stream(LineHandler::silent()).err().expect("stream error"),
+      "stream denied"
+    );
+  }
+
+  #[test]
+  fn builder_records_args_cwd_env_and_stdin() {
+    let host = MockHost::new().with_process_result(0, vec![]);
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let out = ctx
+      .command("git")
+      .arg("commit")
+      .args(["-m", "msg"])
+      .cwd("/repo")
+      .env("A", "1")
+      .envs([("B", "2"), ("C", "3")])
+      .stdin("input")
+      .run()
+      .unwrap();
+    assert!(out.success());
+    let cmd = &host.recorded_commands()[0];
+    assert_eq!(cmd.args, vec!["commit", "-m", "msg"]);
+    assert_eq!(cmd.cwd.as_deref(), Some("/repo"));
+    assert_eq!(
+      cmd.env,
+      vec![
+        ("A".to_string(), "1".to_string()),
+        ("B".to_string(), "2".to_string()),
+        ("C".to_string(), "3".to_string()),
+      ]
+    );
+    assert_eq!(cmd.stdin.as_deref(), Some("input"));
+  }
+
+  #[test]
+  fn fixed_level_handler_logs_every_line_at_that_level() {
+    let host = MockHost::new().with_process_result(1, vec![chunk(StdioStream::Stdout, "a"), chunk(StdioStream::Stderr, "b")]);
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let out = ctx.command("x").stream(LineHandler::at(LogLevel::Debug)).unwrap();
+    assert!(!out.success());
+    assert_eq!(
+      host.logs(),
+      vec![(LogLevel::Debug, "a".to_string()), (LogLevel::Debug, "b".to_string())]
+    );
+  }
+
+  #[test]
+  fn custom_handler_classifies_by_stream() {
+    let host =
+      MockHost::new().with_process_result(0, vec![chunk(StdioStream::Stdout, "out"), chunk(StdioStream::Stderr, "err")]);
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let handler = LineHandler::custom(|c| (c.stream == StdioStream::Stderr).then_some(LogLevel::Warn));
+    let out = ctx.command("x").stream(handler).unwrap();
+    assert_eq!(out.stdout(), "out");
+    assert_eq!(out.stderr(), "err");
+    assert_eq!(host.logs(), vec![(LogLevel::Warn, "err".to_string())]);
+  }
+
+  #[test]
+  fn spawned_child_can_be_killed() {
+    let host = MockHost::new().with_process_result(0, vec![chunk(StdioStream::Stdout, "a")]);
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let mut child = ctx.command("sleep").spawn().unwrap();
+    child.kill();
+    assert_eq!(child.wait(), 0);
   }
 
   #[test]

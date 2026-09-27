@@ -21,3 +21,6 @@ schemars = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 moonlit-pdk-macros = { path = "../pdk-macros", version = "0.1.0" }
 flate2 = { workspace = true }
+
+[lints]
+workspace = true

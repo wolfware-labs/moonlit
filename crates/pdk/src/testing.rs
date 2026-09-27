@@ -45,6 +45,7 @@ pub struct MockHost {
 }
 
 impl MockHost {
+  #[must_use]
   pub fn new() -> Self {
     Self::default()
   }
@@ -74,9 +75,11 @@ impl MockHost {
     self.clock = nanos.to_vec();
     self
   }
+  #[must_use]
   pub fn logs(&self) -> Vec<(LogLevel, String)> {
     self.logs.borrow().clone()
   }
+  #[must_use]
   pub fn progress(&self) -> Vec<String> {
     self.progress.borrow().clone()
   }
@@ -96,6 +99,7 @@ impl MockHost {
     self
   }
   /// Commands passed to `process_run`/`process_spawn`, in order.
+  #[must_use]
   pub fn recorded_commands(&self) -> Vec<ProcessCommand> {
     self.recorded_commands.borrow().clone()
   }
@@ -126,10 +130,12 @@ impl MockHost {
     self
   }
   /// Requests passed to `http_send`, in order.
+  #[must_use]
   pub fn recorded_requests(&self) -> Vec<HttpRequestData> {
     self.recorded_requests.borrow().clone()
   }
   /// Nanosecond durations passed to `sleep_nanos`, in order.
+  #[must_use]
   pub fn recorded_sleeps(&self) -> Vec<u64> {
     self.sleeps.borrow().clone()
   }
@@ -180,7 +186,7 @@ impl Host for MockHost {
   }
   fn random_bytes(&self, n: usize) -> Vec<u8> {
     if self.random.is_empty() {
-      (0..n).map(|i| i as u8).collect()
+      (0..=u8::MAX).cycle().take(n).collect()
     } else {
       (0..n).map(|i| self.random[i % self.random.len()]).collect()
     }
@@ -237,5 +243,22 @@ mod random_tests {
   fn with_random_cycles_the_seed() {
     let h = MockHost::new().with_random(&[9, 8]);
     assert_eq!(h.random_bytes(3), vec![9, 8, 9]);
+  }
+  #[test]
+  fn unconfigured_process_calls_fail_loudly() {
+    let h = MockHost::new();
+    let cmd = crate::process::ProcessCommand::default();
+    assert!(
+      h.process_run(&cmd)
+        .err()
+        .expect("run must fail")
+        .contains("no process result configured")
+    );
+    assert!(
+      h.process_spawn(&cmd)
+        .err()
+        .expect("spawn must fail")
+        .contains("no process result configured")
+    );
   }
 }

@@ -57,6 +57,7 @@ impl Host for RealHost {
   }
 }
 
+#[must_use]
 fn to_wit_command(cmd: &ProcessCommand) -> crate::bindings::moonlit::plugin::process::Command {
   crate::bindings::moonlit::plugin::process::Command {
     program: cmd.program.clone(),
@@ -67,6 +68,7 @@ fn to_wit_command(cmd: &ProcessCommand) -> crate::bindings::moonlit::plugin::pro
   }
 }
 
+#[must_use]
 fn from_wit_chunk(c: crate::bindings::moonlit::plugin::process::OutputChunk) -> OutputChunk {
   let stream = match c.stream {
     crate::bindings::moonlit::plugin::process::StdioStream::Stdout => StdioStream::Stdout,

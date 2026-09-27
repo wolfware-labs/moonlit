@@ -10,10 +10,12 @@ pub struct Clock<'a> {
 }
 
 impl<'a> Clock<'a> {
+  #[must_use]
   pub(crate) fn new(host: &'a dyn Host) -> Self {
     Self { host }
   }
   /// Current monotonic reading in nanoseconds.
+  #[must_use]
   pub fn now(&self) -> u64 {
     self.host.monotonic_nanos()
   }
@@ -32,6 +34,7 @@ impl<'a> Clock<'a> {
 
 /// A running stopwatch: holds the host and start instant; `elapsed_ms`
 /// re-reads the live clock, so it stays correct however long the gap.
+#[must_use = "a timer measures nothing until `.elapsed_ms()` is read"]
 pub struct Timer<'a> {
   host: &'a dyn Host,
   start: u64,
@@ -39,6 +42,7 @@ pub struct Timer<'a> {
 
 impl Timer<'_> {
   /// Elapsed milliseconds since `start`, saturating.
+  #[must_use]
   pub fn elapsed_ms(&self) -> u64 {
     self.host.monotonic_nanos().saturating_sub(self.start) / 1_000_000
   }

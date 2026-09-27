@@ -57,7 +57,7 @@ moonlit_plugin! { name: "greet-plugin", middlewares: [Greet] }
 
 /// Pull the text between the two marker comments out of this very file.
 fn compiled_example() -> String {
-  let source = include_str!("readme_quickstart.rs");
+  let source = include_str!("readme_quickstart.rs").replace("\r\n", "\n");
   let body = source
     .split_once("// README-EXAMPLE-START\n")
     .expect("start marker present")
@@ -70,9 +70,9 @@ fn compiled_example() -> String {
     .to_string()
 }
 
-/// Pull the first ```rust fenced block out of the README.
+/// Pull the first `` ```rust `` fenced block out of the README.
 fn readme_example() -> String {
-  let readme = include_str!("../README.md");
+  let readme = include_str!("../README.md").replace("\r\n", "\n");
   let after_fence = readme.split_once("```rust\n").expect("README has a rust code block").1;
   after_fence
     .split_once("```")
@@ -82,11 +82,17 @@ fn readme_example() -> String {
     .to_string()
 }
 
+/// The README keeps the conventional 4-space indent while the workspace rustfmt uses 2 spaces,
+/// so compare line content and ignore leading indentation.
+fn without_indent(code: &str) -> String {
+  code.lines().map(str::trim_start).collect::<Vec<_>>().join("\n")
+}
+
 #[test]
 fn readme_quickstart_is_the_compiled_example() {
   assert_eq!(
-    readme_example(),
-    compiled_example(),
+    without_indent(&readme_example()),
+    without_indent(&compiled_example()),
     "sdk/README.md's quickstart has drifted from the compiled example in this file. \
          The README is the crates.io front page - update both together."
   );

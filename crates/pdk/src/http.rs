@@ -44,6 +44,7 @@ pub struct Http<'a> {
 }
 
 impl<'a> Http<'a> {
+  #[must_use]
   pub(crate) fn new(host: &'a dyn Host) -> Self {
     Self { host }
   }
@@ -76,6 +77,7 @@ impl<'a> Http<'a> {
 }
 
 /// Fluent request builder. Terminal: `send()`.
+#[must_use = "a request does nothing until `.send()` is called"]
 pub struct Request<'a> {
   host: &'a dyn Host,
   method: HttpMethod,
@@ -88,19 +90,16 @@ pub struct Request<'a> {
 }
 
 impl Request<'_> {
-  #[must_use]
   pub fn header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
     self.headers.push((name.into(), value.into()));
     self
   }
-  #[must_use]
   pub fn bearer(mut self, token: impl AsRef<str>) -> Self {
     self
       .headers
       .push(("authorization".to_string(), format!("Bearer {}", token.as_ref())));
     self
   }
-  #[must_use]
   pub fn json<T: Serialize>(mut self, value: &T) -> Self {
     match serde_json::to_vec(value) {
       Ok(bytes) => {
@@ -113,12 +112,10 @@ impl Request<'_> {
     }
     self
   }
-  #[must_use]
   pub fn body_bytes(mut self, bytes: Vec<u8>) -> Self {
     self.body = Some(bytes);
     self
   }
-  #[must_use]
   pub fn timeout_ms(mut self, ms: u64) -> Self {
     self.timeout_ms = Some(ms);
     self
@@ -175,12 +172,15 @@ impl Response {
       body,
     })
   }
+  #[must_use]
   pub fn status(&self) -> u16 {
     self.status
   }
+  #[must_use]
   pub fn is_success(&self) -> bool {
     (200..=299).contains(&self.status)
   }
+  #[must_use]
   pub fn header(&self, name: &str) -> Option<&str> {
     self
       .headers
@@ -188,6 +188,7 @@ impl Response {
       .find(|(k, _)| k.eq_ignore_ascii_case(name))
       .map(|(_, v)| v.as_str())
   }
+  #[must_use]
   pub fn bytes(&self) -> &[u8] {
     &self.body
   }
@@ -226,6 +227,10 @@ mod tests {
 
   #[test]
   fn get_builds_request_and_reads_json() {
+    #[derive(serde::Deserialize)]
+    struct R {
+      tag: String,
+    }
     let host = MockHost::new().with_http_response(200, br#"{"tag":"v1"}"#);
     let ctx = Context::new(&host, "/w".into(), "s".into());
     let resp = ctx
@@ -235,10 +240,6 @@ mod tests {
       .send()
       .unwrap();
     assert!(resp.is_success());
-    #[derive(serde::Deserialize)]
-    struct R {
-      tag: String,
-    }
     let r: R = resp.json().unwrap();
     assert_eq!(r.tag, "v1");
 
@@ -303,19 +304,90 @@ mod tests {
   fn http_error_surfaces_from_send() {
     let host = MockHost::new().with_http_error("network: host not permitted");
     let ctx = Context::new(&host, "/w".into(), "s".into());
-    match ctx.http().get("https://h/x").send() {
-      Ok(_) => panic!("expected error"),
-      Err(e) => assert!(e.contains("not permitted"), "got: {e}"),
-    }
+    let e = ctx.http().get("https://h/x").send().err().expect("expected error");
+    assert!(e.contains("not permitted"), "got: {e}");
+  }
+
+  fn send_err(url: &str) -> String {
+    let host = MockHost::new().with_http_response(200, b"");
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    ctx.http().get(url).send().err().expect("expected url error")
   }
 
   #[test]
   fn bad_url_is_err() {
+    assert!(send_err("no-scheme").contains("invalid url (no scheme)"));
+    assert!(send_err("://h/x").contains("invalid url (empty scheme)"));
+    assert!(send_err("https:///x").contains("invalid url (empty authority)"));
+  }
+
+  #[test]
+  fn url_without_a_path_requests_the_root() {
     let host = MockHost::new().with_http_response(200, b"");
     let ctx = Context::new(&host, "/w".into(), "s".into());
-    match ctx.http().get("no-scheme").send() {
-      Ok(_) => panic!("expected url error"),
-      Err(e) => assert!(e.contains("invalid url"), "got: {e}"),
-    }
+    ctx.http().get("https://h").send().unwrap();
+    assert_eq!(host.recorded_requests()[0].path_with_query, "/");
+  }
+
+  #[test]
+  fn builder_sets_headers_body_and_timeout() {
+    let host = MockHost::new().with_http_response(204, b"");
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    ctx
+      .http()
+      .put("https://h/up")
+      .header("x-trace", "1")
+      .header("Accept-Encoding", "identity")
+      .body_bytes(b"raw".to_vec())
+      .timeout_ms(250)
+      .send()
+      .unwrap();
+    let req = &host.recorded_requests()[0];
+    assert_eq!(req.body.as_deref(), Some(&b"raw"[..]));
+    assert_eq!(req.timeout_ms, Some(250));
+    assert!(req.headers.iter().any(|(k, v)| k == "x-trace" && v == "1"));
+    assert!(!req.headers.iter().any(|(_, v)| v == "gzip"));
+  }
+
+  #[test]
+  fn json_body_that_cannot_serialize_fails_at_send() {
+    let host = MockHost::new().with_http_response(200, b"");
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let body: std::collections::HashMap<(i32, i32), i32> = std::collections::HashMap::from([((1, 2), 3)]);
+    let e = ctx
+      .http()
+      .post("https://h/api")
+      .json(&body)
+      .send()
+      .err()
+      .expect("expected serialize error");
+    assert!(e.starts_with("request json serialize:"), "got: {e}");
+    assert!(host.recorded_requests().is_empty());
+  }
+
+  #[test]
+  fn response_exposes_status_headers_and_bytes() {
+    let host = MockHost::new().with_http_response_headers(404, vec![("X-Id".to_string(), "abc".to_string())], b"gone");
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let resp = ctx.http().get("https://h/x").send().unwrap();
+    assert_eq!(resp.status(), 404);
+    assert!(!resp.is_success());
+    assert_eq!(resp.header("x-id"), Some("abc"));
+    assert_eq!(resp.header("missing"), None);
+    assert_eq!(resp.bytes(), b"gone");
+  }
+
+  #[test]
+  fn response_text_and_json_report_decode_errors() {
+    let host = MockHost::new().with_http_response(200, &[0xff, 0xfe]);
+    let ctx = Context::new(&host, "/w".into(), "s".into());
+    let resp = ctx.http().get("https://h/x").send().unwrap();
+    assert!(resp.text().expect_err("utf-8 error").starts_with("response utf-8:"));
+    assert!(
+      resp
+        .json::<serde_json::Value>()
+        .expect_err("json error")
+        .starts_with("response json:")
+    );
   }
 }

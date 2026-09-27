@@ -19,6 +19,7 @@
 /// assert!(!failed.is_success());
 /// assert_eq!(failed.error_message(), Some("tag already exists"));
 /// ```
+#[must_use = "a middleware result must be returned from `execute`"]
 pub struct MiddlewareResult<T> {
   successful: bool,
   error_message: Option<String>,
@@ -50,7 +51,6 @@ impl<T> MiddlewareResult<T> {
     }
   }
 
-  #[must_use]
   pub fn with_warning(mut self, msg: impl Into<String>) -> Self {
     self.warnings.push(msg.into());
     self
@@ -80,6 +80,7 @@ impl<T: serde::Serialize> MiddlewareResult<T> {
   /// object and spread into the `(key, json-text)` output list (the field
   /// names become the map keys, so `steps.NAME.outputs.<field>` resolves). A
   /// non-object output or a serialization error degrades to a loud failure.
+  #[must_use]
   pub fn into_wit(self) -> crate::bindings::MiddlewareResult {
     let mut output: Vec<(String, String)> = Vec::new();
     if let Some(value) = self.output {
@@ -202,5 +203,17 @@ mod tests {
       "message should indicate a serialization failure; got {:?}",
       w.error_message
     );
+  }
+
+  #[test]
+  fn non_object_output_degrades_to_failure() {
+    let w = MiddlewareResult::ok(42).with_warning("kept").into_wit();
+    assert!(!w.successful);
+    assert_eq!(
+      w.error_message.as_deref(),
+      Some("middleware output must serialize to a JSON object, got 42")
+    );
+    assert_eq!(w.warnings, vec!["kept".to_string()]);
+    assert!(w.output.is_empty());
   }
 }

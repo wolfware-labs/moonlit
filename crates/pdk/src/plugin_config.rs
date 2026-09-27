@@ -57,10 +57,9 @@ mod tests {
 
   #[test]
   fn blank_value_returns_verbatim_message() {
-    let msg = match (Cfg { token: "  ".into() }).validate() {
-      Ok(()) => panic!("blank token must fail validation"),
-      Err(e) => e,
-    };
+    let msg = (Cfg { token: "  ".into() })
+      .validate()
+      .expect_err("blank token must fail validation");
     assert_eq!(msg, "token is required.");
   }
 

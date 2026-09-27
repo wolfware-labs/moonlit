@@ -5,6 +5,7 @@
 //! (`icon = "…"`) and, per middleware, a JSON Schema for both its typed `Input`
 //! and its `Output`.
 
+use base64::Engine as _;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
@@ -67,23 +68,22 @@ impl Parse for PluginDecl {
 /// `plugin-metadata.icon`. MIME comes from the extension; unknown extensions are
 /// a compile error. The emitted `include_bytes!` is inert (discarded) but makes
 /// `rustc` track the file so a changed icon triggers a rebuild.
-fn icon_expr(icon: &Option<LitStr>) -> proc_macro2::TokenStream {
+#[must_use]
+fn icon_expr(icon: Option<&LitStr>) -> proc_macro2::TokenStream {
   let Some(lit) = icon else {
     return quote! { ::core::option::Option::None };
   };
   let rel = lit.value();
-  let mime = if rel.ends_with(".png") {
+  let extension = std::path::Path::new(&rel).extension().and_then(std::ffi::OsStr::to_str);
+  let mime = if extension == Some("png") {
     "image/png"
-  } else if rel.ends_with(".webp") {
+  } else if extension == Some("webp") {
     "image/webp"
   } else {
     return syn::Error::new(lit.span(), "icon must be a .png or .webp file").to_compile_error();
   };
-  let manifest_dir = match std::env::var("CARGO_MANIFEST_DIR") {
-    Ok(d) => d,
-    Err(_) => {
-      return syn::Error::new(lit.span(), "CARGO_MANIFEST_DIR unavailable; cannot locate icon").to_compile_error();
-    }
+  let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") else {
+    return syn::Error::new(lit.span(), "CARGO_MANIFEST_DIR unavailable; cannot locate icon").to_compile_error();
   };
   let path = std::path::Path::new(&manifest_dir).join(&rel);
   let bytes = match std::fs::read(&path) {
@@ -92,7 +92,6 @@ fn icon_expr(icon: &Option<LitStr>) -> proc_macro2::TokenStream {
       return syn::Error::new(lit.span(), format!("cannot read icon `{}`: {e}", path.display())).to_compile_error();
     }
   };
-  use base64::Engine as _;
   let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
   let data_uri = format!("data:{mime};base64,{b64}");
   quote! {
@@ -109,7 +108,7 @@ fn icon_expr(icon: &Option<LitStr>) -> proc_macro2::TokenStream {
 pub fn moonlit_plugin(input: TokenStream) -> TokenStream {
   // Allow trailing braces form `moonlit_plugin! { ... }`.
   let decl = syn::parse_macro_input!(input as PluginDeclInput).0;
-  expand(decl).into()
+  expand(&decl).into()
 }
 
 /// Wrapper so the macro accepts either `{ ... }` or bare `...`.
@@ -126,88 +125,14 @@ impl Parse for PluginDeclInput {
   }
 }
 
-fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
+#[must_use]
+fn expand(decl: &PluginDecl) -> proc_macro2::TokenStream {
   let name = &decl.name;
-  let mws = &decl.middlewares;
-
-  // list-middlewares entries; input-schema / output-schema are the JSON Schemas
-  // of each middleware's `Input` / `Output` (draft 2020-12), via the SDK helper.
-  let list_entries = mws.iter().map(|m| {
-    quote! {
-        ::moonlit_pdk::bindings::MiddlewareInfo {
-            name: <#m as ::moonlit_pdk::Middleware>::NAME.to_string(),
-            description: <#m as ::moonlit_pdk::Middleware>::DESCRIPTION.to_string(),
-            input_schema: ::core::option::Option::Some(
-                ::moonlit_pdk::__schema_json::<<#m as ::moonlit_pdk::Middleware>::Input>()
-            ),
-            output_schema: ::core::option::Option::Some(
-                ::moonlit_pdk::__schema_json::<<#m as ::moonlit_pdk::Middleware>::Output>()
-            ),
-        }
-    }
-  });
-
-  let icon = icon_expr(&decl.icon);
-
-  // execute dispatch arms
-  let exec_arms = mws.iter().map(|m| {
-    quote! {
-        <#m as ::moonlit_pdk::Middleware>::NAME => {
-            let input: <#m as ::moonlit_pdk::Middleware>::Input =
-                match ::moonlit_pdk::config::from_json_value(&config) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        return ::moonlit_pdk::MiddlewareResult::<
-                            <#m as ::moonlit_pdk::Middleware>::Output,
-                        >::failure(
-                            ::std::format!("invalid input for `{}`: {}", middleware, e)
-                        ).into_wit();
-                    }
-                };
-            let mw = <#m as ::core::default::Default>::default();
-            ::moonlit_pdk::Middleware::execute(&mw, &ctx, input).into_wit()
-        }
-    }
-  });
-
-  // optional state static + install
-  let (state_static, state_attach) = match &decl.state {
-    Some(ty) => (
-      quote! {
-          static __MOONLIT_STATE: ::std::sync::OnceLock<#ty> = ::std::sync::OnceLock::new();
-          fn __moonlit_state() -> &'static #ty {
-              __MOONLIT_STATE.get_or_init(<#ty as ::core::default::Default>::default)
-          }
-      },
-      quote! { let ctx = ctx.with_state(__moonlit_state()); },
-    ),
-    None => (quote! {}, quote! {}),
-  };
-
-  // optional plugin-config: validated at init, stored, attached to ctx
-  let (config_static, config_init, config_attach) = match &decl.config {
-    Some(ty) => (
-      quote! {
-          static __MOONLIT_PLUGIN_CONFIG: ::std::sync::OnceLock<#ty> = ::std::sync::OnceLock::new();
-          fn __moonlit_plugin_config() -> ::core::option::Option<&'static #ty> {
-              __MOONLIT_PLUGIN_CONFIG.get()
-          }
-      },
-      quote! {
-          let parsed: #ty = ::moonlit_pdk::config::from_json_value(&plugin_config)
-              .map_err(|e| ::std::format!("invalid plugin config: {}", e))?;
-          ::moonlit_pdk::PluginConfig::validate(&parsed)?;
-          let _ = __MOONLIT_PLUGIN_CONFIG.set(parsed);
-      },
-      quote! {
-          let ctx = match __moonlit_plugin_config() {
-              Some(c) => ctx.with_plugin_config(c),
-              None => ctx,
-          };
-      },
-    ),
-    None => (quote! {}, quote! {}, quote! {}),
-  };
+  let list_entries = list_entries(&decl.middlewares);
+  let icon = icon_expr(decl.icon.as_ref());
+  let exec_arms = exec_arms(&decl.middlewares);
+  let (state_static, state_attach) = state_tokens(decl.state.as_ref());
+  let (config_static, config_init, config_attach) = config_tokens(decl.config.as_ref());
 
   quote! {
       #[derive(::core::default::Default)]
@@ -288,5 +213,170 @@ fn expand(decl: PluginDecl) -> proc_macro2::TokenStream {
       }
 
       ::moonlit_pdk::export!(MoonlitComponent with_types_in ::moonlit_pdk::bindings);
+  }
+}
+
+#[must_use]
+fn list_entries(mws: &[Type]) -> Vec<proc_macro2::TokenStream> {
+  // list-middlewares entries; input-schema / output-schema are the JSON Schemas
+  // of each middleware's `Input` / `Output` (draft 2020-12), via the SDK helper.
+  mws
+    .iter()
+    .map(|m| {
+      quote! {
+          ::moonlit_pdk::bindings::MiddlewareInfo {
+              name: <#m as ::moonlit_pdk::Middleware>::NAME.to_string(),
+              description: <#m as ::moonlit_pdk::Middleware>::DESCRIPTION.to_string(),
+              input_schema: ::core::option::Option::Some(
+                  ::moonlit_pdk::__schema_json::<<#m as ::moonlit_pdk::Middleware>::Input>()
+              ),
+              output_schema: ::core::option::Option::Some(
+                  ::moonlit_pdk::__schema_json::<<#m as ::moonlit_pdk::Middleware>::Output>()
+              ),
+          }
+      }
+    })
+    .collect()
+}
+
+#[must_use]
+fn exec_arms(mws: &[Type]) -> Vec<proc_macro2::TokenStream> {
+  // execute dispatch arms
+  mws
+    .iter()
+    .map(|m| {
+      quote! {
+          <#m as ::moonlit_pdk::Middleware>::NAME => {
+              let input: <#m as ::moonlit_pdk::Middleware>::Input =
+                  match ::moonlit_pdk::config::from_json_value(&config) {
+                      Ok(c) => c,
+                      Err(e) => {
+                          return ::moonlit_pdk::MiddlewareResult::<
+                              <#m as ::moonlit_pdk::Middleware>::Output,
+                          >::failure(
+                              ::std::format!("invalid input for `{}`: {}", middleware, e)
+                          ).into_wit();
+                      }
+                  };
+              let mw = <#m as ::core::default::Default>::default();
+              ::moonlit_pdk::Middleware::execute(&mw, &ctx, input).into_wit()
+          }
+      }
+    })
+    .collect()
+}
+
+#[must_use]
+fn state_tokens(state: Option<&Type>) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+  // optional state static + install
+  match state {
+    Some(ty) => (
+      quote! {
+          static __MOONLIT_STATE: ::std::sync::OnceLock<#ty> = ::std::sync::OnceLock::new();
+          fn __moonlit_state() -> &'static #ty {
+              __MOONLIT_STATE.get_or_init(<#ty as ::core::default::Default>::default)
+          }
+      },
+      quote! { let ctx = ctx.with_state(__moonlit_state()); },
+    ),
+    None => (quote! {}, quote! {}),
+  }
+}
+
+#[must_use]
+fn config_tokens(config: Option<&Type>) -> (proc_macro2::TokenStream, proc_macro2::TokenStream, proc_macro2::TokenStream) {
+  // optional plugin-config: validated at init, stored, attached to ctx
+  match config {
+    Some(ty) => (
+      quote! {
+          static __MOONLIT_PLUGIN_CONFIG: ::std::sync::OnceLock<#ty> = ::std::sync::OnceLock::new();
+          fn __moonlit_plugin_config() -> ::core::option::Option<&'static #ty> {
+              __MOONLIT_PLUGIN_CONFIG.get()
+          }
+      },
+      quote! {
+          let parsed: #ty = ::moonlit_pdk::config::from_json_value(&plugin_config)
+              .map_err(|e| ::std::format!("invalid plugin config: {}", e))?;
+          ::moonlit_pdk::PluginConfig::validate(&parsed)?;
+          let _ = __MOONLIT_PLUGIN_CONFIG.set(parsed);
+      },
+      quote! {
+          let ctx = match __moonlit_plugin_config() {
+              Some(c) => ctx.with_plugin_config(c),
+              None => ctx,
+          };
+      },
+    ),
+    None => (quote! {}, quote! {}, quote! {}),
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use proc_macro2::Span;
+
+  fn parse_error(tokens: proc_macro2::TokenStream) -> String {
+    syn::parse2::<PluginDecl>(tokens)
+      .err()
+      .expect("declaration must be rejected")
+      .to_string()
+  }
+
+  fn icon(path: &str) -> String {
+    icon_expr(Some(&LitStr::new(path, Span::call_site()))).to_string()
+  }
+
+  #[test]
+  fn unknown_field_is_rejected_with_the_expected_list() {
+    let message = parse_error(quote! { name: "p", bogus: "x" });
+    assert!(message.contains("unknown moonlit_plugin! field `bogus`"), "got: {message}");
+  }
+
+  #[test]
+  fn name_and_middlewares_are_required() {
+    assert!(parse_error(quote! { middlewares: [A] }).contains("missing `name:`"));
+    assert!(parse_error(quote! { name: "p" }).contains("missing `middlewares:`"));
+  }
+
+  #[test]
+  fn braced_and_bare_declarations_parse_the_same_fields() {
+    let braced = syn::parse2::<PluginDeclInput>(quote! { { name: "p", config: C, middlewares: [A, B], state: S } })
+      .expect("braced form parses")
+      .0;
+    let bare = syn::parse2::<PluginDeclInput>(quote! { name: "p" middlewares: [A] })
+      .expect("bare form parses")
+      .0;
+    assert_eq!(braced.name.value(), "p");
+    assert_eq!(braced.middlewares.len(), 2);
+    assert!(braced.config.is_some() && braced.state.is_some());
+    assert_eq!(bare.middlewares.len(), 1);
+    assert!(bare.icon.is_none());
+  }
+
+  #[test]
+  fn missing_icon_expands_to_none() {
+    assert!(icon_expr(None).to_string().contains("None"));
+  }
+
+  #[test]
+  fn webp_icon_becomes_a_webp_data_uri() {
+    let path = std::env::temp_dir().join(format!("moonlit-pdk-macros-{}.webp", std::process::id()));
+    std::fs::write(&path, b"RIFF").unwrap();
+    let expanded = icon(&path.display().to_string());
+    std::fs::remove_file(&path).unwrap();
+    assert!(expanded.contains("data:image/webp;base64,UklGRg=="), "got: {expanded}");
+  }
+
+  #[test]
+  fn unsupported_icon_extension_is_a_compile_error() {
+    assert!(icon("icon.gif").contains("icon must be a .png or .webp file"));
+    assert!(icon("icon").contains("icon must be a .png or .webp file"));
+  }
+
+  #[test]
+  fn unreadable_icon_is_a_compile_error() {
+    let missing = std::env::temp_dir().join("moonlit-pdk-macros-missing-icon.png");
+    assert!(icon(&missing.display().to_string()).contains("cannot read icon"));
   }
 }

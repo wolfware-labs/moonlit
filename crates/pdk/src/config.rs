@@ -418,9 +418,194 @@ mod tests {
     struct D {
       n: i64,
     }
-    match from_json_value::<D>(r#"{"n":"not-a-number"}"#) {
-      Ok(_) => panic!("expected coercion error"),
-      Err(e) => assert!(e.to_string().contains("n") || e.to_string().contains("integer")),
+    let e = from_json_value::<D>(r#"{"n":"not-a-number"}"#)
+      .err()
+      .expect("expected coercion error");
+    assert!(e.to_string().contains('n') || e.to_string().contains("integer"));
+  }
+
+  fn err<T: de::DeserializeOwned>(json: &str) -> String {
+    from_json_value::<T>(json).err().expect("expected a config error").to_string()
+  }
+
+  #[derive(Deserialize, Debug, PartialEq)]
+  struct Widths {
+    a: i8,
+    b: i16,
+    c: i32,
+    d: u8,
+    e: u16,
+    f: u32,
+    g: u64,
+    h: f32,
+    ch: char,
+  }
+
+  #[test]
+  fn every_integer_and_float_width_coerces_from_strings() {
+    let json = r#"{"a":"-1","b":"-2","c":"-3","d":"4","e":"5","f":"6","g":"7","h":"1.5","ch":"x"}"#;
+    let w: Widths = from_json_value(json).unwrap();
+    assert_eq!(
+      w,
+      Widths {
+        a: -1,
+        b: -2,
+        c: -3,
+        d: 4,
+        e: 5,
+        f: 6,
+        g: 7,
+        h: 1.5,
+        ch: 'x',
+      }
+    );
+  }
+
+  #[test]
+  fn native_json_numbers_bind_to_unsigned_and_float_fields() {
+    let json = r#"{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,"h":2.5,"ch":"y"}"#;
+    let w: Widths = from_json_value(json).unwrap();
+    assert_eq!(w.g, 7);
+    assert!((w.h - 2.5).abs() < f32::EPSILON);
+  }
+
+  #[test]
+  fn integer_coercion_errors_name_the_problem() {
+    assert!(err::<i64>("1.5").contains("expected integer, got 1.5"));
+    assert!(err::<i64>("true").contains("expected integer, got true"));
+  }
+
+  #[test]
+  fn unsigned_coercion_errors_name_the_problem() {
+    assert!(err::<u64>(r#""-3""#).contains("expected unsigned integer"));
+    assert!(err::<u64>("-3").contains("expected unsigned integer, got -3"));
+    assert!(err::<u64>("[]").contains("expected unsigned integer, got []"));
+  }
+
+  #[test]
+  fn float_coercion_errors_name_the_problem() {
+    assert!((from_json_value::<f64>("4").unwrap() - 4.0).abs() < f64::EPSILON);
+    assert!(err::<f64>(r#""abc""#).contains("expected number"));
+    assert!(err::<f64>("null").contains("expected number, got null"));
+  }
+
+  #[test]
+  fn bool_coercion_rejects_other_strings() {
+    assert!(err::<bool>(r#""yes""#).contains("expected bool"));
+  }
+
+  #[test]
+  fn string_field_rejects_non_strings() {
+    assert!(err::<String>("5").contains("expected string, got 5"));
+  }
+
+  #[test]
+  fn config_error_display_is_prefixed() {
+    let e = from_json_value::<i64>("true").expect_err("error");
+    assert_eq!(e.to_string(), "config error: expected integer, got true");
+  }
+
+  #[test]
+  fn invalid_json_text_is_a_config_error() {
+    assert!(err::<i64>("{not json").starts_with("config error:"));
+  }
+
+  #[test]
+  fn missing_required_field_uses_the_custom_error() {
+    #[derive(Deserialize, Debug)]
+    #[allow(dead_code)]
+    struct Required {
+      name: String,
     }
+    assert!(err::<Required>("{}").contains("missing field `name`"));
+  }
+
+  #[test]
+  fn unit_and_unit_struct_accept_only_null() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Marker;
+    from_json_value::<()>("null").unwrap();
+    assert_eq!(from_json_value::<Marker>("null").unwrap(), Marker);
+    assert!(err::<()>(r#""x""#).contains("expected null"));
+  }
+
+  #[test]
+  fn newtype_struct_unwraps_its_inner_value() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Port(u16);
+    assert_eq!(from_json_value::<Port>(r#""80""#).unwrap(), Port(80));
+  }
+
+  #[test]
+  fn tuples_and_tuple_structs_read_arrays() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Pair(i64, bool);
+    assert_eq!(
+      from_json_value::<(i64, String)>(r#"["1","a"]"#).unwrap(),
+      (1, "a".to_string())
+    );
+    assert_eq!(from_json_value::<Pair>(r#"["2","true"]"#).unwrap(), Pair(2, true));
+    assert!(err::<Vec<i64>>(r#""x""#).contains("expected array"));
+  }
+
+  #[test]
+  fn maps_and_structs_require_objects() {
+    let m: std::collections::BTreeMap<String, i64> = from_json_value(r#"{"a":"1","b":"2"}"#).unwrap();
+    assert_eq!(m.get("b"), Some(&2));
+    assert!(err::<Cfg>("[]").contains("expected object"));
+  }
+
+  #[test]
+  fn unknown_struct_fields_are_ignored() {
+    let cfg: Cfg = from_json_value(r#"{"port":"1","extra":{"deep":["x"]}}"#).unwrap();
+    assert_eq!(cfg.port, 1);
+  }
+
+  #[derive(Deserialize, Debug, PartialEq)]
+  enum Mode {
+    Fast,
+    Level(u8),
+    Range(i64, i64),
+    Named { depth: u32 },
+  }
+
+  #[test]
+  fn enums_bind_every_variant_shape() {
+    assert_eq!(from_json_value::<Mode>(r#""Fast""#).unwrap(), Mode::Fast);
+    assert_eq!(from_json_value::<Mode>(r#"{"Level":"3"}"#).unwrap(), Mode::Level(3));
+    assert_eq!(from_json_value::<Mode>(r#"{"Range":["1","2"]}"#).unwrap(), Mode::Range(1, 2));
+    assert_eq!(
+      from_json_value::<Mode>(r#"{"Named":{"depth":"4"}}"#).unwrap(),
+      Mode::Named { depth: 4 }
+    );
+    assert_eq!(from_json_value::<Mode>(r#"{"Fast":null}"#).unwrap(), Mode::Fast);
+  }
+
+  #[test]
+  fn enums_reject_other_shapes() {
+    assert!(err::<Mode>("5").contains("expected enum"));
+    assert!(err::<Mode>(r#"{"Fast":null,"Level":"1"}"#).contains("expected enum"));
+    assert!(err::<Mode>(r#""Slow""#).contains("unknown variant"));
+  }
+
+  #[test]
+  fn dynamic_targets_see_native_json_as_is() {
+    let v: serde_json::Value = from_json_value(r#"{"n":null,"b":false,"i":-1,"u":18446744073709551615,"f":0.5}"#).unwrap();
+    assert_eq!(
+      v,
+      serde_json::json!({ "n": null, "b": false, "i": -1, "u": 18_446_744_073_709_551_615_u64, "f": 0.5 })
+    );
+  }
+
+  #[test]
+  fn dynamic_targets_coerce_false_strings_and_arrays() {
+    let v: serde_json::Value = from_json_value(r#"["FALSE","7"]"#).unwrap();
+    assert_eq!(v, serde_json::json!([false, 7]));
+  }
+
+  #[test]
+  fn from_serde_value_accepts_parsed_values() {
+    let cfg: Cfg = from_serde_value(serde_json::json!({ "label": "x" })).unwrap();
+    assert_eq!(cfg.label, "x");
   }
 }
