@@ -36,7 +36,7 @@ impl Plugin {
     cfg: PluginInstanceConfig,
     events: Arc<dyn HostEventSink>,
   ) -> Result<PluginInstance, PluginError> {
-    let wasi = build_wasi_ctx(&cfg).map_err(|e| PluginError::Instantiate(e.to_string()))?;
+    let wasi = build_wasi_ctx(&cfg).map_err(|e| PluginError::Instantiate(format!("{e:#}")))?;
     events.log(
       "",
       LogLevel::Debug,
@@ -58,16 +58,16 @@ impl Plugin {
       .load_component(component_bytes)
       .map_err(|e| PluginError::Compile(e.to_string()))?;
 
-    let mut linker = engine.build_linker().map_err(|e| PluginError::Link(e.to_string()))?;
+    let mut linker = engine.build_linker().map_err(|e| PluginError::Link(format!("{e:#}")))?;
 
     wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)
-      .map_err(|e| PluginError::Link(e.to_string()))?;
+      .map_err(|e| PluginError::Link(format!("{e:#}")))?;
     wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)
-      .map_err(|e| PluginError::Link(e.to_string()))?;
+      .map_err(|e| PluginError::Link(format!("{e:#}")))?;
 
     let bindings = PluginHost::instantiate_async(&mut store, &component, &linker)
       .await
-      .map_err(|e| PluginError::Instantiate(e.to_string()))?;
+      .map_err(|e| PluginError::Instantiate(format!("{e:#}")))?;
 
     Ok(PluginInstance::new(store, bindings))
   }

@@ -43,6 +43,7 @@ impl Engine {
     #[allow(deprecated)]
     config.async_support(true);
     config.wasm_component_model(true);
+    config.wasm_component_model_async(false);
     Ok(wasmtime::Engine::new(&config).map_err(anyhow::Error::from)?)
   }
 
@@ -52,7 +53,7 @@ impl Engine {
   }
 
   pub fn load_component(&self, component_bytes: &[u8]) -> Result<Component, EngineError> {
-    Component::from_binary(&self.wasmtime, component_bytes).map_err(|e| EngineError::ComponentLoad(e.to_string()))
+    Component::from_binary(&self.wasmtime, component_bytes).map_err(|e| EngineError::ComponentLoad(format!("{e:#}")))
   }
 
   pub fn build_linker<T>(&self) -> Result<Linker<T>, EngineError>

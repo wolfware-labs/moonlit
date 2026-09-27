@@ -45,6 +45,7 @@ tempfile.workspace = true
 wit-parser.workspace = true
 wiremock.workspace = true
 flate2.workspace = true
+wat = "1.259"
 
 [lints]
 workspace = true
