@@ -1,12 +1,13 @@
 pub mod config;
 mod data;
+mod expr;
 pub mod manifest;
 mod model;
 
 use crate::engine::Engine;
 use crate::engine::error::EngineError;
 use crate::pipeline::config::PipelineConfig;
-pub use crate::pipeline::data::PipelineData;
+pub(crate) use crate::pipeline::data::PipelineData;
 use crate::pipeline::model::FlatStep;
 pub use crate::pipeline::model::{PipelineEvent, PipelineOptions, PipelineSummary, StepResult};
 use crate::plugin::Plugin;
@@ -21,6 +22,7 @@ pub struct Pipeline {
   steps: Vec<FlatStep>,
   working_directory: PathBuf,
   step_timeout: Option<Duration>,
+  data: PipelineData,
 }
 
 impl Pipeline {
@@ -91,7 +93,7 @@ impl Pipeline {
       }
     }
 
-    let mut acc = Accumulator::new();
+    let mut acc = PipelineData::new();
     acc.push(base);
     acc.push(release);
     for layer in plugin_layers {
@@ -141,10 +143,9 @@ impl Pipeline {
     Ok(Pipeline {
       plugins,
       steps,
-      acc,
       working_directory: opts.working_directory,
       step_timeout: opts.step_timeout,
-      plugin_meta,
+      data,
     })
   }
 

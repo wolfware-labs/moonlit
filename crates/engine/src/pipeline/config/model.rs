@@ -1,5 +1,6 @@
 use crate::pipeline::config::span::Spanned;
 use indexmap::IndexMap;
+use std::path::PathBuf;
 
 pub type ConfigMap = IndexMap<String, Spanned<ConfigValue>>;
 
@@ -18,6 +19,7 @@ pub struct PipelineConfig {
   pub variables: IndexMap<String, String>,
   pub plugins: Spanned<Vec<Plugin>>,
   pub stages: Spanned<Vec<Stage>>,
+  pub current_dir: PathBuf,
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
-use crate::expr::Resolve;
-use crate::expr::value::Value;
+use crate::pipeline::expr::Resolve;
+use crate::pipeline::expr::value::Value;
 use regex::{Captures, Regex};
 
 static PLACEHOLDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$\(([^)]+)\)").unwrap());

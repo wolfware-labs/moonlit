@@ -3,10 +3,10 @@ use miette::Diagnostic;
 use rhai::{Array, Dynamic, Engine, Map as RhaiMap, Scope};
 use thiserror::Error;
 
-use crate::expr::scalar::Scalar;
-use crate::expr::substitute::substitute_with;
-use crate::expr::value::Value;
 use crate::pipeline::PipelineData;
+use crate::pipeline::expr::scalar::Scalar;
+use crate::pipeline::expr::substitute::substitute_with;
+use crate::pipeline::expr::value::Value;
 
 pub struct ConditionOutcome {
   pub value: bool,
