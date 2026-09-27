@@ -39,6 +39,10 @@ impl HostState {
       current_step: String::new(),
     }
   }
+
+  pub fn set_step(&mut self, step: &str) {
+    self.current_step = step.to_owned();
+  }
 }
 
 impl WasiView for HostState {

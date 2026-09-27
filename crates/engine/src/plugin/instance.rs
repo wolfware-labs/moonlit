@@ -35,7 +35,7 @@ impl PluginInstance {
   }
 
   pub async fn init(&mut self, plugin_config: &serde_json::Value) -> Result<PluginMetadata, String> {
-    self.store.data_mut().current_step = "init".to_string();
+    self.store.data_mut().set_step("init");
     let json = plugin_config.to_string();
     match self.bindings.call_init(&mut self.store, &json).await {
       Ok(Ok(meta)) => Ok(convert::metadata(meta)),
@@ -50,7 +50,7 @@ impl PluginInstance {
     ctx: ReleaseContext,
     config: &serde_json::Value,
   ) -> Result<MiddlewareResult, PluginError> {
-    self.store.data_mut().current_step = ctx.step_name.clone();
+    self.store.data_mut().set_step(&ctx.step_name);
     let raw_ctx = convert::release_context_to_raw(&ctx);
     let json = config.to_string();
     match self.bindings.call_execute(&mut self.store, middleware, &raw_ctx, &json).await {

@@ -66,7 +66,7 @@ impl Plugin {
 
     let bindings = PluginHost::instantiate_async(&mut store, &component, &linker)
       .await
-      .map_err(|e| crate::plugin::error::PluginError::Instantiate(e.to_string()))?;
+      .map_err(|e| PluginError::Instantiate(e.to_string()))?;
 
     Ok(PluginInstance::new(store, bindings))
   }

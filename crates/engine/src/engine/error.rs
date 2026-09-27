@@ -8,11 +8,10 @@ pub enum EngineError {
 
   #[error("failed to load plugin '{plugin}': {message}")]
   #[diagnostic(code(moonlit::engine::plugin_load))]
-  PluginLoad {
-    plugin: String,
-    message: String,
-  },
+  PluginLoad { plugin: String, message: String },
 
+  #[error("failed to load component {0}")]
+  #[diagnostic(code(moonlit::engine::plugin_load))]
   ComponentLoad(String),
 
   #[error("pipeline execution failed: {0}")]
@@ -29,7 +28,8 @@ impl EngineError {
     match self {
       EngineError::Config(_) => 2,
       EngineError::PluginLoad { .. } => 3,
-      EngineError::Execution(_) => 4,
+      EngineError::ComponentLoad(_) => 4,
+      EngineError::Execution(_) => 5,
       EngineError::Internal(_) => 1,
     }
   }
