@@ -12,6 +12,11 @@ repository = "https://github.com/wolfware-labs/moonlit"
 homepage = "https://moonlit.rs/"
 rust-version = "1.97"
 
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
 [workspace.dependencies]
 wit-parser = "0.258"
 wit-bindgen = "0.62.0"
