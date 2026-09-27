@@ -1,13 +1,11 @@
 use crate::cli::{OutputMode, RunArgs};
 use crate::manifest::resolve_manifest_path;
 use crate::render::{Header, Renderer};
-use crate::{manifest, render, signal};
+use crate::{render, signal};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
-use moonlit_engine::pipeline::PipelineOptions;
 use moonlit_engine::pipeline::manifest::PipelineManifest;
-use moonlit_engine::pipeline::manifest::error::PipelineManifestError;
-use std::path::PathBuf;
+use moonlit_engine::pipeline::{PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -56,67 +54,56 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   signal::spawn_watcher(cancel.clone());
   let renderer = render::for_mode(output, verbose);
 
-  0
-
-  // let outcome = execute(
-  //     &engine,
-  //     &resolved.yaml,
-  //     opts,
-  //     header,
-  //     renderer,
-  //     cancel,
-  //     args.dry_run,
-  // )
-  // .await;
-  // let code = exit_code(&outcome);
-  // if let Err(e) = outcome {
-  //     report(e, code, json);
-  // }
-  // code
+  let outcome = execute(&engine, &resolved.yaml, opts, header, renderer, cancel, args.dry_run).await;
+  let code = exit_code(&outcome);
+  if let Err(e) = outcome {
+    report(e, code, json);
+  }
+  code
 }
 
-// async fn execute(
-//     engine: &Engine,
-//     yaml: &str,
-//     opts: PipelineOptions,
-//     header: Header,
-//     renderer: Box<dyn Renderer>,
-//     cancel: CancellationToken,
-//     load_only: bool,
-// ) -> Result<Option<PipelineSummary>, EngineError> {
-//     let (tx, mut rx) = mpsc::channel(256);
-//
-//     let consumer = tokio::spawn(async move {
-//         let mut renderer = renderer;
-//         renderer.header(&header);
-//         while let Some(event) = rx.recv().await {
-//             renderer.handle(&event);
-//         }
-//         renderer.finish();
-//     });
-//
-//     let load = engine.load_pipeline(yaml, opts, &tx).await;
-//     let pipeline = match load {
-//         Ok(p) => p,
-//         Err(e) => {
-//             drop(tx); // close the channel so the consumer drains and exits
-//             let _ = consumer.await;
-//             return Err(e);
-//         }
-//     };
-//
-//     if load_only {
-//         drop(pipeline);
-//         drop(tx);
-//         let _ = consumer.await;
-//         return Ok(None);
-//     }
-//
-//     let result = engine.run(pipeline, tx, cancel).await; // moves tx; closes channel on return
-//     let _ = consumer.await;
-//     result.map(Some)
-// }
-//
+async fn execute(
+  engine: &Engine,
+  yaml: &str,
+  opts: PipelineOptions,
+  header: Header,
+  renderer: Box<dyn Renderer>,
+  cancel: CancellationToken,
+  load_only: bool,
+) -> Result<Option<PipelineSummary>, EngineError> {
+  let (tx, mut rx) = mpsc::channel(256);
+
+  let consumer = tokio::spawn(async move {
+    let mut renderer = renderer;
+    renderer.header(&header);
+    while let Some(event) = rx.recv().await {
+      renderer.handle(&event);
+    }
+    renderer.finish();
+  });
+
+  let load = engine.load_pipeline(yaml, opts, &tx).await;
+  let pipeline = match load {
+    Ok(p) => p,
+    Err(e) => {
+      drop(tx); // close the channel so the consumer drains and exits
+      let _ = consumer.await;
+      return Err(e);
+    }
+  };
+
+  if load_only {
+    drop(pipeline);
+    drop(tx);
+    let _ = consumer.await;
+    return Ok(None);
+  }
+
+  let result = engine.run(pipeline, tx, cancel).await; // moves tx; closes channel on return
+  let _ = consumer.await;
+  result.map(Some)
+}
+
 fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {
   let peeked = manifest.peek_stages();
   let stages = if stages_filter.is_empty() {
