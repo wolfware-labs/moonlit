@@ -2,6 +2,17 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [3.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v2.0.0...moonlit-v3.0.0) (2026-09-27)
+
+### ⚠ BREAKING CHANGES
+
+* restructure the engine around Pipeline and a WASI-agnostic Engine (#24)
+
+### Changes
+
+* **cli:** move the modules into a lib target ([#12](https://github.com/wolfware-labs/moonlit/issues/12)) ([b85d3ba](https://github.com/wolfware-labs/moonlit/commit/b85d3ba33555bef6c48d7b9c6a277374d974d835))
+* restructure the engine around Pipeline and a WASI-agnostic Engine ([#24](https://github.com/wolfware-labs/moonlit/issues/24)) ([2b60f7b](https://github.com/wolfware-labs/moonlit/commit/2b60f7b70e93e9931c79e701d078288a6dbb2d36))
+
 ## [2.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v1.2.0...moonlit-v2.0.0) (2026-09-12)
 
 ### ⚠ BREAKING CHANGES
