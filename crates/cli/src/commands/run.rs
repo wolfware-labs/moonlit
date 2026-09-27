@@ -12,67 +12,67 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i32 {
-    let json = render::resolve_mode(output) == OutputMode::Json;
+  let json = render::resolve_mode(output) == OutputMode::Json;
 
-    let manifest_path = match resolve_manifest_path(args.file_path.as_deref()) {
-        Ok(p) => p,
-        Err(e) => {
-            let code = e.exit_code();
-            report(e, code, json);
-            return code;
-        }
-    };
+  let manifest_path = match resolve_manifest_path(args.file_path.as_deref()) {
+    Ok(p) => p,
+    Err(e) => {
+      let code = e.exit_code();
+      report(e, code, json);
+      return code;
+    }
+  };
 
-    let manifest = match PipelineManifest::from_file(manifest_path) {
-        Ok(m) => m,
-        Err(e) => {
-            let code = e.exit_code();
-            report(e, code, json);
-            return code;
-        }
-    };
+  let manifest = match PipelineManifest::from_file(manifest_path) {
+    Ok(m) => m,
+    Err(e) => {
+      let code = e.exit_code();
+      report(e, code, json);
+      return code;
+    }
+  };
 
-    let header = build_header(&manifest, &args.stages);
+  let header = build_header(&manifest, &args.stages);
 
-    let opts = PipelineOptions {
-        working_directory: manifest.working_dir.clone(),
-        config_file_name: manifest.peek_name().unwrap(),
-        stages_filter: args.stages.clone(),
-        cli_args: args.args.clone(),
-        step_timeout: args.step_timeout,
-        offline: args.offline,
-    };
+  let opts = PipelineOptions {
+    working_directory: manifest.working_dir.clone(),
+    config_file_name: manifest.peek_name().unwrap(),
+    stages_filter: args.stages.clone(),
+    cli_args: args.args.clone(),
+    step_timeout: args.step_timeout,
+    offline: args.offline,
+  };
 
-    let engine = match Engine::new(EngineSettings::default()) {
-        Ok(e) => e,
-        Err(e) => {
-            let code = e.exit_code();
-            report(e, code, json);
-            return code;
-        }
-    };
+  let engine = match Engine::new(EngineSettings::default()) {
+    Ok(e) => e,
+    Err(e) => {
+      let code = e.exit_code();
+      report(e, code, json);
+      return code;
+    }
+  };
 
-    let cancel = CancellationToken::new();
-    signal::spawn_watcher(cancel.clone());
-    let renderer = render::for_mode(output, verbose);
+  let cancel = CancellationToken::new();
+  signal::spawn_watcher(cancel.clone());
+  let renderer = render::for_mode(output, verbose);
 
-    0
+  0
 
-    // let outcome = execute(
-    //     &engine,
-    //     &resolved.yaml,
-    //     opts,
-    //     header,
-    //     renderer,
-    //     cancel,
-    //     args.dry_run,
-    // )
-    // .await;
-    // let code = exit_code(&outcome);
-    // if let Err(e) = outcome {
-    //     report(e, code, json);
-    // }
-    // code
+  // let outcome = execute(
+  //     &engine,
+  //     &resolved.yaml,
+  //     opts,
+  //     header,
+  //     renderer,
+  //     cancel,
+  //     args.dry_run,
+  // )
+  // .await;
+  // let code = exit_code(&outcome);
+  // if let Err(e) = outcome {
+  //     report(e, code, json);
+  // }
+  // code
 }
 
 // async fn execute(
@@ -118,29 +118,28 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
 // }
 //
 fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {
-    let peeked = manifest.peek_stages();
-    let stages = if stages_filter.is_empty() {
-        peeked
-    } else {
-        stages_filter.to_vec()
-    };
-    Header::new(
-        manifest.working_dir.clone(),
-        manifest.file_name.clone(),
-        &stages,
-        manifest.peek_name(),
-    )
+  let peeked = manifest.peek_stages();
+  let stages = if stages_filter.is_empty() {
+    peeked
+  } else {
+    stages_filter.to_vec()
+  };
+  Header::new(
+    manifest.working_dir.clone(),
+    manifest.file_name.clone(),
+    &stages,
+    manifest.peek_name(),
+  )
 }
 
 fn report<E>(err: E, code: i32, json: bool)
 where
-    E: miette::Diagnostic + Send + Sync + 'static,
+  E: miette::Diagnostic + Send + Sync + 'static,
 {
-    if json {
-        let obj =
-            serde_json::json!({ "type": "error", "message": err.to_string(), "exit_code": code });
-        println!("{obj}");
-    } else {
-        eprintln!("{:?}", miette::Report::new(err));
-    }
+  if json {
+    let obj = serde_json::json!({ "type": "error", "message": err.to_string(), "exit_code": code });
+    println!("{obj}");
+  } else {
+    eprintln!("{:?}", miette::Report::new(err));
+  }
 }

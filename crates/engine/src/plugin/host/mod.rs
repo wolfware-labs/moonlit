@@ -11,12 +11,12 @@ pub use net::AllowlistHooks;
 use wasmtime::{Config, Engine};
 
 pub trait HostEventSink: Send + Sync {
-    fn log(&self, step: &str, level: LogLevel, message: &str);
-    fn progress(&self, step: &str, message: &str);
+  fn log(&self, step: &str, level: LogLevel, message: &str);
+  fn progress(&self, step: &str, message: &str);
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReleaseContext {
-    pub working_directory: String,
-    pub step_name: String,
+  pub working_directory: String,
+  pub step_name: String,
 }

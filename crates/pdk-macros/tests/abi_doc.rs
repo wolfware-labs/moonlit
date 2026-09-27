@@ -7,36 +7,35 @@
 /// The `package …;` line of the canonical WIT, e.g. `moonlit:plugin@0.3.0`.
 /// `None` in a published-crate context, where there is no sibling `engine/` to read.
 fn shipped_abi() -> Option<String> {
-    let wit =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/wit/moonlit-plugin.wit");
-    let text = std::fs::read_to_string(wit).ok()?;
-    let package = text
-        .lines()
-        .find_map(|l| l.trim().strip_prefix("package "))?
-        .trim()
-        .trim_end_matches(';')
-        .to_string();
-    Some(package)
+  let wit = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/wit/moonlit-plugin.wit");
+  let text = std::fs::read_to_string(wit).ok()?;
+  let package = text
+    .lines()
+    .find_map(|l| l.trim().strip_prefix("package "))?
+    .trim()
+    .trim_end_matches(';')
+    .to_string();
+  Some(package)
 }
 
 /// The `//!` header block at the top of this crate's `lib.rs`.
 fn crate_doc() -> String {
-    include_str!("../src/lib.rs")
-        .lines()
-        .take_while(|l| l.starts_with("//!"))
-        .collect::<Vec<_>>()
-        .join("\n")
+  include_str!("../src/lib.rs")
+    .lines()
+    .take_while(|l| l.starts_with("//!"))
+    .collect::<Vec<_>>()
+    .join("\n")
 }
 
 #[test]
 fn crate_doc_states_the_shipped_abi_version() {
-    let Some(abi) = shipped_abi() else {
-        return; // published-crate context: nothing to compare against
-    };
-    let doc = crate_doc();
-    assert!(
-        doc.contains(&abi),
-        "moonlit-pdk-macros' crate doc must name the shipped ABI `{abi}`, since it is the \
+  let Some(abi) = shipped_abi() else {
+    return; // published-crate context: nothing to compare against
+  };
+  let doc = crate_doc();
+  assert!(
+    doc.contains(&abi),
+    "moonlit-pdk-macros' crate doc must name the shipped ABI `{abi}`, since it is the \
          docs.rs front page. It currently reads:\n{doc}"
-    );
+  );
 }

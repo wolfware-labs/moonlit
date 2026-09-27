@@ -4,10 +4,10 @@
 pub struct PipelineManifestError(String);
 
 impl PipelineManifestError {
-    pub fn new(message: String) -> Self {
-        Self(message)
-    }
-    pub fn exit_code(&self) -> i32 {
-        2
-    }
+  pub fn new(message: String) -> Self {
+    Self(message)
+  }
+  pub fn exit_code(&self) -> i32 {
+    2
+  }
 }

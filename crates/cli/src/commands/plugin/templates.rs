@@ -112,165 +112,144 @@ A Moonlit plugin.
 const GITIGNORE: &str = "/target\n";
 
 fn substitute(template: &str, vars: &[(&str, &str)]) -> String {
-    let mut out = String::with_capacity(template.len());
-    let mut i = 0;
-    'outer: while i < template.len() {
-        if template.as_bytes()[i] == b'{' {
-            for (token, value) in vars {
-                if template[i..].starts_with(token) {
-                    out.push_str(value);
-                    i += token.len();
-                    continue 'outer;
-                }
-            }
+  let mut out = String::with_capacity(template.len());
+  let mut i = 0;
+  'outer: while i < template.len() {
+    if template.as_bytes()[i] == b'{' {
+      for (token, value) in vars {
+        if template[i..].starts_with(token) {
+          out.push_str(value);
+          i += token.len();
+          continue 'outer;
         }
-        let ch = template[i..].chars().next().unwrap();
-        out.push(ch);
-        i += ch.len_utf8();
+      }
     }
-    out
+    let ch = template[i..].chars().next().unwrap();
+    out.push(ch);
+    i += ch.len_utf8();
+  }
+  out
 }
 
 fn toml_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\u{08}' => out.push_str("\\b"),
-            '\u{0c}' => out.push_str("\\f"),
-            c if (c < '\u{20}') || c == '\u{7f}' => {
-                out.push_str(&format!("\\u{:04X}", c as u32));
-            }
-            c => out.push(c),
-        }
+  let mut out = String::with_capacity(s.len());
+  for ch in s.chars() {
+    match ch {
+      '\\' => out.push_str("\\\\"),
+      '"' => out.push_str("\\\""),
+      '\n' => out.push_str("\\n"),
+      '\r' => out.push_str("\\r"),
+      '\t' => out.push_str("\\t"),
+      '\u{08}' => out.push_str("\\b"),
+      '\u{0c}' => out.push_str("\\f"),
+      c if (c < '\u{20}') || c == '\u{7f}' => {
+        out.push_str(&format!("\\u{:04X}", c as u32));
+      }
+      c => out.push(c),
     }
-    out
+  }
+  out
 }
 
 pub fn render_all(v: &ScaffoldValues) -> Vec<(PathBuf, String)> {
-    let artifact = v.name.replace('-', "_");
-    let namespace = toml_escape(&v.namespace);
-    let description = toml_escape(&v.description);
-    let license = toml_escape(&v.license);
-    let vars = [
-        ("{name}", v.name.as_str()),
-        ("{namespace}", namespace.as_str()),
-        ("{description}", description.as_str()),
-        ("{license}", license.as_str()),
-        ("{pdk_dep}", v.pdk_dep.as_str()),
-        ("{artifact}", artifact.as_str()),
-    ];
-    vec![
-        (PathBuf::from("Cargo.toml"), substitute(CARGO_TOML, &vars)),
-        (PathBuf::from("src/lib.rs"), substitute(LIB_RS, &vars)),
-        (
-            PathBuf::from("moonlit-plugin.toml"),
-            substitute(PLUGIN_TOML, &vars),
-        ),
-        (PathBuf::from("README.md"), substitute(README, &vars)),
-        (PathBuf::from(".gitignore"), GITIGNORE.to_string()),
-    ]
+  let artifact = v.name.replace('-', "_");
+  let namespace = toml_escape(&v.namespace);
+  let description = toml_escape(&v.description);
+  let license = toml_escape(&v.license);
+  let vars = [
+    ("{name}", v.name.as_str()),
+    ("{namespace}", namespace.as_str()),
+    ("{description}", description.as_str()),
+    ("{license}", license.as_str()),
+    ("{pdk_dep}", v.pdk_dep.as_str()),
+    ("{artifact}", artifact.as_str()),
+  ];
+  vec![
+    (PathBuf::from("Cargo.toml"), substitute(CARGO_TOML, &vars)),
+    (PathBuf::from("src/lib.rs"), substitute(LIB_RS, &vars)),
+    (PathBuf::from("moonlit-plugin.toml"), substitute(PLUGIN_TOML, &vars)),
+    (PathBuf::from("README.md"), substitute(README, &vars)),
+    (PathBuf::from(".gitignore"), GITIGNORE.to_string()),
+  ]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    fn values() -> ScaffoldValues {
-        ScaffoldValues {
-            name: "my-plugin".to_string(),
-            namespace: "acme".to_string(),
-            description: "does things".to_string(),
-            license: "Apache-2.0".to_string(),
-            pdk_dep: "\"0.1.0\"".to_string(),
-        }
+  fn values() -> ScaffoldValues {
+    ScaffoldValues {
+      name: "my-plugin".to_string(),
+      namespace: "acme".to_string(),
+      description: "does things".to_string(),
+      license: "Apache-2.0".to_string(),
+      pdk_dep: "\"0.1.0\"".to_string(),
     }
+  }
 
-    #[test]
-    fn renders_all_five_files() {
-        let files = render_all(&values());
-        let names: Vec<_> = files.iter().map(|(p, _)| p.to_str().unwrap()).collect();
-        assert!(names.contains(&"Cargo.toml"));
-        assert!(names.contains(&"src/lib.rs"));
-        assert!(names.contains(&"moonlit-plugin.toml"));
-        assert!(names.contains(&"README.md"));
-        assert!(names.contains(&".gitignore"));
-    }
+  #[test]
+  fn renders_all_five_files() {
+    let files = render_all(&values());
+    let names: Vec<_> = files.iter().map(|(p, _)| p.to_str().unwrap()).collect();
+    assert!(names.contains(&"Cargo.toml"));
+    assert!(names.contains(&"src/lib.rs"));
+    assert!(names.contains(&"moonlit-plugin.toml"));
+    assert!(names.contains(&"README.md"));
+    assert!(names.contains(&".gitignore"));
+  }
 
-    #[test]
-    fn cargo_toml_substitutes_name_and_dep() {
-        let files = render_all(&values());
-        let cargo = &files
-            .iter()
-            .find(|(p, _)| p.to_str() == Some("Cargo.toml"))
-            .unwrap()
-            .1;
-        assert!(cargo.contains("name = \"my-plugin\""));
-        assert!(cargo.contains("moonlit-pdk = \"0.1.0\""));
-        assert!(cargo.contains("schemars = \"1\""));
-    }
+  #[test]
+  fn cargo_toml_substitutes_name_and_dep() {
+    let files = render_all(&values());
+    let cargo = &files.iter().find(|(p, _)| p.to_str() == Some("Cargo.toml")).unwrap().1;
+    assert!(cargo.contains("name = \"my-plugin\""));
+    assert!(cargo.contains("moonlit-pdk = \"0.1.0\""));
+    assert!(cargo.contains("schemars = \"1\""));
+  }
 
-    #[test]
-    fn lib_rs_uses_plugin_name_and_no_placeholder_remains() {
-        let files = render_all(&values());
-        let lib = &files
-            .iter()
-            .find(|(p, _)| p.to_str() == Some("src/lib.rs"))
-            .unwrap()
-            .1;
-        assert!(lib.contains("name: \"my-plugin\""));
-        assert!(!lib.contains("{name}"));
-    }
+  #[test]
+  fn lib_rs_uses_plugin_name_and_no_placeholder_remains() {
+    let files = render_all(&values());
+    let lib = &files.iter().find(|(p, _)| p.to_str() == Some("src/lib.rs")).unwrap().1;
+    assert!(lib.contains("name: \"my-plugin\""));
+    assert!(!lib.contains("{name}"));
+  }
 
-    #[test]
-    fn substitute_does_not_rescan_inserted_values() {
-        let vars = [
-            ("{description}", "uses {license} here"),
-            ("{license}", "MIT"),
-        ];
-        assert_eq!(
-            substitute("d={description}\nl={license}\n", &vars),
-            "d=uses {license} here\nl=MIT\n"
-        );
-    }
+  #[test]
+  fn substitute_does_not_rescan_inserted_values() {
+    let vars = [("{description}", "uses {license} here"), ("{license}", "MIT")];
+    assert_eq!(
+      substitute("d={description}\nl={license}\n", &vars),
+      "d=uses {license} here\nl=MIT\n"
+    );
+  }
 
-    #[test]
-    fn substitute_passes_unknown_brace_tokens_through() {
-        assert_eq!(substitute("x {who} y", &[("{name}", "n")]), "x {who} y");
-    }
+  #[test]
+  fn substitute_passes_unknown_brace_tokens_through() {
+    assert_eq!(substitute("x {who} y", &[("{name}", "n")]), "x {who} y");
+  }
 
-    #[test]
-    fn plugin_toml_escapes_hostile_field_values() {
-        let mut v = values();
-        v.description = "a \"great\" plugin\nsecond line".to_string();
-        v.license = "weird\\license".to_string();
-        let files = render_all(&v);
-        let toml_src = &files
-            .iter()
-            .find(|(p, _)| p.to_str() == Some("moonlit-plugin.toml"))
-            .unwrap()
-            .1;
-        let parsed: toml::Value = toml::from_str(toml_src).expect("scaffolded TOML must be valid");
-        assert_eq!(
-            parsed["description"].as_str().unwrap(),
-            "a \"great\" plugin\nsecond line"
-        );
-        assert_eq!(parsed["license"].as_str().unwrap(), "weird\\license");
-        assert_eq!(parsed["name"].as_str().unwrap(), "my-plugin");
-    }
+  #[test]
+  fn plugin_toml_escapes_hostile_field_values() {
+    let mut v = values();
+    v.description = "a \"great\" plugin\nsecond line".to_string();
+    v.license = "weird\\license".to_string();
+    let files = render_all(&v);
+    let toml_src = &files
+      .iter()
+      .find(|(p, _)| p.to_str() == Some("moonlit-plugin.toml"))
+      .unwrap()
+      .1;
+    let parsed: toml::Value = toml::from_str(toml_src).expect("scaffolded TOML must be valid");
+    assert_eq!(parsed["description"].as_str().unwrap(), "a \"great\" plugin\nsecond line");
+    assert_eq!(parsed["license"].as_str().unwrap(), "weird\\license");
+    assert_eq!(parsed["name"].as_str().unwrap(), "my-plugin");
+  }
 
-    #[test]
-    fn readme_uses_underscore_artifact_name() {
-        let files = render_all(&values());
-        let readme = &files
-            .iter()
-            .find(|(p, _)| p.to_str() == Some("README.md"))
-            .unwrap()
-            .1;
-        assert!(readme.contains("my_plugin.wasm"));
-    }
+  #[test]
+  fn readme_uses_underscore_artifact_name() {
+    let files = render_all(&values());
+    let readme = &files.iter().find(|(p, _)| p.to_str() == Some("README.md")).unwrap().1;
+    assert!(readme.contains("my_plugin.wasm"));
+  }
 }

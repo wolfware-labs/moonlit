@@ -25,48 +25,48 @@ const RST: &str = "\x1b[0m";
 const TEXT_COL: usize = 39;
 
 pub fn run() -> i32 {
-    let version = env!("CARGO_PKG_VERSION");
-    if fancy() {
-        print_fancy(version);
-    } else {
-        print_plain(version);
-    }
-    0
+  let version = env!("CARGO_PKG_VERSION");
+  if fancy() {
+    print_fancy(version);
+  } else {
+    print_plain(version);
+  }
+  0
 }
 
 fn fancy() -> bool {
-    let truecolor = std::env::var("COLORTERM")
-        .map(|v| v.contains("truecolor") || v.contains("24bit"))
-        .unwrap_or(false);
-    let wide_enough = Term::stdout().size().1 as usize >= 76;
-    console::colors_enabled() && truecolor && wide_enough
+  let truecolor = std::env::var("COLORTERM")
+    .map(|v| v.contains("truecolor") || v.contains("24bit"))
+    .unwrap_or(false);
+  let wide_enough = Term::stdout().size().1 as usize >= 76;
+  console::colors_enabled() && truecolor && wide_enough
 }
 
 fn print_plain(version: &str) {
-    println!("{BANNER}");
-    println!("Moonlit v{version}");
-    println!("{SLOGAN}");
-    println!("Author: {AUTHOR}");
-    println!("License: {LICENSE}");
+  println!("{BANNER}");
+  println!("Moonlit v{version}");
+  println!("{SLOGAN}");
+  println!("Author: {AUTHOR}");
+  println!("License: {LICENSE}");
 }
 
 fn print_fancy(version: &str) {
-    let rows = [
-        format!("{BOLD}{SKY}Moonlit{RST}  {MOON}v{version}{RST}"),
-        format!("{LILAC}{SLOGAN}{RST}"),
-        String::new(),
-        format!("{SLATE}{AUTHOR}  ·  {LICENSE}{RST}"),
-        format!("{TEAL}→ \x1b]8;;{HOMEPAGE_URL}\x1b\\{HOMEPAGE}\x1b]8;;\x1b\\{RST}"),
-    ];
+  let rows = [
+    format!("{BOLD}{SKY}Moonlit{RST}  {MOON}v{version}{RST}"),
+    format!("{LILAC}{SLOGAN}{RST}"),
+    String::new(),
+    format!("{SLATE}{AUTHOR}  ·  {LICENSE}{RST}"),
+    format!("{TEAL}→ \x1b]8;;{HOMEPAGE_URL}\x1b\\{HOMEPAGE}\x1b]8;;\x1b\\{RST}"),
+  ];
 
-    let logo: Vec<&str> = LOGO.lines().collect();
-    let start = logo.len().saturating_sub(rows.len()) / 2;
+  let logo: Vec<&str> = LOGO.lines().collect();
+  let start = logo.len().saturating_sub(rows.len()) / 2;
 
-    for (i, line) in logo.iter().enumerate() {
-        print!("{line}");
-        if let Some(text) = i.checked_sub(start).and_then(|r| rows.get(r)) {
-            print!("{RST}\x1b[{TEXT_COL}G{text}");
-        }
-        println!();
+  for (i, line) in logo.iter().enumerate() {
+    print!("{line}");
+    if let Some(text) = i.checked_sub(start).and_then(|r| rows.get(r)) {
+      print!("{RST}\x1b[{TEXT_COL}G{text}");
     }
+    println!();
+  }
 }

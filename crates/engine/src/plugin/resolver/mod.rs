@@ -4,19 +4,17 @@ mod model;
 pub mod oci;
 
 use crate::cache::Cache;
-pub use crate::plugin::resolver::model::{
-    PluginSource, ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin,
-};
+pub use crate::plugin::resolver::model::{PluginSource, ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin};
 
 pub async fn resolve(
-    source: &PluginSource,
-    opts: &ResolveOptions,
-    cache: &Cache,
-    progress: Option<ProgressFn<'_>>,
+  source: &PluginSource,
+  opts: &ResolveOptions,
+  cache: &Cache,
+  progress: Option<ProgressFn<'_>>,
 ) -> Result<ResolvedPlugin, ResolveError> {
-    match source {
-        PluginSource::File(path) => file::resolve_file(path),
-        PluginSource::Http(url) => http::resolve_http(url, opts, cache, progress).await,
-        PluginSource::Oci(raw_ref) => oci::resolve_oci(raw_ref, opts, cache, progress).await,
-    }
+  match source {
+    PluginSource::File(path) => file::resolve_file(path),
+    PluginSource::Http(url) => http::resolve_http(url, opts, cache, progress).await,
+    PluginSource::Oci(raw_ref) => oci::resolve_oci(raw_ref, opts, cache, progress).await,
+  }
 }

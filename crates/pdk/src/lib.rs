@@ -11,13 +11,13 @@
 /// `export!(Component with_types_in moonlit_pdk::bindings)`.
 #[allow(clippy::too_many_arguments)]
 pub mod bindings {
-    wit_bindgen::generate!({
-        path: "wit",
-        world: "plugin",
-        generate_all,
-        pub_export_macro: true,
-        default_bindings_module: "moonlit_pdk::bindings",
-    });
+  wit_bindgen::generate!({
+      path: "wit",
+      world: "plugin",
+      generate_all,
+      pub_export_macro: true,
+      default_bindings_module: "moonlit_pdk::bindings",
+  });
 }
 
 pub use bindings::export;
@@ -61,7 +61,7 @@ pub use middleware::Middleware;
 /// rather than each author crate. Hidden from docs — it is macro-internal API.
 #[doc(hidden)]
 pub fn __schema_json<T: schemars::JsonSchema>() -> String {
-    serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default()
+  serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default()
 }
 
 /// Marker for a middleware that reads no configuration. Deserializes from `{}`
@@ -79,52 +79,52 @@ mod plugin_config;
 pub use plugin_config::PluginConfig;
 
 pub mod prelude {
-    pub use crate::config::from_json_value;
-    pub use crate::moonlit_plugin;
-    pub use crate::process::LineHandler;
-    pub use crate::state::Shared;
-    pub use crate::PluginConfig;
-    pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, NoInput, NoOutput};
-    pub use serde::{Deserialize, Serialize};
+  pub use crate::PluginConfig;
+  pub use crate::config::from_json_value;
+  pub use crate::moonlit_plugin;
+  pub use crate::process::LineHandler;
+  pub use crate::state::Shared;
+  pub use crate::{Context, LogLevel, Middleware, MiddlewareResult, NoInput, NoOutput};
+  pub use serde::{Deserialize, Serialize};
 }
 
 #[cfg(test)]
 mod markers {
-    use super::NoInput;
+  use super::NoInput;
 
-    /// Pins the direction claimed by `NoInput`'s doc: it binds *from* an empty object. The
-    /// `NoOutput` counterpart is covered by `result::tests::no_output_serializes_to_empty`.
-    #[test]
-    fn no_input_deserializes_from_an_empty_object() {
-        serde_json::from_str::<NoInput>("{}").expect("NoInput binds from an empty object");
-    }
+  /// Pins the direction claimed by `NoInput`'s doc: it binds *from* an empty object. The
+  /// `NoOutput` counterpart is covered by `result::tests::no_output_serializes_to_empty`.
+  #[test]
+  fn no_input_deserializes_from_an_empty_object() {
+    serde_json::from_str::<NoInput>("{}").expect("NoInput binds from an empty object");
+  }
 }
 
 #[cfg(test)]
 mod wit_abi {
-    /// This crate's doc header names the ABI it targets, and that line is the docs.rs front page.
-    /// `moonlit-pdk-macros` carried a stale version across two bumps for want of this check, so
-    /// pin the string to the WIT that actually ships.
-    #[test]
-    fn crate_doc_states_the_shipped_abi_version() {
-        let wit = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("wit/moonlit-plugin.wit");
-        let text = std::fs::read_to_string(wit).unwrap();
-        let abi = text
-            .lines()
-            .find_map(|l| l.trim().strip_prefix("package "))
-            .expect("WIT declares a package")
-            .trim()
-            .trim_end_matches(';');
+  /// This crate's doc header names the ABI it targets, and that line is the docs.rs front page.
+  /// `moonlit-pdk-macros` carried a stale version across two bumps for want of this check, so
+  /// pin the string to the WIT that actually ships.
+  #[test]
+  fn crate_doc_states_the_shipped_abi_version() {
+    let wit = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("wit/moonlit-plugin.wit");
+    let text = std::fs::read_to_string(wit).unwrap();
+    let abi = text
+      .lines()
+      .find_map(|l| l.trim().strip_prefix("package "))
+      .expect("WIT declares a package")
+      .trim()
+      .trim_end_matches(';');
 
-        let doc: String = include_str!("lib.rs")
-            .lines()
-            .take_while(|l| l.starts_with("//!"))
-            .collect::<Vec<_>>()
-            .join("\n");
+    let doc: String = include_str!("lib.rs")
+      .lines()
+      .take_while(|l| l.starts_with("//!"))
+      .collect::<Vec<_>>()
+      .join("\n");
 
-        assert!(
-            doc.contains(abi),
-            "moonlit-pdk's crate doc must name the shipped ABI `{abi}`. It currently reads:\n{doc}"
-        );
-    }
+    assert!(
+      doc.contains(abi),
+      "moonlit-pdk's crate doc must name the shipped ABI `{abi}`. It currently reads:\n{doc}"
+    );
+  }
 }
