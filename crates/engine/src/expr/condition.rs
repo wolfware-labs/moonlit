@@ -6,6 +6,7 @@ use thiserror::Error;
 use crate::expr::scalar::Scalar;
 use crate::expr::substitute::substitute_with;
 use crate::expr::value::Value;
+use crate::pipeline::PipelineData;
 
 pub struct ConditionOutcome {
   pub value: bool,
@@ -29,8 +30,8 @@ impl EvalError {
   }
 }
 
-pub fn evaluate_condition(expr: &str, acc: &Accumulator) -> ConditionOutcome {
-  match eval(expr, acc) {
+pub fn evaluate_condition(expr: &str, pipeline_data: &PipelineData) -> ConditionOutcome {
+  match eval(expr, pipeline_data) {
     Ok(value) => ConditionOutcome { value, warning: None },
     Err(message) => ConditionOutcome {
       value: false,
@@ -39,27 +40,27 @@ pub fn evaluate_condition(expr: &str, acc: &Accumulator) -> ConditionOutcome {
   }
 }
 
-pub fn evaluate_halt(expr: &str, acc: &Accumulator) -> Result<bool, EvalError> {
-  eval(expr, acc).map_err(|message| EvalError {
+pub fn evaluate_halt(expr: &str, pipeline_data: &PipelineData) -> Result<bool, EvalError> {
+  eval(expr, pipeline_data).map_err(|message| EvalError {
     message,
     expr: expr.to_string(),
   })
 }
 
-fn eval(expr: &str, acc: &Accumulator) -> Result<bool, String> {
+fn eval(expr: &str, pipeline_data: &PipelineData) -> Result<bool, String> {
   let engine = build_engine();
-  let substituted = substitute_condition(expr, acc);
+  let substituted = substitute_condition(expr, pipeline_data);
   let normalized = normalize_identifiers(&substituted);
   let mut scope = Scope::new();
-  scope.push_constant("output", build_output_scope(acc));
+  scope.push_constant("output", build_output_scope(pipeline_data));
   match engine.eval_expression_with_scope::<Dynamic>(&mut scope, &normalized) {
     Ok(d) => Ok(d.as_bool().unwrap_or(false)),
     Err(e) => Err(e.to_string()),
   }
 }
 
-fn substitute_condition(expr: &str, acc: &Accumulator) -> String {
-  substitute_with(expr, acc, |v| match v {
+fn substitute_condition(expr: &str, pipeline_data: &PipelineData) -> String {
+  substitute_with(expr, pipeline_data, |v| match v {
     Some(value) => value_to_literal(&value),
     None => "''".to_string(),
   })
@@ -106,8 +107,8 @@ fn register_datetime(engine: &mut Engine) {
   engine.register_fn(">=", |a: DateTime<FixedOffset>, b: DateTime<FixedOffset>| a >= b);
 }
 
-fn build_output_scope(acc: &Accumulator) -> Dynamic {
-  value_to_dynamic(&acc.merged("output"))
+fn build_output_scope(pipeline_data: &PipelineData) -> Dynamic {
+  value_to_dynamic(&pipeline_data.merged("output"))
 }
 
 fn value_to_dynamic(v: &Value) -> Dynamic {

@@ -6,7 +6,7 @@ mod model;
 use crate::engine::Engine;
 use crate::engine::error::EngineError;
 use crate::pipeline::config::PipelineConfig;
-use crate::pipeline::data::PipelineData;
+pub use crate::pipeline::data::PipelineData;
 use crate::pipeline::model::FlatStep;
 pub use crate::pipeline::model::{PipelineEvent, PipelineOptions, PipelineSummary, StepResult};
 use crate::plugin::Plugin;
@@ -63,12 +63,11 @@ impl Pipeline {
           config_view,
           ev,
         )
-          .await
+        .await
       });
     }
 
-    let mut loaded_map: std::collections::HashMap<String, crate::engine::Loaded> =
-      std::collections::HashMap::new();
+    let mut loaded_map: std::collections::HashMap<String, crate::engine::Loaded> = std::collections::HashMap::new();
     while let Some(joined) = set.join_next().await {
       match joined {
         Ok(Ok(l)) => {
@@ -80,9 +79,7 @@ impl Pipeline {
         }
         Err(join_err) => {
           set.shutdown().await;
-          return Err(EngineError::Internal(anyhow::anyhow!(
-                        "plugin load task failed: {join_err}"
-                    )));
+          return Err(EngineError::Internal(anyhow::anyhow!("plugin load task failed: {join_err}")));
         }
       }
     }
@@ -106,13 +103,11 @@ impl Pipeline {
     for stage in &cfg.stages.value {
       for step in &stage.steps {
         let run = &step.run.value;
-        let l = loaded.get(&run.plugin).ok_or_else(|| {
-          EngineError::Config(src.plugin_not_found(&run.plugin, step.run.span))
-        })?;
+        let l = loaded
+          .get(&run.plugin)
+          .ok_or_else(|| EngineError::Config(src.plugin_not_found(&run.plugin, step.run.span)))?;
         if !l.middlewares.iter().any(|m| m == &run.middleware) {
-          return Err(EngineError::Config(
-            src.middleware_not_found(&run.middleware, step.run.span),
-          ));
+          return Err(EngineError::Config(src.middleware_not_found(&run.middleware, step.run.span)));
         }
         flat.push(FlatStep {
           stage: stage.name.clone(),
@@ -130,12 +125,9 @@ impl Pipeline {
     let steps = if opts.stages_filter.is_empty() {
       flat
     } else {
-      let wanted: Vec<String> = opts
-        .stages_filter
-        .iter()
-        .map(|s| s.to_lowercase())
-        .collect();
-      flat.into_iter()
+      let wanted: Vec<String> = opts.stages_filter.iter().map(|s| s.to_lowercase()).collect();
+      flat
+        .into_iter()
         .filter(|f| wanted.contains(&f.stage.to_lowercase()))
         .collect()
     };
