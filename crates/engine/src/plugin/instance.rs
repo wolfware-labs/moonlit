@@ -26,7 +26,7 @@ impl PluginInstance {
 
   pub async fn describe(&mut self) -> Result<PluginMetadata, PluginError> {
     match self.bindings.call_describe(&mut self.store).await {
-      Ok(meta) => Ok(convert::metadata(meta)),
+      Ok(meta) => Ok(meta.into()),
       Err(e) => Err(PluginError::Trap {
         op: "describe".to_string(),
         message: format!("{e:?}"),
@@ -38,7 +38,7 @@ impl PluginInstance {
     self.store.data_mut().set_step("init");
     let json = plugin_config.to_string();
     match self.bindings.call_init(&mut self.store, &json).await {
-      Ok(Ok(meta)) => Ok(convert::metadata(meta)),
+      Ok(Ok(meta)) => Ok(meta.into()),
       Ok(Err(msg)) => Err(msg),
       Err(trap) => Err(format!("plugin trapped during init: {trap:?}")),
     }
@@ -51,10 +51,13 @@ impl PluginInstance {
     config: &serde_json::Value,
   ) -> Result<MiddlewareResult, PluginError> {
     self.store.data_mut().set_step(&ctx.step_name);
-    let raw_ctx = convert::release_context_to_raw(&ctx);
     let json = config.to_string();
-    match self.bindings.call_execute(&mut self.store, middleware, &raw_ctx, &json).await {
-      Ok(raw) => convert::middleware_result(raw),
+    match self
+      .bindings
+      .call_execute(&mut self.store, middleware, &ctx.into(), &json)
+      .await
+    {
+      Ok(raw) => raw.into(),
       Err(e) => Err(PluginError::Trap {
         op: format!("execute {middleware}"),
         message: format!("{e:?}"),
@@ -64,7 +67,7 @@ impl PluginInstance {
 
   pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, PluginError> {
     match self.bindings.call_list_middlewares(&mut self.store).await {
-      Ok(list) => Ok(list.into_iter().map(convert::middleware_info).collect()),
+      Ok(list) => Ok(list.into_iter().map(|i| i.into()).collect()),
       Err(e) => Err(PluginError::Trap {
         op: "list-middlewares".to_string(),
         message: format!("{e:?}"),
