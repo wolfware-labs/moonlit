@@ -1,18 +1,18 @@
 mod error;
 mod instance;
 pub mod middleware;
-mod publish;
 mod resolver;
 pub mod wit;
 // mod expr;
+mod artifact;
 pub mod host;
+pub mod publish;
 
 use crate::engine::Engine;
 use crate::logging::LogLevel;
 use crate::plugin::error::PluginError;
 use crate::plugin::host::{AllowlistHooks, build_wasi_ctx, exec_globset};
 use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
-pub use crate::plugin::publish::{PublishMeta, new_push_client, publish_plugin};
 pub use crate::plugin::resolver::PluginSource;
 use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
