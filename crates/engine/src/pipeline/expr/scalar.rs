@@ -53,39 +53,39 @@ mod tests {
 
   #[test]
   fn bool_is_case_insensitive() {
-    assert_eq!("true".into(), Scalar::Bool(true));
-    assert_eq!("FALSE".into(), Scalar::Bool(false));
-    assert_eq!("True".into(), Scalar::Bool(true));
+    assert_eq!(Scalar::from("true"), Scalar::Bool(true));
+    assert_eq!(Scalar::from("FALSE"), Scalar::Bool(false));
+    assert_eq!(Scalar::from("True"), Scalar::Bool(true));
   }
 
   #[test]
   fn int_before_float() {
-    assert_eq!("42".into(), Scalar::Int(42));
-    assert_eq!("-7".into(), Scalar::Int(-7));
-    assert_eq!("3.5".into(), Scalar::Float(3.5));
+    assert_eq!(Scalar::from("42"), Scalar::Int(42));
+    assert_eq!(Scalar::from("-7"), Scalar::Int(-7));
+    assert_eq!(Scalar::from("3.5"), Scalar::Float(3.5));
   }
 
   #[test]
   fn rfc3339_and_naive_and_date_only_coerce_to_datetime() {
     let expected_dt = DateTime::parse_from_rfc3339("2024-01-02T03:04:05Z").unwrap();
-    assert_eq!("2024-01-02T03:04:05Z".into(), Scalar::DateTime(expected_dt));
-    assert_eq!("2024-01-02T03:04:05".into(), Scalar::DateTime(expected_dt));
-    assert_eq!("2024-01-02 03:04:05".into(), Scalar::DateTime(expected_dt));
+    assert_eq!(Scalar::from("2024-01-02T03:04:05Z"), Scalar::DateTime(expected_dt));
+    assert_eq!(Scalar::from("2024-01-02T03:04:05"), Scalar::DateTime(expected_dt));
+    assert_eq!(Scalar::from("2024-01-02 03:04:05"), Scalar::DateTime(expected_dt));
 
     let expected_date = DateTime::parse_from_rfc3339("2024-01-02T00:00:00Z").unwrap();
-    assert_eq!("2024-01-02".into(), Scalar::DateTime(expected_date));
+    assert_eq!(Scalar::from("2024-01-02"), Scalar::DateTime(expected_date));
   }
 
   #[test]
   fn non_iso_dates_stay_strings() {
-    assert_eq!("01/02/2024".into(), Scalar::Str("01/02/2024".to_string()));
-    assert_eq!("main".into(), Scalar::Str("main".to_string()));
+    assert_eq!(Scalar::from("01/02/2024"), Scalar::Str("01/02/2024".to_string()));
+    assert_eq!(Scalar::from("main"), Scalar::Str("main".to_string()));
   }
 
   #[test]
   fn datetime_equality_round_trips_offset() {
-    let a = "2024-01-02T03:04:05+00:00".into();
-    let b = "2024-01-02T03:04:05Z".into();
+    let a = Scalar::from("2024-01-02T03:04:05+00:00");
+    let b = Scalar::from("2024-01-02T03:04:05Z");
     assert_eq!(a, b);
   }
 }

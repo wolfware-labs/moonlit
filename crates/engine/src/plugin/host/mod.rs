@@ -8,7 +8,6 @@ use crate::logging::LogLevel;
 pub use auth::{build_wasi_ctx, exec_globset};
 pub use child_process::ChildProcess;
 pub use net::AllowlistHooks;
-use wasmtime::{Config, Engine};
 
 pub trait HostEventSink: Send + Sync {
   fn log(&self, step: &str, level: LogLevel, message: &str);

@@ -50,7 +50,7 @@ impl Value {
       serde_json::Value::Bool(b) => Value::Str(b.to_string()),
       serde_json::Value::Number(n) => Value::Str(n.to_string()),
       serde_json::Value::String(s) => Value::Str(s.clone()),
-      serde_json::Value::Array(a) => Value::List(a.iter().map(Value::from).collect()),
+      serde_json::Value::Array(a) => Value::List(a.iter().map(Value::from_json).collect()),
       serde_json::Value::Object(o) => Value::Map(o.iter().map(|(k, v)| (k.clone(), Value::from_json(v))).collect()),
     }
   }

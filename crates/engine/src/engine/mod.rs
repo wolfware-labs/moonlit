@@ -41,7 +41,7 @@ impl Engine {
     #[allow(deprecated)]
     config.async_support(true);
     config.wasm_component_model(true);
-    Ok(wasmtime::Engine::new(&config)?)
+    Ok(wasmtime::Engine::new(&config).map_err(anyhow::Error::from)?)
   }
 
   pub fn build_store<T>(&self, data: T) -> Store<T> {
@@ -57,8 +57,8 @@ impl Engine {
     T: WasiView + WasiHttpView,
   {
     let mut linker: Linker<T> = Linker::new(&self.wasm_engine);
-    wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
-    wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker)?;
+    wasmtime_wasi::p2::add_to_linker_async(&mut linker).map_err(anyhow::Error::from)?;
+    wasmtime_wasi_http::p2::add_only_http_to_linker_async(&mut linker).map_err(anyhow::Error::from)?;
     Ok(linker)
   }
 

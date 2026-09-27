@@ -69,7 +69,7 @@ fn substitute_condition(expr: &str, pipeline_data: &PipelineData) -> String {
 fn value_to_literal(v: &Value) -> String {
   match v {
     Value::Null => "''".to_string(),
-    Value::Str(s) => match s {
+    Value::Str(s) => match Scalar::from(s.as_str()) {
       Scalar::Bool(b) => b.to_string(),
       Scalar::Int(i) => i.to_string(),
       Scalar::Float(f) => f.to_string(),
@@ -114,7 +114,7 @@ fn build_output_scope(pipeline_data: &PipelineData) -> Dynamic {
 fn value_to_dynamic(v: &Value) -> Dynamic {
   match v {
     Value::Null => Dynamic::UNIT,
-    Value::Str(s) => scalar_to_dynamic(s.into()),
+    Value::Str(s) => scalar_to_dynamic(Scalar::from(s.as_str())),
     Value::List(items) => {
       let arr: Array = items.iter().map(value_to_dynamic).collect();
       Dynamic::from_array(arr)

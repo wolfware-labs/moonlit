@@ -56,12 +56,16 @@ impl Plugin {
       exec_globset(&cfg.permissions.exec),
     ));
 
-    let component = engine.load_component(component_bytes)?;
+    let component = engine
+      .load_component(component_bytes)
+      .map_err(|e| PluginError::Compile(e.to_string()))?;
 
-    let mut linker = engine.build_linker()?;
+    let mut linker = engine.build_linker().map_err(|e| PluginError::Link(e.to_string()))?;
 
-    wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)?;
-    wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)?;
+    wit::moonlit::plugin::host::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)
+      .map_err(|e| PluginError::Link(e.to_string()))?;
+    wit::moonlit::plugin::process::add_to_linker::<_, HasSelf<_>>(&mut linker, |s| s)
+      .map_err(|e| PluginError::Link(e.to_string()))?;
 
     let bindings = PluginHost::instantiate_async(&mut store, &component, &linker)
       .await
