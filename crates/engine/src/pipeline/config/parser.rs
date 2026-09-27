@@ -4,7 +4,6 @@ use crate::pipeline::config::span::{Span, Spanned};
 use crate::pipeline::config::tree::{Node, NodeValue};
 use crate::pipeline::config::{ConfigDiagnostic, ConfigMap, FilesystemAccess, Permissions, PipelineConfig, tree};
 use indexmap::IndexMap;
-use std::path::PathBuf;
 
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
   let src = ConfigSource::new(yaml, source_name);
@@ -45,6 +44,12 @@ fn validate(config: &PipelineConfig, src: &ConfigSource) -> Result<(), ConfigDia
       return Err(ConfigDiagnostic::duplicate_plugin(src, &plugin.name, config.plugins.span));
     }
   }
+  for step in config.stages.value.iter().flat_map(|stage| &stage.steps) {
+    let plugin = &step.run.value.plugin;
+    if !seen.contains(plugin.as_str()) {
+      return Err(ConfigDiagnostic::plugin_not_found(src, plugin, step.run.span));
+    }
+  }
   Ok(())
 }
 
@@ -55,7 +60,6 @@ fn create_empty(span: Span) -> PipelineConfig {
     variables: IndexMap::new(),
     plugins: Spanned::new(Vec::new(), span),
     stages: Spanned::new(Vec::new(), span),
-    current_dir: PathBuf::new(),
   }
 }
 
@@ -122,7 +126,6 @@ fn convert_root(entries: &[(Node, Node)], root_span: Span, src: &ConfigSource) -
     variables: variables.unwrap_or_default(),
     plugins: plugins.unwrap_or_else(|| Spanned::new(Vec::new(), root_span)),
     stages: stages.unwrap_or_else(|| Spanned::new(Vec::new(), root_span)),
-    current_dir: PathBuf::new(),
   })
 }
 

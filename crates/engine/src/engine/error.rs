@@ -1,22 +1,14 @@
-use crate::pipeline::config::ConfigDiagnostic;
+use crate::pipeline::PipelineError;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum EngineError {
   #[error(transparent)]
   #[diagnostic(transparent)]
-  Config(#[from] ConfigDiagnostic),
-
-  #[error("failed to load plugin '{plugin}': {message}")]
-  #[diagnostic(code(moonlit::engine::plugin_load))]
-  PluginLoad { plugin: String, message: String },
+  Pipeline(#[from] PipelineError),
 
   #[error("failed to load component {0}")]
   #[diagnostic(code(moonlit::engine::plugin_load))]
   ComponentLoad(String),
-
-  #[error("pipeline execution failed: {0}")]
-  #[diagnostic(code(moonlit::engine::execution))]
-  Execution(String),
 
   #[error(transparent)]
   #[diagnostic(code(moonlit::engine::internal))]
@@ -26,10 +18,8 @@ pub enum EngineError {
 impl EngineError {
   pub fn exit_code(&self) -> i32 {
     match self {
-      EngineError::Config(_) => 2,
-      EngineError::PluginLoad { .. } => 3,
+      EngineError::Pipeline(e) => e.exit_code(),
       EngineError::ComponentLoad(_) => 4,
-      EngineError::Execution(_) => 5,
       EngineError::Internal(_) => 1,
     }
   }

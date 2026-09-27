@@ -2,7 +2,6 @@ use crate::logging::LogLevel;
 use crate::pipeline::config::ConfigMap;
 use crate::plugin::host::HostEventSink;
 use serde::Serialize;
-use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 
@@ -109,8 +108,6 @@ pub struct FlatStep {
 }
 
 pub struct PipelineOptions {
-  pub working_directory: PathBuf,
-  pub config_file_name: String,
   pub stages_filter: Vec<String>,
   pub cli_args: Vec<(String, String)>,
   pub step_timeout: Option<Duration>,

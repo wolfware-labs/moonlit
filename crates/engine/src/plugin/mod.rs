@@ -10,9 +10,9 @@ pub mod publish;
 
 use crate::engine::Engine;
 use crate::logging::LogLevel;
-use crate::plugin::error::PluginError;
+pub use crate::plugin::error::PluginError;
 use crate::plugin::host::{AllowlistHooks, build_wasi_ctx, exec_globset};
-use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
+pub use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
 use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
 use host::state::HostState;

@@ -1,7 +1,7 @@
 use crate::pipeline::config::PipelineConfig;
 use crate::pipeline::expr::{Resolve, Value};
 use indexmap::IndexMap;
-use std::path::PathBuf;
+use std::path::Path;
 
 #[derive(Debug, Default)]
 pub struct PipelineData {
@@ -15,8 +15,8 @@ impl Resolve for PipelineData {
 }
 
 impl PipelineData {
-  pub fn new(config: PipelineConfig) -> Self {
-    let env_layer = Self::build_env_layer(&config.current_dir);
+  pub fn new(config: &PipelineConfig, working_dir: &Path) -> Self {
+    let env_layer = Self::build_env_layer(working_dir);
     let release_layer = Self::build_release_layer(&config.variables, &config.arguments);
 
     Self {
@@ -49,7 +49,7 @@ impl PipelineData {
     Value::Map(out)
   }
 
-  pub fn build_env_layer(working_directory: &PathBuf) -> Value {
+  pub fn build_env_layer(working_directory: &Path) -> Value {
     let env: Vec<(String, String)> = std::env::vars().collect();
     let dotenv = std::fs::read_to_string(working_directory.join(".env")).ok();
     let mut map: IndexMap<String, Value> = IndexMap::new();
