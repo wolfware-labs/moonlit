@@ -40,6 +40,10 @@ impl Engine {
     })
   }
 
+  pub fn default() -> Result<Self, EngineError> {
+    Self::new(EngineSettings::default())
+  }
+
   fn build_engine() -> Result<wasmtime::Engine, EngineError> {
     let mut config = Config::new();
     #[allow(deprecated)]
@@ -95,9 +99,7 @@ impl Engine {
 
     for (index, step) in steps.iter().enumerate() {
       if cancel.is_cancelled() {
-        terminal_err = Some(EngineError::Execution(
-          "Pipeline execution was cancelled.".to_string(),
-        ));
+        terminal_err = Some(EngineError::Execution("Pipeline execution was cancelled.".to_string()));
         break;
       }
 
@@ -145,10 +147,7 @@ impl Engine {
 
       if poisoned.contains(&step.plugin) {
         overall_success = false;
-        let msg = format!(
-          "Plugin '{}' unavailable after an earlier failure in this run.",
-          step.plugin
-        );
+        let msg = format!("Plugin '{}' unavailable after an earlier failure in this run.", step.plugin);
         let result = StepResult {
           name: step.name.clone(),
           successful: false,
@@ -181,23 +180,21 @@ impl Engine {
         working_directory: wd.clone(),
         step_name: step.name.clone(),
       };
-      let instance = plugins
-        .get_mut(&step.plugin)
-        .expect("plugin present (validated at load)");
+      let instance = plugins.get_mut(&step.plugin).expect("plugin present (validated at load)");
       let outcome = {
         let fut = instance.execute(&step.middleware, ctx, &cfg_json);
         match step_timeout {
           Some(to) => tokio::select! {
-                      biased;
-                      _ = cancel.cancelled() => ExecOutcome::Cancelled,
-                      r = fut => ExecOutcome::Completed(r),
-                      _ = tokio::time::sleep(to) => ExecOutcome::TimedOut,
-                  },
+              biased;
+              _ = cancel.cancelled() => ExecOutcome::Cancelled,
+              r = fut => ExecOutcome::Completed(r),
+              _ = tokio::time::sleep(to) => ExecOutcome::TimedOut,
+          },
           None => tokio::select! {
-                      biased;
-                      _ = cancel.cancelled() => ExecOutcome::Cancelled,
-                      r = fut => ExecOutcome::Completed(r),
-                  },
+              biased;
+              _ = cancel.cancelled() => ExecOutcome::Cancelled,
+              r = fut => ExecOutcome::Completed(r),
+          },
         }
       };
       let exec = match outcome {
@@ -342,106 +339,101 @@ impl Engine {
   }
 }
 
-//
-// struct Loaded {
-//     name: String,
-//     instance: PluginInstance,
-//     meta: PluginMetadata,
-//     middlewares: Vec<String>,
-// }
-//
-// fn effective_permissions(p: &Option<Permissions>) -> Permissions {
-//     p.clone().unwrap_or_else(Permissions::deny)
-// }
-//
-// fn plugin_url_string(u: &PluginUrl) -> String {
-//     match u {
-//         PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => {
-//             s.clone()
-//         }
-//     }
-// }
-//
-// async fn resolve_instantiate_init(
-//     wasmtime: wasmtime::Engine,
-//     cache: Arc<Cache>,
-//     offline: bool,
-//     tag_ttl: Duration,
-//     working_directory: PathBuf,
-//     env_snapshot: Vec<(String, String)>,
-//     name: String,
-//     url: String,
-//     permissions: Permissions,
-//     config_view: serde_json::Value,
-//     events: Sender<PipelineEvent>,
-// ) -> Result<Loaded, EngineError> {
-//     let load_err = |message: String| EngineError::PluginLoad {
-//         plugin: name.clone(),
-//         message,
-//     };
-//
-//     let _ = events
-//         .send(PipelineEvent::PluginResolving {
-//             name: name.clone(),
-//             url: url.clone(),
-//         })
-//         .await;
-//
-//     let source = PluginSource::parse(&url).map_err(|e| load_err(e.to_string()))?;
-//     let ropts = ResolveOptions { offline, tag_ttl };
-//
-//     let ev = events.clone();
-//     let nm = name.clone();
-//     let progress = move |received: u64, total: Option<u64>| {
-//         let _ = ev.try_send(PipelineEvent::PluginPullProgress {
-//             name: nm.clone(),
-//             received,
-//             total,
-//         });
-//     };
-//     let progress_fn: &(dyn Fn(u64, Option<u64>) + Send + Sync) = &progress;
-//
-//     let resolved = resolve::resolve(&source, &ropts, cache.as_ref(), Some(progress_fn))
-//         .await
-//         .map_err(|e| load_err(e.to_string()))?;
-//
-//     let bytes = std::fs::read(&resolved.wasm_path)
-//         .map_err(|e| load_err(format!("reading {}: {e}", resolved.wasm_path.display())))?;
-//
-//     let inst_cfg = InstanceConfig {
-//         working_directory,
-//         permissions,
-//         config_view: config_view.clone(),
-//         env_snapshot,
-//     };
-//     let sink: Arc<dyn HostEventSink> = Arc::new(ChannelSink {
-//         events: events.clone(),
-//     });
-//
-//     let mut instance = PluginInstance::instantiate(&wasmtime, &bytes, inst_cfg, sink)
-//         .await
-//         .map_err(|e| load_err(e.to_string()))?;
-//     let meta = instance.init(&config_view).await.map_err(load_err)?;
-//     let middlewares = instance
-//         .list_middlewares()
-//         .await
-//         .map_err(|e| load_err(e.to_string()))?
-//         .into_iter()
-//         .map(|m| m.name)
-//         .collect();
-//
-//     let _ = events
-//         .send(PipelineEvent::PluginReady {
-//             name: name.clone(),
-//             version: meta.version.clone(),
-//             cached: resolved.cached,
-//         })
-//         .await;
-//
-//     Ok(Loaded {
-//         name,
-//         instance,
-//         meta,
-//         middlewares,
-//     })
-// }
+struct Loaded {
+  name: String,
+  instance: PluginInstance,
+  meta: PluginMetadata,
+  middlewares: Vec<String>,
+}
+
+fn effective_permissions(p: &Option<Permissions>) -> Permissions {
+  p.clone().unwrap_or_else(Permissions::deny)
+}
+
+fn plugin_url_string(u: &PluginUrl) -> String {
+  match u {
+    PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => s.clone(),
+  }
+}
+
+async fn resolve_instantiate_init(
+  wasmtime: wasmtime::Engine,
+  cache: Arc<Cache>,
+  offline: bool,
+  tag_ttl: Duration,
+  working_directory: PathBuf,
+  env_snapshot: Vec<(String, String)>,
+  name: String,
+  url: String,
+  permissions: Permissions,
+  config_view: serde_json::Value,
+  events: Sender<PipelineEvent>,
+) -> Result<Loaded, EngineError> {
+  let load_err = |message: String| EngineError::PluginLoad {
+    plugin: name.clone(),
+    message,
+  };
+
+  let _ = events
+    .send(PipelineEvent::PluginResolving {
+      name: name.clone(),
+      url: url.clone(),
+    })
+    .await;
+
+  let source = PluginSource::parse(&url).map_err(|e| load_err(e.to_string()))?;
+  let ropts = ResolveOptions { offline, tag_ttl };
+
+  let ev = events.clone();
+  let nm = name.clone();
+  let progress = move |received: u64, total: Option<u64>| {
+    let _ = ev.try_send(PipelineEvent::PluginPullProgress {
+      name: nm.clone(),
+      received,
+      total,
+    });
+  };
+  let progress_fn: &(dyn Fn(u64, Option<u64>) + Send + Sync) = &progress;
+
+  let resolved = resolve::resolve(&source, &ropts, cache.as_ref(), Some(progress_fn))
+    .await
+    .map_err(|e| load_err(e.to_string()))?;
+
+  let bytes =
+    std::fs::read(&resolved.wasm_path).map_err(|e| load_err(format!("reading {}: {e}", resolved.wasm_path.display())))?;
+
+  let inst_cfg = InstanceConfig {
+    working_directory,
+    permissions,
+    config_view: config_view.clone(),
+    env_snapshot,
+  };
+  let sink: Arc<dyn HostEventSink> = Arc::new(ChannelSink { events: events.clone() });
+
+  let mut instance = PluginInstance::instantiate(&wasmtime, &bytes, inst_cfg, sink)
+    .await
+    .map_err(|e| load_err(e.to_string()))?;
+  let meta = instance.init(&config_view).await.map_err(load_err)?;
+  let middlewares = instance
+    .list_middlewares()
+    .await
+    .map_err(|e| load_err(e.to_string()))?
+    .into_iter()
+    .map(|m| m.name)
+    .collect();
+
+  let _ = events
+    .send(PipelineEvent::PluginReady {
+      name: name.clone(),
+      version: meta.version.clone(),
+      cached: resolved.cached,
+    })
+    .await;
+
+  Ok(Loaded {
+    name,
+    instance,
+    meta,
+    middlewares,
+  })
+}
