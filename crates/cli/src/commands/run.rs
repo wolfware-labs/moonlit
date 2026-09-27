@@ -5,7 +5,7 @@ use crate::{render, signal};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::pipeline::manifest::PipelineManifest;
-use moonlit_engine::pipeline::{PipelineOptions, PipelineSummary};
+use moonlit_engine::pipeline::{Pipeline, PipelineError, PipelineOptions, PipelineSummary};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -33,8 +33,6 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   let header = build_header(&manifest, &args.stages);
 
   let opts = PipelineOptions {
-    working_directory: manifest.working_dir.clone(),
-    config_file_name: manifest.peek_name().unwrap(),
     stages_filter: args.stages.clone(),
     cli_args: args.args.clone(),
     step_timeout: args.step_timeout,
@@ -54,7 +52,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   signal::spawn_watcher(cancel.clone());
   let renderer = render::for_mode(output, verbose);
 
-  let outcome = execute(&engine, &resolved.yaml, opts, header, renderer, cancel, args.dry_run).await;
+  let outcome = execute(&engine, &manifest, opts, header, renderer, cancel, args.dry_run).await;
   let code = exit_code(&outcome);
   if let Err(e) = outcome {
     report(e, code, json);
@@ -64,13 +62,13 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
 
 async fn execute(
   engine: &Engine,
-  yaml: &str,
+  manifest: &PipelineManifest,
   opts: PipelineOptions,
   header: Header,
   renderer: Box<dyn Renderer>,
   cancel: CancellationToken,
   load_only: bool,
-) -> Result<Option<PipelineSummary>, EngineError> {
+) -> Result<Option<PipelineSummary>, PipelineError> {
   let (tx, mut rx) = mpsc::channel(256);
 
   let consumer = tokio::spawn(async move {
@@ -82,7 +80,7 @@ async fn execute(
     renderer.finish();
   });
 
-  let load = engine.load_pipeline(yaml, opts, &tx).await;
+  let load = Pipeline::load(engine, manifest, opts, &tx).await;
   let pipeline = match load {
     Ok(p) => p,
     Err(e) => {
@@ -99,9 +97,16 @@ async fn execute(
     return Ok(None);
   }
 
-  let result = engine.run(pipeline, tx, cancel).await; // moves tx; closes channel on return
+  let result = pipeline.run(tx, cancel).await; // moves tx; closes channel on return
   let _ = consumer.await;
   result.map(Some)
+}
+
+fn exit_code(outcome: &Result<Option<PipelineSummary>, PipelineError>) -> i32 {
+  match outcome {
+    Ok(_) => 0,
+    Err(e) => e.exit_code(),
+  }
 }
 
 fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header {

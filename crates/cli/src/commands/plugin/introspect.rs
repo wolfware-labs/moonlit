@@ -1,8 +1,9 @@
 use moonlit_engine::engine::Engine;
 use moonlit_engine::logging::LogLevel;
+use moonlit_engine::pipeline::config::Permissions;
 use moonlit_engine::plugin::host::HostEventSink;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
-use moonlit_engine::plugin::{Plugin, PluginMetadata};
+use moonlit_engine::plugin::{Plugin, PluginInstanceConfig, PluginMetadata};
 use std::sync::Arc;
 
 struct SilentSink;
@@ -12,7 +13,7 @@ impl HostEventSink for SilentSink {
 }
 
 pub(super) async fn introspect(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<MiddlewareInfo>)> {
-  let engine = Engine::default()?;
+  let engine = Engine::try_default()?;
   let cfg = PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
     permissions: Permissions::deny(),
