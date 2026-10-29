@@ -264,6 +264,78 @@ mod tests {
     assert_eq!(outcome.size, 9);
   }
 
+  #[tokio::test]
+  async fn oci_push_client_exchanges_a_stored_token_through_the_challenge() {
+    use base64::Engine as _;
+    use wiremock::matchers::{header, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    let host = server.address().to_string();
+    let basic = format!(
+      "Basic {}",
+      base64::engine::general_purpose::STANDARD.encode("token:mlp_secret")
+    );
+    Mock::given(method("GET"))
+      .and(path("/v2/"))
+      .respond_with(ResponseTemplate::new(401).insert_header(
+        "WWW-Authenticate",
+        format!("Bearer realm=\"http://{host}/v2/token\",service=\"{host}\"").as_str(),
+      ))
+      .mount(&server)
+      .await;
+    Mock::given(method("GET"))
+      .and(path("/v2/token"))
+      .and(header("Authorization", basic.as_str()))
+      .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "token": "registry-jwt" })))
+      .mount(&server)
+      .await;
+    let session = "/v2/w/git/blobs/uploads/session";
+    Mock::given(method("POST"))
+      .and(path("/v2/w/git/blobs/uploads/"))
+      .and(header("Authorization", "Bearer registry-jwt"))
+      .respond_with(ResponseTemplate::new(202).insert_header("Location", session))
+      .mount(&server)
+      .await;
+    Mock::given(method("PATCH"))
+      .and(path(session))
+      .and(header("Authorization", "Bearer registry-jwt"))
+      .respond_with(
+        ResponseTemplate::new(202)
+          .insert_header("Location", session)
+          .insert_header("Range", "0-8"),
+      )
+      .mount(&server)
+      .await;
+    Mock::given(method("PUT"))
+      .and(path(session))
+      .and(header("Authorization", "Bearer registry-jwt"))
+      .respond_with(ResponseTemplate::new(201).insert_header("Location", "/v2/w/git/blobs/sha256:blob"))
+      .mount(&server)
+      .await;
+    Mock::given(method("PUT"))
+      .and(path("/v2/w/git/manifests/2.0.0"))
+      .and(header("Authorization", "Bearer registry-jwt"))
+      .respond_with(ResponseTemplate::new(201).insert_header("Location", "/v2/w/git/manifests/sha256:feed"))
+      .mount(&server)
+      .await;
+    let home = tempfile::tempdir().unwrap();
+    let creds = home.path().join(".config/moonlit/credentials.toml");
+    std::fs::create_dir_all(creds.parent().unwrap()).unwrap();
+    std::fs::write(&creds, format!("[registries.\"{host}\"]\ntoken = \"mlp_secret\"\n")).unwrap();
+
+    let outcome = publish_plugin(
+      &format!("{host}/w/git:2.0.0"),
+      b"\0asm-body".to_vec(),
+      metadata(),
+      home.path(),
+      &OciPushClient::with_plain_http_for(&host),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(outcome.digest, "sha256:feed");
+  }
+
   async fn push_failing_with(status: u16) -> Result<PublishOutcome, PublishError> {
     use wiremock::matchers::method;
     use wiremock::{Mock, ResponseTemplate};
