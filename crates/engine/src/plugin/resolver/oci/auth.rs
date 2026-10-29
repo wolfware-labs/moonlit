@@ -61,7 +61,7 @@ fn moonlit_auth(host: &str, home: &Path) -> Option<RegistryAuth> {
   let creds: MoonlitCredentials = toml::from_str(&text).ok()?;
   let cred = creds.registries.get(host)?;
   if let Some(token) = &cred.token {
-    return Some(RegistryAuth::Bearer(token.clone()));
+    return Some(RegistryAuth::Basic("token".to_string(), token.clone()));
   }
   if let (Some(u), Some(p)) = (&cred.username, &cred.password) {
     return Some(RegistryAuth::Basic(u.clone(), p.clone()));
@@ -125,14 +125,17 @@ mod tests {
   }
 
   #[test]
-  fn reads_moonlit_bearer_token_when_no_docker_entry() {
+  fn sends_a_moonlit_token_as_basic_so_the_registry_can_exchange_it() {
     let home = tempfile::tempdir().unwrap();
     write(
       &home.path().join(".config/moonlit/credentials.toml"),
       "[registries.\"registry.moonlit.rs\"]\ntoken = \"abc123\"\n",
     );
     let auth = resolve_auth("registry.moonlit.rs", home.path());
-    assert!(matches!(&auth, RegistryAuth::Bearer(t) if t == "abc123"), "{auth:?}");
+    assert!(
+      matches!(&auth, RegistryAuth::Basic(u, p) if u == "token" && p == "abc123"),
+      "{auth:?}"
+    );
   }
 
   #[test]
