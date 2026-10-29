@@ -18,8 +18,8 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
 [workspace.dependencies]
-wit-parser = "0.259"
-wit-bindgen = "0.62.0"
+wit-parser = "0.262"
+wit-bindgen = "0.63.0"
 saphyr-parser = "=0.0.12"
 miette = "7.6"
 thiserror = "2.0"
@@ -42,10 +42,10 @@ dirs = "7"
 base64 = "0.23"
 wiremock = "0.6"
 tempfile = "3"
-wasmtime = { version = "49.0.1", features = ["component-model", "async"] }
-wasmtime-wasi = { version = "49.0.1", default-features = false, features = ["p2"] }
-wasmtime-wasi-http = { version = "49.0.1", default-features = false, features = ["default-send-request", "p2"] }
-wasmparser = "0.259"
+wasmtime = { version = "50.0.0", features = ["component-model", "async"] }
+wasmtime-wasi = { version = "50.0.0", default-features = false, features = ["p2"] }
+wasmtime-wasi-http = { version = "50.0.0", default-features = false, features = ["default-send-request", "p2"] }
+wasmparser = "0.262"
 anyhow = "1"
 hyper = "1"
 http-body-util = "0.1"
