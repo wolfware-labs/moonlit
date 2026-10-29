@@ -151,7 +151,8 @@ pub struct LoginArgs {
   pub host: Option<String>,
   /// Registry username (Basic auth). Supplying this or `--token` selects the manual path and
   /// bypasses the browser device flow (for CI); on a TTY that path then prompts for whichever
-  /// of the two you left out, and a blank username stores a token-only (Bearer) credential.
+  /// of the two you left out, and a blank username stores a token-only credential, which is sent
+  /// as Basic `token:<token>` for the registry to exchange.
   #[arg(long)]
   pub username: Option<String>,
   /// Registry token or password. Bypasses the browser device flow (for CI).
