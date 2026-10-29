@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [3.0.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.0...moonlit-v3.0.1) (2026-10-29)
+
+### Bug Fixes
+
+* **oci:** send a stored registry token as Basic credentials ([#45](https://github.com/wolfware-labs/moonlit/issues/45)) ([11459bb](https://github.com/wolfware-labs/moonlit/commit/11459bbef57bd71cfe1f89d40871d2c17eb0a50f))
+
 ## [3.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v2.0.0...moonlit-v3.0.0) (2026-09-27)
 
 ### ⚠ BREAKING CHANGES
