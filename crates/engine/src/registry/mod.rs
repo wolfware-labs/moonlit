@@ -51,6 +51,16 @@ impl VersionRule {
   }
 }
 
+/// Whether a registry `host[:port]` is a loopback address: `localhost`, 127.0.0.0/8 or `[::1]`.
+#[must_use]
+pub fn is_loopback(registry: &str) -> bool {
+  let host = match registry.strip_prefix('[') {
+    Some(rest) => rest.split_once(']').map_or(rest, |(h, _)| h),
+    None => registry.split_once(':').map_or(registry, |(h, _)| h),
+  };
+  host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
 /// Anonymous client for the Moonlit registry's GraphQL API.
 #[derive(Debug, Clone)]
 pub struct RegistryClient {
@@ -107,6 +117,8 @@ impl RegistryClient {
       } else {
         Self::with_base_url(&format!("{trimmed}/graphql"))
       }
+    } else if is_loopback(host) {
+      Self::with_base_url(&format!("http://{host}/graphql"))
     } else {
       Self::with_base_url(&format!("https://{host}/graphql"))
     }
@@ -201,5 +213,33 @@ impl RegistryClient {
     envelope
       .data
       .ok_or_else(|| RegistryError::Decode("response has neither data nor errors".to_string()))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::is_loopback;
+
+  #[test]
+  fn loopback_registries_are_recognised() {
+    for registry in ["localhost:5000", "127.0.0.1:8080", "127.0.0.1", "[::1]:5000", "LOCALHOST"] {
+      assert!(is_loopback(registry), "{registry}");
+    }
+  }
+
+  #[test]
+  fn remote_registries_are_not_loopback() {
+    for registry in [
+      "registry.moonlit.rs",
+      "ghcr.io:443",
+      "10.0.0.1:5000",
+      "[2001:db8::1]:5000",
+      "localhost.example.com",
+      "127.evil.com:5000",
+      "127.0.0.1.nip.io",
+      "[::ffff:127.0.0.1]:5000",
+    ] {
+      assert!(!is_loopback(registry), "{registry}");
+    }
   }
 }

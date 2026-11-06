@@ -1,17 +1,16 @@
-use std::net::IpAddr;
 use std::path::Path;
 
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, is_covered, merge_grants, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
-use moonlit_engine::registry::{RegistryClient, VersionRule};
+use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionRule};
 use semver::Version;
 
 use crate::cli::{OutputMode, UpdateArgs};
 use crate::consent::{self, Answer, ConsentView};
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
-use crate::release_file::{render_diff, set_plugin};
+use crate::release_file::{render_diff, set_plugin, set_plugin_url};
 use crate::render::resolve_mode;
 
 const REFUSAL: &str =
@@ -21,7 +20,7 @@ struct RegistryRef {
   host: String,
   org: String,
   name: String,
-  version: Version,
+  tag: String,
 }
 
 struct Plan {
@@ -31,6 +30,7 @@ struct Plan {
   url: String,
   permissions: Permissions,
   uncovered: Vec<DeclaredPermission>,
+  status: VerificationStatus,
   description: String,
 }
 
@@ -60,8 +60,12 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       }
       continue;
     };
+    let Ok(current) = Version::parse(&reference.tag) else {
+      println!("{}: pinned to {}, skipped", plugin.name, reference.tag);
+      continue;
+    };
     let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
-    match plan(&plugin.name, &reference, &granted, args).await? {
+    match plan(&plugin.name, &reference, &current, &granted, args).await? {
       Some(plan) => plans.push(plan),
       None => println!("{}: up to date", plugin.name),
     }
@@ -76,12 +80,17 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   let mut content = before.clone();
   let mut declined = false;
   for plan in &plans {
-    let after = set_plugin(&content, &plan.name, &plan.url, &plan.permissions).or_else(|e| fail(&e.to_string(), 2))?;
+    let edited = if plan.uncovered.is_empty() {
+      set_plugin_url(&content, &plan.name, &plan.url)
+    } else {
+      set_plugin(&content, &plan.name, &plan.url, &plan.permissions)
+    };
+    let after = edited.or_else(|e| fail(&e.to_string(), 2))?;
     if !plan.uncovered.is_empty() {
       let view = ConsentView {
         plugin: &plan.name,
         version: &plan.new,
-        status: None,
+        status: Some(plan.status),
         description: &plan.description,
         required: plan.uncovered.iter().collect(),
         optional: Vec::new(),
@@ -104,20 +113,26 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   Ok(i32::from(declined))
 }
 
-async fn plan(name: &str, reference: &RegistryRef, granted: &Permissions, args: &UpdateArgs) -> Result<Option<Plan>, i32> {
+async fn plan(
+  name: &str,
+  reference: &RegistryRef,
+  current: &Version,
+  granted: &Permissions,
+  args: &UpdateArgs,
+) -> Result<Option<Plan>, i32> {
   let rule = VersionRule {
-    current: Some(reference.version.clone()),
+    current: Some(current.clone()),
     cross_major: args.major,
     pre: args.pre,
   };
-  let detail = registry_client(&reference.host)
+  let detail = RegistryClient::for_host(&reference.host)
     .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
     .await
     .or_else(|e| fail(&format!("{name}: {e}"), 3))?;
   let Some(detail) = detail else {
     return Ok(None);
   };
-  let newer = Version::parse(&detail.version).is_ok_and(|v| v > reference.version);
+  let newer = Version::parse(&detail.version).is_ok_and(|v| v > *current);
   if !newer {
     return Ok(None);
   }
@@ -143,8 +158,9 @@ async fn plan(name: &str, reference: &RegistryRef, granted: &Permissions, args: 
   };
   Ok(Some(Plan {
     name: name.to_string(),
-    old: reference.version.to_string(),
+    old: current.to_string(),
     new: detail.version,
+    status: detail.status,
     url,
     permissions,
     uncovered,
@@ -155,7 +171,7 @@ async fn plan(name: &str, reference: &RegistryRef, granted: &Permissions, args: 
 fn registry_ref(url: &str) -> Option<RegistryRef> {
   let rest = url.strip_prefix("oci://")?;
   let (host, repo) = rest.split_once('/')?;
-  let (repo, tag) = repo.rsplit_once(':')?;
+  let (repo, tag) = repo.split_once('@').or_else(|| repo.rsplit_once(':'))?;
   let (org, name) = repo.split_once('/')?;
   if name.contains('/') {
     return None;
@@ -164,25 +180,8 @@ fn registry_ref(url: &str) -> Option<RegistryRef> {
     host: host.to_string(),
     org: org.to_string(),
     name: name.to_string(),
-    version: Version::parse(tag).ok()?,
+    tag: tag.to_string(),
   })
-}
-
-fn registry_client(host: &str) -> RegistryClient {
-  if is_loopback(host) {
-    RegistryClient::for_host(&format!("http://{host}"))
-  } else {
-    RegistryClient::for_host(host)
-  }
-}
-
-fn is_loopback(host: &str) -> bool {
-  let name = if host.starts_with('[') {
-    host.split_once(']').map_or(host, |(ip, _)| ip.trim_start_matches('['))
-  } else {
-    host.rsplit_once(':').map_or(host, |(h, _)| h)
-  };
-  name.eq_ignore_ascii_case("localhost") || name.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
 
 fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
@@ -219,16 +218,8 @@ mod tests {
       (r.host.as_str(), r.org.as_str(), r.name.as_str()),
       ("registry.moonlit.rs", "acme", "x")
     );
-    assert_eq!(r.version, Version::new(1, 2, 3));
-    assert!(registry_ref("oci://127.0.0.1:5000/acme/x:latest").is_none());
+    assert_eq!(r.tag, "1.2.3");
+    assert_eq!(registry_ref("oci://h.io/acme/x@sha256:ab").unwrap().tag, "sha256:ab");
     assert!(registry_ref("file:///x.wasm").is_none());
-  }
-
-  #[test]
-  fn loopback_hosts_are_recognised() {
-    assert!(is_loopback("127.0.0.1:5185"));
-    assert!(is_loopback("localhost:80"));
-    assert!(is_loopback("[::1]:80"));
-    assert!(!is_loopback("registry.moonlit.rs"));
   }
 }

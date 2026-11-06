@@ -75,6 +75,19 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: &Permission
   validated(apply(content, vec![url_edit, permissions_edit]), name, url)
 }
 
+/// Replaces the `url` of one plugin entry, leaving every other byte of the file unchanged.
+pub fn set_plugin_url(content: &str, name: &str, url: &str) -> Result<String, ReleaseFileError> {
+  let config = parse_config(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let plugin = config
+    .plugins
+    .value
+    .iter()
+    .find(|p| p.name == name)
+    .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
+  let edit = (plugin.url.span.start, plugin.url.span.end, scalar(url));
+  validated(apply(content, vec![edit]), name, url)
+}
+
 /// Lists the lines that differ between two versions of a file, prefixed with `+ ` or `- `.
 #[must_use]
 pub fn render_diff(before: &str, after: &str) -> String {
@@ -254,6 +267,16 @@ fn quote(value: &str) -> String {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn set_plugin_url_changes_only_the_url() {
+    let out = set_plugin_url(RELEASE, "git", "oci://registry.moonlit.rs/moonlit/git:1.3.0").unwrap();
+    assert_eq!(out, RELEASE.replace("git:1.2.0", "git:1.3.0"));
+    assert!(matches!(
+      set_plugin_url(RELEASE, "nope", "oci://h/o/n:1.0.0"),
+      Err(ReleaseFileError::PluginNotFound(_))
+    ));
+  }
 
   const RELEASE: &str = "# Release pipeline for acme
 name: acme

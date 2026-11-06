@@ -96,12 +96,11 @@ impl Project {
 async fn update_bumps_without_prompt_when_no_new_required() {
   let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
   let project = Project::new(&server, "1.0.0", "");
+  let before = project.release();
 
   project.update(&[]).success().stdout(contains("test-plugin: 1.0.0 → 1.0.1"));
 
-  let release = project.release();
-  assert!(release.contains("test-plugin:1.0.1"), "{release}");
-  assert!(!release.contains("network:") && !release.contains("exec:"), "{release}");
+  assert_eq!(project.release(), before.replace(":1.0.0", ":1.0.1"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -137,7 +136,12 @@ async fn update_asks_when_new_required_and_yes_grants_it() {
 #[tokio::test(flavor = "multi_thread")]
 async fn update_lists_new_optional_without_granting() {
   let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.1.0", "test_plugin.wasm")]).await;
-  let project = Project::new(&server, "1.0.0", "    permissions:\n      network: [\"api.example.com\"]\n");
+  let project = Project::new(
+    &server,
+    "1.0.0",
+    "    permissions:   # hand written\n      network: [ \"api.example.com\" ]\n",
+  );
+  let before = project.release();
 
   project
     .update(&[])
@@ -147,9 +151,24 @@ async fn update_lists_new_optional_without_granting() {
     ))
     .stdout(contains("test-plugin: 1.0.0 → 1.1.0"));
 
-  let release = project.release();
-  assert!(release.contains("test-plugin:1.1.0"), "{release}");
-  assert!(!release.contains("exec:"), "{release}");
+  assert_eq!(project.release(), before.replace(":1.0.0", ":1.1.0"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_says_when_a_tag_is_not_a_version() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm")]).await;
+  let project = Project::new(&server, "latest", "");
+  let before = project.release();
+
+  project
+    .update(&[])
+    .success()
+    .stdout(contains("test-plugin: pinned to latest, skipped"));
+  project
+    .update(&["test-plugin"])
+    .success()
+    .stdout(contains("test-plugin: pinned to latest, skipped"));
+  assert_eq!(project.release(), before);
 }
 
 #[tokio::test(flavor = "multi_thread")]

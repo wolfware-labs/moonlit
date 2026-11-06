@@ -256,6 +256,9 @@ fn for_host_builds_the_graphql_url() {
     "https://registry.moonlit.rs/graphql"
   );
   assert_eq!(url("http://127.0.0.1:9"), "http://127.0.0.1:9/graphql");
+  assert_eq!(url("127.0.0.1:9"), "http://127.0.0.1:9/graphql");
+  assert_eq!(url("localhost:9"), "http://localhost:9/graphql");
+  assert_eq!(url("127.evil.com"), "https://127.evil.com/graphql");
 }
 
 #[test]
