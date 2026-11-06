@@ -51,7 +51,7 @@ fn http_client(timeout: Duration) -> reqwest::Client {
     .connect_timeout(timeout)
     .timeout(timeout)
     .build()
-    .unwrap_or_default()
+    .expect("the reqwest client builds with static timeouts and the default TLS backend")
 }
 
 /// Which versions an upgrade or install may pick.
