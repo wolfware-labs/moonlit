@@ -89,6 +89,7 @@ semantic-release, slack, moonlit) live at
 | `moonlit login` | Sign in to an OCI registry via the browser (`--token` for CI). |
 | `moonlit logout` | Remove the stored credential, revoking the token server-side. |
 | `moonlit cache` | Inspect or clear the plugin content cache. |
+| `moonlit search` | Search the registry for plugins and list their middlewares. |
 | `moonlit version` | Print the version, author, and license. |
 
 Run `moonlit <command> --help` for the full options of any command.

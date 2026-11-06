@@ -44,6 +44,20 @@ pub enum Command {
   /// Inspect or clear the plugin content cache.
   #[command(subcommand)]
   Cache(CacheCommand),
+  /// Search the registry for plugins.
+  Search(SearchArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct SearchArgs {
+  /// Free-text query.
+  pub query: String,
+  /// Maximum number of plugins to show.
+  #[arg(long, default_value_t = 10)]
+  pub limit: u32,
+  /// Registry host or base URL (default: the public registry).
+  #[arg(long)]
+  pub registry: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
