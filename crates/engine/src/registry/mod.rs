@@ -57,8 +57,11 @@ fn http_client(timeout: Duration) -> reqwest::Client {
 /// Which versions an upgrade or install may pick.
 #[derive(Debug, Clone, Default)]
 pub struct VersionRule {
+  /// The version in use now; unless `cross_major` is set, only versions of its major are allowed.
   pub current: Option<Version>,
+  /// Allow versions of a different major than `current`.
   pub cross_major: bool,
+  /// Allow pre-release versions; they are also allowed when `current` is itself a pre-release.
   pub pre: bool,
 }
 
