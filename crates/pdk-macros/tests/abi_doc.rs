@@ -4,18 +4,17 @@
 //!
 //! Tie it to the WIT package that actually ships.
 
-/// The `package …;` line of the canonical WIT, e.g. `moonlit:plugin@0.3.0`.
-/// `None` in a published-crate context, where there is no sibling `engine/` to read.
-fn shipped_abi() -> Option<String> {
-  let wit = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../engine/wit/moonlit-plugin.wit");
-  let text = std::fs::read_to_string(wit).ok()?;
-  let package = text
+/// The `package …;` line of the canonical WIT, e.g. `moonlit:plugin@0.4.0`.
+fn shipped_abi() -> String {
+  let wit = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pdk/wit/moonlit-plugin.wit");
+  let text = std::fs::read_to_string(&wit).unwrap_or_else(|e| panic!("cannot read the shipped WIT at {}: {e}", wit.display()));
+  text
     .lines()
-    .find_map(|l| l.trim().strip_prefix("package "))?
+    .find_map(|l| l.trim().strip_prefix("package "))
+    .expect("the shipped WIT declares a package")
     .trim()
     .trim_end_matches(';')
-    .to_string();
-  Some(package)
+    .to_string()
 }
 
 /// The `//!` header block at the top of this crate's `lib.rs`.
@@ -29,9 +28,7 @@ fn crate_doc() -> String {
 
 #[test]
 fn crate_doc_states_the_shipped_abi_version() {
-  let Some(abi) = shipped_abi() else {
-    return; // published-crate context: nothing to compare against
-  };
+  let abi = shipped_abi();
   let doc = crate_doc();
   assert!(
     doc.contains(&abi),
