@@ -372,3 +372,15 @@ async fn doctor_gives_the_rebuild_hint_when_the_host_is_not_a_moonlit_registry()
   )));
   assert_eq!(project.release(), before);
 }
+
+#[test]
+fn doctor_flags_a_component_without_the_plugin_contract() {
+  let dir = tempfile::tempdir().unwrap();
+  let path = dir.path().join("empty.wasm");
+  fs::write(&path, [0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00]).unwrap();
+  let project = Project::new(&entry("test-plugin", &format!("file://{}", path.display()), ""));
+
+  project.doctor(&[]).code(1).stdout(contains(format!(
+    "✗ test-plugin: built for an unknown plugin contract, this CLI supports {WORLD}; rebuild it against moonlit-pdk for {WORLD}\n"
+  )));
+}

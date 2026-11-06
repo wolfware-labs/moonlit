@@ -143,9 +143,9 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
         })),
       }
     }
-    Err(ProbeError::Incompatible { found, .. }) => {
-      let text = format!("built for {found}, this CLI supports {PLUGIN_WORLD}");
-      match moved(name, url, &found, granted, major).await {
+    Err(ProbeError::Incompatible { mismatch, .. }) => {
+      let text = mismatch.to_string();
+      match moved(name, url, mismatch.found, granted, major).await {
         Ok(fix) => Outcome::Problem {
           text,
           fix: Some(Box::new(fix)),
@@ -166,11 +166,11 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
   }
 }
 
-async fn moved(name: &str, url: &str, found: &str, granted: &Permissions, major: bool) -> Result<Fix, Unfixed> {
+async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissions, major: bool) -> Result<Fix, Unfixed> {
   let incompatible = IncompatiblePlugin {
     name: name.to_string(),
     url: url.to_string(),
-    plugin_world: Some(found.to_string()),
+    plugin_world: found,
     engine_world: PLUGIN_WORLD.to_string(),
   };
   let suggestion = compat::suggestions(&[incompatible], false)

@@ -32,3 +32,25 @@ fn core_module_is_rejected() {
     .code(2)
     .stderr(contains("core wasm module"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn component_for_another_contract_is_rejected_before_pushing() {
+  let server = wiremock::MockServer::start().await;
+  let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/tests/fixtures/test_plugin_v0_3.wasm");
+  let reference = format!("oci://{}/acme/old:1.0.0", server.address());
+  let home = tempfile::tempdir().unwrap();
+  let assert = tokio::task::spawn_blocking(move || {
+    Command::cargo_bin("moonlit")
+      .unwrap()
+      .env("MOONLIT_HOME", home.path())
+      .args(["plugin", "publish", &reference, "--file", fixture])
+      .assert()
+  })
+  .await
+  .unwrap();
+
+  assert.code(2).stderr(contains(
+    "built for moonlit:plugin@0.3.0, this CLI supports moonlit:plugin@0.4.0",
+  ));
+  assert!(server.received_requests().await.unwrap().is_empty());
+}

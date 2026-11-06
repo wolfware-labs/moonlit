@@ -8,7 +8,7 @@ use crate::plugin::host::HostEventSink;
 use crate::plugin::permissions::uncovered_required;
 use crate::plugin::publish::PLUGIN_WORLD;
 use crate::plugin::resolver::{PluginSource, ProgressFn, ResolveOptions, resolve};
-use crate::plugin::world::component_world;
+use crate::plugin::world::{self, WorldError};
 use crate::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -160,17 +160,20 @@ async fn resolve_plugins(
 fn reject_incompatible(resolved: &[ResolvedPlugin]) -> Result<(), PipelineError> {
   let mut incompatible = Vec::new();
   for plugin in resolved {
-    let plugin_world = component_world(&plugin.bytes).map_err(|e| PipelineError::PluginLoad {
-      plugin: plugin.request.name.clone(),
-      message: e.to_string(),
-    })?;
-    if plugin_world.as_deref() != Some(PLUGIN_WORLD) {
-      incompatible.push(IncompatiblePlugin {
+    match world::check(&plugin.bytes) {
+      Ok(()) => {}
+      Err(WorldError::Mismatch(mismatch)) => incompatible.push(IncompatiblePlugin {
         name: plugin.request.name.clone(),
         url: plugin.request.url.clone(),
-        plugin_world,
+        plugin_world: mismatch.found,
         engine_world: PLUGIN_WORLD.to_string(),
-      });
+      }),
+      Err(WorldError::Load(e)) => {
+        return Err(PipelineError::PluginLoad {
+          plugin: plugin.request.name.clone(),
+          message: e.to_string(),
+        });
+      }
     }
   }
   if incompatible.is_empty() {

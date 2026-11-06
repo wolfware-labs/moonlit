@@ -270,3 +270,19 @@ async fn re_adding_a_declared_registry_plugin_points_at_update() {
   assert!(!stderr.contains("--name"), "{stderr}");
   assert_eq!(project.release(), release);
 }
+
+#[test]
+fn add_component_without_the_plugin_contract_fails_with_the_contract_message() {
+  let project = Project::new(RELEASE);
+  let path = project.dir.path().join("empty.wasm");
+  fs::write(&path, [0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00]).unwrap();
+
+  project
+    .add(&[&format!("file://{}", path.display()), "--yes"])
+    .code(3)
+    .stderr(contains(format!(
+      "built for an unknown plugin contract, this CLI supports {WORLD}"
+    )));
+
+  assert_eq!(project.release(), RELEASE);
+}

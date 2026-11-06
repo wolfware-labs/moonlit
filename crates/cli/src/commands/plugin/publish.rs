@@ -76,6 +76,9 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     eprintln!("error: {e}");
     return 2;
   }
+  if let Err(code) = super::wasm::check_world(&file.display().to_string(), &bytes) {
+    return code;
+  }
 
   let (meta, mws) = match crate::plugin_probe::introspect(&bytes).await {
     Ok(pair) => pair,

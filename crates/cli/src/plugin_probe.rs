@@ -8,7 +8,7 @@ use moonlit_engine::plugin::host::HostEventSink;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
-use moonlit_engine::plugin::world::component_world;
+use moonlit_engine::plugin::world::{self, WorldError, WorldMismatch};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig, PluginMetadata};
 
 /// What a plugin component says about itself.
@@ -25,9 +25,9 @@ pub enum ProbeError {
   /// The URL could not be resolved to a component through the cache.
   #[error("cannot resolve '{url}': {message}")]
   Resolve { url: String, message: String },
-  /// The component targets a world this CLI does not support.
-  #[error("'{url}' targets {found}; this CLI supports {PLUGIN_WORLD}")]
-  Incompatible { url: String, found: String },
+  /// The component targets a plugin contract this CLI does not support.
+  #[error("'{url}': {mismatch}")]
+  Incompatible { url: String, mismatch: WorldMismatch },
   /// The component could not be read or instantiated.
   #[error("cannot load '{url}': {message}")]
   Load { url: String, message: String },
@@ -49,18 +49,18 @@ pub async fn probe(url: &str) -> Result<Probe, ProbeError> {
     .await
     .map_err(|e| resolve_error(e.to_string()))?;
   let bytes = std::fs::read(&resolved.wasm_path).map_err(|e| load_error(e.to_string()))?;
-  let world = component_world(&bytes).map_err(|e| load_error(e.to_string()))?;
-  if let Some(found) = world.as_deref().filter(|w| *w != PLUGIN_WORLD) {
-    return Err(ProbeError::Incompatible {
+  world::check(&bytes).map_err(|e| match e {
+    WorldError::Mismatch(mismatch) => ProbeError::Incompatible {
       url: url.to_string(),
-      found: found.to_string(),
-    });
-  }
+      mismatch,
+    },
+    WorldError::Load(e) => load_error(e.to_string()),
+  })?;
   let (meta, middlewares) = introspect(&bytes).await.map_err(|e| load_error(e.to_string()))?;
   Ok(Probe {
     meta,
     middlewares,
-    world,
+    world: Some(PLUGIN_WORLD.to_string()),
   })
 }
 

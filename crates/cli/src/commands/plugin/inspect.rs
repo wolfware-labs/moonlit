@@ -8,7 +8,6 @@ use moonlit_engine::plugin::middleware::MiddlewareInfo;
 use moonlit_engine::plugin::permissions::DeclaredPermission;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
-use moonlit_engine::plugin::world::component_world;
 
 #[must_use]
 pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
@@ -63,16 +62,8 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
     return 2;
   }
 
-  let world = match component_world(&bytes) {
-    Ok(w) => w,
-    Err(e) => {
-      eprintln!("error: {e}");
-      return 2;
-    }
-  };
-  if let Some(found) = world.as_deref().filter(|w| *w != PLUGIN_WORLD) {
-    eprintln!("error: '{}' targets {found}; this CLI supports {PLUGIN_WORLD}", args.target);
-    return 2;
+  if let Err(code) = super::wasm::check_world(&args.target, &bytes) {
+    return code;
   }
 
   let (meta, mws) = match introspect(&bytes).await {
@@ -84,7 +75,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
   };
 
   match resolve_mode(output) {
-    OutputMode::Json => print_json(&meta, &mws, world.as_deref()),
+    OutputMode::Json => print_json(&meta, &mws, PLUGIN_WORLD),
     OutputMode::Plain => print_plain(&meta, &mws),
     OutputMode::Pretty => print_pretty(&meta, &mws),
   }
@@ -147,7 +138,7 @@ fn print_plain(plugin_metadata: &PluginMetadata, plgin_middlewares: &[Middleware
   }
 }
 
-fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo], world: Option<&str>) {
+fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo], world: &str) {
   let v = serde_json::json!({
       "name": plugin_metadata.name,
       "version": plugin_metadata.version,

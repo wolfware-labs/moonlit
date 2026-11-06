@@ -1,4 +1,7 @@
+use moonlit_engine::plugin::world;
 use wasmparser::{Encoding, Parser, Payload, Validator, WasmFeatures};
+
+use crate::display::display_safe;
 
 #[allow(clippy::never_loop)]
 pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
@@ -16,6 +19,14 @@ pub fn validate(bytes: &[u8]) -> Result<(), String> {
   v.validate_all(bytes)
     .map(|_types| ())
     .map_err(|e| format!("invalid component: {e}"))
+}
+
+/// Rejects a component built for another plugin contract, printing why; `Err` holds the exit code.
+pub fn check_world(target: &str, bytes: &[u8]) -> Result<(), i32> {
+  world::check(bytes).map_err(|e| {
+    eprintln!("error: {}", display_safe(&format!("'{target}': {e}")));
+    2
+  })
 }
 
 #[cfg(test)]
