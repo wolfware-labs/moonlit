@@ -6,12 +6,17 @@ use crate::pipeline::config::{ConfigDiagnostic, ConfigMap, FilesystemAccess, Per
 use indexmap::IndexMap;
 
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
+  let config = parse_config_unvalidated(yaml, source_name)?;
+  validate(&config, &ConfigSource::new(yaml, source_name))?;
+  Ok(config)
+}
+
+/// Parses a release file without the checks that need the whole file, such as every stage
+/// referring to a declared plugin.
+pub fn parse_config_unvalidated(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
   let src = ConfigSource::new(yaml, source_name);
   let tree = tree::build_tree(&src)?;
-  let config = convert(&tree, &src)?;
-  let config = cleanup(config);
-  validate(&config, &src)?;
-  Ok(config)
+  Ok(cleanup(convert(&tree, &src)?))
 }
 
 fn convert(root: &Node, src: &ConfigSource) -> Result<PipelineConfig, ConfigDiagnostic> {
@@ -240,8 +245,20 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
 
 #[must_use]
 fn item_start(start: usize, yaml: &str) -> usize {
-  let before = yaml[..start].trim_end_matches(' ');
-  if before.ends_with('-') { before.len() - 1 } else { start }
+  let mut end = start;
+  loop {
+    let line_start = yaml[..end].rfind('\n').map_or(0, |i| i + 1);
+    let line = &yaml[line_start..end];
+    let code = line.find(" #").map_or(line, |i| &line[..i]);
+    let code = if code.trim_start().starts_with('#') { "" } else { code }.trim_end();
+    if code.ends_with('-') {
+      return line_start + code.len() - 1;
+    }
+    if !code.trim_start().is_empty() || line_start == 0 {
+      return start;
+    }
+    end = line_start - 1;
+  }
 }
 
 #[must_use]
@@ -608,6 +625,30 @@ mod tests {
     );
     assert_eq!(b.permissions_span, None);
     assert_eq!(text(b.url.span), "\"file://b.wasm\"");
+  }
+
+  #[test]
+  fn plugin_span_starts_at_a_dash_on_an_earlier_line() {
+    for item in [
+      "  -\n    name: a\n",
+      "  - # note\n    name: a\n",
+      "  -   # note\n\n    # more\n    name: a\n",
+    ] {
+      let yaml = format!("plugins:\n{item}    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n");
+      let config = parse(&yaml);
+      let span = config.plugins.value[0].span;
+      assert_eq!(span.start, "plugins:\n  ".len(), "{item:?}");
+      assert!(yaml[span.start..span.end].ends_with("url: file://a.wasm"), "{item:?}");
+    }
+  }
+
+  #[test]
+  fn unvalidated_parse_accepts_a_stage_running_an_undeclared_plugin() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: b.go\n";
+    assert!(parse_config(yaml, "release.yml").is_err());
+    let config = parse_config_unvalidated(yaml, "release.yml").expect("structure");
+    assert_eq!(config.plugins.value[0].name, "a");
+    assert!(parse_config_unvalidated("plugins: [\n", "release.yml").is_err());
   }
 
   #[test]

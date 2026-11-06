@@ -1,4 +1,4 @@
-use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config};
+use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config, parse_config_unvalidated};
 
 /// A plugin entry to write into a release file.
 #[derive(Clone, Debug, PartialEq)]
@@ -8,17 +8,22 @@ pub struct PluginEntry {
   pub permissions: Permissions,
 }
 
+/// Why a release file could not be edited.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ReleaseFileError {
+  /// Another plugin entry already uses this name.
   #[error("a plugin named '{0}' is already declared")]
   #[diagnostic(code(moonlit::release_file::name_taken))]
   NameTaken(String),
+  /// A plugin entry with this URL already exists under the given name.
   #[error("this plugin is already declared as '{name}'")]
   #[diagnostic(code(moonlit::release_file::url_present))]
   UrlPresent { name: String },
+  /// No plugin entry has this name.
   #[error("no plugin named '{0}' is declared")]
   #[diagnostic(code(moonlit::release_file::plugin_not_found))]
   PluginNotFound(String),
+  /// The file cannot be read, or the edited file would not parse back to the requested entry.
   #[error("the edited release file would be invalid: {0}")]
   #[diagnostic(code(moonlit::release_file::invalid))]
   Invalid(String),
@@ -26,29 +31,27 @@ pub enum ReleaseFileError {
 
 /// Appends a plugin entry to the `plugins:` sequence, leaving every other byte of the file unchanged.
 pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseFileError> {
-  let edit = match parse_config(content, SOURCE) {
-    Ok(config) => {
-      let plugins = &config.plugins.value;
-      if plugins.iter().any(|p| p.name == entry.name) {
-        return Err(ReleaseFileError::NameTaken(entry.name.clone()));
-      }
-      if let Some(p) = plugins.iter().find(|p| p.url.value.as_str() == entry.url) {
-        return Err(ReleaseFileError::UrlPresent { name: p.name.clone() });
-      }
-      let Some(last) = plugins.last() else {
-        return Err(ReleaseFileError::Invalid("no plugins are declared".into()));
-      };
-      let dash = column(content, last.span.start);
-      let key = key_column(content, last.span.start);
-      insertion(content, line_end(content, last.span.end), item_block(entry, dash, key))
-    }
-    Err(err) if top_level_line(content, "plugins:").is_some() => return Err(ReleaseFileError::Invalid(err.message().into())),
-    Err(_) => {
-      let at = top_level_line(content, "stages:").unwrap_or(content.len());
-      insertion(content, at, format!("plugins:\n{}\n", item_block(entry, 2, 4)))
-    }
+  let config = parse_config_unvalidated(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let plugins = &config.plugins.value;
+  if plugins.iter().any(|p| p.name == entry.name) {
+    return Err(ReleaseFileError::NameTaken(entry.name.clone()));
+  }
+  if let Some(p) = plugins.iter().find(|p| p.url.value.as_str() == entry.url) {
+    return Err(ReleaseFileError::UrlPresent { name: p.name.clone() });
+  }
+  let edit = if let Some(last) = plugins.last() {
+    let dash = column(content, last.span.start);
+    let key = key_column(content, last.span.start);
+    insertion(content, line_end(content, last.span.end), item_block(entry, dash, key))
+  } else if top_level_line(content, "plugins:").is_some() {
+    return Err(ReleaseFileError::Invalid(
+      "the plugins key holds no block sequence to add to".into(),
+    ));
+  } else {
+    let at = top_level_line(content, "stages:").unwrap_or(content.len());
+    insertion(content, at, format!("plugins:\n{}\n", item_block(entry, 2, 4)))
   };
-  validated(apply(content, vec![edit]))
+  validated(apply(content, vec![edit]), &entry.name, &entry.url)
 }
 
 /// Replaces the `url` and `permissions` of one plugin entry, leaving every other byte of the file unchanged.
@@ -60,7 +63,7 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: &Permission
     .iter()
     .find(|p| p.name == name)
     .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
-  let url_edit = (plugin.url.span.start, plugin.url.span.end, url.to_string());
+  let url_edit = (plugin.url.span.start, plugin.url.span.end, scalar(url));
   let permissions_edit = if let Some(span) = plugin.permissions_span {
     let block = permissions_block(permissions, column(content, span.start));
     (span.start, span.end, block)
@@ -69,7 +72,7 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: &Permission
     let lines = format!("{}{}\n", " ".repeat(key), permissions_block(permissions, key));
     insertion(content, line_end(content, plugin.span.end), lines)
   };
-  validated(apply(content, vec![url_edit, permissions_edit]))
+  validated(apply(content, vec![url_edit, permissions_edit]), name, url)
 }
 
 /// Lists the lines that differ between two versions of a file, prefixed with `+ ` or `- `.
@@ -108,18 +111,29 @@ const SOURCE: &str = "release.yml";
 
 type Edit = (usize, usize, String);
 
-fn validated(content: String) -> Result<String, ReleaseFileError> {
-  match parse_config(&content, SOURCE) {
-    Ok(_) => Ok(content),
-    Err(err) => Err(ReleaseFileError::Invalid(err.message().into())),
+fn validated(content: String, name: &str, url: &str) -> Result<String, ReleaseFileError> {
+  let config = parse_config(&content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let reads_back = config
+    .plugins
+    .value
+    .iter()
+    .any(|p| p.name == name && p.url.value.as_str() == url);
+  if reads_back {
+    Ok(content)
+  } else {
+    Err(ReleaseFileError::Invalid(format!(
+      "plugin '{name}' would not read back with the URL '{url}'"
+    )))
   }
 }
 
 #[must_use]
 fn apply(content: &str, mut edits: Vec<Edit>) -> String {
   edits.sort_by_key(|(start, _, _)| std::cmp::Reverse(*start));
+  let crlf = content.contains("\r\n");
   let mut out = content.to_string();
   for (start, end, text) in edits {
+    let text = if crlf { text.replace('\n', "\r\n") } else { text };
     out.replace_range(start..end, &text);
   }
   out
@@ -148,10 +162,20 @@ fn column(content: &str, pos: usize) -> usize {
 #[must_use]
 fn key_column(content: &str, item_start: usize) -> usize {
   let col = column(content, item_start);
-  match content[item_start..].strip_prefix('-') {
-    Some(rest) => col + 1 + (rest.len() - rest.trim_start_matches(' ').len()),
-    None => col,
+  let Some(rest) = content[item_start..].strip_prefix('-') else {
+    return col;
+  };
+  let mut chars = rest.char_indices();
+  while let Some((i, c)) = chars.next() {
+    match c {
+      ' ' | '\t' | '\r' | '\n' => {}
+      '#' => {
+        chars.by_ref().find(|(_, c)| *c == '\n');
+      }
+      _ => return column(content, item_start + 1 + i),
+    }
   }
+  col + 2
 }
 
 #[must_use]
@@ -168,13 +192,15 @@ fn top_level_line(content: &str, prefix: &str) -> Option<usize> {
 
 #[must_use]
 fn item_block(entry: &PluginEntry, dash: usize, key: usize) -> String {
-  let gap = " ".repeat(key - dash - 1);
+  let gap = key.saturating_sub(dash + 1).max(1);
+  let key = dash + 1 + gap;
   let pad = " ".repeat(key);
   format!(
-    "{}-{gap}name: {}\n{pad}url: {}\n{pad}{}\n",
+    "{}-{}name: {}\n{pad}url: {}\n{pad}{}\n",
     " ".repeat(dash),
-    entry.name,
-    entry.url,
+    " ".repeat(gap),
+    scalar(&entry.name),
+    scalar(&entry.url),
     permissions_block(&entry.permissions, key)
   )
 }
@@ -206,8 +232,23 @@ fn permissions_block(permissions: &Permissions, key: usize) -> String {
 }
 
 #[must_use]
+fn scalar(value: &str) -> String {
+  let plain = value.starts_with(|c: char| c.is_ascii_alphanumeric())
+    && !value.ends_with(':')
+    && !matches!(value, "null" | "Null" | "NULL")
+    && value.chars().all(|c| c.is_ascii_alphanumeric() || "._/:@+-=%?&~".contains(c));
+  if plain { value.to_string() } else { quote(value) }
+}
+
+#[must_use]
 fn quote(value: &str) -> String {
-  format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+  let escaped = value
+    .replace('\\', "\\\\")
+    .replace('"', "\\\"")
+    .replace('\n', "\\n")
+    .replace('\r', "\\r")
+    .replace('\t', "\\t");
+  format!("\"{escaped}\"")
 }
 
 #[cfg(test)]
@@ -316,12 +357,122 @@ stages:
     );
   }
 
+  fn entry(name: &str, url: &str) -> PluginEntry {
+    PluginEntry {
+      name: name.into(),
+      url: url.into(),
+      permissions: Permissions::deny(),
+    }
+  }
+
+  fn declared(content: &str, name: &str) -> String {
+    let config = parse_config(content, SOURCE).expect("valid");
+    let plugin = config.plugins.value.iter().find(|p| p.name == name).expect("declared");
+    plugin.url.value.as_str().to_string()
+  }
+
   #[test]
-  fn add_refuses_to_write_an_invalid_file() {
-    let mut entry = github();
-    entry.name = "bad: name".into();
-    let err = add_plugin(RELEASE, &entry).expect_err("invalid");
+  fn add_after_an_item_whose_dash_is_on_its_own_line() {
+    let input = "plugins:\n  -\n    name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n";
+    let out = add_plugin(input, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(
+      out,
+      "plugins:\n  -\n    name: a\n    url: file://a.wasm\n  - name: b\n    url: file://b.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
+    );
+  }
+
+  #[test]
+  fn add_after_an_item_with_a_comment_after_the_dash() {
+    let input = "plugins:\n  - # note\n    name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n";
+    let out = add_plugin(input, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(
+      out,
+      "plugins:\n  - # note\n    name: a\n    url: file://a.wasm\n  - name: b\n    url: file://b.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
+    );
+  }
+
+  #[test]
+  fn set_plugin_on_an_item_whose_dash_is_on_its_own_line() {
+    let input = "plugins:\n  -\n    name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n";
+    let out = set_plugin(input, "a", "file://a-2.wasm", &Permissions::deny()).expect("set");
+    assert_eq!(
+      out,
+      "plugins:\n  -\n    name: a\n    url: file://a-2.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
+    );
+  }
+
+  #[test]
+  fn add_quotes_values_that_would_not_read_back() {
+    let out = add_plugin(RELEASE, &entry("null", "file://a.wasm #frag")).expect("added");
+    assert!(
+      out.contains("  - name: \"null\"\n    url: \"file://a.wasm #frag\"\n"),
+      "{out}"
+    );
+    assert_eq!(declared(&out, "null"), "file://a.wasm #frag");
+    let out = add_plugin(RELEASE, &entry("bad: name", "file://a.wasm")).expect("added");
+    assert_eq!(declared(&out, "bad: name"), "file://a.wasm");
+  }
+
+  #[test]
+  fn set_plugin_quotes_values_that_would_not_read_back() {
+    let out = set_plugin(TWO_PLUGINS, "b", "file://b.wasm # x", &Permissions::deny()).expect("set");
+    assert_eq!(declared(&out, "b"), "file://b.wasm # x");
+  }
+
+  #[test]
+  fn add_succeeds_when_a_stage_already_runs_the_new_plugin() {
+    let input = "plugins:\n  - name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n    - run: b.go\n";
+    let out = add_plugin(input, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(declared(&out, "b"), "file://b.wasm");
+  }
+
+  #[test]
+  fn add_still_rejects_a_stage_running_another_undeclared_plugin() {
+    let input = "plugins:\n  - name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: c.go\n";
+    let err = add_plugin(input, &entry("b", "file://b.wasm")).expect_err("invalid");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+  }
+
+  #[test]
+  fn add_rejects_an_empty_flow_plugins_list() {
+    let input = "plugins: []\nstages:\n  s:\n    - run: b.go\n";
+    let err = add_plugin(input, &entry("b", "file://b.wasm")).expect_err("invalid");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+  }
+
+  fn crlf(text: &str) -> String {
+    text.replace('\n', "\r\n")
+  }
+
+  fn has_bare_newline(text: &str) -> bool {
+    text.replace("\r\n", "").contains('\n')
+  }
+
+  #[test]
+  fn add_keeps_crlf_line_endings() {
+    let out = add_plugin(&crlf(RELEASE), &github()).expect("added");
+    assert_eq!(out, crlf(&added_release()));
+    assert!(!has_bare_newline(&out));
+  }
+
+  #[test]
+  fn set_plugin_keeps_crlf_line_endings() {
+    let permissions = Permissions {
+      filesystem: FilesystemAccess::ReadWrite,
+      ..Permissions::deny()
+    };
+    let out = set_plugin(&crlf(TWO_PLUGINS), "b", "file://b-2.wasm", &permissions).expect("set");
+    let expected = TWO_PLUGINS.replacen(
+      "    url: file://b.wasm\n",
+      "    url: file://b-2.wasm\n    permissions:\n      filesystem: read-write\n",
+      1,
+    );
+    assert_eq!(out, crlf(&expected));
+    assert!(!has_bare_newline(&out));
+
+    let out = set_plugin(&crlf(TWO_PLUGINS), "a", "file://a-2.wasm", &Permissions::deny()).expect("set");
+    assert!(!has_bare_newline(&out), "{out:?}");
+    assert_eq!(declared(&out, "a"), "file://a-2.wasm");
   }
 
   const TWO_PLUGINS: &str = "plugins:
