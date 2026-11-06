@@ -4,6 +4,7 @@ use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{MiddlewareSummary, PackageHit, RegistryClient, RegistryError, VerificationStatus};
 
 use crate::cli::{DEFAULT_REGISTRY_HOST, OutputMode, SearchArgs};
+use crate::commands::common::fail;
 use crate::display::{badge, display_safe, status_key};
 use crate::render::resolve_mode;
 
@@ -24,25 +25,20 @@ struct Card {
 
 #[must_use]
 pub async fn run(output: Option<OutputMode>, args: SearchArgs) -> i32 {
-  let client = match RegistryClient::for_host(args.registry.as_deref().unwrap_or(DEFAULT_REGISTRY_HOST)) {
-    Ok(client) => client,
-    Err(e) => {
-      eprintln!("error: {}", display_safe(&e.to_string()));
-      return 2;
-    }
-  };
-  let cards = match fetch(&client, &args).await {
-    Ok(cards) => cards,
-    Err(e) => {
-      eprintln!("error: {}", display_safe(&e.to_string()));
-      return 3;
-    }
-  };
+  match search(output, &args).await {
+    Ok(code) | Err(code) => code,
+  }
+}
+
+async fn search(output: Option<OutputMode>, args: &SearchArgs) -> Result<i32, i32> {
+  let registry = args.registry.as_deref().unwrap_or(DEFAULT_REGISTRY_HOST);
+  let client = RegistryClient::for_host(registry).or_else(|e| fail(&e.to_string(), 2))?;
+  let cards = fetch(&client, args).await.or_else(|e| fail(&e.to_string(), 3))?;
   match resolve_mode(output) {
     OutputMode::Json => print_json(&cards),
     mode => print_cards(&cards, &args.query, mode == OutputMode::Pretty),
   }
-  0
+  Ok(0)
 }
 
 async fn fetch(client: &RegistryClient, args: &SearchArgs) -> Result<Vec<Card>, RegistryError> {

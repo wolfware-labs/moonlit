@@ -60,11 +60,7 @@ async fn suggestions_within(
       let client = match RegistryClient::for_host(&host) {
         Ok(client) => client.with_timeout(timeout),
         Err(error) => {
-          let text = error.to_string();
-          return group
-            .into_iter()
-            .map(|(index, _)| (index, Suggestion::RegistryError { text: text.clone() }))
-            .collect();
+          return group.into_iter().map(|(index, _)| (index, failed(&error, &host))).collect();
         }
       };
       let mut out = Vec::with_capacity(group.len());

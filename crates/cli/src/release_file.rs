@@ -212,7 +212,7 @@ fn outside_entry(content: &str, name: &str) -> Result<(Value, Option<Value>), Re
   if let Some(Value::Sequence(items)) = root.get_mut("plugins") {
     if let Some(index) = items
       .iter()
-      .position(|item| item.get("name").and_then(scalar_text) == Some(name.to_string()))
+      .position(|item| item.get("name").and_then(scalar_text).as_deref() == Some(name))
     {
       let mut removed = items.remove(index);
       if let Some(fields) = removed.as_mapping_mut() {

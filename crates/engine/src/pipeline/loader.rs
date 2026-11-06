@@ -190,10 +190,7 @@ fn reject_incompatible(resolved: &[ResolvedPlugin]) -> Result<(), PipelineError>
         engine_world: PLUGIN_WORLD.to_string(),
       }),
       Err(WorldError::Load(e)) => {
-        return Err(PipelineError::PluginLoad {
-          plugin: plugin.request.name.clone(),
-          message: e.to_string(),
-        });
+        return Err(plugin_load_error(&plugin.request.name)(e.to_string()));
       }
     }
   }
@@ -212,10 +209,7 @@ async fn resolve_plugin(
 ) -> Result<ResolvedPlugin, PipelineError> {
   let name = request.name.clone();
   let url = request.url.clone();
-  let load_error = |message: String| PipelineError::PluginLoad {
-    plugin: name.clone(),
-    message,
-  };
+  let load_error = plugin_load_error(&name);
 
   let _ = events
     .send(PipelineEvent::PluginResolving {
@@ -266,10 +260,7 @@ async fn describe_plugin(
     config_view,
     ..
   } = request;
-  let load_error = |message: String| PipelineError::PluginLoad {
-    plugin: name.clone(),
-    message,
-  };
+  let load_error = plugin_load_error(&name);
 
   let instance_config = PluginInstanceConfig {
     working_directory: working_dir,
@@ -303,10 +294,7 @@ async fn init_plugin(plugin: DescribedPlugin, events: &Sender<PipelineEvent>) ->
     cached,
     ..
   } = plugin;
-  let load_error = |message: String| PipelineError::PluginLoad {
-    plugin: name.clone(),
-    message,
-  };
+  let load_error = plugin_load_error(&name);
 
   let metadata = instance.init(&config_view).await.map_err(load_error)?;
   let middlewares = instance
@@ -330,6 +318,13 @@ async fn init_plugin(plugin: DescribedPlugin, events: &Sender<PipelineEvent>) ->
     instance,
     middlewares,
   })
+}
+
+fn plugin_load_error(plugin: &str) -> impl Fn(String) -> PipelineError + Copy + '_ {
+  move |message| PipelineError::PluginLoad {
+    plugin: plugin.to_string(),
+    message,
+  }
 }
 
 fn reject_ungranted(plugins: &IndexMap<String, DescribedPlugin>, source: &ConfigSource) -> Result<(), PipelineError> {

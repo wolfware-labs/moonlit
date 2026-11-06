@@ -132,15 +132,12 @@ async fn plan(
     cross_major: args.major,
     pre: args.pre,
   };
-  let lookup = match RegistryClient::for_host(&reference.host) {
-    Ok(client) => {
-      client
-        .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
-        .await
-    }
-    Err(e) => Err(e),
+  let lookup = async {
+    RegistryClient::for_host(&reference.host)?
+      .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
+      .await
   };
-  let detail = match lookup {
+  let detail = match lookup.await {
     Ok(detail) => detail,
     Err(RegistryError::NotARegistry(_)) => return Ok(Planned::NotARegistry),
     Err(RegistryError::Denied { status, .. }) => return Ok(Planned::Denied(status)),

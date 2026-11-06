@@ -85,15 +85,16 @@ impl DeclaredPermission {
 #[must_use]
 pub fn is_covered(p: &DeclaredPermission, granted: &Permissions) -> bool {
   match p.kind {
-    PermissionKind::Network => all_granted(&p.values, &granted.network, &network_globset(&granted.network)),
-    PermissionKind::Exec => all_granted(&p.values, &granted.exec, &exec_globset(&granted.exec)),
-    PermissionKind::Env => all_granted(&p.values, &granted.env, &exec_globset(&granted.env)),
+    PermissionKind::Network => all_granted(&p.values, &granted.network, network_globset),
+    PermissionKind::Exec => all_granted(&p.values, &granted.exec, exec_globset),
+    PermissionKind::Env => all_granted(&p.values, &granted.env, exec_globset),
     PermissionKind::FilesystemRead => granted.filesystem >= FilesystemAccess::ReadOnly,
     PermissionKind::FilesystemWrite => granted.filesystem >= FilesystemAccess::ReadWrite,
   }
 }
 
-fn all_granted(values: &[String], granted: &[String], set: &GlobSet) -> bool {
+fn all_granted(values: &[String], granted: &[String], globset: fn(&[String]) -> GlobSet) -> bool {
+  let set = globset(granted);
   values.iter().all(|v| granted.contains(v) || set.is_match(v))
 }
 
