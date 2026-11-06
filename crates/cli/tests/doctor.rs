@@ -413,3 +413,19 @@ async fn doctor_names_the_status_of_a_registry_that_refuses_anonymous_graphql_an
 
   assert!(project.release().contains("network: [\"api.example.com\"]"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_names_the_status_of_a_moved_plugin_in_the_consent_screen() {
+  let server = registry(&[
+    ("0.3.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("0.4.0", "test_plugin.wasm", WORLD),
+  ])
+  .await;
+  let project = Project::new(&oci_entry(&server, "test-plugin", "0.3.0"));
+
+  project
+    .doctor(&["--yes"])
+    .success()
+    .stdout(contains("This plugin wants to:"))
+    .stdout(contains("✓ verified"));
+}

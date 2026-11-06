@@ -2,6 +2,7 @@ use moonlit_engine::pipeline::IncompatiblePlugin;
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, merge_grants, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+use moonlit_engine::registry::VerificationStatus;
 
 use crate::cli::{DoctorArgs, OutputMode};
 use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
@@ -20,6 +21,7 @@ struct Fix {
   moved: Option<(String, String)>,
   version: String,
   description: String,
+  status: Option<VerificationStatus>,
   uncovered: Vec<DeclaredPermission>,
   permissions: Option<Permissions>,
 }
@@ -99,7 +101,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
     let view = ConsentView {
       plugin: &fix.name,
       version: &fix.version,
-      status: None,
+      status: fix.status,
       description: &fix.description,
       required: fix.uncovered.iter().collect(),
       optional: Vec::new(),
@@ -138,6 +140,7 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
           moved: None,
           version: probed.meta.version.clone(),
           description: probed.meta.description.clone(),
+          status: None,
           permissions: Some(granting(granted, &uncovered)),
           uncovered,
         })),
@@ -177,8 +180,12 @@ async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissio
     .await
     .pop()
     .map_or(Suggestion::RegistryUnavailable, |(_, s)| s);
-  let version = match &suggestion {
-    Suggestion::Version { version, major: crosses } if major || !crosses => version.clone(),
+  let (version, status) = match &suggestion {
+    Suggestion::Version {
+      version,
+      major: crosses,
+      status,
+    } if major || !crosses => (version.clone(), *status),
     Suggestion::RegistryUnavailable => return Err(Unfixed::RegistryDown("cannot reach the registry".to_string())),
     other => return Err(Unfixed::Problem(compat::hint(other, PLUGIN_WORLD).unwrap_or_default())),
   };
@@ -196,6 +203,7 @@ async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissio
     moved: Some((reference.tag, version.clone())),
     version,
     description: probed.meta.description.clone(),
+    status: Some(status),
     uncovered,
     permissions,
   })

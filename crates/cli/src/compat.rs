@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use moonlit_engine::pipeline::IncompatiblePlugin;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
-use moonlit_engine::registry::{REGISTRY_TIMEOUT, RegistryClient, RegistryError, VersionRule};
+use moonlit_engine::registry::{REGISTRY_TIMEOUT, RegistryClient, RegistryError, VerificationStatus, VersionRule};
 use semver::Version;
 
 use crate::display::display_safe;
@@ -10,11 +10,18 @@ use crate::plugin_spec::{RegistryRef, registry_ref};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Suggestion {
-  Version { version: String, major: bool },
+  Version {
+    version: String,
+    major: bool,
+    status: VerificationStatus,
+  },
   NoneCompatible,
   NotFromRegistry,
   RegistryUnavailable,
-  RegistryDenied { host: String, status: u16 },
+  RegistryDenied {
+    host: String,
+    status: u16,
+  },
 }
 
 /// Looks up, for each incompatible plugin, what the user can do about it; registry lookups happen only for `oci://` URLs.
@@ -98,12 +105,14 @@ async fn lookup_suggestion(client: &RegistryClient, reference: &RegistryRef) -> 
     return Ok(Suggestion::Version {
       version: detail.version,
       major: false,
+      status: detail.status,
     });
   }
   Ok(match lookup(None, true).await? {
     Some(detail) => Suggestion::Version {
       version: detail.version,
       major: true,
+      status: detail.status,
     },
     None => Suggestion::NoneCompatible,
   })
@@ -148,7 +157,7 @@ fn block(plugin: &IncompatiblePlugin, suggestion: &Suggestion) -> String {
 #[must_use]
 pub fn hint(suggestion: &Suggestion, engine: &str) -> Option<String> {
   match suggestion {
-    Suggestion::Version { version, major } => {
+    Suggestion::Version { version, major, .. } => {
       let flag = if *major { " --major" } else { "" };
       Some(format!("use {version} instead (run `moonlit doctor{flag}` to fix)"))
     }
@@ -204,6 +213,7 @@ mod tests {
         Suggestion::Version {
           version: "2.0.0".to_string(),
           major,
+          status: VerificationStatus::Verified,
         },
       )])
     };
