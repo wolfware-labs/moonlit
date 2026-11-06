@@ -1,4 +1,5 @@
 use crate::cli::OutputMode;
+use crate::display::display_safe_text;
 use moonlit_engine::pipeline::PipelineEvent;
 use std::io::{IsTerminal, stderr};
 use std::path::PathBuf;
@@ -33,6 +34,11 @@ pub trait Renderer: Send {
   fn header(&mut self, header: &Header);
   fn handle(&mut self, event: &PipelineEvent);
   fn finish(&mut self);
+}
+
+#[must_use]
+pub(crate) fn error_block(text: &str) -> String {
+  display_safe_text(text).replace('\n', "\n    ")
 }
 
 #[must_use]

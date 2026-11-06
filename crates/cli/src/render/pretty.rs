@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use super::summary::{build_table, fmt_duration};
-use super::{Header, Renderer};
-use crate::display::display_safe;
+use super::{Header, Renderer, error_block};
 use console::style;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use moonlit_engine::logging::LogLevel;
-use moonlit_engine::pipeline::{PipelineEvent, StepResult};
+use moonlit_engine::pipeline::{PipelineEvent, PipelineSummary, StepResult};
 
 pub struct PrettyRenderer {
   mp: MultiProgress,
@@ -37,9 +36,9 @@ impl PrettyRenderer {
     let _ = self.mp.println(line);
   }
 
-  fn log_line(&self, step: &str, level: LogLevel, message: &str) {
+  fn log_text(&self, step: &str, level: LogLevel, message: &str) -> Option<String> {
     if matches!(level, LogLevel::Trace | LogLevel::Debug) && !self.verbose {
-      return;
+      return None;
     }
     let tag = match level {
       LogLevel::Trace => style("TRACE").dim(),
@@ -48,7 +47,13 @@ impl PrettyRenderer {
       LogLevel::Warn => style("WARN").yellow(),
       LogLevel::Error => style("ERROR").red(),
     };
-    self.print(format!("    {tag} {step}: {message}"));
+    Some(format!("    {tag} {step}: {message}"))
+  }
+
+  fn log_line(&self, step: &str, level: LogLevel, message: &str) {
+    if let Some(text) = self.log_text(step, level, message) {
+      self.print(text);
+    }
   }
 }
 
@@ -88,7 +93,7 @@ impl Renderer for PrettyRenderer {
         if let Some(pb) = self.plugins.remove(name) {
           let how = if *cached { "cached" } else { "pulled" };
           pb.finish_and_clear();
-          self.print(format!("{} {name} {version} ({how})", style("✔").green()));
+          self.print(ready_text(name, version, how));
         }
       }
       PipelineEvent::StepStarted {
@@ -130,13 +135,7 @@ impl Renderer for PrettyRenderer {
             summary.total_duration.as_secs_f64()
           ));
         } else {
-          let msg = summary
-            .steps
-            .iter()
-            .rev()
-            .find_map(|s| s.error_message.as_deref().map(display_safe))
-            .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
-          self.print(format!("{} Release failed: {msg}", style("❌").red()));
+          self.print(release_failure(summary));
         }
       }
     }
@@ -158,7 +157,7 @@ impl PrettyRenderer {
       pb.finish_and_clear();
     }
     for w in &result.warnings {
-      self.print(format!("    {} {}: {w}", style("WARN").yellow(), result.name));
+      self.print(warning_text(&result.name, w));
     }
     if result.successful {
       self.print(format!(
@@ -168,15 +167,41 @@ impl PrettyRenderer {
         fmt_duration(result.duration)
       ));
     } else {
-      let err = display_safe(result.error_message.as_deref().unwrap_or("failed"));
-      self.print(format!(
-        "{} {} · {} — {err}",
-        style("✘").red(),
-        result.name,
-        fmt_duration(result.duration)
-      ));
+      self.print(step_failure(result));
     }
   }
+}
+
+#[must_use]
+fn ready_text(name: &str, version: &str, how: &str) -> String {
+  format!("{} {name} {version} ({how})", style("✔").green())
+}
+
+#[must_use]
+fn warning_text(step: &str, warning: &str) -> String {
+  format!("    {} {step}: {warning}", style("WARN").yellow())
+}
+
+#[must_use]
+fn step_failure(result: &StepResult) -> String {
+  let err = error_block(result.error_message.as_deref().unwrap_or("failed"));
+  format!(
+    "{} {} · {} — {err}",
+    style("✘").red(),
+    result.name,
+    fmt_duration(result.duration)
+  )
+}
+
+#[must_use]
+fn release_failure(summary: &PipelineSummary) -> String {
+  let msg = summary
+    .steps
+    .iter()
+    .rev()
+    .find_map(|s| s.error_message.as_deref().map(error_block))
+    .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
+  format!("{} Release failed: {msg}", style("❌").red())
 }
 
 #[expect(
@@ -323,6 +348,17 @@ mod tests {
     }
     r.finish();
     assert!(r.step.is_none());
+  }
+
+  #[test]
+  fn multi_line_step_errors_keep_their_lines_and_escape_the_rest() {
+    let error = "line1\nline2\r\u{1b}[2K\tend";
+    let failed = step("s1", false, false, Some(error), &[]);
+    let line = step_failure(&failed);
+    assert!(!line.contains('\u{1b}') && !line.contains('\r'), "{line:?}");
+    assert!(line.ends_with("line1\n    line2\\x0d\\x1b[2K\tend"), "{line:?}");
+    let release = release_failure(&summary(vec![failed], false));
+    assert!(release.ends_with("line1\n    line2\\x0d\\x1b[2K\tend"), "{release:?}");
   }
 
   #[test]

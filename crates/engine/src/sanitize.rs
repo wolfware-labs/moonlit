@@ -43,3 +43,22 @@ pub fn escape(c: char) -> Option<String> {
 fn is_bidi_control(c: char) -> bool {
   matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn text_keeps_newline_and_tab_and_escapes_the_rest() {
+    assert_eq!(
+      display_safe_text("a\nb\tc\rd\u{1b}[2K\u{9b}\u{7f}"),
+      "a\nb\tc\\x0dd\\x1b[2K\\x9b\\x7f"
+    );
+    assert_eq!(display_safe_text("x\u{202e}y"), "x\\u202ey");
+  }
+
+  #[test]
+  fn line_variant_escapes_newline_and_tab() {
+    assert_eq!(display_safe("a\nb\tc"), "a\\x0ab\\x09c");
+  }
+}
