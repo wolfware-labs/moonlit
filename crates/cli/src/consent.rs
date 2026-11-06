@@ -63,6 +63,7 @@ pub fn render(view: &ConsentView, color: bool) -> String {
 
   if view.required.is_empty() && view.optional.is_empty() {
     let _ = writeln!(out, "  This plugin needs no permissions.");
+    out.push('\n');
   } else {
     if !view.required.is_empty() {
       let _ = writeln!(out, "  {}", paint("This plugin wants to:", Style::new().bold()));
@@ -106,7 +107,7 @@ fn lower_first(sentence: &str) -> String {
 fn icon(kind: PermissionKind) -> &'static str {
   match kind {
     PermissionKind::Network => "🌐",
-    PermissionKind::Exec => "⚙️",
+    PermissionKind::Exec => "🔧",
     PermissionKind::Env => "🔑",
     PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite => "📁",
   }
@@ -121,7 +122,8 @@ fn values_text(p: &DeclaredPermission) -> String {
 }
 
 fn write_entry(out: &mut String, p: &DeclaredPermission, paint: &dyn Fn(&str, Style) -> String) {
-  let _ = writeln!(out, "  {} {:<32}{}", icon(p.kind), p.kind.sentence(), values_text(p));
+  let width = KINDS.iter().map(|k| k.sentence().chars().count()).max().unwrap_or(0) + 2;
+  let _ = writeln!(out, "  {} {:<width$}{}", icon(p.kind), p.kind.sentence(), values_text(p));
   let _ = writeln!(out, "     {}", paint(&format!("\"{}\"", p.reason), Style::new().dim()));
   if p.kind == PermissionKind::Env && p.values.iter().any(|v| is_secret_like(v)) {
     let _ = writeln!(out, "     {}", paint("⚠ may include secrets", Style::new().yellow()));
@@ -233,6 +235,21 @@ mod tests {
       out.contains("Not requested: run programs on your machine, read and change files in your project"),
       "{out}"
     );
+  }
+
+  #[test]
+  fn sentence_and_value_keep_a_gap() {
+    for (kind, value) in [
+      (PermissionKind::FilesystemWrite, "read-write"),
+      (PermissionKind::Network, "api.github.com"),
+    ] {
+      let p = perm(kind, &["api.github.com"], "Why.", false);
+      let out = render(&view(vec![&p], vec![]), false);
+      let line = out.lines().find(|l| l.contains(kind.sentence())).unwrap();
+      let after = line.split(kind.sentence()).nth(1).unwrap();
+      assert!(after.starts_with("  "), "{line}");
+      assert!(after.trim_start().starts_with(value), "{line}");
+    }
   }
 
   #[test]
