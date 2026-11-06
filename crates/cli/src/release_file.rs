@@ -3,6 +3,7 @@ use moonlit_engine::pipeline::config::{
 };
 use moonlit_engine::plugin::permissions::PermissionKind;
 use moonlit_engine::sanitize::{quote, quote_list};
+use serde_yaml_ng::{Mapping, Value};
 
 /// A plugin entry to write into a release file.
 #[derive(Clone, Debug, PartialEq)]
@@ -53,7 +54,13 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
       None => insertion(content, content.len(), block),
     }
   };
-  validated(apply(content, vec![edit]), &entry.name, &entry.url, Some(&entry.permissions))
+  validated(
+    content,
+    apply(content, vec![edit]),
+    &entry.name,
+    &entry.url,
+    Some(&entry.permissions),
+  )
 }
 
 /// Checks that a plugin entry with this name and URL could be added, without editing anything.
@@ -86,7 +93,13 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: Option<&Per
   if let Some(permissions) = permissions {
     edits.push(permissions_edit(content, plugin, permissions));
   }
-  validated(apply(content, edits), name, url, permissions.or(plugin.permissions.as_ref()))
+  validated(
+    content,
+    apply(content, edits),
+    name,
+    url,
+    permissions.or(plugin.permissions.as_ref()),
+  )
 }
 
 /// Lists the lines that differ between two versions of a file, prefixed with `+ ` or `- `.
@@ -147,7 +160,13 @@ fn permissions_edit(content: &str, plugin: &PluginDeclaration, permissions: &Per
   }
 }
 
-fn validated(content: String, name: &str, url: &str, permissions: Option<&Permissions>) -> Result<String, ReleaseFileError> {
+fn validated(
+  before: &str,
+  content: String,
+  name: &str,
+  url: &str,
+  permissions: Option<&Permissions>,
+) -> Result<String, ReleaseFileError> {
   let config = parse_structure(&content)?;
   if !config.stages.value.is_empty() {
     parse_checked(&content)?;
@@ -167,7 +186,52 @@ fn validated(content: String, name: &str, url: &str, permissions: Option<&Permis
       "plugin '{name}' would not read back with the requested permissions"
     )));
   }
+  if let Ok((rest_before, entry_before)) = outside_entry(before, name) {
+    let (rest_after, entry_after) = outside_entry(&content, name)?;
+    if rest_after != rest_before || entry_before.is_some_and(|entry| Some(entry) != entry_after) {
+      return Err(ReleaseFileError::Invalid(format!(
+        "the edit would change more than the url and permissions of plugin '{name}'"
+      )));
+    }
+  }
   Ok(content)
+}
+
+fn outside_entry(content: &str, name: &str) -> Result<(Value, Option<Value>), ReleaseFileError> {
+  let mut document: Value = serde_yaml_ng::from_str(content).map_err(|e| ReleaseFileError::Invalid(e.to_string()))?;
+  if document.is_null() {
+    document = Value::Mapping(Mapping::new());
+  }
+  let Some(root) = document.as_mapping_mut() else {
+    return Ok((document, None));
+  };
+  let mut entry = None;
+  if let Some(Value::Sequence(items)) = root.get_mut("plugins") {
+    if let Some(index) = items
+      .iter()
+      .position(|item| item.get("name").and_then(scalar_text) == Some(name.to_string()))
+    {
+      let mut removed = items.remove(index);
+      if let Some(fields) = removed.as_mapping_mut() {
+        fields.remove("url");
+        fields.remove("permissions");
+      }
+      entry = Some(removed);
+    }
+    if items.is_empty() {
+      root.remove("plugins");
+    }
+  }
+  Ok((document, entry))
+}
+
+fn scalar_text(value: &Value) -> Option<String> {
+  match value {
+    Value::String(text) => Some(text.clone()),
+    Value::Number(number) => Some(number.to_string()),
+    Value::Bool(flag) => Some(flag.to_string()),
+    _ => None,
+  }
 }
 
 #[must_use]
@@ -304,15 +368,15 @@ mod tests {
       exec: vec!["git".into(), "sh".into()],
       ..Permissions::deny()
     };
-    let err = validated(RELEASE.to_string(), "git", url, Some(&broader)).expect_err("permissions differ");
+    let err = validated(RELEASE, RELEASE.to_string(), "git", url, Some(&broader)).expect_err("permissions differ");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
-    let err = validated(RELEASE.to_string(), "git", url, None).expect_err("permissions differ");
+    let err = validated(RELEASE, RELEASE.to_string(), "git", url, None).expect_err("permissions differ");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
     let granted = Permissions {
       exec: vec!["git".into()],
       ..Permissions::deny()
     };
-    assert!(validated(RELEASE.to_string(), "git", url, Some(&granted)).is_ok());
+    assert!(validated(RELEASE, RELEASE.to_string(), "git", url, Some(&granted)).is_ok());
   }
 
   #[test]
@@ -645,6 +709,28 @@ stages:
     assert_eq!(config_text(&out, "a", "notes"), "line one\n\n\n");
     let config = parse_config(&out, SOURCE).expect("valid");
     assert_eq!(config.plugins.value[0].permissions.as_ref(), Some(&permissions));
+  }
+
+  #[test]
+  fn read_back_rejects_a_change_outside_the_edited_entry() {
+    let url = "file://b-2.wasm";
+    let after = set_plugin(TWO_PLUGINS, "b", url, None).expect("set");
+    assert!(validated(TWO_PLUGINS, after.clone(), "b", url, None).is_ok());
+
+    let other_config = after.replace("level: 3", "level: 4");
+    let err = validated(TWO_PLUGINS, other_config, "b", url, None).expect_err("a's config changed");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+
+    let stages = after.replace("    - run: a.go\n", "");
+    let err = validated(TWO_PLUGINS, stages, "b", url, None).expect_err("stages changed");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+
+    let own_config = after.replace(
+      "    url: file://b-2.wasm\n",
+      "    url: file://b-2.wasm\n    config:\n      x: 1\n",
+    );
+    let err = validated(TWO_PLUGINS, own_config, "b", url, None).expect_err("b's config changed");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
   }
 
   #[test]
