@@ -295,3 +295,44 @@ async fn doctor_exits_3_and_writes_nothing_when_the_registry_is_down() {
     )));
   assert_eq!(project.release(), before);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_reports_a_target_it_cannot_fetch_and_fixes_the_rest() {
+  let server = MockServer::start().await;
+  let listed: Vec<Value> = ["0.3.0", "0.4.0"]
+    .iter()
+    .map(|v| json!({ "version": v, "yanked": false, "status": "VERIFIED" }))
+    .collect();
+  mount(&server, &["query versions("], json!({ "package": { "versions": listed } })).await;
+  for (version, world) in [("0.3.0", OLD_WORLD), ("0.4.0", WORLD)] {
+    mount(
+      &server,
+      &["query packageVersion(", &format!("\"version\":\"{version}\"")],
+      json!({ "packageVersion": { "version": version, "worldVersion": world, "status": "VERIFIED", "middlewares": [] } }),
+    )
+    .await;
+  }
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  let plugins = [
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+    oci_entry(&server, "test-plugin", "0.3.0"),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+  let before = project.release();
+
+  project
+    .doctor(&["--yes"])
+    .code(1)
+    .stdout(contains(format!(
+      "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; cannot fetch oci://{}/acme/test-plugin:0.4.0: ",
+      server.address()
+    )))
+    .stdout(contains("granted: permissions granted"));
+
+  let release = project.release();
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert!(release.contains("test-plugin:0.3.0"), "{release}");
+  assert_ne!(release, before);
+}

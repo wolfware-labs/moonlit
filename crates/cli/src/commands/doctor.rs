@@ -183,7 +183,7 @@ async fn moved(name: &str, url: &str, found: &str, granted: &Permissions, major:
   let reference = registry_ref(url).ok_or_else(|| Unfixed::Problem("does not come from a registry".to_string()))?;
   let target = format!("oci://{}/{}/{}:{}", reference.host, reference.org, reference.name, version);
   let probed = probe(&target).await.map_err(|e| match e {
-    ProbeError::Resolve { .. } => Unfixed::RegistryDown(e.to_string()),
+    ProbeError::Resolve { message, .. } => Unfixed::Problem(format!("cannot fetch {target}: {message}")),
     other => Unfixed::Problem(other.to_string()),
   })?;
   let uncovered = uncovered(&probed.meta.permissions, granted);
