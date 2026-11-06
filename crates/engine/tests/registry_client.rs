@@ -257,6 +257,24 @@ async fn a_host_without_a_graphql_endpoint_is_not_a_registry() {
 }
 
 #[tokio::test]
+async fn a_host_that_refuses_anonymous_graphql_is_denied_with_its_status() {
+  for status in [401, 403] {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+      .respond_with(ResponseTemplate::new(status))
+      .mount(&server)
+      .await;
+
+    let err = client(&server).versions("acme", "x").await.unwrap_err();
+
+    assert!(
+      matches!(&err, RegistryError::Denied { status: s, .. } if *s == status),
+      "{status}: {err:?}"
+    );
+  }
+}
+
+#[tokio::test]
 async fn a_response_that_is_not_a_graphql_envelope_is_not_a_registry() {
   let server = MockServer::start().await;
   Mock::given(method("POST"))

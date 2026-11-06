@@ -384,3 +384,32 @@ fn doctor_flags_a_component_without_the_plugin_contract() {
     "✗ test-plugin: built for an unknown plugin contract, this CLI supports {WORLD}; rebuild it against moonlit-pdk for {WORLD}\n"
   )));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_names_the_status_of_a_registry_that_refuses_anonymous_graphql_and_fixes_the_rest() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(401))
+    .mount(&server)
+    .await;
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  let plugins = [
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+    oci_entry(&server, "test-plugin", "0.3.0"),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+
+  project
+    .doctor(&["--yes"])
+    .code(1)
+    .stdout(contains(format!(
+      "registry at {} answered 401 on /graphql, no version to suggest",
+      server.address()
+    )))
+    .stdout(contains("granted: permissions granted"));
+
+  assert!(project.release().contains("network: [\"api.example.com\"]"));
+}

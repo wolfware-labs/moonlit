@@ -22,6 +22,7 @@ enum Planned {
   Bump(Box<Plan>),
   UpToDate,
   NotARegistry,
+  Denied(u16),
 }
 
 struct Plan {
@@ -70,6 +71,13 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       Planned::Bump(plan) => plans.push(*plan),
       Planned::UpToDate => println!("{}: up to date", plugin.name),
       Planned::NotARegistry => println!("{}: not from a Moonlit registry, skipped", plugin.name),
+      Planned::Denied(status) => eprintln!(
+        "{}",
+        display_safe(&format!(
+          "{}: registry at {} answered {status} on /graphql, skipped",
+          plugin.name, reference.host
+        ))
+      ),
     }
   }
 
@@ -134,6 +142,7 @@ async fn plan(
   {
     Ok(detail) => detail,
     Err(RegistryError::NotARegistry(_)) => return Ok(Planned::NotARegistry),
+    Err(RegistryError::Denied { status, .. }) => return Ok(Planned::Denied(status)),
     Err(e) => return fail(&format!("{name}: {e}"), 3),
   };
   let Some(detail) = detail else {

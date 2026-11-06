@@ -33,6 +33,14 @@ pub enum RegistryError {
   /// The host answered, but not as a Moonlit registry: no GraphQL endpoint, or a body that is not a GraphQL response.
   #[error("{0} is not a Moonlit registry")]
   NotARegistry(String),
+  /// The host refused the anonymous GraphQL request with HTTP 401 or 403, so the registry cannot be asked.
+  #[error("{url} answered {status} on /graphql")]
+  Denied {
+    /// The GraphQL endpoint that refused the request.
+    url: String,
+    /// The HTTP status it answered with.
+    status: u16,
+  },
 }
 
 /// How long a registry request may take to connect, and in all, before it fails.
@@ -226,6 +234,12 @@ impl RegistryClient {
     let status = response.status();
     if matches!(status.as_u16(), 404 | 405) {
       return Err(RegistryError::NotARegistry(self.url.clone()));
+    }
+    if matches!(status.as_u16(), 401 | 403) {
+      return Err(RegistryError::Denied {
+        url: self.url.clone(),
+        status: status.as_u16(),
+      });
     }
     if !status.is_success() {
       return Err(RegistryError::Http(format!("POST {}: HTTP {status}", self.url)));

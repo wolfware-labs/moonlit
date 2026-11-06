@@ -12,6 +12,7 @@ pub enum Suggestion {
   NoneCompatible,
   NotFromRegistry,
   RegistryUnavailable,
+  RegistryDenied { host: String, status: u16 },
 }
 
 /// Looks up, for each incompatible plugin, what the user can do about it; registry lookups happen only for `oci://` URLs.
@@ -50,8 +51,7 @@ async fn suggest(plugin: &IncompatiblePlugin, offline: bool) -> Suggestion {
         };
       }
       Ok(None) => {}
-      Err(RegistryError::NotARegistry(_)) => return Suggestion::NotFromRegistry,
-      Err(_) => return Suggestion::RegistryUnavailable,
+      Err(e) => return failed(e, &reference.host),
     }
   }
   match lookup(None, true).await {
@@ -60,8 +60,18 @@ async fn suggest(plugin: &IncompatiblePlugin, offline: bool) -> Suggestion {
       major: true,
     },
     Ok(None) => Suggestion::NoneCompatible,
-    Err(RegistryError::NotARegistry(_)) => Suggestion::NotFromRegistry,
-    Err(_) => Suggestion::RegistryUnavailable,
+    Err(e) => failed(e, &reference.host),
+  }
+}
+
+fn failed(error: RegistryError, host: &str) -> Suggestion {
+  match error {
+    RegistryError::NotARegistry(_) => Suggestion::NotFromRegistry,
+    RegistryError::Denied { status, .. } => Suggestion::RegistryDenied {
+      host: host.to_string(),
+      status,
+    },
+    _ => Suggestion::RegistryUnavailable,
   }
 }
 
@@ -99,6 +109,9 @@ pub fn hint(suggestion: &Suggestion, engine: &str) -> Option<String> {
     }
     Suggestion::NoneCompatible => Some(format!("no version of this plugin supports {engine} yet")),
     Suggestion::NotFromRegistry => Some(format!("rebuild it against moonlit-pdk for {engine}")),
+    Suggestion::RegistryDenied { host, status } => Some(format!(
+      "registry at {host} answered {status} on /graphql, no version to suggest"
+    )),
     Suggestion::RegistryUnavailable => None,
   }
 }
@@ -159,5 +172,13 @@ mod tests {
     assert!(entry(Suggestion::NoneCompatible).contains("no version of this plugin supports moonlit:plugin@0.4.0 yet"));
     assert!(entry(Suggestion::NotFromRegistry).contains("rebuild it against moonlit-pdk for moonlit:plugin@0.4.0"));
     assert_eq!(entry(Suggestion::RegistryUnavailable).lines().count(), 2);
+    let denied = entry(Suggestion::RegistryDenied {
+      host: "public.ecr.aws".to_string(),
+      status: 401,
+    });
+    assert!(
+      denied.contains("registry at public.ecr.aws answered 401 on /graphql, no version to suggest\n"),
+      "{denied}"
+    );
   }
 }
