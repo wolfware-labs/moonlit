@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer, error_block};
+use crate::display::display_safe;
 use console::style;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use moonlit_engine::logging::LogLevel;
@@ -47,7 +48,7 @@ impl PrettyRenderer {
       LogLevel::Warn => style("WARN").yellow(),
       LogLevel::Error => style("ERROR").red(),
     };
-    Some(format!("    {tag} {step}: {message}"))
+    Some(format!("    {tag} {step}: {}", display_safe(message)))
   }
 
   fn log_line(&self, step: &str, level: LogLevel, message: &str) {
@@ -112,7 +113,7 @@ impl Renderer for PrettyRenderer {
       PipelineEvent::StepLog { step, level, message } => self.log_line(step, *level, message),
       PipelineEvent::StepProgress { step: _, message } => {
         if let Some(pb) = &self.step {
-          pb.set_message(format!("… › {message}"));
+          pb.set_message(progress_text(message));
         }
       }
       PipelineEvent::StepSkipped { step, condition } => {
@@ -173,13 +174,18 @@ impl PrettyRenderer {
 }
 
 #[must_use]
+fn progress_text(message: &str) -> String {
+  format!("… › {}", display_safe(message))
+}
+
+#[must_use]
 fn ready_text(name: &str, version: &str, how: &str) -> String {
-  format!("{} {name} {version} ({how})", style("✔").green())
+  format!("{} {name} {} ({how})", style("✔").green(), display_safe(version))
 }
 
 #[must_use]
 fn warning_text(step: &str, warning: &str) -> String {
-  format!("    {} {step}: {warning}", style("WARN").yellow())
+  format!("    {} {step}: {}", style("WARN").yellow(), display_safe(warning))
 }
 
 #[must_use]
@@ -359,6 +365,21 @@ mod tests {
     assert!(line.ends_with("line1\n    line2\\x0d\\x1b[2K\tend"), "{line:?}");
     let release = release_failure(&summary(vec![failed], false));
     assert!(release.ends_with("line1\n    line2\\x0d\\x1b[2K\tend"), "{release:?}");
+  }
+
+  #[test]
+  fn plugin_text_with_escape_sequences_renders_escaped() {
+    let r = PrettyRenderer::new(false);
+    let texts = [
+      r.log_text("s1", LogLevel::Info, "log\u{1b}[2K").expect("shown"),
+      progress_text("progress\u{1b}[2K"),
+      warning_text("s1", "warn\u{1b}[2K"),
+      ready_text("tp", "1.0\u{1b}[2K", "cached"),
+    ];
+    for (text, expected) in texts.iter().zip(["log", "progress", "warn", "1.0"]) {
+      assert!(!text.contains('\u{1b}'), "{text:?}");
+      assert!(text.contains(&format!("{expected}\\x1b[2K")), "{text:?}");
+    }
   }
 
   #[test]

@@ -1,5 +1,6 @@
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer, error_block};
+use crate::display::display_safe;
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::{PipelineEvent, StepResult};
 use std::io::Write;
@@ -50,7 +51,7 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
       PipelineEvent::PluginPullProgress { .. } => {}
       PipelineEvent::PluginReady { name, version, cached } => {
         let how = if *cached { "cached" } else { "pulled" };
-        let _ = writeln!(self.out, "ready {name} {version} ({how})");
+        let _ = writeln!(self.out, "ready {name} {} ({how})", display_safe(version));
       }
       PipelineEvent::StepStarted {
         index,
@@ -65,10 +66,10 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
         if matches!(level, LogLevel::Trace | LogLevel::Debug) && !self.verbose {
           return; // DEBUG/TRACE only with -v (§9.4.7)
         }
-        let _ = writeln!(self.out, "  [{}] {step}: {message}", level_tag(*level));
+        let _ = writeln!(self.out, "  [{}] {step}: {}", level_tag(*level), display_safe(message));
       }
       PipelineEvent::StepProgress { step, message } => {
-        let _ = writeln!(self.out, "  {step}: {message}");
+        let _ = writeln!(self.out, "  {step}: {}", display_safe(message));
       }
       PipelineEvent::StepSkipped { step, condition } => {
         let _ = writeln!(self.out, "↷ {step} (condition not met: {condition})");
@@ -109,7 +110,7 @@ impl<W: Write + Send> PlainRenderer<W> {
       return; // the `↷` line was already printed on StepSkipped
     }
     for w in &result.warnings {
-      let _ = writeln!(self.out, "  [WARN] {}: {w}", result.name);
+      let _ = writeln!(self.out, "  [WARN] {}: {}", result.name, display_safe(w));
     }
     if result.successful {
       let _ = writeln!(self.out, "✔ {} · {}", result.name, fmt_duration(result.duration));
@@ -189,6 +190,34 @@ mod tests {
       text.contains("Release failed: line1\n    line2\\x0d\\x1b[2K\tend\n"),
       "{text:?}"
     );
+  }
+
+  #[test]
+  fn plugin_text_with_escape_sequences_renders_escaped() {
+    let text = render(
+      false,
+      &[
+        PipelineEvent::PluginReady {
+          name: "tp".into(),
+          version: "1.0\u{1b}[2K".into(),
+          cached: true,
+        },
+        PipelineEvent::StepLog {
+          step: "s1".into(),
+          level: LogLevel::Info,
+          message: "log\u{1b}[2K".into(),
+        },
+        PipelineEvent::StepProgress {
+          step: "s1".into(),
+          message: "progress\u{1b}[2K".into(),
+        },
+        finished(step("s1", true, false, None, &["warn\u{1b}[2K"])),
+      ],
+    );
+    assert!(!text.contains('\u{1b}'), "{text:?}");
+    for expected in ["1.0\\x1b[2K", "log\\x1b[2K", "progress\\x1b[2K", "warn\\x1b[2K"] {
+      assert!(text.contains(expected), "missing {expected:?} in {text:?}");
+    }
   }
 
   #[test]
