@@ -565,3 +565,15 @@ fn doctor_prints_a_plugin_name_with_escape_codes_as_visible_text() {
   assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
   assert!(stdout.contains("evil\\x1b[2K: permissions granted"), "{stdout:?}");
 }
+
+#[test]
+fn doctor_grant_only_fix_keeps_the_url_line_as_written() {
+  let url_line = format!("    url: '{}'  # pinned\n", file_url("test_plugin.wasm"));
+  let project = Project::new(&format!("  - name: test-plugin\n{url_line}"));
+
+  project.doctor(&["--yes"]).success();
+
+  let release = project.release();
+  assert!(release.contains(&url_line), "{release}");
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+}

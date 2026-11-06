@@ -89,7 +89,10 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: Option<&Per
     .iter()
     .find(|p| p.name == name)
     .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
-  let mut edits = vec![(plugin.url.span.start, plugin.url.span.end, scalar(url))];
+  let mut edits = Vec::new();
+  if plugin.url.value.as_str() != url {
+    edits.push((plugin.url.span.start, plugin.url.span.end, scalar(url)));
+  }
   if let Some(permissions) = permissions {
     edits.push(permissions_edit(content, plugin, permissions));
   }
@@ -649,6 +652,21 @@ stages:
     let expected = TWO_PLUGINS.replacen("'file://a-1.wasm'", "file://a-2.wasm", 1).replacen(
       "network: [old.example.com]  # legacy\n      filesystem: read-write",
       "network: [\"api.example.com\", \"*.acme.io\"]",
+      1,
+    );
+    assert_eq!(out, expected);
+  }
+
+  #[test]
+  fn set_plugin_with_the_same_url_leaves_the_url_untouched() {
+    let permissions = Permissions {
+      network: vec!["api.example.com".into()],
+      ..Permissions::deny()
+    };
+    let out = set_plugin(TWO_PLUGINS, "a", "file://a-1.wasm", Some(&permissions)).expect("set");
+    let expected = TWO_PLUGINS.replacen(
+      "network: [old.example.com]  # legacy\n      filesystem: read-write",
+      "network: [\"api.example.com\"]",
       1,
     );
     assert_eq!(out, expected);
