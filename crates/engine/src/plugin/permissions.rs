@@ -226,6 +226,21 @@ mod tests {
   }
 
   #[test]
+  fn every_uncovered_required_entry_of_one_plugin_is_listed_in_declaration_order() {
+    let d = vec![
+      decl(PermissionKind::Network, &["api.example.com"], false),
+      decl(PermissionKind::Exec, &["git"], false),
+      decl(PermissionKind::Env, &["HOME"], true),
+    ];
+    let kinds: Vec<PermissionKind> = uncovered_required(&d, &Permissions::deny()).iter().map(|p| p.kind).collect();
+    assert_eq!(kinds, vec![PermissionKind::Network, PermissionKind::Exec]);
+    let mut granted = Permissions::deny();
+    granted.exec = vec!["git".to_string()];
+    let kinds: Vec<PermissionKind> = uncovered_required(&d, &granted).iter().map(|p| p.kind).collect();
+    assert_eq!(kinds, vec![PermissionKind::Network]);
+  }
+
+  #[test]
   fn grants_for_skips_optional_unless_accepted() {
     let d = vec![
       decl(PermissionKind::Exec, &["git"], true),

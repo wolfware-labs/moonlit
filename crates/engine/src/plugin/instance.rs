@@ -113,7 +113,12 @@ fn apply_denials(
       op,
       message: format!("{message}; {denied}"),
     }),
-    Err(other) => Err(other),
+    Err(other) => Ok(MiddlewareResult {
+      successful: false,
+      error_message: Some(format!("{other}; {denied}")),
+      warnings: vec![],
+      output: vec![],
+    }),
   }
 }
 
@@ -254,9 +259,46 @@ mod tests {
   }
 
   #[test]
+  fn an_empty_own_error_is_replaced_by_the_denial() {
+    let out = apply_denials(Ok(result(false, Some(""))), &[denial(PermissionKind::Exec, "git")], &[]).unwrap();
+    assert_eq!(
+      out.error_message.as_deref(),
+      Some("blocked from running 'git' \u{2014} add it to permissions.exec")
+    );
+  }
+
+  #[test]
+  fn a_denial_is_kept_next_to_a_decode_failure() {
+    let source = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
+    let bad = PluginError::BadJson {
+      context: "output".to_string(),
+      source,
+    };
+    let out = apply_denials(Err(bad), &[denial(PermissionKind::Exec, "git")], &[]).unwrap();
+    assert!(!out.successful);
+    let message = out.error_message.expect("message");
+    assert!(message.contains("malformed JSON for output"), "{message}");
+    assert!(
+      message.ends_with("; blocked from running 'git' \u{2014} add it to permissions.exec"),
+      "{message}"
+    );
+  }
+
+  #[test]
+  fn escape_characters_in_a_denied_target_are_escaped_for_the_terminal() {
+    let message = denial_message(&[denial(PermissionKind::Exec, "git\u{1b}[2K")], &[]);
+    let shown = crate::sanitize::display_safe_text(&message);
+    assert!(!shown.contains('\u{1b}'), "{shown:?}");
+    assert!(shown.contains("git\\x1b[2K"), "{shown}");
+  }
+
+  #[test]
   fn without_denials_the_result_is_untouched() {
     let out = apply_denials(Ok(result(false, Some("boom"))), &[], &[]).unwrap();
     assert_eq!(out, result(false, Some("boom")));
-    assert!(apply_denials(Err(PluginError::Load("x".to_string())), &[], &[]).is_err());
+    let Err(PluginError::Load(message)) = apply_denials(Err(PluginError::Load("x".to_string())), &[], &[]) else {
+      panic!("expected the same error back");
+    };
+    assert_eq!(message, "x");
   }
 }
