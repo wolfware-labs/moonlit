@@ -3,7 +3,7 @@ use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionDetail, VersionRule};
 
 use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
-use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
+use crate::commands::common::{display_path, fail, prompt_failed};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
@@ -11,6 +11,8 @@ use crate::plugin_probe::probe;
 use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref};
 use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable, render_diff};
 use crate::render::resolve_mode;
+
+const NO_TERMINAL: &str = "refusing to add a plugin without a terminal to confirm; pass --yes";
 
 struct Target {
   url: String,
@@ -28,7 +30,7 @@ pub async fn run(output: Option<OutputMode>, args: AddArgs) -> i32 {
 
 async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
   if !args.yes && !consent::interactive() {
-    return fail(PERMISSION_REFUSAL, 2);
+    return fail(NO_TERMINAL, 2);
   }
   let spec = PluginSpec::parse(&args.plugin).or_else(|e| fail(&e, 2))?;
   let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;

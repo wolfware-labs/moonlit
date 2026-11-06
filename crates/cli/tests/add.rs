@@ -193,7 +193,7 @@ fn no_tty_without_yes_refuses() {
   let project = Project::new(RELEASE);
 
   project.add(&[&file_url("test_plugin.wasm")]).code(2).stderr(contains(
-    "error: refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions",
+    "error: refusing to add a plugin without a terminal to confirm; pass --yes",
   ));
 
   assert_eq!(project.release(), RELEASE);
