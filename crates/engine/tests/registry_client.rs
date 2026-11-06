@@ -1,0 +1,254 @@
+use moonlit_engine::registry::{RegistryClient, RegistryError, VerificationStatus, VersionRule};
+use serde_json::{Value, json};
+use wiremock::matchers::{body_string_contains, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+fn client(server: &MockServer) -> RegistryClient {
+  RegistryClient::with_base_url(&format!("{}/graphql", server.uri()))
+}
+
+async fn mount_data(server: &MockServer, marker: &str, data: Value) {
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .and(body_string_contains(marker))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": data })))
+    .mount(server)
+    .await;
+}
+
+async fn mount_package(server: &MockServer, versions: Value) {
+  mount_data(server, "package(org", json!({ "package": { "versions": versions } })).await;
+}
+
+async fn mount_version(server: &MockServer, version: &str, world: &str) {
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .and(body_string_contains("packageVersion"))
+    .and(body_string_contains(format!("\"version\":\"{version}\"")))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+      "data": { "packageVersion": {
+        "version": version,
+        "worldVersion": world,
+        "status": "VERIFIED",
+        "middlewares": [{ "name": "run", "description": "Runs it" }]
+      } }
+    })))
+    .mount(server)
+    .await;
+}
+
+fn summary(version: &str, yanked: bool) -> Value {
+  json!({ "version": version, "yanked": yanked, "status": "VERIFIED" })
+}
+
+#[tokio::test]
+async fn search_sends_query_and_limit() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .and(body_string_contains("\"query\":\"github\""))
+    .and(body_string_contains("\"limit\":10"))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+      "data": { "packages": { "items": [
+        { "orgSlug": "acme", "name": "github", "description": "GitHub tools",
+          "latestVersion": "1.2.0", "status": "VERIFIED", "middlewares": ["issues", "prs"] },
+        { "orgSlug": "acme", "name": "github-actions", "description": null,
+          "latestVersion": null, "status": "PENDING", "middlewares": [] }
+      ], "cursor": null } }
+    })))
+    .expect(1)
+    .mount(&server)
+    .await;
+
+  let hits = client(&server).search("github", 10).await.unwrap();
+
+  assert_eq!(hits.len(), 2);
+  assert_eq!(hits[0].org, "acme");
+  assert_eq!(hits[0].name, "github");
+  assert_eq!(hits[0].description.as_deref(), Some("GitHub tools"));
+  assert_eq!(hits[0].latest_version.as_deref(), Some("1.2.0"));
+  assert_eq!(hits[0].status, VerificationStatus::Verified);
+  assert_eq!(hits[0].middlewares, vec!["issues", "prs"]);
+  assert_eq!(hits[1].status, VerificationStatus::Pending);
+  assert_eq!(hits[1].description, None);
+}
+
+#[tokio::test]
+async fn newest_compatible_skips_yanked_and_wrong_world() {
+  let server = MockServer::start().await;
+  mount_package(
+    &server,
+    json!([summary("1.9.0", false), summary("2.1.0", true), summary("2.0.0", false)]),
+  )
+  .await;
+  mount_version(&server, "2.0.0", "0.4.0").await;
+  mount_version(&server, "1.9.0", "0.4.0").await;
+  mount_version(&server, "2.1.0", "0.4.0").await;
+
+  let rule = VersionRule {
+    current: None,
+    cross_major: true,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", rule)
+    .await
+    .unwrap()
+    .unwrap();
+
+  assert_eq!(found.version, "2.0.0");
+  assert_eq!(found.middlewares[0].name, "run");
+}
+
+#[tokio::test]
+async fn newest_compatible_skips_versions_built_for_another_world() {
+  let server = MockServer::start().await;
+  mount_package(&server, json!([summary("2.0.0", false), summary("1.9.0", false)])).await;
+  mount_version(&server, "2.0.0", "0.3.0").await;
+  mount_version(&server, "1.9.0", "0.4.0").await;
+
+  let rule = VersionRule {
+    current: None,
+    cross_major: true,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", rule)
+    .await
+    .unwrap()
+    .unwrap();
+
+  assert_eq!(found.version, "1.9.0");
+}
+
+#[tokio::test]
+async fn newest_compatible_stays_in_major() {
+  let server = MockServer::start().await;
+  mount_package(
+    &server,
+    json!([summary("2.0.0", false), summary("1.3.0", false), summary("1.2.0", false)]),
+  )
+  .await;
+  mount_version(&server, "2.0.0", "0.4.0").await;
+  mount_version(&server, "1.3.0", "0.4.0").await;
+
+  let current = semver::Version::parse("1.2.0").unwrap();
+  let same = VersionRule {
+    current: Some(current.clone()),
+    cross_major: false,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", same)
+    .await
+    .unwrap()
+    .unwrap();
+  assert_eq!(found.version, "1.3.0");
+
+  let cross = VersionRule {
+    current: Some(current),
+    cross_major: true,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", cross)
+    .await
+    .unwrap()
+    .unwrap();
+  assert_eq!(found.version, "2.0.0");
+}
+
+#[tokio::test]
+async fn newest_compatible_ignores_prereleases_unless_asked() {
+  let server = MockServer::start().await;
+  mount_package(&server, json!([summary("2.0.0-beta.1", false), summary("1.0.0", false)])).await;
+  mount_version(&server, "2.0.0-beta.1", "0.4.0").await;
+  mount_version(&server, "1.0.0", "0.4.0").await;
+
+  let stable = VersionRule {
+    current: None,
+    cross_major: true,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", stable)
+    .await
+    .unwrap()
+    .unwrap();
+  assert_eq!(found.version, "1.0.0");
+
+  let pre = VersionRule {
+    current: None,
+    cross_major: true,
+    pre: true,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", pre)
+    .await
+    .unwrap()
+    .unwrap();
+  assert_eq!(found.version, "2.0.0-beta.1");
+}
+
+#[tokio::test]
+async fn package_version_is_none_when_absent() {
+  let server = MockServer::start().await;
+  mount_data(&server, "packageVersion", json!({ "packageVersion": null })).await;
+
+  let found = client(&server).package_version("acme", "tool", "9.9.9").await.unwrap();
+
+  assert!(found.is_none());
+}
+
+#[tokio::test]
+async fn versions_lists_summaries() {
+  let server = MockServer::start().await;
+  mount_package(&server, json!([summary("1.0.0", true)])).await;
+
+  let versions = client(&server).versions("acme", "tool").await.unwrap();
+
+  assert_eq!(versions.len(), 1);
+  assert!(versions[0].yanked);
+  assert_eq!(versions[0].status, VerificationStatus::Verified);
+}
+
+#[tokio::test]
+async fn graphql_errors_surface_message() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+      "errors": [{ "message": "boom" }, { "message": "second" }]
+    })))
+    .mount(&server)
+    .await;
+
+  let err = client(&server).search("x", 5).await.unwrap_err();
+
+  assert!(matches!(&err, RegistryError::GraphQl(m) if m == "boom"), "{err:?}");
+}
+
+#[tokio::test]
+async fn http_failures_are_reported() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .respond_with(ResponseTemplate::new(500))
+    .mount(&server)
+    .await;
+
+  let err = client(&server).search("x", 5).await.unwrap_err();
+
+  assert!(matches!(err, RegistryError::Http(_)), "{err:?}");
+}
+
+#[test]
+fn for_host_builds_the_graphql_url() {
+  assert_eq!(
+    RegistryClient::for_host("registry.moonlit.rs").base_url(),
+    "https://registry.moonlit.rs/graphql"
+  );
+  assert_eq!(
+    RegistryClient::for_host("http://127.0.0.1:9").base_url(),
+    "http://127.0.0.1:9"
+  );
+}

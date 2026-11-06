@@ -2325,6 +2325,7 @@ dependencies = [
  "reqwest",
  "rhai",
  "saphyr-parser",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml_ng",
