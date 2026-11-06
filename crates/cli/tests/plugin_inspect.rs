@@ -162,7 +162,16 @@ fn inspect_stdout(mode: &str, fixture: &str) -> String {
 fn inspect_omits_the_permissions_header_when_there_are_none() {
   for mode in ["plain", "pretty"] {
     let stdout = inspect_stdout(mode, FIXTURE);
-    assert!(!stdout.to_lowercase().contains("permissions"), "{mode}: {stdout}");
+    assert!(
+      !stdout.lines().any(|l| l.trim().eq_ignore_ascii_case("permissions:")),
+      "{mode}: {stdout}"
+    );
+    let last = stdout.lines().last().unwrap_or_default();
+    if mode == "plain" {
+      assert_eq!(last, "  read-env - read SAMPLE_ENV from the environment", "{stdout}");
+    } else {
+      assert!(last.starts_with('└'), "{mode}: last line was {last:?}");
+    }
   }
 }
 
