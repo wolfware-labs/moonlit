@@ -60,7 +60,8 @@ fn status_key(status: VerificationStatus) -> &'static str {
   }
 }
 
-fn badge(status: VerificationStatus) -> &'static str {
+#[must_use]
+pub fn badge(status: VerificationStatus) -> &'static str {
   match status {
     VerificationStatus::Verified => "✓ verified",
     other => status_key(other),
