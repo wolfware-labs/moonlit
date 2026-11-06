@@ -51,7 +51,7 @@ fn inspect_json_carries_icon_and_io_schemas() {
   let icon = v["icon"].as_str().expect("icon must be a string");
   assert!(icon.starts_with("data:image/"), "icon must be a data URI; got {icon:.32}");
 
-  // ABI 0.3.0: each middleware's input and output schemas are embedded as JSON
+  // ABI 0.4.0: each middleware's input and output schemas are embedded as JSON
   // objects (not strings).
   let echo = v["middlewares"]
     .as_array()

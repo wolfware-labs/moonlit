@@ -5,6 +5,7 @@ use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
 use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::permissions::PermissionKind;
 use moonlit_engine::plugin::{Plugin, PluginError, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
@@ -81,4 +82,18 @@ async fn init_after_a_trap_reports_the_trap() {
 async fn bytes_that_are_not_a_component_fail_to_compile() {
   let result = Plugin::instantiate(&engine(), b"not wasm", config(), Arc::new(NullSink)).await;
   assert!(matches!(result, Err(PluginError::Compile(_))));
+}
+
+#[tokio::test]
+async fn describe_returns_declared_permissions() {
+  let mut instance = Plugin::instantiate(&engine(), FIXTURE, config(), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let meta = instance.describe().await.unwrap();
+  assert_eq!(meta.permissions.len(), 2);
+  assert_eq!(meta.permissions[0].kind, PermissionKind::Network);
+  assert_eq!(meta.permissions[0].values, vec!["api.example.com"]);
+  assert!(!meta.permissions[0].optional);
+  assert_eq!(meta.permissions[1].kind, PermissionKind::Exec);
+  assert!(meta.permissions[1].optional);
 }

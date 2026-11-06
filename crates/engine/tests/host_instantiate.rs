@@ -48,7 +48,7 @@ async fn init_ok_and_failinit_err() {
 async fn describe_and_list_carry_icon_and_io_schema() {
   let mut p = instance().await;
 
-  // ABI 0.3.0: describe() carries the plugin icon as a data URI.
+  // ABI 0.4.0: describe() carries the plugin icon as a data URI.
   let meta = p.describe().await.expect("describe Ok");
   let icon = meta.icon.expect("test fixture must carry an icon");
   assert!(

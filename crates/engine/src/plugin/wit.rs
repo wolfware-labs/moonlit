@@ -39,6 +39,31 @@ impl From<PluginMetadata> for crate::plugin::PluginMetadata {
       version: value.version,
       description: value.description,
       icon: value.icon,
+      permissions: value.permissions.into_iter().map(Into::into).collect(),
+    }
+  }
+}
+
+impl From<moonlit::plugin::types::PermissionRequest> for crate::plugin::permissions::DeclaredPermission {
+  fn from(value: moonlit::plugin::types::PermissionRequest) -> Self {
+    Self {
+      kind: value.kind.into(),
+      values: value.values,
+      reason: value.reason,
+      optional: value.optional,
+    }
+  }
+}
+
+impl From<moonlit::plugin::types::PermissionKind> for crate::plugin::permissions::PermissionKind {
+  fn from(value: moonlit::plugin::types::PermissionKind) -> Self {
+    use moonlit::plugin::types::PermissionKind as Wit;
+    match value {
+      Wit::Network => Self::Network,
+      Wit::Exec => Self::Exec,
+      Wit::Env => Self::Env,
+      Wit::FilesystemRead => Self::FilesystemRead,
+      Wit::FilesystemWrite => Self::FilesystemWrite,
     }
   }
 }

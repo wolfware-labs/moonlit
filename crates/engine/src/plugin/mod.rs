@@ -6,6 +6,7 @@ pub mod wit;
 // mod expr;
 mod artifact;
 pub mod host;
+pub mod permissions;
 pub mod publish;
 
 use crate::engine::Engine;
@@ -24,6 +25,7 @@ pub struct PluginMetadata {
   pub version: String,
   pub description: String,
   pub icon: Option<String>,
+  pub permissions: Vec<permissions::DeclaredPermission>,
 }
 
 pub struct Plugin;

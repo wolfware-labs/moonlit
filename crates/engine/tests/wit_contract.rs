@@ -14,12 +14,12 @@ fn load() -> (Resolve, PackageId, WorldId) {
 }
 
 #[test]
-fn package_is_moonlit_plugin_0_3_0() {
+fn package_is_moonlit_plugin_0_4_0() {
   let (resolve, package_id, _) = load();
   let name = &resolve.packages[package_id].name;
   assert_eq!(name.namespace, "moonlit");
   assert_eq!(name.name, "plugin");
-  assert_eq!(name.version.as_ref().map(ToString::to_string).as_deref(), Some("0.3.0"));
+  assert_eq!(name.version.as_ref().map(ToString::to_string).as_deref(), Some("0.4.0"));
 }
 
 /// `PLUGIN_WORLD` is stamped into every published OCI config as `moonlit.world`, and the registry
@@ -160,4 +160,9 @@ fn world_imports_the_five_wasi_0_2_3_interfaces() {
       "world must import wasi:{expected}; imports = {wasi:?}"
     );
   }
+}
+
+#[test]
+fn plugin_world_is_0_4_0() {
+  assert_eq!(moonlit_engine::plugin::publish::PLUGIN_WORLD, "moonlit:plugin@0.4.0");
 }

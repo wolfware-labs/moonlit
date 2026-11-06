@@ -1,7 +1,7 @@
 //! Write a Moonlit plugin: one [`Middleware`] impl per step, and one
 //! [`moonlit_plugin!`] block naming them.
 //!
-//! Targets plugin ABI `moonlit:plugin@0.3.0`. Each middleware publishes a JSON
+//! Targets plugin ABI `moonlit:plugin@0.4.0`. Each middleware publishes a JSON
 //! Schema for its `Input` and `Output`, which is what `moonlit plugin inspect`
 //! reads. See [`Middleware`] for a worked example and [`testing`] for driving
 //! one in a unit test.

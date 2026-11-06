@@ -3,7 +3,7 @@
 // carry the WIT inside its own package; moonlit-engine is `publish = false`
 // and binds this tree by relative path (`path: "../pdk/wit"`).
 
-package moonlit:plugin@0.3.0;
+package moonlit:plugin@0.4.0;
 
 /// Core data types shared across the plugin ABI.
 interface types {
@@ -40,6 +40,16 @@ interface types {
     output-schema: option<string>,
   }
 
+  enum permission-kind { network, exec, env, filesystem-read, filesystem-write }
+
+  record permission-request {
+    kind: permission-kind,
+    /// hosts (network), programs (exec), env globs (env); empty for filesystem kinds
+    values: list<string>,
+    reason: string,
+    optional: bool,
+  }
+
   record plugin-metadata {
     name: string,
     version: string,
@@ -47,6 +57,8 @@ interface types {
     /// Embedded icon as a data URI, e.g. "data:image/png;base64,...". Absent for
     /// plugins built against older ABIs; consumers fall back to a default glyph.
     icon: option<string>,
+    /// Capabilities the plugin asks the user to grant.
+    permissions: list<permission-request>,
   }
 }
 

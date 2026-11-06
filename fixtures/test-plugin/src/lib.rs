@@ -6,7 +6,7 @@ wit_bindgen::generate!({
 
 use crate::moonlit::plugin::host;
 use crate::moonlit::plugin::process;
-use crate::moonlit::plugin::types::LogLevel;
+use crate::moonlit::plugin::types::{LogLevel, PermissionKind, PermissionRequest};
 
 struct Component;
 
@@ -21,6 +21,20 @@ impl Guest for Component {
             version: "0.1.0".to_string(),
             description: "Moonlit host test fixture".to_string(),
             icon: Some(ICON_DATA_URI.to_string()),
+            permissions: vec![
+                PermissionRequest {
+                    kind: PermissionKind::Network,
+                    values: vec!["api.example.com".to_string()],
+                    reason: "Calls the example API.".to_string(),
+                    optional: false,
+                },
+                PermissionRequest {
+                    kind: PermissionKind::Exec,
+                    values: vec!["git".to_string()],
+                    reason: "Only for the tag middleware.".to_string(),
+                    optional: true,
+                },
+            ],
         }
     }
 

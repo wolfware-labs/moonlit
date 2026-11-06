@@ -1,7 +1,7 @@
 //! `moonlit_plugin!` — generates the WIT `Guest` glue and `export!` for a
 //! plugin from a declaration of its name, middlewares, and optional config/state.
 //!
-//! Emits plugin ABI `moonlit:plugin@0.3.0` metadata: an optional embedded icon
+//! Emits plugin ABI `moonlit:plugin@0.4.0` metadata: an optional embedded icon
 //! (`icon = "…"`) and, per middleware, a JSON Schema for both its typed `Input`
 //! and its `Output`.
 
@@ -149,6 +149,7 @@ fn expand(decl: &PluginDecl) -> proc_macro2::TokenStream {
                   description: ::core::option_env!("CARGO_PKG_DESCRIPTION")
                       .unwrap_or("").to_string(),
                   icon: #icon,
+                  permissions: ::std::vec::Vec::new(),
               }
           }
 

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 const ARTIFACT_TYPE: &str = "application/vnd.wasm.component.v1+wasm";
 pub const LAYER_MEDIA_TYPE: &str = "application/wasm";
-pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.3.0";
+pub const PLUGIN_WORLD: &str = "moonlit:plugin@0.4.0";
 
 #[must_use = "an assembled artifact does nothing until it is pushed"]
 pub struct PluginArtifact {
