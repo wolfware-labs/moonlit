@@ -300,4 +300,53 @@ mod tests {
     let help = diagnostic.help.as_deref().expect("help");
     assert!(!help.contains('\u{1b}'), "{help:?}");
   }
+
+  fn declared(kind: crate::plugin::permissions::PermissionKind, values: &[&str], reason: &str) -> DeclaredPermission {
+    DeclaredPermission {
+      kind,
+      values: values.iter().map(|v| (*v).to_string()).collect(),
+      reason: reason.to_string(),
+      optional: false,
+    }
+  }
+
+  #[test]
+  fn missing_grant_names_the_values_and_tells_what_to_add() {
+    use crate::plugin::permissions::PermissionKind;
+    let source = ConfigSource::new("plugins: []\n", "release.yml");
+    let missing = declared(
+      PermissionKind::Network,
+      &["api.example.com", "*.cdn.example.com"],
+      "Calls the API.",
+    );
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp", &missing, Span::new(2, 5));
+    assert_eq!(
+      diagnostic.message(),
+      "plugin 'tp' needs to connect to the internet (api.example.com, *.cdn.example.com) \u{2014} \"Calls the API.\""
+    );
+    assert_eq!(
+      diagnostic.help.as_deref(),
+      Some("add to its permissions: network: [\"api.example.com\", \"*.cdn.example.com\"]")
+    );
+    assert_eq!(diagnostic.label, "this plugin is missing a permission");
+    let span = diagnostic.span().expect("span");
+    assert_eq!((span.offset(), span.len()), (2, 3));
+  }
+
+  #[test]
+  fn missing_grant_without_values_omits_the_value_list() {
+    use crate::plugin::permissions::PermissionKind;
+    let source = ConfigSource::new("plugins: []\n", "release.yml");
+    let missing = declared(PermissionKind::FilesystemWrite, &[], "Writes the changelog.");
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp", &missing, Span::new(0, 7));
+    assert_eq!(
+      diagnostic.message(),
+      "plugin 'tp' needs to read and change files in your project \u{2014} \"Writes the changelog.\""
+    );
+    assert_eq!(
+      diagnostic.help.as_deref(),
+      Some("add to its permissions: filesystem: read-write")
+    );
+    assert!(diagnostic.span().is_some());
+  }
 }
