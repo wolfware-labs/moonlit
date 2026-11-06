@@ -238,7 +238,7 @@ impl ConfigDiagnostic {
       source.yaml,
       format!(
         "plugin '{plugin}' needs to {}{values} \u{2014} \"{}\"",
-        lower_first(missing.kind.sentence()),
+        missing.kind.verb_phrase(),
         display_safe(&missing.reason)
       ),
       Some(span),
@@ -268,14 +268,6 @@ impl ConfigDiagnostic {
   pub fn span(&self) -> Option<&SourceSpan> {
     self.span.as_ref()
   }
-}
-
-fn lower_first(text: &str) -> String {
-  let mut chars = text.chars();
-  chars
-    .next()
-    .map(|first| first.to_lowercase().chain(chars).collect())
-    .unwrap_or_default()
 }
 
 #[cfg(test)]

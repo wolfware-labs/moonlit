@@ -26,6 +26,16 @@ impl PermissionKind {
       PermissionKind::FilesystemWrite => "Read and change files in your project",
     }
   }
+
+  /// [`PermissionKind::sentence`] with its first letter lowercased, for use inside a longer sentence.
+  #[must_use]
+  pub fn verb_phrase(self) -> String {
+    let mut chars = self.sentence().chars();
+    chars
+      .next()
+      .map(|first| first.to_lowercase().chain(chars).collect())
+      .unwrap_or_default()
+  }
 }
 
 /// A permission a plugin declares in its metadata.
@@ -264,5 +274,14 @@ mod tests {
     assert!(optional_for_target(&d, PermissionKind::Exec, "git").is_none());
     assert!(optional_for_target(&d, PermissionKind::Network, "api.example.com").is_some());
     assert!(optional_for_target(&d, PermissionKind::Env, "X").is_none());
+  }
+
+  #[test]
+  fn verb_phrase_lowercases_the_first_letter_only() {
+    assert_eq!(PermissionKind::Network.verb_phrase(), "connect to the internet");
+    assert_eq!(
+      PermissionKind::FilesystemWrite.verb_phrase(),
+      "read and change files in your project"
+    );
   }
 }

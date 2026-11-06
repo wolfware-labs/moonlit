@@ -88,7 +88,7 @@ pub fn render(view: &ConsentView, color: bool) -> String {
     let missing: Vec<String> = KINDS
       .iter()
       .filter(|k| !view.required.iter().chain(view.optional.iter()).any(|p| p.kind == **k))
-      .map(|k| lower_first(k.sentence()))
+      .map(|k| k.verb_phrase())
       .collect();
     if view.not_requested && !missing.is_empty() {
       let _ = writeln!(out, "  Not requested: {}", missing.join(", "));
@@ -103,14 +103,6 @@ pub fn render(view: &ConsentView, color: bool) -> String {
 #[must_use]
 pub fn render_changes(file: &str, diff: &str) -> String {
   format!("  {file}\n{diff}\n")
-}
-
-fn lower_first(sentence: &str) -> String {
-  let mut chars = sentence.chars();
-  match chars.next() {
-    Some(first) => first.to_lowercase().chain(chars).collect(),
-    None => String::new(),
-  }
 }
 
 fn icon(kind: PermissionKind) -> &'static str {
