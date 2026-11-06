@@ -387,3 +387,39 @@ fn file_plugin_gets_rebuild_hint() {
     ))
     .stderr(contains("rebuild it against moonlit-pdk for moonlit:plugin@0.4.0"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn json_error_lists_each_incompatible_plugin() {
+  let server = registry_with_upgrade().await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let host = server.address().to_string();
+  let stdout = tokio::task::spawn_blocking({
+    let dir = dir.path().to_path_buf();
+    move || {
+      moonlit_in(&dir)
+        .args(["run", "--output", "json"])
+        .assert()
+        .code(3)
+        .get_output()
+        .stdout
+        .clone()
+    }
+  })
+  .await
+  .unwrap();
+  let text = String::from_utf8(stdout).unwrap();
+  let error: Value = text
+    .lines()
+    .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+    .find(|v| v["type"] == "error")
+    .unwrap_or_else(|| panic!("no error line in {text}"));
+  assert_eq!(error["exit_code"], 3);
+  assert_eq!(
+    error["plugins"],
+    json!([
+      { "name": "old-a", "url": format!("oci://{host}/acme/old-a:1.0.0"), "built_for": OLD_WORLD, "supports": WORLD },
+      { "name": "old-b", "url": format!("oci://{host}/acme/old-b:1.0.0"), "built_for": OLD_WORLD, "supports": WORLD },
+    ])
+  );
+}
