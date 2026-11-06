@@ -124,7 +124,9 @@ fn doctor_fixes_missing_grant_with_yes() {
   project
     .doctor(&[])
     .code(2)
-    .stdout(contains("✗ test-plugin: "))
+    .stdout(contains(
+      "✗ test-plugin: not granted: Connect to the internet (api.example.com)\n",
+    ))
     .stderr(contains("pass --yes"));
   assert_eq!(project.release(), before);
 
@@ -184,5 +186,112 @@ fn doctor_reports_unfixable_exit_1() {
     .stdout(contains("rebuild it against moonlit-pdk"))
     .stdout(contains("✗ gone: cannot resolve"));
 
+  assert_eq!(project.release(), before);
+}
+
+fn oci_entry(server: &MockServer, name: &str, tag: &str) -> String {
+  entry(name, &format!("oci://{}/acme/test-plugin:{tag}", server.address()), "")
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_fixes_two_plugins_in_one_write() {
+  let server = registry(&[
+    ("0.3.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("0.4.0", "pdk_sample.wasm", WORLD),
+  ])
+  .await;
+  let plugins = [
+    entry("test-plugin", &file_url("test_plugin.wasm"), ""),
+    oci_entry(&server, "sample", "0.3.0"),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+
+  let output = project.doctor(&["--yes"]).success().get_output().clone();
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  assert_eq!(stdout.matches("  release.yml\n").count(), 1, "{stdout}");
+  assert!(stdout.contains("test-plugin: permissions granted"), "{stdout}");
+  assert!(stdout.contains("sample: 0.3.0 → 0.4.0"), "{stdout}");
+
+  let release = project.release();
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert!(release.contains("test-plugin:0.4.0"), "{release}");
+  project.doctor(&[]).success().stdout(contains("release.yml looks good."));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_crosses_majors_only_with_flag() {
+  let server = registry(&[
+    ("1.0.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("2.0.0", "pdk_sample.wasm", WORLD),
+  ])
+  .await;
+  let project = Project::new(&oci_entry(&server, "test-plugin", "1.0.0"));
+  let before = project.release();
+
+  project
+    .doctor(&[])
+    .code(1)
+    .stdout(contains("; use 2.0.0 instead (run `moonlit doctor --major` to fix)\n"));
+  assert_eq!(project.release(), before);
+
+  project
+    .doctor(&["--major"])
+    .success()
+    .stdout(contains("test-plugin: 1.0.0 → 2.0.0"));
+  assert_eq!(project.release(), before.replace(":1.0.0", ":2.0.0"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_move_that_needs_a_grant_asks_for_yes() {
+  let server = registry(&[
+    ("0.3.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("0.4.0", "test_plugin.wasm", WORLD),
+  ])
+  .await;
+  let project = Project::new(&oci_entry(&server, "test-plugin", "0.3.0"));
+  let before = project.release();
+
+  project.doctor(&[]).code(2).stderr(contains("pass --yes"));
+  assert_eq!(project.release(), before);
+
+  project
+    .doctor(&["--yes"])
+    .success()
+    .stdout(contains("This plugin wants to:"))
+    .stdout(contains("test-plugin: 0.3.0 → 0.4.0"));
+  let release = project.release();
+  assert!(release.contains("test-plugin:0.4.0"), "{release}");
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert!(!release.contains("exec:"), "{release}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_exits_3_and_writes_nothing_when_the_registry_is_down() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(500))
+    .mount(&server)
+    .await;
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  let plugins = [
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+    oci_entry(&server, "test-plugin", "0.3.0"),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+  let before = project.release();
+
+  project
+    .doctor(&["--yes"])
+    .code(3)
+    .stdout(contains(
+      "✗ granted: not granted: Connect to the internet (api.example.com)\n",
+    ))
+    .stdout(contains(format!(
+      "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; cannot reach the registry\n"
+    )));
   assert_eq!(project.release(), before);
 }

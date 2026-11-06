@@ -26,6 +26,12 @@ struct Fix {
 enum Outcome {
   Healthy,
   Problem { text: String, fix: Option<Box<Fix>> },
+  RegistryDown { text: String },
+}
+
+enum Unfixed {
+  Problem(String),
+  RegistryDown(String),
 }
 
 #[must_use]
@@ -43,6 +49,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
 
   let mut fixes = Vec::new();
   let mut unfixed = false;
+  let mut registry_down = false;
   for plugin in &config.plugins.value {
     let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
     match check(&plugin.name, plugin.url.value.as_str(), &granted, args.major).await {
@@ -54,9 +61,16 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
           None => unfixed = true,
         }
       }
+      Outcome::RegistryDown { text } => {
+        println!("✗ {}: {text}", plugin.name);
+        registry_down = true;
+      }
     }
   }
 
+  if registry_down {
+    return fail("cannot reach the registry; nothing was changed", 3);
+  }
   if fixes.is_empty() {
     if !unfixed {
       println!("{file} looks good.");
@@ -92,7 +106,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
     print!("{}", consent::render(&view, color));
   }
   print!("{}", consent::render_changes(&file, &render_diff(&before, &content)));
-  if grants && !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
+  if !args.yes && consent::interactive() && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
     println!("Nothing changed.");
     return Ok(1);
   }
@@ -134,9 +148,12 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
           text,
           fix: Some(Box::new(fix)),
         },
-        Err(why) => Outcome::Problem {
+        Err(Unfixed::Problem(why)) => Outcome::Problem {
           text: format!("{text}; {why}"),
           fix: None,
+        },
+        Err(Unfixed::RegistryDown(why)) => Outcome::RegistryDown {
+          text: format!("{text}; {why}"),
         },
       }
     }
@@ -147,7 +164,7 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
   }
 }
 
-async fn moved(name: &str, url: &str, found: &str, granted: &Permissions, major: bool) -> Result<Fix, String> {
+async fn moved(name: &str, url: &str, found: &str, granted: &Permissions, major: bool) -> Result<Fix, Unfixed> {
   let incompatible = IncompatiblePlugin {
     name: name.to_string(),
     url: url.to_string(),
@@ -160,11 +177,15 @@ async fn moved(name: &str, url: &str, found: &str, granted: &Permissions, major:
     .map_or(Suggestion::RegistryUnavailable, |(_, s)| s);
   let version = match &suggestion {
     Suggestion::Version { version, major: crosses } if major || !crosses => version.clone(),
-    other => return Err(compat::hint(other, PLUGIN_WORLD).unwrap_or_else(|| "cannot reach the registry".to_string())),
+    Suggestion::RegistryUnavailable => return Err(Unfixed::RegistryDown("cannot reach the registry".to_string())),
+    other => return Err(Unfixed::Problem(compat::hint(other, PLUGIN_WORLD).unwrap_or_default())),
   };
-  let reference = registry_ref(url).ok_or_else(|| "does not come from a registry".to_string())?;
+  let reference = registry_ref(url).ok_or_else(|| Unfixed::Problem("does not come from a registry".to_string()))?;
   let target = format!("oci://{}/{}/{}:{}", reference.host, reference.org, reference.name, version);
-  let probed = probe(&target).await.map_err(|e| e.to_string())?;
+  let probed = probe(&target).await.map_err(|e| match e {
+    ProbeError::Resolve { .. } => Unfixed::RegistryDown(e.to_string()),
+    other => Unfixed::Problem(other.to_string()),
+  })?;
   let uncovered = uncovered(&probed.meta.permissions, granted);
   let permissions = (!uncovered.is_empty()).then(|| granting(granted, &uncovered));
   Ok(Fix {
