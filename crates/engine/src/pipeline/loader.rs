@@ -31,10 +31,17 @@ struct ResolvedPlugin {
   cached: bool,
 }
 
-struct LoadedPlugin {
+struct DescribedPlugin {
   name: String,
   url_span: Span,
   permissions: Permissions,
+  instance: PluginInstance,
+  config_view: serde_json::Value,
+  cached: bool,
+}
+
+struct LoadedPlugin {
+  name: String,
   instance: PluginInstance,
   middlewares: Vec<String>,
 }
@@ -70,8 +77,9 @@ impl Pipeline {
       data.push(layer);
     }
 
-    let plugins = load_plugins(engine, requests, &manifest.working_dir, opts.offline, events).await?;
-    reject_ungranted(&plugins, &source)?;
+    let described = describe_plugins(engine, requests, &manifest.working_dir, opts.offline, events).await?;
+    reject_ungranted(&described, &source)?;
+    let plugins = init_plugins(described, events).await?;
     let steps = flatten_steps(&config, &plugins, &source, &opts.stages_filter)?;
 
     Ok(Pipeline {
@@ -84,13 +92,13 @@ impl Pipeline {
   }
 }
 
-async fn load_plugins(
+async fn describe_plugins(
   engine: &Engine,
   requests: Vec<PluginRequest>,
   working_dir: &Path,
   offline: bool,
   events: &Sender<PipelineEvent>,
-) -> Result<IndexMap<String, LoadedPlugin>, PipelineError> {
+) -> Result<IndexMap<String, DescribedPlugin>, PipelineError> {
   let declared: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
   let env_snapshot: Vec<(String, String)> = std::env::vars().collect();
 
@@ -103,20 +111,33 @@ async fn load_plugins(
     let working_dir = working_dir.to_path_buf();
     let env_snapshot = env_snapshot.clone();
     let events = events.clone();
-    tasks.spawn(async move { load_plugin(&engine, plugin, working_dir, env_snapshot, &events).await });
+    tasks.spawn(async move { describe_plugin(&engine, plugin, working_dir, env_snapshot, &events).await });
   }
 
-  let mut loaded: HashMap<String, LoadedPlugin> = join_all(tasks)
-    .await?
-    .into_iter()
-    .map(|plugin| (plugin.name.clone(), plugin))
-    .collect();
-  Ok(
-    declared
-      .into_iter()
-      .filter_map(|name| loaded.remove(&name).map(|plugin| (name, plugin)))
-      .collect(),
-  )
+  let described = join_all(tasks).await?.into_iter().map(|plugin| (plugin.name.clone(), plugin));
+  Ok(in_order(&declared, described))
+}
+
+async fn init_plugins(
+  described: IndexMap<String, DescribedPlugin>,
+  events: &Sender<PipelineEvent>,
+) -> Result<IndexMap<String, LoadedPlugin>, PipelineError> {
+  let declared: Vec<String> = described.keys().cloned().collect();
+  let mut tasks = JoinSet::new();
+  for plugin in described.into_values() {
+    let events = events.clone();
+    tasks.spawn(async move { init_plugin(plugin, &events).await });
+  }
+  let loaded = join_all(tasks).await?.into_iter().map(|plugin| (plugin.name.clone(), plugin));
+  Ok(in_order(&declared, loaded))
+}
+
+fn in_order<T>(declared: &[String], items: impl Iterator<Item = (String, T)>) -> IndexMap<String, T> {
+  let mut by_name: HashMap<String, T> = items.collect();
+  declared
+    .iter()
+    .filter_map(|name| by_name.remove(name).map(|item| (name.clone(), item)))
+    .collect()
 }
 
 async fn join_all<T: 'static>(mut tasks: JoinSet<Result<T, PipelineError>>) -> Result<Vec<T>, PipelineError> {
@@ -230,13 +251,13 @@ async fn resolve_plugin(
   })
 }
 
-async fn load_plugin(
+async fn describe_plugin(
   engine: &Engine,
   plugin: ResolvedPlugin,
   working_dir: PathBuf,
   env_snapshot: Vec<(String, String)>,
   events: &Sender<PipelineEvent>,
-) -> Result<LoadedPlugin, PipelineError> {
+) -> Result<DescribedPlugin, PipelineError> {
   let ResolvedPlugin { request, bytes, cached } = plugin;
   let PluginRequest {
     name,
@@ -263,6 +284,30 @@ async fn load_plugin(
     .map_err(|e| load_error(e.to_string()))?;
   let declared = instance.describe().await.map_err(|e| load_error(e.to_string()))?.permissions;
   instance.set_declared(declared);
+
+  Ok(DescribedPlugin {
+    name,
+    url_span,
+    permissions,
+    instance,
+    config_view,
+    cached,
+  })
+}
+
+async fn init_plugin(plugin: DescribedPlugin, events: &Sender<PipelineEvent>) -> Result<LoadedPlugin, PipelineError> {
+  let DescribedPlugin {
+    name,
+    mut instance,
+    config_view,
+    cached,
+    ..
+  } = plugin;
+  let load_error = |message: String| PipelineError::PluginLoad {
+    plugin: name.clone(),
+    message,
+  };
+
   let metadata = instance.init(&config_view).await.map_err(load_error)?;
   let middlewares = instance
     .list_middlewares()
@@ -282,14 +327,12 @@ async fn load_plugin(
 
   Ok(LoadedPlugin {
     name,
-    url_span,
-    permissions,
     instance,
     middlewares,
   })
 }
 
-fn reject_ungranted(plugins: &IndexMap<String, LoadedPlugin>, source: &ConfigSource) -> Result<(), PipelineError> {
+fn reject_ungranted(plugins: &IndexMap<String, DescribedPlugin>, source: &ConfigSource) -> Result<(), PipelineError> {
   let missing: Vec<ConfigDiagnostic> = plugins
     .values()
     .flat_map(|plugin| {

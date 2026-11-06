@@ -341,3 +341,36 @@ async fn granted_glob_covers_required() {
   let pipeline = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await.expect("loads");
   assert_eq!(pipeline.step_count(), 1);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn missing_grant_is_reported_before_init_runs() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let yaml = format!(
+    "name: d\nplugins:\n  - name: tp\n    url: {}\n    config:\n      failInit: 'true'\nstages:\n  b:\n    - name: s\n      run: tp.log-and-output\n",
+    fixture_url()
+  );
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail");
+  };
+  assert_eq!(err.exit_code(), 2);
+  assert!(matches!(err, PipelineError::MissingGrants(_)), "{err:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn missing_grant_of_one_plugin_stops_init_of_every_plugin() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let yaml = format!(
+    "name: d\nplugins:\n  - name: granted\n    url: {url}\n    permissions:\n      network: [api.example.com]\n    config:\n      failInit: 'true'\n  - name: bare\n    url: {url}\nstages:\n  b:\n    - name: s\n      run: granted.log-and-output\n",
+    url = fixture_url()
+  );
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail");
+  };
+  let PipelineError::MissingGrants(found) = err else {
+    panic!("expected MissingGrants, got {err:?}");
+  };
+  assert_eq!(found.len(), 1);
+  assert!(found[0].message().starts_with("plugin 'bare'"), "{}", found[0].message());
+}
