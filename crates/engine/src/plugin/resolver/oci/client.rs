@@ -1,9 +1,11 @@
-use crate::plugin::resolver::ResolveError;
 use crate::plugin::resolver::oci::auth::is_auth_failure;
+use crate::plugin::resolver::{CONNECT_TIMEOUT, READ_TIMEOUT, ResolveError};
+use oci_client::client::{ClientConfig, ClientProtocol};
 use oci_client::errors::{OciDistributionError, OciErrorCode};
 use oci_client::manifest::{OciDescriptor, OciImageManifest};
 use oci_client::secrets::RegistryAuth;
 use oci_client::{Client, Reference};
+use std::time::Duration;
 
 pub struct OciClient(Client);
 
@@ -13,14 +15,25 @@ impl OciClient {
     if crate::registry::is_loopback(registry) {
       Self::with_plain_http_for(registry)
     } else {
-      Self(Client::default())
+      Self::with_config(ClientProtocol::default(), CONNECT_TIMEOUT, READ_TIMEOUT)
     }
   }
 
   #[must_use]
   pub fn with_plain_http_for(registry: &str) -> Self {
-    Self(Client::new(oci_client::client::ClientConfig {
-      protocol: oci_client::client::ClientProtocol::HttpsExcept(vec![registry.to_string()]),
+    Self::with_plain_http_and_timeouts(registry, CONNECT_TIMEOUT, READ_TIMEOUT)
+  }
+
+  #[must_use]
+  pub fn with_plain_http_and_timeouts(registry: &str, connect: Duration, read: Duration) -> Self {
+    Self::with_config(ClientProtocol::HttpsExcept(vec![registry.to_string()]), connect, read)
+  }
+
+  fn with_config(protocol: ClientProtocol, connect: Duration, read: Duration) -> Self {
+    Self(Client::new(ClientConfig {
+      protocol,
+      connect_timeout: Some(connect),
+      read_timeout: Some(read),
       ..Default::default()
     }))
   }

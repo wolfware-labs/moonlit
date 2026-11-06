@@ -561,4 +561,39 @@ mod tests {
   fn the_production_client_is_constructible() {
     let _client = OciClient::for_registry("registry.moonlit.rs");
   }
+
+  #[tokio::test]
+  async fn a_registry_that_accepts_and_never_answers_is_a_network_error() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let host = listener.local_addr().unwrap().to_string();
+    let held = tokio::spawn(async move {
+      let mut open = Vec::new();
+      while let Ok((stream, _)) = listener.accept().await {
+        open.push(stream);
+      }
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let cache = cache_at(&dir, &Arc::new(AtomicU64::new(1_000)));
+    let home = tempfile::tempdir().unwrap();
+    let client = OciClient::with_plain_http_and_timeouts(&host, Duration::from_millis(200), Duration::from_millis(200));
+
+    let started = std::time::Instant::now();
+    let result = tokio::time::timeout(
+      Duration::from_secs(5),
+      resolve_with(
+        &client,
+        home.path(),
+        &format!("{host}/w/plugin:1.0.0"),
+        &opts(false),
+        &cache,
+        None,
+      ),
+    )
+    .await;
+    held.abort();
+
+    let err = result.expect("resolve returned before the outer timeout").unwrap_err();
+    assert!(matches!(err, ResolveError::Network(_)), "{err:?}");
+    assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
+  }
 }

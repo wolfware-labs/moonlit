@@ -1,6 +1,7 @@
 use crate::plugin::artifact::{PluginArtifact, PluginArtifactMetadata};
 use crate::plugin::publish::error::PublishError;
 use crate::plugin::resolver::oci::auth::{is_auth_failure, resolve_auth};
+use crate::plugin::resolver::{CONNECT_TIMEOUT, READ_TIMEOUT};
 use oci_client::client::PushResponse;
 use oci_client::secrets::RegistryAuth;
 use oci_client::{Client, Reference};
@@ -27,7 +28,11 @@ pub struct OciPushClient(Client);
 
 #[must_use]
 pub fn new_push_client() -> OciPushClient {
-  OciPushClient(Client::default())
+  OciPushClient(Client::new(oci_client::client::ClientConfig {
+    connect_timeout: Some(CONNECT_TIMEOUT),
+    read_timeout: Some(READ_TIMEOUT),
+    ..Default::default()
+  }))
 }
 
 #[cfg(test)]
