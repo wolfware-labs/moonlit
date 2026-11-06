@@ -1,5 +1,7 @@
 use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config, parse_config_unvalidated};
 
+use crate::display::escape;
+
 /// A plugin entry to write into a release file.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PluginEntry {
@@ -266,18 +268,37 @@ fn scalar(value: &str) -> String {
 
 #[must_use]
 fn quote(value: &str) -> String {
-  let escaped = value
-    .replace('\\', "\\\\")
-    .replace('"', "\\\"")
-    .replace('\n', "\\n")
-    .replace('\r', "\\r")
-    .replace('\t', "\\t");
-  format!("\"{escaped}\"")
+  let mut escaped = String::with_capacity(value.len() + 2);
+  escaped.push('"');
+  for c in value.chars() {
+    match c {
+      '\\' => escaped.push_str("\\\\"),
+      '"' => escaped.push_str("\\\""),
+      '\n' => escaped.push_str("\\n"),
+      '\r' => escaped.push_str("\\r"),
+      '\t' => escaped.push_str("\\t"),
+      c => match escape(c) {
+        Some(code) => escaped.push_str(&code),
+        None => escaped.push(c),
+      },
+    }
+  }
+  escaped.push('"');
+  escaped
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn control_characters_are_escaped_in_the_written_file() {
+    let mut entry = github();
+    entry.permissions.network = vec!["api.github.com\u{1b}[8m".into()];
+    let out = add_plugin(RELEASE, &entry).expect("added");
+    assert!(!out.contains('\u{1b}'), "{out:?}");
+    assert!(out.contains("network: [\"api.github.com\\x1b[8m\"]"), "{out}");
+  }
 
   #[test]
   fn set_plugin_url_changes_only_the_url() {

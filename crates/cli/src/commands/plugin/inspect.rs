@@ -1,4 +1,5 @@
 use crate::cli::{OutputMode, PluginInspectArgs};
+use crate::display::display_safe;
 use crate::plugin_probe::introspect;
 use crate::render::resolve_mode;
 use moonlit_engine::cache::Cache;
@@ -92,15 +93,19 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
 
 fn print_pretty(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo]) {
   use comfy_table::{Table, presets::UTF8_BORDERS_ONLY};
-  println!("{} v{}", plugin_metadata.name, plugin_metadata.version);
+  println!(
+    "{} v{}",
+    display_safe(&plugin_metadata.name),
+    display_safe(&plugin_metadata.version)
+  );
   if !plugin_metadata.description.is_empty() {
-    println!("{}", plugin_metadata.description);
+    println!("{}", display_safe(&plugin_metadata.description));
   }
   let mut table = Table::new();
   table.load_style(UTF8_BORDERS_ONLY);
   table.set_header(["Middleware", "Description"]);
   for m in plugin_middlewares {
-    table.add_row([m.name.as_str(), m.description.as_str()]);
+    table.add_row([display_safe(&m.name), display_safe(&m.description)]);
   }
   println!("{table}");
   if !plugin_metadata.permissions.is_empty() {
@@ -125,16 +130,16 @@ fn permission_line(p: &DeclaredPermission) -> String {
     line.push_str(": ");
     line.push_str(&p.reason);
   }
-  line
+  display_safe(&line)
 }
 
 fn print_plain(plugin_metadata: &PluginMetadata, plgin_middlewares: &[MiddlewareInfo]) {
-  println!("name: {}", plugin_metadata.name);
-  println!("version: {}", plugin_metadata.version);
-  println!("description: {}", plugin_metadata.description);
+  println!("name: {}", display_safe(&plugin_metadata.name));
+  println!("version: {}", display_safe(&plugin_metadata.version));
+  println!("description: {}", display_safe(&plugin_metadata.description));
   println!("middlewares:");
   for m in plgin_middlewares {
-    println!("  {} - {}", m.name, m.description);
+    println!("  {} - {}", display_safe(&m.name), display_safe(&m.description));
   }
   println!("permissions:");
   for p in &plugin_metadata.permissions {

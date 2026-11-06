@@ -2,6 +2,7 @@ pub mod cli;
 pub mod commands;
 pub mod compat;
 pub mod consent;
+pub mod display;
 pub mod manifest;
 pub mod plugin_probe;
 pub mod plugin_spec;

@@ -7,6 +7,7 @@ use crate::cli::{DoctorArgs, OutputMode};
 use crate::commands::update::{REFUSAL, display_path, fail, prompt_failed};
 use crate::compat::{self, Suggestion};
 use crate::consent::{self, Answer, ConsentView};
+use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::{ProbeError, probe};
 use crate::plugin_spec::registry_ref;
@@ -55,14 +56,14 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
     match check(&plugin.name, plugin.url.value.as_str(), &granted, args.major).await {
       Outcome::Healthy => println!("✓ {}", plugin.name),
       Outcome::Problem { text, fix } => {
-        println!("✗ {}: {text}", plugin.name);
+        println!("✗ {}: {}", plugin.name, display_safe(&text));
         match fix {
           Some(fix) => fixes.push(*fix),
           None => unfixed = true,
         }
       }
       Outcome::RegistryDown { text } => {
-        println!("✗ {}: {text}", plugin.name);
+        println!("✗ {}: {}", plugin.name, display_safe(&text));
         registry_down = true;
       }
     }
@@ -115,7 +116,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
   std::fs::write(&path, &content).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
   for fix in &fixes {
     match &fix.moved {
-      Some((old, new)) => println!("{}: {old} → {new}", fix.name),
+      Some((old, new)) => println!("{}: {old} → {}", fix.name, display_safe(new)),
       None => println!("{}: permissions granted", fix.name),
     }
   }

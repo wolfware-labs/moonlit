@@ -3,6 +3,7 @@ use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{RegistryClient, VersionRule};
 use semver::Version;
 
+use crate::display::display_safe;
 use crate::plugin_spec::registry_ref;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,7 +84,7 @@ fn block(plugin: &IncompatiblePlugin, suggestion: &Suggestion) -> String {
   if let Some(hint) = hint(suggestion, engine) {
     lines.push(format!("  {hint}"));
   }
-  lines.join("\n") + "\n"
+  lines.iter().map(|line| display_safe(line)).collect::<Vec<_>>().join("\n") + "\n"
 }
 
 /// What the user can do about an incompatible plugin, for an engine supporting `engine`; `None` when the registry could not say.

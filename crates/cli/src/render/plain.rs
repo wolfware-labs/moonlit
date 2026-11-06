@@ -1,5 +1,6 @@
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer};
+use crate::display::display_safe;
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::{PipelineEvent, StepResult};
 use std::io::Write;
@@ -90,7 +91,7 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
             .steps
             .iter()
             .rev()
-            .find_map(|s| s.error_message.clone())
+            .find_map(|s| s.error_message.as_deref().map(display_safe))
             .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
           let _ = writeln!(self.out, "Release failed: {msg}");
         }
@@ -114,7 +115,7 @@ impl<W: Write + Send> PlainRenderer<W> {
     if result.successful {
       let _ = writeln!(self.out, "✔ {} · {}", result.name, fmt_duration(result.duration));
     } else {
-      let err = result.error_message.as_deref().unwrap_or("failed");
+      let err = display_safe(result.error_message.as_deref().unwrap_or("failed"));
       let _ = writeln!(self.out, "✘ {} · {} — {err}", result.name, fmt_duration(result.duration));
     }
   }
@@ -150,6 +151,22 @@ mod tests {
       step: result.name.clone(),
       result,
     }
+  }
+
+  #[test]
+  fn failed_step_message_from_a_plugin_renders_escaped() {
+    let error = "blocked from running 'git' (optional permission: \"Tags.\u{1b}[1A\u{1b}[2K\")";
+    let text = render(
+      false,
+      &[
+        finished(step("s1", false, false, Some(error), &[])),
+        PipelineEvent::PipelineFinished {
+          summary: summary(vec![step("s1", false, false, Some(error), &[])], false),
+        },
+      ],
+    );
+    assert!(!text.contains('\u{1b}'), "{text:?}");
+    assert!(text.contains("\"Tags.\\x1b[1A\\x1b[2K\")"), "{text}");
   }
 
   #[test]

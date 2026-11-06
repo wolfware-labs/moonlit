@@ -98,3 +98,23 @@ async fn search_registry_down_exits_3() {
 
   search(&server, "github", "plain").code(3).stderr(contains("registry"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn search_escapes_control_characters_from_the_registry() {
+  let server = MockServer::start().await;
+  mount(
+    &server,
+    "packages(",
+    json!({ "packages": { "items": [
+      { "orgSlug": "evil", "name": "hide\u{1b}[8m", "description": "Safe\u{1b}[1A\u{1b}[2K plugin",
+        "latestVersion": null, "status": "VERIFIED", "middlewares": [] }
+    ], "cursor": null } }),
+  )
+  .await;
+
+  let assert = search(&server, "hide", "plain").success();
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(stdout.contains("Safe\\x1b[1A\\x1b[2K plugin"), "{stdout:?}");
+  assert!(stdout.contains("evil/hide\\x1b[8m"), "{stdout:?}");
+}

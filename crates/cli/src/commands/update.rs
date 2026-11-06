@@ -8,6 +8,7 @@ use semver::Version;
 
 use crate::cli::{OutputMode, UpdateArgs};
 use crate::consent::{self, Answer, ConsentView};
+use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
 use crate::plugin_spec::{RegistryRef, registry_ref};
@@ -99,7 +100,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       }
     }
     content = after;
-    println!("{}: {} → {}", plan.name, plan.old, plan.new);
+    println!("{}: {} → {}", plan.name, plan.old, display_safe(&plan.new));
   }
 
   if content != before {
@@ -164,7 +165,7 @@ async fn plan(
 }
 
 pub(crate) fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
-  eprintln!("error: {message}");
+  eprintln!("error: {}", display_safe(message));
   Err(code)
 }
 

@@ -3,6 +3,8 @@ use std::time::Duration;
 use comfy_table::{ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
 use moonlit_engine::pipeline::{PipelineSummary, StepResult};
 
+use crate::display::display_safe;
+
 #[must_use]
 pub fn fmt_duration(d: Duration) -> String {
   let ms = d.as_millis();
@@ -37,7 +39,7 @@ pub fn build_table(summary: &PipelineSummary) -> Table {
     } else {
       fmt_duration(step.duration)
     };
-    let error = step.error_message.clone().unwrap_or_else(|| "-".to_string());
+    let error = step.error_message.as_deref().map_or_else(|| "-".to_string(), display_safe);
     table.add_row([&step.name, status(step), &duration, &error]);
   }
   table

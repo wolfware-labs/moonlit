@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::summary::{build_table, fmt_duration};
 use super::{Header, Renderer};
+use crate::display::display_safe;
 use console::style;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use moonlit_engine::logging::LogLevel;
@@ -133,7 +134,7 @@ impl Renderer for PrettyRenderer {
             .steps
             .iter()
             .rev()
-            .find_map(|s| s.error_message.clone())
+            .find_map(|s| s.error_message.as_deref().map(display_safe))
             .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
           self.print(format!("{} Release failed: {msg}", style("❌").red()));
         }
@@ -167,7 +168,7 @@ impl PrettyRenderer {
         fmt_duration(result.duration)
       ));
     } else {
-      let err = result.error_message.as_deref().unwrap_or("failed");
+      let err = display_safe(result.error_message.as_deref().unwrap_or("failed"));
       self.print(format!(
         "{} {} · {} — {err}",
         style("✘").red(),

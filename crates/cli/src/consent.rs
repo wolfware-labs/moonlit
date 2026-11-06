@@ -6,6 +6,7 @@ use moonlit_engine::plugin::permissions::{DeclaredPermission, PermissionKind, is
 use moonlit_engine::registry::VerificationStatus;
 
 use crate::commands::search::badge;
+use crate::display::display_safe;
 
 const KINDS: [PermissionKind; 5] = [
   PermissionKind::Network,
@@ -46,7 +47,11 @@ pub fn render(view: &ConsentView, color: bool) -> String {
   };
   let mut out = String::new();
 
-  let mut identity = format!("  {} {}", paint(view.plugin, Style::new().bold()), view.version);
+  let mut identity = format!(
+    "  {} {}",
+    paint(&display_safe(view.plugin), Style::new().bold()),
+    display_safe(view.version)
+  );
   if let Some(status) = view.status {
     let label = badge(status);
     let painted = if status == VerificationStatus::Verified {
@@ -58,7 +63,7 @@ pub fn render(view: &ConsentView, color: bool) -> String {
   }
   let _ = writeln!(out, "{identity}");
   if !view.description.is_empty() {
-    let _ = writeln!(out, "  {}", view.description);
+    let _ = writeln!(out, "  {}", display_safe(view.description));
   }
   out.push('\n');
 
@@ -123,14 +128,18 @@ pub fn values_text(p: &DeclaredPermission) -> String {
   match p.kind {
     PermissionKind::FilesystemRead => "read-only".to_string(),
     PermissionKind::FilesystemWrite => "read-write".to_string(),
-    _ => p.values.join(", "),
+    _ => display_safe(&p.values.join(", ")),
   }
 }
 
 fn write_entry(out: &mut String, p: &DeclaredPermission, paint: &dyn Fn(&str, Style) -> String) {
   let width = KINDS.iter().map(|k| k.sentence().chars().count()).max().unwrap_or(0) + 2;
   let _ = writeln!(out, "  {} {:<width$}{}", icon(p.kind), p.kind.sentence(), values_text(p));
-  let _ = writeln!(out, "     {}", paint(&format!("\"{}\"", p.reason), Style::new().dim()));
+  let _ = writeln!(
+    out,
+    "     {}",
+    paint(&format!("\"{}\"", display_safe(&p.reason)), Style::new().dim())
+  );
   if p.kind == PermissionKind::Env && p.values.iter().any(|v| is_secret_like(v)) {
     let _ = writeln!(out, "     {}", paint("⚠ may include secrets", Style::new().yellow()));
   }
@@ -264,6 +273,21 @@ mod tests {
     let out = render(&delta, false);
     assert!(out.contains("Connect to the internet"), "{out}");
     assert!(!out.contains("Not requested"), "{out}");
+  }
+
+  #[test]
+  fn control_characters_from_the_plugin_render_escaped() {
+    let p = perm(PermissionKind::Exec, &["git\u{1b}[8m"], "Tags.\u{1b}[1A\u{1b}[2K", false);
+    let mut screen = view(vec![&p], vec![]);
+    screen.plugin = "evil\u{9b}31m";
+    screen.version = "1.0.0\u{7}";
+    screen.description = "Hides\u{1b}[8m";
+    let out = render(&screen, false);
+    assert!(!out.chars().any(|c| c.is_control() && c != '\n'), "{out:?}");
+    assert!(out.contains("\"Tags.\\x1b[1A\\x1b[2K\""), "{out}");
+    assert!(out.contains("git\\x1b[8m"), "{out}");
+    assert!(out.contains("evil\\x9b31m 1.0.0\\x07"), "{out}");
+    assert!(out.contains("Hides\\x1b[8m"), "{out}");
   }
 
   #[test]

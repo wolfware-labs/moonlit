@@ -6,6 +6,7 @@ use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionDetail
 
 use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
 use crate::consent::{self, Answer, ConsentView};
+use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
 use crate::plugin_spec::{PluginSpec, registry_ref};
@@ -76,7 +77,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
     return Ok(1);
   }
   std::fs::write(&path, &after).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
-  println!("Added {name} to {file}.");
+  println!("Added {} to {file}.", display_safe(&name));
   Ok(0)
 }
 
@@ -138,7 +139,7 @@ fn accepted_optional<'a>(optional: &[&'a DeclaredPermission], args: &AddArgs) ->
 }
 
 fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
-  eprintln!("error: {message}");
+  eprintln!("error: {}", display_safe(message));
   Err(code)
 }
 

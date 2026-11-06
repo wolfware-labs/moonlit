@@ -3,6 +3,7 @@ use console::style;
 use moonlit_engine::registry::{MiddlewareSummary, PackageHit, RegistryClient, RegistryError, VerificationStatus};
 
 use crate::cli::{DEFAULT_REGISTRY_HOST, OutputMode, SearchArgs};
+use crate::display::display_safe;
 use crate::render::resolve_mode;
 
 const TABLE_STYLE: TableStyle = TableStyle::new()
@@ -23,7 +24,7 @@ pub async fn run(output: Option<OutputMode>, args: SearchArgs) -> i32 {
   let cards = match fetch(&client, &args).await {
     Ok(cards) => cards,
     Err(e) => {
-      eprintln!("error: {e}");
+      eprintln!("error: {}", display_safe(&e.to_string()));
       return 3;
     }
   };
@@ -90,7 +91,7 @@ fn print_json(cards: &[Card]) {
 
 fn print_cards(cards: &[Card], query: &str, pretty: bool) {
   let Some(first) = cards.first() else {
-    println!("No plugins match '{query}'.");
+    println!("No plugins match '{}'.", display_safe(query));
     return;
   };
   let count = cards.len();
@@ -98,11 +99,11 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
   for card in cards {
     println!();
     let hit = &card.hit;
-    let id = format!("{}/{}", hit.org, hit.name);
+    let id = display_safe(&format!("{}/{}", hit.org, hit.name));
     let title = hit
       .latest_version
       .as_deref()
-      .map_or_else(|| id.clone(), |v| format!("{id} {v}"));
+      .map_or_else(|| id.clone(), |v| format!("{id} {}", display_safe(v)));
     let badge = badge(hit.status);
     if pretty {
       let badge = match hit.status {
@@ -115,14 +116,14 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
       println!("{title}   {badge}");
     }
     if let Some(description) = &hit.description {
-      println!("{description}");
+      println!("{}", display_safe(description));
     }
     if !card.middlewares.is_empty() {
       let mut table = Table::new();
       table.load_style(TABLE_STYLE);
       table.set_header(["MIDDLEWARE", "DESCRIPTION"]);
       for m in &card.middlewares {
-        table.add_row([m.name.as_str(), m.description.as_deref().unwrap_or("")]);
+        table.add_row([display_safe(&m.name), display_safe(m.description.as_deref().unwrap_or(""))]);
       }
       for line in table.to_string().lines() {
         println!("  {line}");
@@ -130,5 +131,8 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
     }
   }
   println!();
-  println!("Add one: moonlit add {}/{}", first.hit.org, first.hit.name);
+  println!(
+    "Add one: moonlit add {}",
+    display_safe(&format!("{}/{}", first.hit.org, first.hit.name))
+  );
 }
