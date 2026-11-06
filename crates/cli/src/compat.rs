@@ -7,7 +7,7 @@ use crate::plugin_spec::registry_ref;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Suggestion {
-  Version(String),
+  Version { version: String, major: bool },
   NoneCompatible,
   NotFromRegistry,
   RegistryUnavailable,
@@ -29,16 +29,34 @@ async fn suggest(plugin: &IncompatiblePlugin, offline: bool) -> Suggestion {
   if offline {
     return Suggestion::RegistryUnavailable;
   }
-  let rule = VersionRule {
-    current: None,
-    cross_major: true,
-    pre: false,
+  let client = RegistryClient::for_host(&reference.host);
+  let lookup = |current: Option<Version>, cross_major: bool| {
+    let rule = VersionRule {
+      current,
+      cross_major,
+      pre: false,
+    };
+    let client = client.clone();
+    let (org, name) = (reference.org.clone(), reference.name.clone());
+    async move { client.newest_compatible(&org, &name, PLUGIN_WORLD, rule).await }
   };
-  match RegistryClient::for_host(&reference.host)
-    .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
-    .await
-  {
-    Ok(Some(detail)) => Suggestion::Version(detail.version),
+  if let Ok(current) = Version::parse(&reference.tag) {
+    match lookup(Some(current), false).await {
+      Ok(Some(detail)) => {
+        return Suggestion::Version {
+          version: detail.version,
+          major: false,
+        };
+      }
+      Ok(None) => {}
+      Err(_) => return Suggestion::RegistryUnavailable,
+    }
+  }
+  match lookup(None, true).await {
+    Ok(Some(detail)) => Suggestion::Version {
+      version: detail.version,
+      major: true,
+    },
     Ok(None) => Suggestion::NoneCompatible,
     Err(_) => Suggestion::RegistryUnavailable,
   }
@@ -63,7 +81,10 @@ fn block(plugin: &IncompatiblePlugin, suggestion: &Suggestion) -> String {
     format!("  built for {built_for}, this CLI supports {engine}{upgrade_cli}"),
   ];
   match suggestion {
-    Suggestion::Version(v) => lines.push(format!("  use {v} instead (run `moonlit doctor` to fix)")),
+    Suggestion::Version { version, major } => {
+      let flag = if *major { " --major" } else { "" };
+      lines.push(format!("  use {version} instead (run `moonlit doctor{flag}` to fix)"));
+    }
     Suggestion::NoneCompatible => lines.push(format!("  no version of this plugin supports {engine} yet")),
     Suggestion::NotFromRegistry => lines.push(format!("  rebuild it against moonlit-pdk for {engine}")),
     Suggestion::RegistryUnavailable => {}
@@ -104,6 +125,21 @@ mod tests {
     );
     let older = render(&[(plugin(Some("moonlit:plugin@0.3.0")), Suggestion::RegistryUnavailable)]);
     assert!(!older.contains("upgrade the CLI"), "{older}");
+  }
+
+  #[test]
+  fn version_suggestion_names_the_doctor_command_that_applies_it() {
+    let line = |major| {
+      render(&[(
+        plugin(Some("moonlit:plugin@0.3.0")),
+        Suggestion::Version {
+          version: "2.0.0".to_string(),
+          major,
+        },
+      )])
+    };
+    assert!(line(false).contains("use 2.0.0 instead (run `moonlit doctor` to fix)\n"));
+    assert!(line(true).contains("use 2.0.0 instead (run `moonlit doctor --major` to fix)\n"));
   }
 
   #[test]
