@@ -327,3 +327,94 @@ async fn update_prints_a_plugin_name_with_escape_codes_as_visible_text() {
   assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
   assert!(stdout.contains("evil\\x1b[2K: pinned to latest, skipped"), "{stdout:?}");
 }
+
+fn with_other(project: &Project, server: &MockServer) -> String {
+  let release = project.release().replace(
+    "\nstages:",
+    &format!(
+      "  - name: other\n    url: oci://{}/acme/other:1.0.0\n\nstages:",
+      server.address()
+    ),
+  );
+  fs::write(project.dir.path().join("release.yml"), &release).unwrap();
+  release
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_skips_a_plugin_whose_lookup_fails_and_updates_the_rest() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
+  let failing = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(500))
+    .mount(&failing)
+    .await;
+  let project = Project::new(&server, "1.0.0", "");
+  let release = with_other(&project, &failing);
+
+  project
+    .update(&[])
+    .code(1)
+    .stdout(contains("other: registry request failed: "))
+    .stdout(contains(", skipped\n"))
+    .stdout(contains("test-plugin: 1.0.0 → 1.0.1"));
+
+  assert_eq!(project.release(), release.replace("test-plugin:1.0.0", "test-plugin:1.0.1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_skips_a_plugin_whose_new_version_cannot_be_fetched_and_updates_the_rest() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
+  let missing = MockServer::start().await;
+  mount(
+    &missing,
+    &["query versions("],
+    json!({ "package": { "versions": [
+      { "version": "1.0.0", "yanked": false, "status": "VERIFIED" },
+      { "version": "1.0.1", "yanked": false, "status": "VERIFIED" }
+    ] } }),
+  )
+  .await;
+  mount(
+    &missing,
+    &["query packageVersion("],
+    json!({ "packageVersion": { "version": "1.0.1", "worldVersion": WORLD, "status": "VERIFIED", "middlewares": [] } }),
+  )
+  .await;
+  let project = Project::new(&server, "1.0.0", "");
+  let release = with_other(&project, &missing);
+
+  project
+    .update(&[])
+    .code(1)
+    .stdout(contains(format!(
+      "other: cannot resolve 'oci://{}/acme/other:1.0.1'",
+      missing.address()
+    )))
+    .stdout(contains(", skipped\n"))
+    .stdout(contains("test-plugin: 1.0.0 → 1.0.1"));
+
+  assert_eq!(project.release(), release.replace("test-plugin:1.0.0", "test-plugin:1.0.1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_exits_3_and_writes_nothing_when_a_registry_cannot_be_reached() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
+  let port = {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.local_addr().unwrap().port()
+  };
+  let project = Project::new(&server, "1.0.0", "");
+  let release = project.release().replace(
+    "\nstages:",
+    &format!("  - name: other\n    url: oci://127.0.0.1:{port}/acme/other:1.0.0\n\nstages:"),
+  );
+  fs::write(project.dir.path().join("release.yml"), &release).unwrap();
+
+  project
+    .update(&[])
+    .code(3)
+    .stderr(contains("other: registry request failed: "));
+
+  assert_eq!(project.release(), release);
+}

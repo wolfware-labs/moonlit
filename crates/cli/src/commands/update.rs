@@ -8,7 +8,7 @@ use crate::cli::{OutputMode, UpdateArgs};
 use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed, read_release, write_release};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
-use crate::plugin_probe::probe;
+use crate::plugin_probe::{ProbeError, probe};
 use crate::plugin_spec::{RegistryRef, registry_ref};
 use crate::release_file::set_plugin;
 use crate::render::resolve_mode;
@@ -19,6 +19,7 @@ enum Planned {
   NoCompatibleUpdate,
   NotARegistry,
   Denied(u16),
+  Failed(String),
 }
 
 struct Plan {
@@ -50,6 +51,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   }
 
   let mut plans = Vec::new();
+  let mut failed = false;
   for plugin in plugins.iter().filter(|p| args.plugin.as_ref().is_none_or(|w| *w == p.name)) {
     let shown = display_safe(&plugin.name);
     let Some(reference) = registry_ref(plugin.url.value.as_str()) else {
@@ -72,6 +74,10 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
         "{shown}: registry at {} answered {status} on /graphql, skipped",
         display_safe(&reference.host)
       ),
+      Planned::Failed(error) => {
+        println!("{shown}: {}, skipped", display_safe(&error));
+        failed = true;
+      }
     }
   }
 
@@ -111,7 +117,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   if content != before {
     write_release(&path, &content)?;
   }
-  Ok(i32::from(declined))
+  Ok(i32::from(declined || failed))
 }
 
 async fn plan(
@@ -133,7 +139,8 @@ async fn plan(
     Ok(detail) => detail,
     Err(RegistryError::NotARegistry(_)) => return Ok(Planned::NotARegistry),
     Err(RegistryError::Denied { status, .. }) => return Ok(Planned::Denied(status)),
-    Err(e) => return fail(&format!("{name}: {e}"), 3),
+    Err(e @ RegistryError::Unreachable(_)) => return fail(&format!("{name}: {e}"), 3),
+    Err(e) => return Ok(Planned::Failed(e.to_string())),
   };
   let Some(detail) = detail else {
     return Ok(Planned::NoCompatibleUpdate);
@@ -146,7 +153,11 @@ async fn plan(
     return Ok(Planned::NoCompatibleUpdate);
   }
   let url = reference.with_tag(&detail.version);
-  let probed = probe(&url).await.or_else(|e| fail(&format!("{name}: {e}"), 3))?;
+  let probed = match probe(&url).await {
+    Ok(probed) => probed,
+    Err(e @ ProbeError::Resolve { network: true, .. }) => return fail(&format!("{name}: {e}"), 3),
+    Err(e) => return Ok(Planned::Failed(e.to_string())),
+  };
   let declared = &probed.meta.permissions;
   let uncovered: Vec<DeclaredPermission> = uncovered_required(declared, granted).into_iter().cloned().collect();
   for p in declared.iter().filter(|p| p.optional && !is_covered(p, granted)) {
