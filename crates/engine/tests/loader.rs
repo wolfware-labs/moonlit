@@ -235,13 +235,34 @@ async fn reports_every_incompatible_plugin() {
     panic!("expected IncompatiblePlugins, got {err:?}");
   };
   assert_eq!(found.len(), 2);
-  let mut names: Vec<&str> = found.iter().map(|p| p.name.as_str()).collect();
-  names.sort_unstable();
+  let names: Vec<&str> = found.iter().map(|p| p.name.as_str()).collect();
   assert_eq!(names, vec!["a", "b"]);
   for plugin in &found {
     assert_eq!(plugin.plugin_world.as_deref(), Some("moonlit:plugin@0.3.0"));
     assert_eq!(plugin.engine_world, PLUGIN_WORLD);
   }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn incompatible_plugins_keep_declaration_order() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(256);
+  let dir = tempfile::tempdir().unwrap();
+  let old = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/test_plugin_v0_3.wasm");
+  let first = dir.path().join("old_one.wasm");
+  let second = dir.path().join("old_two.wasm");
+  std::fs::copy(&old, &first).unwrap();
+  std::fs::copy(&old, &second).unwrap();
+  let yaml = format!(
+    "name: demo\nplugins:\n  - name: b\n    url: file://{}\n  - name: a\n    url: file://{}\nstages:\n  build:\n    - name: s1\n      run: a.log-and-output\n",
+    second.display(),
+    first.display()
+  );
+  let Err(PipelineError::IncompatiblePlugins(found)) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail with IncompatiblePlugins");
+  };
+  let names: Vec<&str> = found.iter().map(|p| p.name.as_str()).collect();
+  assert_eq!(names, vec!["b", "a"]);
 }
 
 fn yaml_with_permissions(permissions: &str) -> String {
@@ -270,6 +291,37 @@ async fn refuses_when_required_permission_not_granted() {
     "{}",
     found[0].message()
   );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reports_the_missing_grant_of_every_plugin() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let yaml = format!(
+    "name: demo\nplugins:\n  - name: one\n    url: {url}\n  - name: granted\n    url: {url}\n    permissions:\n      network: [api.example.com]\n  - name: two\n    url: {url}\nstages:\n  build:\n    - name: s1\n      run: one.log-and-output\n",
+    url = fixture_url()
+  );
+  let Err(PipelineError::MissingGrants(found)) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail with MissingGrants");
+  };
+  assert_eq!(found.len(), 2);
+  assert!(
+    found[0]
+      .message()
+      .starts_with("plugin 'one' needs to connect to the internet"),
+    "{}",
+    found[0].message()
+  );
+  assert!(
+    found[1]
+      .message()
+      .starts_with("plugin 'two' needs to connect to the internet"),
+    "{}",
+    found[1].message()
+  );
+  for diagnostic in &found {
+    assert!(diagnostic.message().contains("api.example.com"), "{}", diagnostic.message());
+  }
 }
 
 #[tokio::test(flavor = "multi_thread")]
