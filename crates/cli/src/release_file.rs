@@ -47,8 +47,11 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
       "the plugins key holds no block sequence to add to".into(),
     ));
   } else {
-    let at = top_level_line(content, "stages:").unwrap_or(content.len());
-    insertion(content, at, format!("plugins:\n{}\n", item_block(entry, 2, 4)))
+    let block = format!("plugins:\n{}", item_block(entry, 2, 4));
+    match top_level_line(content, "stages:") {
+      Some(at) => insertion(content, at, format!("{block}\n")),
+      None => insertion(content, content.len(), block),
+    }
   };
   validated(apply(content, vec![edit]), &entry.name, &entry.url, Some(&entry.permissions))
 }
@@ -145,7 +148,10 @@ fn permissions_edit(content: &str, plugin: &PluginDeclaration, permissions: &Per
 }
 
 fn validated(content: String, name: &str, url: &str, permissions: Option<&Permissions>) -> Result<String, ReleaseFileError> {
-  let config = parse_checked(&content)?;
+  let config = parse_structure(&content)?;
+  if !config.stages.value.is_empty() {
+    parse_checked(&content)?;
+  }
   let Some(plugin) = config
     .plugins
     .value
@@ -403,6 +409,15 @@ stages:
     assert_eq!(
       out,
       "# no plugins yet\nname: acme\n\nplugins:\n  - name: a\n    url: file://a.wasm\n    permissions: {}\n\nstages:\n  release:\n    - run: a.go\n"
+    );
+  }
+
+  #[test]
+  fn add_into_a_file_without_stages_writes_a_plugins_block() {
+    let out = add_plugin("name: demo\n", &entry("a", "file://a.wasm")).expect("added");
+    assert_eq!(
+      out,
+      "name: demo\nplugins:\n  - name: a\n    url: file://a.wasm\n    permissions: {}\n"
     );
   }
 

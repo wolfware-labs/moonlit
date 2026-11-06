@@ -286,3 +286,21 @@ fn add_component_without_the_plugin_contract_fails_with_the_contract_message() {
 
   assert_eq!(project.release(), RELEASE);
 }
+
+#[test]
+fn add_into_a_release_file_without_stages_writes_the_plugin() {
+  let project = Project::new("name: demo\n");
+  let url = file_url("test_plugin.wasm");
+
+  project
+    .add(&[&url, "--yes"])
+    .success()
+    .stdout(contains("Added test-plugin to release.yml."));
+
+  assert_eq!(
+    project.release(),
+    format!(
+      "name: demo\nplugins:\n  - name: test-plugin\n    url: {url}\n    permissions:\n      network: [\"api.example.com\"]\n"
+    )
+  );
+}
