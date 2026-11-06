@@ -60,6 +60,27 @@ fn is_yaml_null(raw: &str) -> bool {
   matches!(raw, "" | "~" | "null" | "Null" | "NULL")
 }
 
+#[must_use]
+fn quoted_end(yaml: &str, span: Span) -> usize {
+  let text = &yaml[span.start..span.end];
+  let mut chars = text.char_indices();
+  let Some((_, quote @ ('\'' | '"'))) = chars.next() else {
+    return span.end;
+  };
+  while let Some((i, c)) = chars.next() {
+    if quote == '"' && c == '\\' {
+      chars.next();
+    } else if c == quote {
+      if quote == '\'' && text[i + 1..].starts_with('\'') {
+        chars.next();
+      } else {
+        return span.start + i + 1;
+      }
+    }
+  }
+  span.end
+}
+
 pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
   let char_to_byte: Vec<usize> = {
     let mut v: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
@@ -81,7 +102,10 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       let byte = char_to_byte.get(e.marker().index()).copied().unwrap_or(len);
       ConfigDiagnostic::invalid_syntax(src, e.info(), Span::point(byte))
     })?;
-    let span = to_span(pspan);
+    let mut span = to_span(pspan);
+    if let Event::Scalar(_, ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted, ..) = &ev {
+      span.end = quoted_end(src.yaml, span);
+    }
     let tok = match ev {
       Event::Nothing => continue,
       Event::StreamStart => Tok::StreamStart,
@@ -172,7 +196,7 @@ impl Builder<'_, '_> {
         };
         let node = Node {
           value: NodeValue::Seq(items),
-          span: Span::new(span.start, end.end),
+          span: Span::new(span.start, self.collection_end(end)),
         };
         self.register(anchor, &node);
         Ok(node)
@@ -195,7 +219,7 @@ impl Builder<'_, '_> {
         };
         let node = Node {
           value: NodeValue::Map(entries),
-          span: Span::new(span.start, end.end),
+          span: Span::new(span.start, self.collection_end(end)),
         };
         self.register(anchor, &node);
         Ok(node)
@@ -210,6 +234,15 @@ impl Builder<'_, '_> {
       },
       // Framing tokens shouldn't reach here; treat defensively as empty.
       Tok::StreamStart | Tok::StreamEnd | Tok::DocStart | Tok::DocEnd | Tok::SeqEnd | Tok::MapEnd => Ok(Node::null(span)),
+    }
+  }
+
+  #[must_use]
+  fn collection_end(&self, end: Span) -> usize {
+    if self.src.yaml[end.start..].starts_with([']', '}']) {
+      end.start + 1
+    } else {
+      end.end
     }
   }
 

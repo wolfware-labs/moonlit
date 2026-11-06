@@ -190,6 +190,7 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
   let mut url: Option<Spanned<PluginUrl>> = None;
   let mut config: Option<ConfigMap> = None;
   let mut permissions: Option<Permissions> = None;
+  let mut permissions_span: Option<Span> = None;
 
   let mut seen: Vec<&str> = Vec::new();
   for (key, value) in entries {
@@ -208,7 +209,10 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
         url = Some(convert_url(value, src)?);
       }
       Some("config") => config = Some(config_map(value)),
-      Some("permissions") => permissions = Some(convert_permissions(value, src)?),
+      Some("permissions") => {
+        permissions = Some(convert_permissions(value, src)?);
+        permissions_span = Some(Span::new(key.span.start, content_end(value, src.yaml)));
+      }
       other => {
         return Err(ConfigDiagnostic::unknown_key(
           src,
@@ -229,7 +233,32 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
     url,
     config: config.unwrap_or_default(),
     permissions,
+    span: Span::new(item_start(node.span.start, src.yaml), content_end(node, src.yaml)),
+    permissions_span,
   })
+}
+
+#[must_use]
+fn item_start(start: usize, yaml: &str) -> usize {
+  let before = yaml[..start].trim_end_matches(' ');
+  if before.ends_with('-') { before.len() - 1 } else { start }
+}
+
+#[must_use]
+fn content_end(node: &Node, yaml: &str) -> usize {
+  let text = &yaml[node.span.start..node.span.end];
+  let block = !text.starts_with(['[', '{', '*']);
+  match &node.value {
+    NodeValue::Seq(items) if block => items.last().map_or(node.span.start, |item| content_end(item, yaml)),
+    NodeValue::Map(entries) if block => entries.last().map_or(node.span.start, |(key, value)| {
+      if matches!(value.value, NodeValue::Null) {
+        content_end(key, yaml)
+      } else {
+        content_end(value, yaml)
+      }
+    }),
+    _ => node.span.start + text.trim_end().len(),
+  }
 }
 
 fn convert_url(node: &Node, src: &ConfigSource) -> Result<Spanned<PluginUrl>, ConfigDiagnostic> {
@@ -553,6 +582,32 @@ mod tests {
   fn plugin_without_permissions_leaves_them_unset() {
     let config = parse(&with_plugins_and_stages(""));
     assert_eq!(config.plugins.value[0].permissions, None);
+  }
+
+  #[test]
+  fn plugin_spans_cover_the_item_and_its_permissions() {
+    let yaml = "plugins:\n  # first\n  - name: a\n    url: 'file://a.wasm'  # pinned\n    permissions:\n      exec:\n        - git\n      network: [x]  # note\n\n  # second\n  - name: b\n    url: \"file://b.wasm\"\n    config:\n      deep:\n        level: 1\n# end\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let [a, b] = &config.plugins.value[..] else {
+      panic!("two plugins")
+    };
+    let text = |span: Span| &yaml[span.start..span.end];
+
+    assert_eq!(
+      text(a.span),
+      "- name: a\n    url: 'file://a.wasm'  # pinned\n    permissions:\n      exec:\n        - git\n      network: [x]"
+    );
+    assert_eq!(
+      a.permissions_span.map(text),
+      Some("permissions:\n      exec:\n        - git\n      network: [x]")
+    );
+    assert_eq!(text(a.url.span), "'file://a.wasm'");
+    assert_eq!(
+      text(b.span),
+      "- name: b\n    url: \"file://b.wasm\"\n    config:\n      deep:\n        level: 1"
+    );
+    assert_eq!(b.permissions_span, None);
+    assert_eq!(text(b.url.span), "\"file://b.wasm\"");
   }
 
   #[test]

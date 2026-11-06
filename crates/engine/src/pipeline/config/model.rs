@@ -1,4 +1,4 @@
-use crate::pipeline::config::span::Spanned;
+use crate::pipeline::config::span::{Span, Spanned};
 use indexmap::IndexMap;
 
 pub type ConfigMap = IndexMap<String, Spanned<ConfigValue>>;
@@ -32,6 +32,8 @@ pub struct Plugin {
   pub url: Spanned<PluginUrl>,
   pub config: ConfigMap,
   pub permissions: Option<Permissions>,
+  pub span: Span,
+  pub permissions_span: Option<Span>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +42,15 @@ pub enum PluginUrl {
   File(String),
   Http(String),
   Https(String),
+}
+
+impl PluginUrl {
+  #[must_use]
+  pub fn as_str(&self) -> &str {
+    match self {
+      PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => s,
+    }
+  }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,5 +1,5 @@
 use crate::engine::Engine;
-use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, PipelineConfig, PluginUrl, Span, parse_config};
+use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, PipelineConfig, Span, parse_config};
 use crate::pipeline::expr::substitute_config;
 use crate::pipeline::manifest::PipelineManifest;
 use crate::pipeline::model::{ChannelSink, FlatStep};
@@ -59,7 +59,7 @@ impl Pipeline {
       let layer = substitute_config(&plugin.config, &data);
       requests.push(PluginRequest {
         name: plugin.name.clone(),
-        url: plugin_url(&plugin.url.value),
+        url: plugin.url.value.as_str().to_string(),
         url_span: plugin.url.span,
         permissions: plugin.permissions.clone().unwrap_or_else(Permissions::deny),
         config_view: layer.to_json(),
@@ -333,11 +333,4 @@ fn flatten_steps(
     }
   }
   Ok(steps)
-}
-
-#[must_use]
-fn plugin_url(url: &PluginUrl) -> String {
-  match url {
-    PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => s.clone(),
-  }
 }
