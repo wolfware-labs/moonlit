@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use moonlit_engine::pipeline::IncompatiblePlugin;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
-use moonlit_engine::registry::{RegistryClient, RegistryError, VersionRule};
+use moonlit_engine::registry::{REGISTRY_TIMEOUT, RegistryClient, RegistryError, VersionRule};
 use semver::Version;
 
 use crate::display::display_safe;
-use crate::plugin_spec::registry_ref;
+use crate::plugin_spec::{RegistryRef, registry_ref};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Suggestion {
@@ -17,21 +19,63 @@ pub enum Suggestion {
 
 /// Looks up, for each incompatible plugin, what the user can do about it; registry lookups happen only for `oci://` URLs.
 pub async fn suggestions(list: &[IncompatiblePlugin], offline: bool) -> Vec<(IncompatiblePlugin, Suggestion)> {
-  let mut out = Vec::with_capacity(list.len());
-  for plugin in list {
-    out.push((plugin.clone(), suggest(plugin, offline).await));
-  }
-  out
+  suggestions_within(list, offline, REGISTRY_TIMEOUT).await
 }
 
-async fn suggest(plugin: &IncompatiblePlugin, offline: bool) -> Suggestion {
-  let Some(reference) = registry_ref(&plugin.url) else {
-    return Suggestion::NotFromRegistry;
-  };
-  if offline {
-    return Suggestion::RegistryUnavailable;
+async fn suggestions_within(
+  list: &[IncompatiblePlugin],
+  offline: bool,
+  timeout: Duration,
+) -> Vec<(IncompatiblePlugin, Suggestion)> {
+  let mut answers: Vec<Option<Suggestion>> = vec![None; list.len()];
+  let mut by_host: Vec<(String, Vec<(usize, RegistryRef)>)> = Vec::new();
+  for (index, plugin) in list.iter().enumerate() {
+    let Some(reference) = registry_ref(&plugin.url) else {
+      answers[index] = Some(Suggestion::NotFromRegistry);
+      continue;
+    };
+    if offline {
+      answers[index] = Some(Suggestion::RegistryUnavailable);
+      continue;
+    }
+    match by_host.iter_mut().find(|(host, _)| *host == reference.host) {
+      Some((_, group)) => group.push((index, reference)),
+      None => by_host.push((reference.host.clone(), vec![(index, reference)])),
+    }
   }
-  let client = RegistryClient::for_host(&reference.host);
+
+  let mut hosts = tokio::task::JoinSet::new();
+  for (host, group) in by_host {
+    hosts.spawn(async move {
+      let client = RegistryClient::for_host(&host).with_timeout(timeout);
+      let mut out = Vec::with_capacity(group.len());
+      let mut unreachable = false;
+      for (index, reference) in group {
+        let suggestion = if unreachable {
+          Suggestion::RegistryUnavailable
+        } else {
+          suggest(&client, &reference).await
+        };
+        unreachable = suggestion == Suggestion::RegistryUnavailable;
+        out.push((index, suggestion));
+      }
+      out
+    });
+  }
+  while let Some(joined) = hosts.join_next().await {
+    for (index, suggestion) in joined.into_iter().flatten() {
+      answers[index] = Some(suggestion);
+    }
+  }
+
+  list
+    .iter()
+    .zip(answers)
+    .map(|(plugin, suggestion)| (plugin.clone(), suggestion.unwrap_or(Suggestion::RegistryUnavailable)))
+    .collect()
+}
+
+async fn suggest(client: &RegistryClient, reference: &RegistryRef) -> Suggestion {
   let lookup = |current: Option<Version>, cross_major: bool| {
     let rule = VersionRule {
       current,
@@ -180,5 +224,38 @@ mod tests {
       denied.contains("registry at public.ecr.aws answered 401 on /graphql, no version to suggest\n"),
       "{denied}"
     );
+  }
+
+  #[tokio::test]
+  async fn plugins_on_a_silent_registry_wait_for_one_timeout_together() {
+    use std::time::{Duration, Instant};
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+      .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(10)))
+      .mount(&server)
+      .await;
+    let list: Vec<IncompatiblePlugin> = ["a", "b", "c"]
+      .iter()
+      .map(|name| IncompatiblePlugin {
+        name: (*name).to_string(),
+        url: format!("oci://{}/acme/{name}:1.0.0", server.address()),
+        plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
+        engine_world: "moonlit:plugin@0.4.0".to_string(),
+      })
+      .collect();
+
+    let started = Instant::now();
+    let entries = suggestions_within(&list, false, Duration::from_millis(500)).await;
+
+    assert!(started.elapsed() < Duration::from_millis(900), "{:?}", started.elapsed());
+    assert!(entries.iter().all(|(_, s)| *s == Suggestion::RegistryUnavailable));
+    assert_eq!(
+      entries.iter().map(|(p, _)| p.name.as_str()).collect::<Vec<_>>(),
+      ["a", "b", "c"]
+    );
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
   }
 }
