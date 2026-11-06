@@ -1,6 +1,5 @@
 use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config, parse_config_unvalidated};
-
-use crate::display::escape;
+use moonlit_engine::sanitize::quote;
 
 /// A plugin entry to write into a release file.
 #[derive(Clone, Debug, PartialEq)]
@@ -268,27 +267,6 @@ fn scalar(value: &str) -> String {
     && !matches!(value, "null" | "Null" | "NULL")
     && value.chars().all(|c| c.is_ascii_alphanumeric() || "._/:@+-=%?&~".contains(c));
   if plain { value.to_string() } else { quote(value) }
-}
-
-#[must_use]
-fn quote(value: &str) -> String {
-  let mut escaped = String::with_capacity(value.len() + 2);
-  escaped.push('"');
-  for c in value.chars() {
-    match c {
-      '\\' => escaped.push_str("\\\\"),
-      '"' => escaped.push_str("\\\""),
-      '\n' => escaped.push_str("\\n"),
-      '\r' => escaped.push_str("\\r"),
-      '\t' => escaped.push_str("\\t"),
-      c => match escape(c) {
-        Some(code) => escaped.push_str(&code),
-        None => escaped.push(c),
-      },
-    }
-  }
-  escaped.push('"');
-  escaped
 }
 
 #[cfg(test)]

@@ -44,6 +44,29 @@ fn is_bidi_control(c: char) -> bool {
   matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
 }
 
+/// Quotes a value as a YAML double-quoted scalar, escaping quotes, backslashes and any character that could
+/// drive the terminal, so it parses back to the same value and prints safely.
+#[must_use]
+pub fn quote(value: &str) -> String {
+  let mut escaped = String::with_capacity(value.len() + 2);
+  escaped.push('"');
+  for c in value.chars() {
+    match c {
+      '\\' => escaped.push_str("\\\\"),
+      '"' => escaped.push_str("\\\""),
+      '\n' => escaped.push_str("\\n"),
+      '\r' => escaped.push_str("\\r"),
+      '\t' => escaped.push_str("\\t"),
+      c => match escape(c) {
+        Some(code) => escaped.push_str(&code),
+        None => escaped.push(c),
+      },
+    }
+  }
+  escaped.push('"');
+  escaped
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

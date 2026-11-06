@@ -1,5 +1,6 @@
 use crate::pipeline::config::{FilesystemAccess, Permissions};
 use crate::plugin::host::{exec_globset, network_globset};
+use crate::sanitize::quote;
 use serde::Serialize;
 
 /// The kind of capability a plugin asks for.
@@ -62,7 +63,7 @@ impl DeclaredPermission {
   #[must_use]
   pub fn yaml_line(&self) -> String {
     let list = || {
-      let quoted: Vec<String> = self.values.iter().map(|v| format!("\"{v}\"")).collect();
+      let quoted: Vec<String> = self.values.iter().map(|v| quote(v)).collect();
       format!("[{}]", quoted.join(", "))
     };
     match self.kind {
@@ -173,6 +174,15 @@ mod tests {
       env: s(env),
       filesystem,
     }
+  }
+
+  #[test]
+  fn yaml_line_quotes_values_so_they_parse_back() {
+    let values = ["a\"b", "c\\d", "e\u{1b}[2Kf", "line\nbreak"];
+    let line = decl(PermissionKind::Exec, &values, false).yaml_line();
+    assert!(!line.contains('\u{1b}') && !line.contains('\n'), "{line:?}");
+    let parsed: std::collections::HashMap<String, Vec<String>> = serde_yaml_ng::from_str(&line).expect("valid yaml");
+    assert_eq!(parsed["exec"], values);
   }
 
   #[test]
