@@ -92,6 +92,7 @@ semantic-release, slack, moonlit) live at
 | `moonlit search` | Search the registry for plugins and list their middlewares. |
 | `moonlit add` | Add a plugin to `release.yml` after showing the permissions it asks for. |
 | `moonlit update` | Update the registry plugins in `release.yml`, asking again only for new required permissions. |
+| `moonlit doctor` | Check the plugins in `release.yml` (they resolve, match this CLI's plugin contract, and have their required permissions) and offer to fix what it finds. |
 | `moonlit version` | Print the version, author, and license. |
 
 Run `moonlit <command> --help` for the full options of any command.

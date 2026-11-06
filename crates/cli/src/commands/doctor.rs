@@ -1,0 +1,195 @@
+use moonlit_engine::pipeline::IncompatiblePlugin;
+use moonlit_engine::pipeline::config::{Permissions, parse_config};
+use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, merge_grants, uncovered_required};
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+
+use crate::cli::{DoctorArgs, OutputMode};
+use crate::commands::update::{REFUSAL, display_path, fail, prompt_failed};
+use crate::compat::{self, Suggestion};
+use crate::consent::{self, Answer, ConsentView};
+use crate::manifest::resolve_manifest_path;
+use crate::plugin_probe::{ProbeError, probe};
+use crate::plugin_spec::registry_ref;
+use crate::release_file::{render_diff, set_plugin, set_plugin_url};
+use crate::render::resolve_mode;
+
+struct Fix {
+  name: String,
+  url: String,
+  moved: Option<(String, String)>,
+  version: String,
+  description: String,
+  uncovered: Vec<DeclaredPermission>,
+  permissions: Option<Permissions>,
+}
+
+enum Outcome {
+  Healthy,
+  Problem { text: String, fix: Option<Box<Fix>> },
+}
+
+#[must_use]
+pub async fn run(output: Option<OutputMode>, args: DoctorArgs) -> i32 {
+  match doctor(output, &args).await {
+    Ok(code) | Err(code) => code,
+  }
+}
+
+async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i32> {
+  let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
+  let before = std::fs::read_to_string(&path).or_else(|e| fail(&format!("cannot read '{}': {e}", path.display()), 2))?;
+  let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
+  let file = display_path(args.file_path.as_deref(), &path);
+
+  let mut fixes = Vec::new();
+  let mut unfixed = false;
+  for plugin in &config.plugins.value {
+    let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
+    match check(&plugin.name, plugin.url.value.as_str(), &granted, args.major).await {
+      Outcome::Healthy => println!("✓ {}", plugin.name),
+      Outcome::Problem { text, fix } => {
+        println!("✗ {}: {text}", plugin.name);
+        match fix {
+          Some(fix) => fixes.push(*fix),
+          None => unfixed = true,
+        }
+      }
+    }
+  }
+
+  if fixes.is_empty() {
+    if !unfixed {
+      println!("{file} looks good.");
+    }
+    return Ok(i32::from(unfixed));
+  }
+
+  let grants = fixes.iter().any(|f| f.permissions.is_some());
+  if grants && !args.yes && !consent::interactive() {
+    return fail(REFUSAL, 2);
+  }
+
+  let mut content = before.clone();
+  for fix in &fixes {
+    let edited = match &fix.permissions {
+      Some(permissions) => set_plugin(&content, &fix.name, &fix.url, permissions),
+      None => set_plugin_url(&content, &fix.name, &fix.url),
+    };
+    content = edited.or_else(|e| fail(&e.to_string(), 2))?;
+  }
+
+  let color = resolve_mode(output) == OutputMode::Pretty;
+  println!();
+  for fix in fixes.iter().filter(|f| f.permissions.is_some()) {
+    let view = ConsentView {
+      plugin: &fix.name,
+      version: &fix.version,
+      status: None,
+      description: &fix.description,
+      required: fix.uncovered.iter().collect(),
+      optional: Vec::new(),
+    };
+    print!("{}", consent::render(&view, color));
+  }
+  print!("{}", consent::render_changes(&file, &render_diff(&before, &content)));
+  if grants && !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
+    println!("Nothing changed.");
+    return Ok(1);
+  }
+
+  std::fs::write(&path, &content).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
+  for fix in &fixes {
+    match &fix.moved {
+      Some((old, new)) => println!("{}: {old} → {new}", fix.name),
+      None => println!("{}: permissions granted", fix.name),
+    }
+  }
+  Ok(i32::from(unfixed))
+}
+
+async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Outcome {
+  match probe(url).await {
+    Ok(probed) => {
+      let uncovered = uncovered(&probed.meta.permissions, granted);
+      if uncovered.is_empty() {
+        return Outcome::Healthy;
+      }
+      Outcome::Problem {
+        text: format!("not granted: {}", describe(&uncovered)),
+        fix: Some(Box::new(Fix {
+          name: name.to_string(),
+          url: url.to_string(),
+          moved: None,
+          version: probed.meta.version.clone(),
+          description: probed.meta.description.clone(),
+          permissions: Some(granting(granted, &uncovered)),
+          uncovered,
+        })),
+      }
+    }
+    Err(ProbeError::Incompatible { found, .. }) => {
+      let text = format!("built for {found}, this CLI supports {PLUGIN_WORLD}");
+      match moved(name, url, &found, granted, major).await {
+        Ok(fix) => Outcome::Problem {
+          text,
+          fix: Some(Box::new(fix)),
+        },
+        Err(why) => Outcome::Problem {
+          text: format!("{text}; {why}"),
+          fix: None,
+        },
+      }
+    }
+    Err(e) => Outcome::Problem {
+      text: e.to_string(),
+      fix: None,
+    },
+  }
+}
+
+async fn moved(name: &str, url: &str, found: &str, granted: &Permissions, major: bool) -> Result<Fix, String> {
+  let incompatible = IncompatiblePlugin {
+    name: name.to_string(),
+    url: url.to_string(),
+    plugin_world: Some(found.to_string()),
+    engine_world: PLUGIN_WORLD.to_string(),
+  };
+  let suggestion = compat::suggestions(&[incompatible], false)
+    .await
+    .pop()
+    .map_or(Suggestion::RegistryUnavailable, |(_, s)| s);
+  let version = match &suggestion {
+    Suggestion::Version { version, major: crosses } if major || !crosses => version.clone(),
+    other => return Err(compat::hint(other, PLUGIN_WORLD).unwrap_or_else(|| "cannot reach the registry".to_string())),
+  };
+  let reference = registry_ref(url).ok_or_else(|| "does not come from a registry".to_string())?;
+  let target = format!("oci://{}/{}/{}:{}", reference.host, reference.org, reference.name, version);
+  let probed = probe(&target).await.map_err(|e| e.to_string())?;
+  let uncovered = uncovered(&probed.meta.permissions, granted);
+  let permissions = (!uncovered.is_empty()).then(|| granting(granted, &uncovered));
+  Ok(Fix {
+    name: name.to_string(),
+    url: target,
+    moved: Some((reference.tag, version.clone())),
+    version,
+    description: probed.meta.description.clone(),
+    uncovered,
+    permissions,
+  })
+}
+
+fn uncovered(declared: &[DeclaredPermission], granted: &Permissions) -> Vec<DeclaredPermission> {
+  uncovered_required(declared, granted).into_iter().cloned().collect()
+}
+
+fn granting(granted: &Permissions, uncovered: &[DeclaredPermission]) -> Permissions {
+  merge_grants(granted, &grants_for(uncovered, &|_| false))
+}
+
+fn describe(permissions: &[DeclaredPermission]) -> String {
+  permissions
+    .iter()
+    .map(|p| format!("{} ({})", p.kind.sentence(), consent::values_text(p)))
+    .collect::<Vec<_>>()
+    .join(", ")
+}

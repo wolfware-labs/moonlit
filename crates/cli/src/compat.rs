@@ -80,16 +80,24 @@ fn block(plugin: &IncompatiblePlugin, suggestion: &Suggestion) -> String {
     format!("✗ {}  {}", plugin.name, plugin.url),
     format!("  built for {built_for}, this CLI supports {engine}{upgrade_cli}"),
   ];
+  if let Some(hint) = hint(suggestion, engine) {
+    lines.push(format!("  {hint}"));
+  }
+  lines.join("\n") + "\n"
+}
+
+/// What the user can do about an incompatible plugin, for an engine supporting `engine`; `None` when the registry could not say.
+#[must_use]
+pub fn hint(suggestion: &Suggestion, engine: &str) -> Option<String> {
   match suggestion {
     Suggestion::Version { version, major } => {
       let flag = if *major { " --major" } else { "" };
-      lines.push(format!("  use {version} instead (run `moonlit doctor{flag}` to fix)"));
+      Some(format!("use {version} instead (run `moonlit doctor{flag}` to fix)"))
     }
-    Suggestion::NoneCompatible => lines.push(format!("  no version of this plugin supports {engine} yet")),
-    Suggestion::NotFromRegistry => lines.push(format!("  rebuild it against moonlit-pdk for {engine}")),
-    Suggestion::RegistryUnavailable => {}
+    Suggestion::NoneCompatible => Some(format!("no version of this plugin supports {engine} yet")),
+    Suggestion::NotFromRegistry => Some(format!("rebuild it against moonlit-pdk for {engine}")),
+    Suggestion::RegistryUnavailable => None,
   }
-  lines.join("\n") + "\n"
 }
 
 fn world_version(world: &str) -> Option<Version> {

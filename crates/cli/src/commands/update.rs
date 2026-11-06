@@ -14,7 +14,7 @@ use crate::plugin_spec::{RegistryRef, registry_ref};
 use crate::release_file::{render_diff, set_plugin, set_plugin_url};
 use crate::render::resolve_mode;
 
-const REFUSAL: &str =
+pub(crate) const REFUSAL: &str =
   "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
 
 struct Plan {
@@ -162,12 +162,12 @@ async fn plan(
   }))
 }
 
-fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
+pub(crate) fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
   eprintln!("error: {message}");
   Err(code)
 }
 
-fn display_path(given: Option<&Path>, resolved: &Path) -> String {
+pub(crate) fn display_path(given: Option<&Path>, resolved: &Path) -> String {
   match given {
     Some(given) => given.display().to_string(),
     None => resolved
@@ -176,7 +176,7 @@ fn display_path(given: Option<&Path>, resolved: &Path) -> String {
   }
 }
 
-fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
+pub(crate) fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
   if e.kind() == std::io::ErrorKind::Interrupted {
     println!("Nothing changed.");
     Err(1)

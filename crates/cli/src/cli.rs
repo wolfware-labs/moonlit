@@ -50,6 +50,8 @@ pub enum Command {
   Add(AddArgs),
   /// Update the registry plugins in the release file, asking again only for new required permissions.
   Update(UpdateArgs),
+  /// Check the plugins in the release file and offer to fix what is wrong.
+  Doctor(DoctorArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -91,6 +93,19 @@ pub struct UpdateArgs {
   /// Allow updates to pre-release versions.
   #[arg(long)]
   pub pre: bool,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct DoctorArgs {
+  /// Release file path (default: ./release.yml, then ./release.yaml).
+  #[arg(short = 'f', long = "file-path")]
+  pub file_path: Option<PathBuf>,
+  /// Accept the required permissions a fix adds without asking; optional ones are not granted.
+  #[arg(short = 'y', long)]
+  pub yes: bool,
+  /// Allow a fix to move a plugin to a new major version.
+  #[arg(long)]
+  pub major: bool,
 }
 
 #[derive(Debug, clap::Args)]
