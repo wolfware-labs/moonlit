@@ -159,7 +159,7 @@ async fn plan(
   let uncovered: Vec<DeclaredPermission> = uncovered_required(declared, granted).into_iter().cloned().collect();
   for p in declared.iter().filter(|p| p.optional && !is_covered(p, granted)) {
     println!(
-      "{name}: new optional permission available: {} ({})",
+      "{name}: optional permission not granted: {} ({})",
       p.kind.sentence(),
       consent::values_text(p)
     );

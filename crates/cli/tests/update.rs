@@ -184,7 +184,7 @@ async fn update_lists_new_optional_without_granting() {
     .update(&[])
     .success()
     .stdout(contains(
-      "test-plugin: new optional permission available: Run programs on your machine (git)",
+      "test-plugin: optional permission not granted: Run programs on your machine (git)",
     ))
     .stdout(contains("test-plugin: 1.0.0 → 1.1.0"));
 
