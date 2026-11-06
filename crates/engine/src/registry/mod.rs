@@ -43,6 +43,8 @@ pub enum RegistryError {
   },
 }
 
+const MAX_CANDIDATES: usize = 10;
+
 /// How long a registry request may take to connect, and in all, before it fails.
 pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -196,7 +198,7 @@ impl RegistryClient {
     Ok(data.package.map(|p| p.versions).unwrap_or_default())
   }
 
-  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`.
+  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`, looking at the newest ten candidates only.
   pub async fn newest_compatible(
     &self,
     org: &str,
@@ -214,8 +216,21 @@ impl RegistryClient {
       .collect();
     candidates.sort_by(|a, b| b.0.cmp(&a.0));
 
-    for (_, raw) in candidates {
-      if let Some(detail) = self.package_version(org, name, &raw).await?
+    candidates.truncate(MAX_CANDIDATES);
+
+    let mut lookups = tokio::task::JoinSet::new();
+    for (index, (_, raw)) in candidates.into_iter().enumerate() {
+      let (client, org, name) = (self.clone(), org.to_string(), name.to_string());
+      lookups.spawn(async move { (index, client.package_version(&org, &name, &raw).await) });
+    }
+    let mut answers = Vec::new();
+    while let Some(joined) = lookups.join_next().await {
+      answers.push(joined.map_err(|e| RegistryError::Http(format!("version lookup failed: {e}")))?);
+    }
+    answers.sort_by_key(|(index, _)| *index);
+
+    for (_, answer) in answers {
+      if let Some(detail) = answer?
         && detail.world_version.as_deref() == Some(world)
       {
         return Ok(Some(detail));

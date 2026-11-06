@@ -334,3 +334,58 @@ fn with_base_url_is_verbatim() {
     "http://127.0.0.1:9/x"
   );
 }
+
+async fn lookups(server: &MockServer) -> usize {
+  server
+    .received_requests()
+    .await
+    .unwrap()
+    .iter()
+    .filter(|r| String::from_utf8_lossy(&r.body).contains("query packageVersion("))
+    .count()
+}
+
+fn any_rule() -> VersionRule {
+  VersionRule {
+    current: None,
+    cross_major: true,
+    pre: false,
+  }
+}
+
+#[tokio::test]
+async fn newest_compatible_finds_a_compatible_version_behind_incompatible_newer_ones() {
+  let server = MockServer::start().await;
+  let all: Vec<String> = (0..14).map(|i| format!("1.0.{i}")).collect();
+  mount_package(&server, json!(all.iter().map(|v| summary(v, false)).collect::<Vec<_>>())).await;
+  for version in &all {
+    let world = if version == "1.0.10" { "0.4.0" } else { "0.3.0" };
+    mount_version(&server, version, world).await;
+  }
+
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", any_rule())
+    .await
+    .unwrap();
+
+  assert_eq!(found.unwrap().version, "1.0.10");
+  assert!(lookups(&server).await <= 10);
+}
+
+#[tokio::test]
+async fn newest_compatible_gives_up_after_ten_candidates() {
+  let server = MockServer::start().await;
+  let all: Vec<String> = (0..25).map(|i| format!("1.0.{i}")).collect();
+  mount_package(&server, json!(all.iter().map(|v| summary(v, false)).collect::<Vec<_>>())).await;
+  for version in &all {
+    mount_version(&server, version, "0.3.0").await;
+  }
+
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", any_rule())
+    .await
+    .unwrap();
+
+  assert!(found.is_none());
+  assert_eq!(lookups(&server).await, 10);
+}
