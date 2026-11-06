@@ -64,6 +64,36 @@ no configuration or publishes nothing. Both types derive `schemars::JsonSchema`,
 the macro emits those schemas into the component so `moonlit plugin inspect` and the
 registry can document the plugin without running it.
 
+## Declaring permissions
+
+A plugin has no access to the network, programs, environment, or files unless the pipeline
+grants it. Declare what the plugin needs with `permissions:`; `moonlit add` shows these to
+the user and writes them to `release.yml`, and `moonlit run` refuses to start if the
+pipeline does not grant the required ones.
+
+```rust
+moonlit_plugin! {
+    name: "github",
+    middlewares: [CreateRelease, CommentPr],
+    permissions: [
+        network(["api.github.com", "uploads.github.com"]) => "Creates the release and uploads its assets.",
+        env(["GITHUB_*"]) => "Reads GITHUB_TOKEN to call the API.",
+        filesystem(read_only) => "Reads the changelog and built artifacts.",
+        optional exec(["git"]) => "Only needed to read the latest tag from a local clone.",
+    ],
+}
+```
+
+- `network([...])`, `exec([...])` and `env([...])` take a non-empty list of strings: hosts,
+  program names, and environment variable names or globs.
+- `filesystem(read_only)` or `filesystem(read_write)` takes no list.
+- Every entry needs `=> "reason"`, a non-empty string shown to the user. A permission
+  without one does not compile.
+- A leading `optional` marks a permission the plugin can run without. It is shown
+  separately and is not granted unless the user allows it. State in the reason when it is
+  needed.
+- Omit `permissions:` for a plugin that needs none.
+
 Alongside `moonlit-pdk`, a plugin crate needs `serde` (with `derive`),
 `serde_json`, and `schemars = "1"`. `moonlit plugin new` scaffolds all of this.
 The example above is what it generates.

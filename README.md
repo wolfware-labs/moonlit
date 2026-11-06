@@ -97,11 +97,49 @@ moonlit validate         # resolve plugins and check middleware refs, without ex
 A step may also carry `condition:` and `haltIf:` expressions and `continueOnError:`, and
 each step's output is published under its name for later steps to read.
 
+## Plugin permissions
+
+A plugin declares the permissions it needs, each with a reason, in its own code. The
+declaration is part of the component, so `moonlit add` reads it from the plugin that will
+actually run:
+
+```sh
+moonlit search github              # find plugins and see their middlewares
+moonlit add wolfware/github        # show what the plugin asks for, then write it to release.yml
+moonlit update                     # bump registry plugins; asks again only for new required permissions
+moonlit doctor                     # check the release file and offer to fix what is wrong
+```
+
+`add` prints what the plugin wants in plain sentences (connect to the internet, run programs,
+read environment variables, read or change files), with the author's reason for each, the
+change it will make to `release.yml`, and asks `Allow and add? [y/N]`. Permissions the
+plugin marks optional are listed separately and are not granted unless you say so. The
+`permissions:` block it writes holds exactly what the plugin declared.
+
+| Command | Flags worth knowing |
+| --- | --- |
+| `moonlit search <text>` | `--limit` (default 10), `--registry` |
+| `moonlit add <plugin>` | `org/name`, `org/name@version`, or an `oci://`, `file://`, `http(s)://` URL. `-f/--file-path`, `--name`, `-y/--yes`, `--with-optional`, `--registry` |
+| `moonlit update [plugin]` | `-f/--file-path`, `-y/--yes`, `--major`, `--pre` |
+| `moonlit doctor` | `-f/--file-path`, `-y/--yes`, `--major` |
+
+Without a terminal, `add` refuses unless you pass `--yes`, and `update` and `doctor` refuse
+only when a change would grant new permissions. `--yes` accepts required permissions and
+never grants optional ones. These commands exit 0 when done, 1 when you decline or `doctor`
+leaves a problem, 2 for usage or file errors, and 3 for registry or plugin resolution errors.
+
+`run` and `validate` refuse to start when `release.yml` does not grant a plugin's required
+permissions, or when a plugin was built for a plugin contract other than the one this CLI
+supports (`moonlit:plugin@0.4.0`); `moonlit doctor` fixes the second case by moving to the
+newest compatible version. At runtime, a network call or program the sandbox blocks fails
+the step, even if the plugin would otherwise report success. Plugins built against an
+earlier contract no longer load and must be rebuilt.
+
 ## Workspace
 
 | Crate | Published as | What it does |
 | --- | --- | --- |
-| **`cli`** | [`moonlit`](https://github.com/wolfware-labs/moonlit/releases/latest) (GitHub, Homebrew, npm, Chocolatey) | The `moonlit` binary: `run`, `validate`, `plugin` (scaffold/build/inspect/publish), `login`/`logout` for OCI registries, and `cache`. Renders pipeline execution live in the terminal, with a plain mode for CI. |
+| **`cli`** | [`moonlit`](https://github.com/wolfware-labs/moonlit/releases/latest) (GitHub, Homebrew, npm, Chocolatey) | The `moonlit` binary: `run`, `validate`, `plugin` (scaffold/build/inspect/publish), `login`/`logout` for OCI registries, `search`/`add`/`update`/`doctor` for finding and maintaining the plugins in a release file, and `cache`. Renders pipeline execution live in the terminal, with a plain mode for CI. |
 | **`engine`** | not published (internal library) | The runtime. Parses and validates pipeline YAML, evaluates the expression language, resolves plugins from `oci://`, `file://`, and `http(s)://`, instantiates them on `wasmtime` (WASI Preview 2), enforces the declared permissions, and drives stages and steps to completion. |
 | **`pdk`** | [`moonlit-pdk`](https://crates.io/crates/moonlit-pdk) | The plugin development kit. Write a plugin as typed `Middleware` structs with JSON-Schema `Input`/`Output` types; the crate supplies the host bindings (HTTP, process, env, filesystem, clock, randomness, changelog and state helpers) plus test doubles for unit-testing a plugin off-host. |
 | **`pdk-macros`** | [`moonlit-pdk-macros`](https://crates.io/crates/moonlit-pdk-macros) | The `moonlit_plugin!` procedural macro that turns those structs into an exported WebAssembly component. Pulled in automatically by `moonlit-pdk`. |
