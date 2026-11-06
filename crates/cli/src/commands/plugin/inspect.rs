@@ -132,9 +132,11 @@ fn print_plain(plugin_metadata: &PluginMetadata, plgin_middlewares: &[Middleware
   for m in plgin_middlewares {
     println!("  {} - {}", display_safe(&m.name), display_safe(&m.description));
   }
-  println!("permissions:");
-  for p in &plugin_metadata.permissions {
-    println!("  {}", permission_line(p));
+  if !plugin_metadata.permissions.is_empty() {
+    println!("permissions:");
+    for p in &plugin_metadata.permissions {
+      println!("  {}", permission_line(p));
+    }
   }
 }
 

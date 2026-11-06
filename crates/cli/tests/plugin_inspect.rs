@@ -145,3 +145,39 @@ fn inspect_rejects_old_world() {
     .stderr(predicates::str::contains("moonlit:plugin@0.3.0"))
     .stderr(predicates::str::contains("moonlit:plugin@0.4.0"));
 }
+
+fn inspect_stdout(mode: &str, fixture: &str) -> String {
+  let out = Command::cargo_bin("moonlit")
+    .unwrap()
+    .args(["--output", mode, "plugin", "inspect", fixture])
+    .assert()
+    .success()
+    .get_output()
+    .stdout
+    .clone();
+  String::from_utf8(out).unwrap()
+}
+
+#[test]
+fn inspect_omits_the_permissions_header_when_there_are_none() {
+  for mode in ["plain", "pretty"] {
+    let stdout = inspect_stdout(mode, FIXTURE);
+    assert!(!stdout.to_lowercase().contains("permissions"), "{mode}: {stdout}");
+  }
+}
+
+#[test]
+fn inspect_lists_permissions_in_plain_and_pretty() {
+  for (mode, header) in [("plain", "permissions:"), ("pretty", "Permissions:")] {
+    let stdout = inspect_stdout(mode, PERMISSIONS_FIXTURE);
+    assert!(stdout.contains(header), "{mode}: {stdout}");
+    assert!(
+      stdout.contains("  Connect to the internet (api.example.com): Calls the example API."),
+      "{mode}: {stdout}"
+    );
+    assert!(
+      stdout.contains("  Run programs on your machine (git) [optional]: Only for the tag middleware."),
+      "{mode}: {stdout}"
+    );
+  }
+}
