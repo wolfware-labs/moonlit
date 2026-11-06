@@ -224,6 +224,7 @@ fn add_name_collision_suggests_name_flag() {
   project
     .add(&[&url, "--yes"])
     .code(2)
+    .stdout(predicates::str::is_empty())
     .stderr(contains("a plugin named 'test-plugin' is already declared"))
     .stderr(contains("--name"));
   assert_eq!(project.release(), release);
@@ -233,4 +234,39 @@ fn add_name_collision_suggests_name_flag() {
     .success()
     .stdout(contains("Added tp to release.yml."));
   assert!(project.release().contains("  - name: tp\n"));
+}
+
+#[test]
+fn add_of_a_url_already_declared_points_at_update_before_consent() {
+  let url = file_url("test_plugin.wasm");
+  let release = format!("name: demo\nplugins:\n  - name: other\n    url: {url}\nstages:\n  build:\n    - run: other.echo\n");
+  let project = Project::new(&release);
+
+  project
+    .add(&[&url, "--yes"])
+    .code(2)
+    .stdout(predicates::str::is_empty())
+    .stderr(contains("this plugin is already declared as 'other'"))
+    .stderr(contains("moonlit update other"));
+  assert_eq!(project.release(), release);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn re_adding_a_declared_registry_plugin_points_at_update() {
+  let server = registry().await;
+  let release = format!(
+    "name: demo\nplugins:\n  - name: test-plugin\n    url: oci://{}/acme/test-plugin:1.0.0\nstages:\n  build:\n    - run: test-plugin.echo\n",
+    host(&server)
+  );
+  let project = Project::new(&release);
+
+  let assert = project
+    .add(&["acme/test-plugin", "--yes", "--registry", &server.uri()])
+    .code(2)
+    .stdout(predicates::str::is_empty())
+    .stderr(contains("a plugin named 'test-plugin' is already declared"))
+    .stderr(contains("moonlit update test-plugin"));
+  let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+  assert!(!stderr.contains("--name"), "{stderr}");
+  assert_eq!(project.release(), release);
 }

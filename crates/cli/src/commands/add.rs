@@ -8,8 +8,8 @@ use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
 use crate::consent::{self, Answer, ConsentView};
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
-use crate::plugin_spec::PluginSpec;
-use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, render_diff};
+use crate::plugin_spec::{PluginSpec, registry_ref};
+use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable, render_diff};
 use crate::render::resolve_mode;
 
 const REFUSAL: &str =
@@ -47,6 +47,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
       .map_or(meta.name.as_str(), |(_, last)| last)
       .to_string()
   });
+  check_addable(&before, &name, &target.url).or_else(|e| fail(&clash_message(&e, &target.url), 2))?;
   let (optional, required): (Vec<&DeclaredPermission>, Vec<&DeclaredPermission>) =
     meta.permissions.iter().partition(|p| p.optional);
   let view = ConsentView {
@@ -65,10 +66,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
     url: target.url.clone(),
     permissions: grants_for(&meta.permissions, &|p| accepted.contains(&p)),
   };
-  let after = add_plugin(&before, &entry).or_else(|e| match e {
-    ReleaseFileError::NameTaken(_) => fail(&format!("{e}; pass --name to add it under another name"), 2),
-    e => fail(&e.to_string(), 2),
-  })?;
+  let after = add_plugin(&before, &entry).or_else(|e| fail(&clash_message(&e, &target.url), 2))?;
   let file = display_path(args.file_path.as_deref(), &path);
   print!("{}", consent::render_changes(&file, &render_diff(&before, &after)));
 
@@ -101,6 +99,24 @@ async fn resolve_target(spec: PluginSpec, registry: Option<&str>) -> Result<Targ
         status: Some(detail.status),
       })
     }
+  }
+}
+
+fn clash_message(e: &ReleaseFileError, url: &str) -> String {
+  match e {
+    ReleaseFileError::NameTaken { name, url: declared } if same_plugin(declared, url) => {
+      format!("{e}; run `moonlit update {name}` to change its version")
+    }
+    ReleaseFileError::NameTaken { .. } => format!("{e}; pass --name to add it under another name"),
+    ReleaseFileError::UrlPresent { name } => format!("{e}; run `moonlit update {name}` to change its version"),
+    e => e.to_string(),
+  }
+}
+
+fn same_plugin(declared: &str, url: &str) -> bool {
+  match (registry_ref(declared), registry_ref(url)) {
+    (Some(a), Some(b)) => a.host == b.host && a.org == b.org && a.name == b.name,
+    _ => declared == url,
   }
 }
 

@@ -11,10 +11,10 @@ pub struct PluginEntry {
 /// Why a release file could not be edited.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ReleaseFileError {
-  /// Another plugin entry already uses this name.
-  #[error("a plugin named '{0}' is already declared")]
+  /// Another plugin entry already uses this name; holds that entry's URL.
+  #[error("a plugin named '{name}' is already declared")]
   #[diagnostic(code(moonlit::release_file::name_taken))]
-  NameTaken(String),
+  NameTaken { name: String, url: String },
   /// A plugin entry with this URL already exists under the given name.
   #[error("this plugin is already declared as '{name}'")]
   #[diagnostic(code(moonlit::release_file::url_present))]
@@ -31,14 +31,9 @@ pub enum ReleaseFileError {
 
 /// Appends a plugin entry to the `plugins:` sequence, leaving every other byte of the file unchanged.
 pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseFileError> {
+  check_addable(content, &entry.name, &entry.url)?;
   let config = parse_config_unvalidated(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
   let plugins = &config.plugins.value;
-  if plugins.iter().any(|p| p.name == entry.name) {
-    return Err(ReleaseFileError::NameTaken(entry.name.clone()));
-  }
-  if let Some(p) = plugins.iter().find(|p| p.url.value.as_str() == entry.url) {
-    return Err(ReleaseFileError::UrlPresent { name: p.name.clone() });
-  }
   let edit = if let Some(last) = plugins.last() {
     let dash = column(content, last.span.start);
     let key = key_column(content, last.span.start);
@@ -52,6 +47,22 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
     insertion(content, at, format!("plugins:\n{}\n", item_block(entry, 2, 4)))
   };
   validated(apply(content, vec![edit]), &entry.name, &entry.url)
+}
+
+/// Checks that a plugin entry with this name and URL could be added, without editing anything.
+pub fn check_addable(content: &str, name: &str, url: &str) -> Result<(), ReleaseFileError> {
+  let config = parse_config_unvalidated(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let plugins = &config.plugins.value;
+  if let Some(p) = plugins.iter().find(|p| p.name == name) {
+    return Err(ReleaseFileError::NameTaken {
+      name: p.name.clone(),
+      url: p.url.value.as_str().to_string(),
+    });
+  }
+  if let Some(p) = plugins.iter().find(|p| p.url.value.as_str() == url) {
+    return Err(ReleaseFileError::UrlPresent { name: p.name.clone() });
+  }
+  Ok(())
 }
 
 /// Replaces the `url` and `permissions` of one plugin entry, leaving every other byte of the file unchanged.
@@ -333,7 +344,10 @@ stages:
     let mut entry = github();
     entry.name = "git".into();
     let err = add_plugin(RELEASE, &entry).expect_err("name taken");
-    assert!(matches!(err, ReleaseFileError::NameTaken(ref n) if n == "git"), "{err:?}");
+    assert!(
+      matches!(err, ReleaseFileError::NameTaken { ref name, .. } if name == "git"),
+      "{err:?}"
+    );
   }
 
   #[test]
