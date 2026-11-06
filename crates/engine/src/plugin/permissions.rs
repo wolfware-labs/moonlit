@@ -1,6 +1,6 @@
 use crate::pipeline::config::{FilesystemAccess, Permissions};
 use crate::plugin::host::{exec_globset, network_globset};
-use crate::sanitize::quote;
+use crate::sanitize::quote_list;
 use serde::Serialize;
 
 /// The kind of capability a plugin asks for.
@@ -36,6 +36,17 @@ impl PermissionKind {
       .map(|first| first.to_lowercase().chain(chars).collect())
       .unwrap_or_default()
   }
+
+  /// The key under a plugin's `permissions:` block that grants this kind.
+  #[must_use]
+  pub fn field(self) -> &'static str {
+    match self {
+      PermissionKind::Network => "network",
+      PermissionKind::Exec => "exec",
+      PermissionKind::Env => "env",
+      PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite => "filesystem",
+    }
+  }
 }
 
 /// A permission a plugin declares in its metadata.
@@ -46,18 +57,6 @@ pub struct DeclaredPermission {
   pub values: Vec<String>,
   pub reason: String,
   pub optional: bool,
-}
-
-fn rank(access: FilesystemAccess) -> u8 {
-  match access {
-    FilesystemAccess::None => 0,
-    FilesystemAccess::ReadOnly => 1,
-    FilesystemAccess::ReadWrite => 2,
-  }
-}
-
-fn max_access(a: FilesystemAccess, b: FilesystemAccess) -> FilesystemAccess {
-  if rank(b) > rank(a) { b } else { a }
 }
 
 fn push_unique(target: &mut Vec<String>, values: &[String]) {
@@ -72,17 +71,12 @@ impl DeclaredPermission {
   /// The line to add under a plugin's `permissions:` block to grant this declaration.
   #[must_use]
   pub fn yaml_line(&self) -> String {
-    let list = || {
-      let quoted: Vec<String> = self.values.iter().map(|v| quote(v)).collect();
-      format!("[{}]", quoted.join(", "))
+    let value = match self.kind {
+      PermissionKind::Network | PermissionKind::Exec | PermissionKind::Env => quote_list(&self.values),
+      PermissionKind::FilesystemRead => FilesystemAccess::ReadOnly.as_str().to_string(),
+      PermissionKind::FilesystemWrite => FilesystemAccess::ReadWrite.as_str().to_string(),
     };
-    match self.kind {
-      PermissionKind::Network => format!("network: {}", list()),
-      PermissionKind::Exec => format!("exec: {}", list()),
-      PermissionKind::Env => format!("env: {}", list()),
-      PermissionKind::FilesystemRead => "filesystem: read-only".to_string(),
-      PermissionKind::FilesystemWrite => "filesystem: read-write".to_string(),
-    }
+    format!("{}: {value}", self.kind.field())
   }
 }
 
@@ -102,8 +96,8 @@ pub fn is_covered(p: &DeclaredPermission, granted: &Permissions) -> bool {
       let set = exec_globset(&granted.env);
       p.values.iter().all(|v| set.is_match(v))
     }
-    PermissionKind::FilesystemRead => rank(granted.filesystem) >= rank(FilesystemAccess::ReadOnly),
-    PermissionKind::FilesystemWrite => rank(granted.filesystem) >= rank(FilesystemAccess::ReadWrite),
+    PermissionKind::FilesystemRead => granted.filesystem >= FilesystemAccess::ReadOnly,
+    PermissionKind::FilesystemWrite => granted.filesystem >= FilesystemAccess::ReadWrite,
   }
 }
 
@@ -122,8 +116,8 @@ pub fn grants_for(declared: &[DeclaredPermission], include_optional: &dyn Fn(&De
       PermissionKind::Network => push_unique(&mut out.network, &p.values),
       PermissionKind::Exec => push_unique(&mut out.exec, &p.values),
       PermissionKind::Env => push_unique(&mut out.env, &p.values),
-      PermissionKind::FilesystemRead => out.filesystem = max_access(out.filesystem, FilesystemAccess::ReadOnly),
-      PermissionKind::FilesystemWrite => out.filesystem = max_access(out.filesystem, FilesystemAccess::ReadWrite),
+      PermissionKind::FilesystemRead => out.filesystem = out.filesystem.max(FilesystemAccess::ReadOnly),
+      PermissionKind::FilesystemWrite => out.filesystem = out.filesystem.max(FilesystemAccess::ReadWrite),
     }
   }
   out
@@ -136,8 +130,14 @@ pub fn merge_grants(current: &Permissions, extra: &Permissions) -> Permissions {
   push_unique(&mut out.network, &extra.network);
   push_unique(&mut out.exec, &extra.exec);
   push_unique(&mut out.env, &extra.env);
-  out.filesystem = max_access(out.filesystem, extra.filesystem);
+  out.filesystem = out.filesystem.max(extra.filesystem);
   out
+}
+
+/// The granted permissions widened by the required ones they were missing.
+#[must_use]
+pub fn grant_missing(granted: &Permissions, missing: &[DeclaredPermission]) -> Permissions {
+  merge_grants(granted, &grants_for(missing, &|_| false))
 }
 
 /// Whether an environment pattern may expose secrets: it has a wildcard or a secret-looking word.

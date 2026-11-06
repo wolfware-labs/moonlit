@@ -99,11 +99,24 @@ impl Permissions {
   }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// How much of the project a plugin may touch, ordered from least to most access.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FilesystemAccess {
   None,
   ReadOnly,
   ReadWrite,
+}
+
+impl FilesystemAccess {
+  /// The value as written after `filesystem:` in a release file.
+  #[must_use]
+  pub fn as_str(self) -> &'static str {
+    match self {
+      FilesystemAccess::None => "none",
+      FilesystemAccess::ReadOnly => "read-only",
+      FilesystemAccess::ReadWrite => "read-write",
+    }
+  }
 }
 
 #[cfg(test)]

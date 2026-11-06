@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::summary::{build_table, fmt_duration};
-use super::{Header, Renderer, error_block};
+use super::{Header, Renderer, error_block, release_error};
 use crate::display::display_safe;
 use console::style;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -201,13 +201,7 @@ fn step_failure(result: &StepResult) -> String {
 
 #[must_use]
 fn release_failure(summary: &PipelineSummary) -> String {
-  let msg = summary
-    .steps
-    .iter()
-    .rev()
-    .find_map(|s| s.error_message.as_deref().map(error_block))
-    .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
-  format!("{} Release failed: {msg}", style("❌").red())
+  format!("{} Release failed: {}", style("❌").red(), release_error(summary))
 }
 
 #[expect(

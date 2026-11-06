@@ -1,17 +1,16 @@
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
-use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, is_covered, merge_grants, uncovered_required};
+use moonlit_engine::plugin::permissions::{DeclaredPermission, grant_missing, is_covered, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{RegistryClient, RegistryError, VerificationStatus, VersionRule};
 use semver::Version;
 
 use crate::cli::{OutputMode, UpdateArgs};
-use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
+use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed, read_release, write_release};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
-use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
 use crate::plugin_spec::{RegistryRef, registry_ref};
-use crate::release_file::{render_diff, set_plugin, set_plugin_url};
+use crate::release_file::set_plugin;
 use crate::render::resolve_mode;
 
 enum Planned {
@@ -41,8 +40,7 @@ pub async fn run(output: Option<OutputMode>, args: UpdateArgs) -> i32 {
 }
 
 async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i32> {
-  let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
-  let before = std::fs::read_to_string(&path).or_else(|e| fail(&format!("cannot read '{}': {e}", path.display()), 2))?;
+  let (path, before) = read_release(args.file_path.as_deref())?;
   let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
   let plugins = &config.plugins.value;
   if let Some(wanted) = &args.plugin
@@ -88,12 +86,8 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   let mut content = before.clone();
   let mut declined = false;
   for plan in &plans {
-    let edited = if plan.uncovered.is_empty() {
-      set_plugin_url(&content, &plan.name, &plan.url)
-    } else {
-      set_plugin(&content, &plan.name, &plan.url, &plan.permissions)
-    };
-    let after = edited.or_else(|e| fail(&e.to_string(), 2))?;
+    let permissions = (!plan.uncovered.is_empty()).then_some(&plan.permissions);
+    let after = set_plugin(&content, &plan.name, &plan.url, permissions).or_else(|e| fail(&e.to_string(), 2))?;
     if !plan.uncovered.is_empty() {
       let view = ConsentView {
         plugin: &plan.name,
@@ -105,7 +99,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
         not_requested: false,
       };
       print!("{}", consent::render(&view, color));
-      print!("{}", consent::render_changes(&file, &render_diff(&content, &after)));
+      print!("{}", consent::render_changes(&file, &content, &after));
       if !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
         println!("{}: kept at {}", plan.name, plan.old);
         declined = true;
@@ -117,7 +111,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   }
 
   if content != before {
-    std::fs::write(&path, &content).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
+    write_release(&path, &content)?;
   }
   Ok(i32::from(declined))
 }
@@ -164,12 +158,7 @@ async fn plan(
       consent::values_text(p)
     );
   }
-  let permissions = if uncovered.is_empty() {
-    granted.clone()
-  } else {
-    let wanted = grants_for(&uncovered, &|_| false);
-    merge_grants(granted, &wanted)
-  };
+  let permissions = grant_missing(granted, &uncovered);
   Ok(Planned::Bump(Box::new(Plan {
     name: name.to_string(),
     old: current.to_string(),

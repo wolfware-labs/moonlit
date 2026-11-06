@@ -4,7 +4,7 @@ use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{MiddlewareSummary, PackageHit, RegistryClient, RegistryError, VerificationStatus};
 
 use crate::cli::{DEFAULT_REGISTRY_HOST, OutputMode, SearchArgs};
-use crate::display::display_safe;
+use crate::display::{badge, display_safe, status_key};
 use crate::render::resolve_mode;
 
 const TABLE_STYLE: TableStyle = TableStyle::new()
@@ -58,23 +58,6 @@ async fn fetch(client: &RegistryClient, args: &SearchArgs) -> Result<Vec<Card>, 
     });
   }
   Ok(cards)
-}
-
-fn status_key(status: VerificationStatus) -> &'static str {
-  match status {
-    VerificationStatus::Verified => "verified",
-    VerificationStatus::Unverified => "unverified",
-    VerificationStatus::Failed => "failed",
-    VerificationStatus::Pending => "pending",
-  }
-}
-
-#[must_use]
-pub fn badge(status: VerificationStatus) -> &'static str {
-  match status {
-    VerificationStatus::Verified => "✓ verified",
-    other => status_key(other),
-  }
 }
 
 fn print_json(cards: &[Card]) {

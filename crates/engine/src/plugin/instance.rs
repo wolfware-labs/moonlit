@@ -3,7 +3,7 @@ use crate::plugin::host::ReleaseContext;
 use crate::plugin::host::state::Denial;
 use crate::plugin::host::state::HostState;
 use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
-use crate::plugin::permissions::{DeclaredPermission, PermissionKind, optional_for_target};
+use crate::plugin::permissions::{DeclaredPermission, optional_for_target};
 use crate::plugin::wit::PluginHost;
 use crate::plugin::{PluginError, PluginMetadata};
 use std::path::PathBuf;
@@ -63,7 +63,7 @@ impl PluginInstance {
     config: &serde_json::Value,
   ) -> Result<MiddlewareResult, PluginError> {
     self.store.data_mut().set_step(&ctx.step_name);
-    self.store.data().denials().lock().unwrap().clear();
+    let _ = self.store.data().take_denials();
     let json = config.to_string();
     let result = match self
       .bindings
@@ -76,7 +76,7 @@ impl PluginInstance {
         message: format!("{e:?}"),
       }),
     };
-    let denials = std::mem::take(&mut *self.store.data().denials().lock().unwrap());
+    let denials = self.store.data().take_denials();
     apply_denials(result, &denials, self.store.data().declared())
   }
 
@@ -125,18 +125,9 @@ fn apply_denials(
 fn denial_message(denials: &[Denial], declared: &[DeclaredPermission]) -> String {
   denials
     .iter()
-    .map(|d| {
-      let (verb, field) = match d.kind {
-        PermissionKind::Network => ("connecting to", "network"),
-        PermissionKind::Exec => ("running", "exec"),
-        PermissionKind::Env => ("using", "env"),
-        PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite => ("using", "filesystem"),
-      };
-      let mut msg = format!("blocked from {verb} '{}' — add it to permissions.{field}", d.target);
-      if let Some(p) = optional_for_target(declared, d.kind, &d.target) {
-        msg = format!("{msg} (optional permission: \"{}\")", p.reason);
-      }
-      msg
+    .map(|d| match optional_for_target(declared, d.kind, &d.target) {
+      Some(p) => format!("{d} (optional permission: \"{}\")", p.reason),
+      None => d.to_string(),
     })
     .collect::<Vec<_>>()
     .join("; ")
@@ -145,6 +136,7 @@ fn denial_message(denials: &[Denial], declared: &[DeclaredPermission]) -> String
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::plugin::permissions::PermissionKind;
 
   fn denial(kind: PermissionKind, target: &str) -> Denial {
     Denial {

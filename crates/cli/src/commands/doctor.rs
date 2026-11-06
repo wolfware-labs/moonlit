@@ -1,18 +1,17 @@
 use moonlit_engine::pipeline::IncompatiblePlugin;
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
-use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, merge_grants, uncovered_required};
+use moonlit_engine::plugin::permissions::{DeclaredPermission, grant_missing, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::VerificationStatus;
 
 use crate::cli::{DoctorArgs, OutputMode};
-use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
+use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed, read_release, write_release};
 use crate::compat::{self, Suggestion};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
-use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::{ProbeError, probe};
 use crate::plugin_spec::{RegistryRef, registry_ref};
-use crate::release_file::{render_diff, set_plugin, set_plugin_url};
+use crate::release_file::set_plugin;
 use crate::render::resolve_mode;
 
 struct Fix {
@@ -45,8 +44,7 @@ pub async fn run(output: Option<OutputMode>, args: DoctorArgs) -> i32 {
 }
 
 async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i32> {
-  let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
-  let before = std::fs::read_to_string(&path).or_else(|e| fail(&format!("cannot read '{}': {e}", path.display()), 2))?;
+  let (path, before) = read_release(args.file_path.as_deref())?;
   let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
   let file = display_path(args.file_path.as_deref(), &path);
 
@@ -88,11 +86,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
 
   let mut content = before.clone();
   for fix in &fixes {
-    let edited = match &fix.permissions {
-      Some(permissions) => set_plugin(&content, &fix.name, &fix.url, permissions),
-      None => set_plugin_url(&content, &fix.name, &fix.url),
-    };
-    content = edited.or_else(|e| fail(&e.to_string(), 2))?;
+    content = set_plugin(&content, &fix.name, &fix.url, fix.permissions.as_ref()).or_else(|e| fail(&e.to_string(), 2))?;
   }
 
   let color = resolve_mode(output) == OutputMode::Pretty;
@@ -109,13 +103,13 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
     };
     print!("{}", consent::render(&view, color));
   }
-  print!("{}", consent::render_changes(&file, &render_diff(&before, &content)));
+  print!("{}", consent::render_changes(&file, &before, &content));
   if !args.yes && consent::interactive() && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
     println!("Nothing changed.");
     return Ok(1);
   }
 
-  std::fs::write(&path, &content).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
+  write_release(&path, &content)?;
   for fix in &fixes {
     match &fix.moved {
       Some((old, new)) => println!("{}: {old} → {}", fix.name, display_safe(new)),
@@ -141,7 +135,7 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
           version: probed.meta.version.clone(),
           description: probed.meta.description.clone(),
           status: None,
-          permissions: Some(granting(granted, &uncovered)),
+          permissions: Some(grant_missing(granted, &uncovered)),
           uncovered,
         })),
       }
@@ -206,7 +200,7 @@ async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissio
     other => Unfixed::Problem(other.to_string()),
   })?;
   let uncovered = uncovered(&probed.meta.permissions, granted);
-  let permissions = (!uncovered.is_empty()).then(|| granting(granted, &uncovered));
+  let permissions = (!uncovered.is_empty()).then(|| grant_missing(granted, &uncovered));
   Ok(Fix {
     name: name.to_string(),
     url: target,
@@ -221,10 +215,6 @@ async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissio
 
 fn uncovered(declared: &[DeclaredPermission], granted: &Permissions) -> Vec<DeclaredPermission> {
   uncovered_required(declared, granted).into_iter().cloned().collect()
-}
-
-fn granting(granted: &Permissions, uncovered: &[DeclaredPermission]) -> Permissions {
-  merge_grants(granted, &grants_for(uncovered, &|_| false))
 }
 
 fn describe(permissions: &[DeclaredPermission]) -> String {

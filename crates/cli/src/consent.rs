@@ -5,8 +5,8 @@ use console::Style;
 use moonlit_engine::plugin::permissions::{DeclaredPermission, PermissionKind, is_secret_like};
 use moonlit_engine::registry::VerificationStatus;
 
-use crate::commands::search::badge;
-use crate::display::display_safe;
+use crate::display::{badge, display_safe};
+use crate::release_file::render_diff;
 
 const KINDS: [PermissionKind; 5] = [
   PermissionKind::Network,
@@ -99,10 +99,10 @@ pub fn render(view: &ConsentView, color: bool) -> String {
   out
 }
 
-/// Renders the changes a consent would make to `file`, as listed by `release_file::render_diff`.
+/// Renders the lines a consent would change in `file`, as listed by [`render_diff`].
 #[must_use]
-pub fn render_changes(file: &str, diff: &str) -> String {
-  format!("  {file}\n{diff}\n")
+pub fn render_changes(file: &str, before: &str, after: &str) -> String {
+  format!("  {file}\n{}\n", render_diff(before, after))
 }
 
 fn icon(kind: PermissionKind) -> &'static str {
@@ -231,7 +231,7 @@ mod tests {
 
   #[test]
   fn changes_list_the_diff_under_the_file_at_the_same_indent() {
-    let out = render_changes("release.yml", "  + plugins:\n  +   - name: github\n");
+    let out = render_changes("release.yml", "name: a\n", "name: a\nplugins:\n  - name: github\n");
     assert_eq!(out, "  release.yml\n  + plugins:\n  +   - name: github\n\n");
   }
 

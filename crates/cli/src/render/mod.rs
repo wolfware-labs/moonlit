@@ -1,6 +1,6 @@
 use crate::cli::OutputMode;
 use crate::display::display_safe_text;
-use moonlit_engine::pipeline::PipelineEvent;
+use moonlit_engine::pipeline::{PipelineEvent, PipelineSummary};
 use std::io::{IsTerminal, stderr};
 use std::path::PathBuf;
 
@@ -39,6 +39,17 @@ pub trait Renderer: Send {
 #[must_use]
 pub(crate) fn error_block(text: &str) -> String {
   display_safe_text(text).replace('\n', "\n    ")
+}
+
+/// Why a release failed: the last step error, ready to print.
+#[must_use]
+pub(crate) fn release_error(summary: &PipelineSummary) -> String {
+  summary
+    .steps
+    .iter()
+    .rev()
+    .find_map(|s| s.error_message.as_deref().map(error_block))
+    .unwrap_or_else(|| "pipeline did not complete successfully".to_string())
 }
 
 #[must_use]

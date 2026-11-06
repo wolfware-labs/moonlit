@@ -56,13 +56,13 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   let outcome = execute(&engine, &manifest, opts, header, renderer, cancel, args.dry_run).await;
   let code = exit_code(&outcome);
   if let Err(e) = outcome {
-    if let (PipelineError::IncompatiblePlugins(list), false) = (&e, json) {
+    if json {
+      let plugins = incompatible_json(&e);
+      report_with(e, code, json, plugins);
+    } else if let PipelineError::IncompatiblePlugins(list) = &e {
       let entries = compat::suggestions(list, args.offline).await;
       report(e, code, json);
       eprint!("{}", compat::render(&entries));
-    } else if json {
-      let plugins = incompatible_json(&e);
-      report_with(e, code, json, plugins);
     } else {
       report(e.for_terminal(), code, json);
     }

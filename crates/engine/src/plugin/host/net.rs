@@ -47,15 +47,14 @@ impl WasiHttpHooks for AllowlistHooks {
     let host = request.uri().host().unwrap_or_default().to_string();
 
     if !self.allowed.is_match(&host) {
-      self.events.log(
+      self.denials.record(
+        self.events.as_ref(),
         &self.step,
-        crate::plugin::host::LogLevel::Warn,
-        &format!("blocked from connecting to '{host}' — add it to the plugin's permissions.network"),
+        Denial {
+          kind: PermissionKind::Network,
+          target: host,
+        },
       );
-      self.denials.lock().unwrap().push(Denial {
-        kind: PermissionKind::Network,
-        target: host,
-      });
       return Box::new(async move { Err(Error::HttpRequestDenied) });
     }
 

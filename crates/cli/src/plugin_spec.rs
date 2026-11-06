@@ -1,3 +1,5 @@
+use moonlit_engine::plugin::resolver::PluginSource;
+
 /// A plugin named on the command line: a registry package or a direct URL.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PluginSpec {
@@ -9,19 +11,17 @@ pub enum PluginSpec {
   Url(String),
 }
 
-const URL_SCHEMES: [&str; 4] = ["oci://", "file://", "http://", "https://"];
-
 impl PluginSpec {
   /// Parses `org/name`, `org/name@1.2.3`, or an `oci://`, `file://` or `http(s)://` URL.
   pub fn parse(s: &str) -> Result<PluginSpec, String> {
     let s = s.trim();
-    if URL_SCHEMES.iter().any(|scheme| s.starts_with(scheme)) {
-      return Ok(PluginSpec::Url(s.to_string()));
-    }
     if s.contains("://") {
-      return Err(format!(
-        "'{s}' has an unsupported scheme; expected oci://, file://, http:// or https://"
-      ));
+      return match s.parse::<PluginSource>() {
+        Ok(_) => Ok(PluginSpec::Url(s.to_string())),
+        Err(_) => Err(format!(
+          "'{s}' has an unsupported scheme; expected oci://, file://, http:// or https://"
+        )),
+      };
     }
     let (package, version) = match s.split_once('@') {
       Some((package, version)) if !version.is_empty() => (package, Some(version.to_string())),

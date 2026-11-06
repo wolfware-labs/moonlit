@@ -3,13 +3,12 @@ use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionDetail, VersionRule};
 
 use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
-use crate::commands::common::{display_path, fail, prompt_failed};
+use crate::commands::common::{display_path, fail, prompt_failed, read_release, write_release};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
-use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
 use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref};
-use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable, render_diff};
+use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable};
 use crate::render::resolve_mode;
 
 const NO_TERMINAL: &str = "refusing to add a plugin without a terminal to confirm; pass --yes";
@@ -33,8 +32,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
     return fail(NO_TERMINAL, 2);
   }
   let spec = PluginSpec::parse(&args.plugin).or_else(|e| fail(&e, 2))?;
-  let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
-  let before = std::fs::read_to_string(&path).or_else(|e| fail(&format!("cannot read '{}': {e}", path.display()), 2))?;
+  let (path, before) = read_release(args.file_path.as_deref())?;
   let target = resolve_target(spec, args.registry.as_deref()).await?;
   let probe = probe(&target.url).await.or_else(|e| fail(&e.to_string(), 3))?;
 
@@ -68,13 +66,13 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
   };
   let after = add_plugin(&before, &entry).or_else(|e| fail(&clash_message(&e, &target.url), 2))?;
   let file = display_path(args.file_path.as_deref(), &path);
-  print!("{}", consent::render_changes(&file, &render_diff(&before, &after)));
+  print!("{}", consent::render_changes(&file, &before, &after));
 
   if !args.yes && consent::ask("Allow and add?").or_else(|e| prompt_failed(&e))? == Answer::No {
     println!("Nothing changed.");
     return Ok(1);
   }
-  std::fs::write(&path, &after).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
+  write_release(&path, &after)?;
   println!("Added {} to {file}.", display_safe(&name));
   Ok(0)
 }
@@ -146,9 +144,8 @@ async fn registry_version(registry: &str, org: &str, name: &str, version: Option
   let client = RegistryClient::for_host(registry);
   let Some(version) = version else {
     let rule = VersionRule {
-      current: None,
       cross_major: true,
-      pre: false,
+      ..VersionRule::default()
     };
     return client
       .newest_compatible(org, name, PLUGIN_WORLD, rule)

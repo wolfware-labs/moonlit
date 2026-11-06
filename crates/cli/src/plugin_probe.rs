@@ -6,7 +6,6 @@ use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
 use moonlit_engine::plugin::host::HostEventSink;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
-use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveError, ResolveOptions, resolve};
 use moonlit_engine::plugin::world::{self, WorldError, WorldMismatch};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig, PluginMetadata};
@@ -16,7 +15,6 @@ use moonlit_engine::plugin::{Plugin, PluginInstanceConfig, PluginMetadata};
 pub struct Probe {
   pub meta: PluginMetadata,
   pub middlewares: Vec<MiddlewareInfo>,
-  pub world: Option<String>,
 }
 
 /// Why a plugin could not be probed.
@@ -58,11 +56,7 @@ pub async fn probe(url: &str) -> Result<Probe, ProbeError> {
     WorldError::Load(e) => load_error(e.to_string()),
   })?;
   let (meta, middlewares) = introspect(&bytes).await.map_err(|e| load_error(e.to_string()))?;
-  Ok(Probe {
-    meta,
-    middlewares,
-    world: Some(PLUGIN_WORLD.to_string()),
-  })
+  Ok(Probe { meta, middlewares })
 }
 
 struct SilentSink;

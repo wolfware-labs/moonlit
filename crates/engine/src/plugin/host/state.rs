@@ -5,6 +5,7 @@ use crate::plugin::permissions::{DeclaredPermission, PermissionKind};
 use crate::plugin::wit::moonlit::plugin::host::Host as MoonlitHost;
 use crate::plugin::wit::moonlit::plugin::process::{Command, Host as ProcessHost, HostChild, OutputChunk};
 use crate::plugin::wit::moonlit::plugin::types::LogLevel;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
@@ -17,8 +18,39 @@ pub struct Denial {
   pub target: String,
 }
 
+impl fmt::Display for Denial {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let verb = match self.kind {
+      PermissionKind::Network => "connecting to",
+      PermissionKind::Exec => "running",
+      PermissionKind::Env | PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite => "using",
+    };
+    write!(
+      f,
+      "blocked from {verb} '{}' \u{2014} add it to permissions.{}",
+      self.target,
+      self.kind.field()
+    )
+  }
+}
+
 /// Denials shared between the host state and the HTTP hooks.
-pub type DenialLog = Arc<Mutex<Vec<Denial>>>;
+#[derive(Clone, Debug, Default)]
+pub struct DenialLog(Arc<Mutex<Vec<Denial>>>);
+
+impl DenialLog {
+  /// Warns about a refusal on the step's log and keeps it for the step's result.
+  pub fn record(&self, events: &dyn HostEventSink, step: &str, denial: Denial) {
+    events.log(step, crate::plugin::host::LogLevel::Warn, &denial.to_string());
+    self.0.lock().unwrap().push(denial);
+  }
+
+  /// Removes and returns every refusal recorded so far.
+  #[must_use]
+  pub fn take(&self) -> Vec<Denial> {
+    std::mem::take(&mut *self.0.lock().unwrap())
+  }
+}
 
 pub struct HostState {
   table: ResourceTable,
@@ -57,9 +89,10 @@ impl HostState {
     }
   }
 
+  /// Removes and returns the sandbox refusals recorded since the last call.
   #[must_use]
-  pub fn denials(&self) -> DenialLog {
-    self.denials.clone()
+  pub fn take_denials(&self) -> Vec<Denial> {
+    self.denials.take()
   }
 
   pub fn set_declared(&mut self, declared: Vec<DeclaredPermission>) {
@@ -124,15 +157,14 @@ impl HostState {
     if self.exec_allow.is_match(program) {
       return None;
     }
-    self.events.log(
+    self.denials.record(
+      self.events.as_ref(),
       &self.current_step,
-      crate::plugin::host::LogLevel::Warn,
-      &format!("blocked from running '{program}' — add it to permissions.exec"),
+      Denial {
+        kind: PermissionKind::Exec,
+        target: program.to_string(),
+      },
     );
-    self.denials.lock().unwrap().push(Denial {
-      kind: PermissionKind::Exec,
-      target: program.to_string(),
-    });
     Some(format!("program '{program}' not permitted"))
   }
 }

@@ -1,5 +1,5 @@
 use super::summary::{build_table, fmt_duration};
-use super::{Header, Renderer, error_block};
+use super::{Header, Renderer, error_block, release_error};
 use crate::display::display_safe;
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::{PipelineEvent, StepResult};
@@ -87,13 +87,7 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
             summary.total_duration.as_secs_f64()
           );
         } else {
-          let msg = summary
-            .steps
-            .iter()
-            .rev()
-            .find_map(|s| s.error_message.as_deref().map(error_block))
-            .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
-          let _ = writeln!(self.out, "Release failed: {msg}");
+          let _ = writeln!(self.out, "Release failed: {}", release_error(summary));
         }
       }
     }

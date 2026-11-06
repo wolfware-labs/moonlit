@@ -1,5 +1,8 @@
-use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config, parse_config_unvalidated};
-use moonlit_engine::sanitize::quote;
+use moonlit_engine::pipeline::config::{
+  FilesystemAccess, Permissions, PipelineConfig, PluginDeclaration, parse_config, parse_config_unvalidated,
+};
+use moonlit_engine::plugin::permissions::PermissionKind;
+use moonlit_engine::sanitize::{quote, quote_list};
 
 /// A plugin entry to write into a release file.
 #[derive(Clone, Debug, PartialEq)]
@@ -33,7 +36,7 @@ pub enum ReleaseFileError {
 /// Appends a plugin entry to the `plugins:` sequence, leaving every other byte of the file unchanged.
 pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseFileError> {
   check_addable(content, &entry.name, &entry.url)?;
-  let config = parse_config_unvalidated(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let config = parse_structure(content)?;
   let plugins = &config.plugins.value;
   let edit = if let Some(last) = plugins.last() {
     let dash = column(content, last.span.start);
@@ -52,7 +55,7 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
 
 /// Checks that a plugin entry with this name and URL could be added, without editing anything.
 pub fn check_addable(content: &str, name: &str, url: &str) -> Result<(), ReleaseFileError> {
-  let config = parse_config_unvalidated(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let config = parse_structure(content)?;
   let plugins = &config.plugins.value;
   if let Some(p) = plugins.iter().find(|p| p.name == name) {
     return Err(ReleaseFileError::NameTaken {
@@ -66,38 +69,21 @@ pub fn check_addable(content: &str, name: &str, url: &str) -> Result<(), Release
   Ok(())
 }
 
-/// Replaces the `url` and `permissions` of one plugin entry, leaving every other byte of the file unchanged.
-pub fn set_plugin(content: &str, name: &str, url: &str, permissions: &Permissions) -> Result<String, ReleaseFileError> {
-  let config = parse_config(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+/// Replaces the `url` of one plugin entry, and its `permissions` when given, leaving every other byte of the
+/// file unchanged.
+pub fn set_plugin(content: &str, name: &str, url: &str, permissions: Option<&Permissions>) -> Result<String, ReleaseFileError> {
+  let config = parse_checked(content)?;
   let plugin = config
     .plugins
     .value
     .iter()
     .find(|p| p.name == name)
     .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
-  let url_edit = (plugin.url.span.start, plugin.url.span.end, scalar(url));
-  let permissions_edit = if let Some(span) = plugin.permissions_span {
-    let block = permissions_block(permissions, column(content, span.start));
-    (span.start, span.end, block)
-  } else {
-    let key = key_column(content, plugin.span.start);
-    let lines = format!("{}{}\n", " ".repeat(key), permissions_block(permissions, key));
-    insertion(content, line_end(content, plugin.span.end), lines)
-  };
-  validated(apply(content, vec![url_edit, permissions_edit]), name, url, Some(permissions))
-}
-
-/// Replaces the `url` of one plugin entry, leaving every other byte of the file unchanged.
-pub fn set_plugin_url(content: &str, name: &str, url: &str) -> Result<String, ReleaseFileError> {
-  let config = parse_config(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
-  let plugin = config
-    .plugins
-    .value
-    .iter()
-    .find(|p| p.name == name)
-    .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
-  let edit = (plugin.url.span.start, plugin.url.span.end, scalar(url));
-  validated(apply(content, vec![edit]), name, url, plugin.permissions.as_ref())
+  let mut edits = vec![(plugin.url.span.start, plugin.url.span.end, scalar(url))];
+  if let Some(permissions) = permissions {
+    edits.push(permissions_edit(content, plugin, permissions));
+  }
+  validated(apply(content, edits), name, url, permissions.or(plugin.permissions.as_ref()))
 }
 
 /// Lists the lines that differ between two versions of a file, prefixed with `+ ` or `- `.
@@ -136,8 +122,30 @@ const SOURCE: &str = "release.yml";
 
 type Edit = (usize, usize, String);
 
+fn parse_checked(content: &str) -> Result<PipelineConfig, ReleaseFileError> {
+  parse_config(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))
+}
+
+fn parse_structure(content: &str) -> Result<PipelineConfig, ReleaseFileError> {
+  parse_config_unvalidated(content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))
+}
+
+fn permissions_edit(content: &str, plugin: &PluginDeclaration, permissions: &Permissions) -> Edit {
+  if let Some(span) = plugin.permissions_span {
+    (
+      span.start,
+      span.end,
+      permissions_block(permissions, column(content, span.start)),
+    )
+  } else {
+    let key = key_column(content, plugin.span.start);
+    let lines = format!("{}{}\n", " ".repeat(key), permissions_block(permissions, key));
+    insertion(content, line_end(content, plugin.span.end), lines)
+  }
+}
+
 fn validated(content: String, name: &str, url: &str, permissions: Option<&Permissions>) -> Result<String, ReleaseFileError> {
-  let config = parse_config(&content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
+  let config = parse_checked(&content)?;
   let Some(plugin) = config
     .plugins
     .value
@@ -238,19 +246,20 @@ fn item_block(entry: &PluginEntry, dash: usize, key: usize) -> String {
 fn permissions_block(permissions: &Permissions, key: usize) -> String {
   let mut lines = Vec::new();
   for (kind, values) in [
-    ("network", &permissions.network),
-    ("exec", &permissions.exec),
-    ("env", &permissions.env),
+    (PermissionKind::Network, &permissions.network),
+    (PermissionKind::Exec, &permissions.exec),
+    (PermissionKind::Env, &permissions.env),
   ] {
     if !values.is_empty() {
-      let quoted: Vec<String> = values.iter().map(|v| quote(v)).collect();
-      lines.push(format!("{kind}: [{}]", quoted.join(", ")));
+      lines.push(format!("{}: {}", kind.field(), quote_list(values)));
     }
   }
-  match permissions.filesystem {
-    FilesystemAccess::None => {}
-    FilesystemAccess::ReadOnly => lines.push("filesystem: read-only".into()),
-    FilesystemAccess::ReadWrite => lines.push("filesystem: read-write".into()),
+  if permissions.filesystem != FilesystemAccess::None {
+    lines.push(format!(
+      "{}: {}",
+      PermissionKind::FilesystemRead.field(),
+      permissions.filesystem.as_str()
+    ));
   }
   if lines.is_empty() {
     return "permissions: {}".into();
@@ -301,11 +310,11 @@ mod tests {
   }
 
   #[test]
-  fn set_plugin_url_changes_only_the_url() {
-    let out = set_plugin_url(RELEASE, "git", "oci://registry.moonlit.rs/moonlit/git:1.3.0").unwrap();
+  fn set_plugin_without_permissions_changes_only_the_url() {
+    let out = set_plugin(RELEASE, "git", "oci://registry.moonlit.rs/moonlit/git:1.3.0", None).unwrap();
     assert_eq!(out, RELEASE.replace("git:1.2.0", "git:1.3.0"));
     assert!(matches!(
-      set_plugin_url(RELEASE, "nope", "oci://h/o/n:1.0.0"),
+      set_plugin(RELEASE, "nope", "oci://h/o/n:1.0.0", None),
       Err(ReleaseFileError::PluginNotFound(_))
     ));
   }
@@ -452,7 +461,7 @@ stages:
   #[test]
   fn set_plugin_on_an_item_whose_dash_is_on_its_own_line() {
     let input = "plugins:\n  -\n    name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n";
-    let out = set_plugin(input, "a", "file://a-2.wasm", &Permissions::deny()).expect("set");
+    let out = set_plugin(input, "a", "file://a-2.wasm", Some(&Permissions::deny())).expect("set");
     assert_eq!(
       out,
       "plugins:\n  -\n    name: a\n    url: file://a-2.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
@@ -473,7 +482,7 @@ stages:
 
   #[test]
   fn set_plugin_quotes_values_that_would_not_read_back() {
-    let out = set_plugin(TWO_PLUGINS, "b", "file://b.wasm # x", &Permissions::deny()).expect("set");
+    let out = set_plugin(TWO_PLUGINS, "b", "file://b.wasm # x", Some(&Permissions::deny())).expect("set");
     assert_eq!(declared(&out, "b"), "file://b.wasm # x");
   }
 
@@ -519,7 +528,7 @@ stages:
       filesystem: FilesystemAccess::ReadWrite,
       ..Permissions::deny()
     };
-    let out = set_plugin(&crlf(TWO_PLUGINS), "b", "file://b-2.wasm", &permissions).expect("set");
+    let out = set_plugin(&crlf(TWO_PLUGINS), "b", "file://b-2.wasm", Some(&permissions)).expect("set");
     let expected = TWO_PLUGINS.replacen(
       "    url: file://b.wasm\n",
       "    url: file://b-2.wasm\n    permissions:\n      filesystem: read-write\n",
@@ -528,7 +537,7 @@ stages:
     assert_eq!(out, crlf(&expected));
     assert!(!has_bare_newline(&out));
 
-    let out = set_plugin(&crlf(TWO_PLUGINS), "a", "file://a-2.wasm", &Permissions::deny()).expect("set");
+    let out = set_plugin(&crlf(TWO_PLUGINS), "a", "file://a-2.wasm", Some(&Permissions::deny())).expect("set");
     assert!(!has_bare_newline(&out), "{out:?}");
     assert_eq!(declared(&out, "a"), "file://a-2.wasm");
   }
@@ -557,7 +566,7 @@ stages:
       network: vec!["api.example.com".into(), "*.acme.io".into()],
       ..Permissions::deny()
     };
-    let out = set_plugin(TWO_PLUGINS, "a", "file://a-2.wasm", &permissions).expect("set");
+    let out = set_plugin(TWO_PLUGINS, "a", "file://a-2.wasm", Some(&permissions)).expect("set");
     let expected = TWO_PLUGINS.replacen("'file://a-1.wasm'", "file://a-2.wasm", 1).replacen(
       "network: [old.example.com]  # legacy\n      filesystem: read-write",
       "network: [\"api.example.com\", \"*.acme.io\"]",
@@ -572,7 +581,7 @@ stages:
       filesystem: FilesystemAccess::ReadWrite,
       ..Permissions::deny()
     };
-    let out = set_plugin(TWO_PLUGINS, "b", "file://b-2.wasm", &permissions).expect("set");
+    let out = set_plugin(TWO_PLUGINS, "b", "file://b-2.wasm", Some(&permissions)).expect("set");
     let expected = TWO_PLUGINS.replacen(
       "    url: file://b.wasm\n",
       "    url: file://b-2.wasm\n    permissions:\n      filesystem: read-write\n",
@@ -583,7 +592,7 @@ stages:
 
   #[test]
   fn set_plugin_rejects_unknown_name() {
-    let err = set_plugin(TWO_PLUGINS, "zz", "file://z.wasm", &Permissions::deny()).expect_err("missing");
+    let err = set_plugin(TWO_PLUGINS, "zz", "file://z.wasm", Some(&Permissions::deny())).expect_err("missing");
     assert!(matches!(err, ReleaseFileError::PluginNotFound(ref n) if n == "zz"), "{err:?}");
   }
 

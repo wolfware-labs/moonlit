@@ -1,25 +1,22 @@
+use moonlit_engine::registry::VerificationStatus;
 pub use moonlit_engine::sanitize::{display_safe, display_safe_text};
 
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn escapes_c0_c1_and_delete() {
-    assert_eq!(display_safe("a\u{1b}[8mb"), "a\\x1b[8mb");
-    assert_eq!(display_safe("\u{9b}2K\u{7f}\u{7}"), "\\x9b2K\\x7f\\x07");
-    assert_eq!(display_safe("line\nbreak\r\ttab"), "line\\x0abreak\\x0d\\x09tab");
+/// The registry's name for a verification state, as printed in JSON output.
+#[must_use]
+pub fn status_key(status: VerificationStatus) -> &'static str {
+  match status {
+    VerificationStatus::Verified => "verified",
+    VerificationStatus::Unverified => "unverified",
+    VerificationStatus::Failed => "failed",
+    VerificationStatus::Pending => "pending",
   }
+}
 
-  #[test]
-  fn escapes_bidirectional_overrides() {
-    assert_eq!(display_safe("abc\u{202e}fed"), "abc\\u202efed");
-    assert_eq!(display_safe("\u{2066}x\u{2069}"), "\\u2066x\\u2069");
-  }
-
-  #[test]
-  fn leaves_ordinary_text_alone() {
-    let text = "Connect to the internet 🌐 api.github.com — ✓ verified, ünïcode";
-    assert_eq!(display_safe(text), text);
+/// The label shown next to a plugin for its verification state.
+#[must_use]
+pub fn badge(status: VerificationStatus) -> &'static str {
+  match status {
+    VerificationStatus::Verified => "✓ verified",
+    other => status_key(other),
   }
 }
