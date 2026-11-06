@@ -77,14 +77,7 @@ impl PluginInstance {
       }),
     };
     let denials = std::mem::take(&mut *self.store.data().denials().lock().unwrap());
-    match result {
-      Ok(mut r) if !denials.is_empty() => {
-        r.successful = false;
-        r.error_message = Some(denial_message(&denials, self.store.data().declared()));
-        Ok(r)
-      }
-      other => other,
-    }
+    apply_denials(result, &denials, self.store.data().declared())
   }
 
   pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, PluginError> {
@@ -98,13 +91,41 @@ impl PluginInstance {
   }
 }
 
+fn apply_denials(
+  result: Result<MiddlewareResult, PluginError>,
+  denials: &[Denial],
+  declared: &[DeclaredPermission],
+) -> Result<MiddlewareResult, PluginError> {
+  if denials.is_empty() {
+    return result;
+  }
+  let denied = denial_message(denials, declared);
+  match result {
+    Ok(mut r) => {
+      r.successful = false;
+      r.error_message = Some(match r.error_message.take() {
+        Some(own) if !own.is_empty() => format!("{own}; {denied}"),
+        _ => denied,
+      });
+      Ok(r)
+    }
+    Err(PluginError::Trap { op, message }) => Err(PluginError::Trap {
+      op,
+      message: format!("{message}; {denied}"),
+    }),
+    Err(other) => Err(other),
+  }
+}
+
 fn denial_message(denials: &[Denial], declared: &[DeclaredPermission]) -> String {
   denials
     .iter()
     .map(|d| {
       let (verb, field) = match d.kind {
         PermissionKind::Network => ("connecting to", "network"),
-        _ => ("running", "exec"),
+        PermissionKind::Exec => ("running", "exec"),
+        PermissionKind::Env => ("using", "env"),
+        PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite => ("using", "filesystem"),
       };
       let mut msg = format!("blocked from {verb} '{}' — add it to permissions.{field}", d.target);
       if let Some(p) = optional_for_target(declared, d.kind, &d.target) {
@@ -114,4 +135,128 @@ fn denial_message(denials: &[Denial], declared: &[DeclaredPermission]) -> String
     })
     .collect::<Vec<_>>()
     .join("; ")
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn denial(kind: PermissionKind, target: &str) -> Denial {
+    Denial {
+      kind,
+      target: target.to_string(),
+    }
+  }
+
+  fn declared(kind: PermissionKind, values: &[&str], reason: &str, optional: bool) -> DeclaredPermission {
+    DeclaredPermission {
+      kind,
+      values: values.iter().map(|v| (*v).to_string()).collect(),
+      reason: reason.to_string(),
+      optional,
+    }
+  }
+
+  fn result(successful: bool, error: Option<&str>) -> MiddlewareResult {
+    MiddlewareResult {
+      successful,
+      error_message: error.map(str::to_string),
+      warnings: vec![],
+      output: vec![],
+    }
+  }
+
+  #[test]
+  fn exec_denial_names_the_program_and_the_exec_field() {
+    assert_eq!(
+      denial_message(&[denial(PermissionKind::Exec, "git")], &[]),
+      "blocked from running 'git' \u{2014} add it to permissions.exec"
+    );
+  }
+
+  #[test]
+  fn network_denial_names_the_host_and_the_network_field() {
+    assert_eq!(
+      denial_message(&[denial(PermissionKind::Network, "api.example.com")], &[]),
+      "blocked from connecting to 'api.example.com' \u{2014} add it to permissions.network"
+    );
+  }
+
+  #[test]
+  fn network_denial_matching_an_optional_permission_quotes_its_reason() {
+    let declared = [declared(PermissionKind::Network, &["*.example.com"], "Calls the API.", true)];
+    assert_eq!(
+      denial_message(&[denial(PermissionKind::Network, "api.example.com")], &declared),
+      "blocked from connecting to 'api.example.com' \u{2014} add it to permissions.network (optional permission: \"Calls the API.\")"
+    );
+  }
+
+  #[test]
+  fn denial_of_another_kind_still_prints_the_kind() {
+    let message = denial_message(&[denial(PermissionKind::Env, "HOME")], &[]);
+    assert_eq!(message, "blocked from using 'HOME' \u{2014} add it to permissions.env");
+  }
+
+  #[test]
+  fn several_denials_are_joined() {
+    let message = denial_message(
+      &[
+        denial(PermissionKind::Exec, "git"),
+        denial(PermissionKind::Network, "a.example.com"),
+      ],
+      &[],
+    );
+    assert!(
+      message.contains("running 'git'") && message.contains("; blocked from connecting to 'a.example.com'"),
+      "{message}"
+    );
+  }
+
+  #[test]
+  fn a_denial_fails_a_successful_result() {
+    let out = apply_denials(Ok(result(true, None)), &[denial(PermissionKind::Exec, "git")], &[]).unwrap();
+    assert!(!out.successful);
+    assert_eq!(
+      out.error_message.as_deref(),
+      Some("blocked from running 'git' \u{2014} add it to permissions.exec")
+    );
+  }
+
+  #[test]
+  fn a_denial_is_appended_to_the_plugins_own_error() {
+    let out = apply_denials(
+      Ok(result(false, Some("git tag failed"))),
+      &[denial(PermissionKind::Exec, "git")],
+      &[],
+    )
+    .unwrap();
+    assert!(!out.successful);
+    assert_eq!(
+      out.error_message.as_deref(),
+      Some("git tag failed; blocked from running 'git' \u{2014} add it to permissions.exec")
+    );
+  }
+
+  #[test]
+  fn a_denial_is_appended_to_a_trap() {
+    let trap = PluginError::Trap {
+      op: "execute tag".to_string(),
+      message: "unreachable".to_string(),
+    };
+    let Err(PluginError::Trap { op, message }) = apply_denials(Err(trap), &[denial(PermissionKind::Exec, "git")], &[]) else {
+      panic!("expected a trap");
+    };
+    assert_eq!(op, "execute tag");
+    assert_eq!(
+      message,
+      "unreachable; blocked from running 'git' \u{2014} add it to permissions.exec"
+    );
+  }
+
+  #[test]
+  fn without_denials_the_result_is_untouched() {
+    let out = apply_denials(Ok(result(false, Some("boom"))), &[], &[]).unwrap();
+    assert_eq!(out, result(false, Some("boom")));
+    assert!(apply_denials(Err(PluginError::Load("x".to_string())), &[], &[]).is_err());
+  }
 }
