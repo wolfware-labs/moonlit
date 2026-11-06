@@ -2334,6 +2334,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "wasmparser 0.259.0",
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",

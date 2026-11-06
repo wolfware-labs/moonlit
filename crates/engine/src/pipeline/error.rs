@@ -1,5 +1,13 @@
 use crate::pipeline::config::ConfigDiagnostic;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IncompatiblePlugin {
+  pub name: String,
+  pub url: String,
+  pub plugin_world: Option<String>,
+  pub engine_world: String,
+}
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum PipelineError {
   #[error(transparent)]
@@ -9,6 +17,10 @@ pub enum PipelineError {
   #[error("failed to load plugin '{plugin}': {message}")]
   #[diagnostic(code(moonlit::pipeline::plugin_load))]
   PluginLoad { plugin: String, message: String },
+
+  #[error("{} plugin(s) target a different plugin contract than this CLI ({})", .0.len(), .0.first().map_or("", |p| p.engine_world.as_str()))]
+  #[diagnostic(code(moonlit::pipeline::incompatible_plugins))]
+  IncompatiblePlugins(Vec<IncompatiblePlugin>),
 
   #[error("pipeline execution failed: {0}")]
   #[diagnostic(code(moonlit::pipeline::execution))]
@@ -24,7 +36,7 @@ impl PipelineError {
   pub fn exit_code(&self) -> i32 {
     match self {
       PipelineError::Config(_) => 2,
-      PipelineError::PluginLoad { .. } => 3,
+      PipelineError::PluginLoad { .. } | PipelineError::IncompatiblePlugins(_) => 3,
       PipelineError::Execution(_) => 4,
       PipelineError::Internal(_) => 1,
     }
@@ -48,8 +60,27 @@ mod tests {
 
     assert_eq!(config.exit_code(), 2);
     assert_eq!(load.exit_code(), 3);
+    assert_eq!(incompatible_plugins().exit_code(), 3);
     assert_eq!(execution.exit_code(), 4);
     assert_eq!(internal.exit_code(), 1);
+  }
+
+  fn incompatible_plugins() -> PipelineError {
+    let plugin = |name: &str| IncompatiblePlugin {
+      name: name.to_string(),
+      url: format!("file:///{name}.wasm"),
+      plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
+      engine_world: "moonlit:plugin@0.4.0".to_string(),
+    };
+    PipelineError::IncompatiblePlugins(vec![plugin("a"), plugin("b")])
+  }
+
+  #[test]
+  fn incompatible_plugins_message_counts_plugins_and_names_the_engine_world() {
+    assert_eq!(
+      incompatible_plugins().to_string(),
+      "2 plugin(s) target a different plugin contract than this CLI (moonlit:plugin@0.4.0)"
+    );
   }
 
   #[test]

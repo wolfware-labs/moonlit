@@ -3,9 +3,11 @@ use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, Pipel
 use crate::pipeline::expr::substitute_config;
 use crate::pipeline::manifest::PipelineManifest;
 use crate::pipeline::model::{ChannelSink, FlatStep};
-use crate::pipeline::{Pipeline, PipelineData, PipelineError, PipelineEvent, PipelineOptions};
+use crate::pipeline::{IncompatiblePlugin, Pipeline, PipelineData, PipelineError, PipelineEvent, PipelineOptions};
 use crate::plugin::host::HostEventSink;
+use crate::plugin::publish::PLUGIN_WORLD;
 use crate::plugin::resolver::{PluginSource, ProgressFn, ResolveOptions, resolve};
+use crate::plugin::world::component_world;
 use crate::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -19,6 +21,12 @@ struct PluginRequest {
   url: String,
   permissions: Permissions,
   config_view: serde_json::Value,
+}
+
+struct ResolvedPlugin {
+  request: PluginRequest,
+  bytes: Vec<u8>,
+  cached: bool,
 }
 
 struct LoadedPlugin {
@@ -80,34 +88,23 @@ async fn load_plugins(
   let declared: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
   let env_snapshot: Vec<(String, String)> = std::env::vars().collect();
 
+  let resolved = resolve_plugins(engine, requests, offline, events).await?;
+  reject_incompatible(&resolved)?;
+
   let mut tasks = JoinSet::new();
-  for request in requests {
+  for plugin in resolved {
     let engine = engine.clone();
     let working_dir = working_dir.to_path_buf();
     let env_snapshot = env_snapshot.clone();
     let events = events.clone();
-    tasks.spawn(async move { load_plugin(&engine, request, working_dir, env_snapshot, offline, &events).await });
+    tasks.spawn(async move { load_plugin(&engine, plugin, working_dir, env_snapshot, &events).await });
   }
 
-  let mut loaded = HashMap::new();
-  while let Some(joined) = tasks.join_next().await {
-    let result = match joined {
-      Ok(result) => result,
-      Err(join_error) => Err(PipelineError::Internal(anyhow::anyhow!(
-        "plugin load task failed: {join_error}"
-      ))),
-    };
-    match result {
-      Ok(plugin) => {
-        loaded.insert(plugin.name.clone(), plugin);
-      }
-      Err(error) => {
-        tasks.shutdown().await;
-        return Err(error);
-      }
-    }
-  }
-
+  let mut loaded: HashMap<String, LoadedPlugin> = join_all(tasks)
+    .await?
+    .into_iter()
+    .map(|plugin| (plugin.name.clone(), plugin))
+    .collect();
   Ok(
     declared
       .into_iter()
@@ -116,20 +113,75 @@ async fn load_plugins(
   )
 }
 
-async fn load_plugin(
+async fn join_all<T: 'static>(mut tasks: JoinSet<Result<T, PipelineError>>) -> Result<Vec<T>, PipelineError> {
+  let mut done = Vec::new();
+  while let Some(joined) = tasks.join_next().await {
+    let result = match joined {
+      Ok(result) => result,
+      Err(join_error) => Err(PipelineError::Internal(anyhow::anyhow!(
+        "plugin load task failed: {join_error}"
+      ))),
+    };
+    match result {
+      Ok(value) => done.push(value),
+      Err(error) => {
+        tasks.shutdown().await;
+        return Err(error);
+      }
+    }
+  }
+  Ok(done)
+}
+
+async fn resolve_plugins(
   engine: &Engine,
-  request: PluginRequest,
-  working_dir: PathBuf,
-  env_snapshot: Vec<(String, String)>,
+  requests: Vec<PluginRequest>,
   offline: bool,
   events: &Sender<PipelineEvent>,
-) -> Result<LoadedPlugin, PipelineError> {
-  let PluginRequest {
-    name,
-    url,
-    permissions,
-    config_view,
-  } = request;
+) -> Result<Vec<ResolvedPlugin>, PipelineError> {
+  let order: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
+  let mut tasks = JoinSet::new();
+  for request in requests {
+    let engine = engine.clone();
+    let events = events.clone();
+    tasks.spawn(async move { resolve_plugin(&engine, request, offline, &events).await });
+  }
+  let mut resolved = join_all(tasks).await?;
+  resolved.sort_by_key(|plugin| order.iter().position(|name| *name == plugin.request.name));
+  Ok(resolved)
+}
+
+fn reject_incompatible(resolved: &[ResolvedPlugin]) -> Result<(), PipelineError> {
+  let mut incompatible = Vec::new();
+  for plugin in resolved {
+    let plugin_world = component_world(&plugin.bytes).map_err(|e| PipelineError::PluginLoad {
+      plugin: plugin.request.name.clone(),
+      message: e.to_string(),
+    })?;
+    if plugin_world.as_deref() != Some(PLUGIN_WORLD) {
+      incompatible.push(IncompatiblePlugin {
+        name: plugin.request.name.clone(),
+        url: plugin.request.url.clone(),
+        plugin_world,
+        engine_world: PLUGIN_WORLD.to_string(),
+      });
+    }
+  }
+  if incompatible.is_empty() {
+    Ok(())
+  } else {
+    Err(PipelineError::IncompatiblePlugins(incompatible))
+  }
+}
+
+async fn resolve_plugin(
+  engine: &Engine,
+  request: PluginRequest,
+  offline: bool,
+  events: &Sender<PipelineEvent>,
+) -> Result<ResolvedPlugin, PipelineError> {
+  let name = request.name.clone();
+  let url = request.url.clone();
   let load_error = |message: String| PipelineError::PluginLoad {
     plugin: name.clone(),
     message,
@@ -161,6 +213,33 @@ async fn load_plugin(
 
   let bytes =
     std::fs::read(&resolved.wasm_path).map_err(|e| load_error(format!("reading {}: {e}", resolved.wasm_path.display())))?;
+
+  Ok(ResolvedPlugin {
+    request,
+    bytes,
+    cached: resolved.cached,
+  })
+}
+
+async fn load_plugin(
+  engine: &Engine,
+  plugin: ResolvedPlugin,
+  working_dir: PathBuf,
+  env_snapshot: Vec<(String, String)>,
+  events: &Sender<PipelineEvent>,
+) -> Result<LoadedPlugin, PipelineError> {
+  let ResolvedPlugin { request, bytes, cached } = plugin;
+  let PluginRequest {
+    name,
+    permissions,
+    config_view,
+    ..
+  } = request;
+  let load_error = |message: String| PipelineError::PluginLoad {
+    plugin: name.clone(),
+    message,
+  };
+
   let instance_config = PluginInstanceConfig {
     working_directory: working_dir,
     permissions,
@@ -185,7 +264,7 @@ async fn load_plugin(
     .send(PipelineEvent::PluginReady {
       name: name.clone(),
       version: metadata.version,
-      cached: resolved.cached,
+      cached,
     })
     .await;
 

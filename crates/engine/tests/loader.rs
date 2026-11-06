@@ -4,6 +4,7 @@ use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::pipeline::manifest::PipelineManifest;
 use moonlit_engine::pipeline::{Pipeline, PipelineError, PipelineEvent, PipelineOptions};
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use tokio::sync::mpsc::channel;
 
 fn fixture_url() -> String {
@@ -207,5 +208,38 @@ async fn middleware_validation_covers_stages_excluded_by_the_filter() {
       assert_eq!(d.message(), "The plugin does not export a middleware named 'nosuch'.");
     }
     other => panic!("expected Config, got {other:?}"),
+  }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reports_every_incompatible_plugin() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(256);
+  let dir = tempfile::tempdir().unwrap();
+  let old = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/test_plugin_v0_3.wasm");
+  let first = dir.path().join("old_one.wasm");
+  let second = dir.path().join("old_two.wasm");
+  std::fs::copy(&old, &first).unwrap();
+  std::fs::copy(&old, &second).unwrap();
+  let yaml = format!(
+    "name: demo\nplugins:\n  - name: a\n    url: file://{}\n  - name: ok\n    url: {}\n  - name: b\n    url: file://{}\nstages:\n  build:\n    - name: s1\n      run: ok.log-and-output\n",
+    first.display(),
+    fixture_url(),
+    second.display()
+  );
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail");
+  };
+  assert_eq!(err.exit_code(), 3);
+  let PipelineError::IncompatiblePlugins(found) = err else {
+    panic!("expected IncompatiblePlugins, got {err:?}");
+  };
+  assert_eq!(found.len(), 2);
+  let mut names: Vec<&str> = found.iter().map(|p| p.name.as_str()).collect();
+  names.sort_unstable();
+  assert_eq!(names, vec!["a", "b"]);
+  for plugin in &found {
+    assert_eq!(plugin.plugin_world.as_deref(), Some("moonlit:plugin@0.3.0"));
+    assert_eq!(plugin.engine_world, PLUGIN_WORLD);
   }
 }

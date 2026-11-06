@@ -8,6 +8,7 @@ mod artifact;
 pub mod host;
 pub mod permissions;
 pub mod publish;
+pub mod world;
 
 use crate::engine::Engine;
 use crate::logging::LogLevel;
