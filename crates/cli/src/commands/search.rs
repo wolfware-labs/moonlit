@@ -14,7 +14,7 @@ const TABLE_STYLE: TableStyle = TableStyle::new()
   .content_lines(ContentLineStyle::new('│', '│', '│'))
   .bottom_border(LineStyle::new('└', '─', '┴', '┘'));
 
-const INCOMPATIBLE_MARKER: &str = "(not compatible with this moonlit)";
+const INCOMPATIBLE_MARKER: &str = "(not compatible with this moonlit; add picks the newest compatible version)";
 
 struct Card {
   hit: PackageHit,
@@ -113,11 +113,7 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
       .latest_version
       .as_deref()
       .map_or_else(|| id.clone(), |v| format!("{id} {}", display_safe(v)));
-    let title = if card.compatible == Some(false) {
-      format!("{title} {INCOMPATIBLE_MARKER}")
-    } else {
-      title
-    };
+    let marker = (card.compatible == Some(false)).then_some(INCOMPATIBLE_MARKER);
     let badge = badge(hit.status);
     if pretty {
       let badge = match hit.status {
@@ -125,9 +121,11 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
         VerificationStatus::Failed => style(badge).red(),
         _ => style(badge).dim(),
       };
-      println!("{}   {badge}", style(title).bold());
+      let marker = marker.map_or_else(String::new, |m| format!(" {}", style(m).dim()));
+      println!("{}{marker}   {badge}", style(title).bold());
     } else {
-      println!("{title}   {badge}");
+      let marker = marker.map_or_else(String::new, |m| format!(" {m}"));
+      println!("{title}{marker}   {badge}");
     }
     if let Some(description) = &hit.description {
       println!("{}", display_safe(description));

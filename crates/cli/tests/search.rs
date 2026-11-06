@@ -109,9 +109,9 @@ async fn registry_with_latest_on_world(world: &str) -> MockServer {
 async fn search_marks_a_latest_version_built_for_another_world() {
   let server = registry_with_latest_on_world("moonlit:plugin@0.3.0").await;
 
-  search(&server, "github", "plain")
-    .success()
-    .stdout(contains("wolfware/github 3.0.0 (not compatible with this moonlit)"));
+  search(&server, "github", "plain").success().stdout(contains(
+    "wolfware/github 3.0.0 (not compatible with this moonlit; add picks the newest compatible version)",
+  ));
 
   let out = search(&server, "github", "json").success().get_output().stdout.clone();
   let parsed: Value = serde_json::from_slice(&out).unwrap();
@@ -147,9 +147,9 @@ async fn search_marks_a_latest_version_without_a_world() {
   )
   .await;
 
-  search(&server, "github", "plain")
-    .success()
-    .stdout(contains("wolfware/github 1.0.0 (not compatible with this moonlit)"));
+  search(&server, "github", "plain").success().stdout(contains(
+    "wolfware/github 1.0.0 (not compatible with this moonlit; add picks the newest compatible version)",
+  ));
 }
 
 #[tokio::test(flavor = "multi_thread")]
