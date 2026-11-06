@@ -1,4 +1,4 @@
-pub use moonlit_engine::sanitize::{display_safe, display_safe_text, escape};
+pub use moonlit_engine::sanitize::{display_safe, display_safe_text};
 
 #[cfg(test)]
 mod tests {

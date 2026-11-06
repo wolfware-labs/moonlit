@@ -358,6 +358,7 @@ mod tests {
 
   #[test]
   fn multi_line_step_errors_keep_their_lines_and_escape_the_rest() {
+    console::set_colors_enabled(false);
     let error = "line1\nline2\r\u{1b}[2K\tend";
     let failed = step("s1", false, false, Some(error), &[]);
     let line = step_failure(&failed);
@@ -369,6 +370,7 @@ mod tests {
 
   #[test]
   fn plugin_text_with_escape_sequences_renders_escaped() {
+    console::set_colors_enabled(false);
     let r = PrettyRenderer::new(false);
     let texts = [
       r.log_text("s1", LogLevel::Info, "log\u{1b}[2K").expect("shown"),

@@ -42,7 +42,7 @@ pub fn build_table(summary: &PipelineSummary) -> Table {
     let error = step
       .error_message
       .as_deref()
-      .map_or_else(|| "-".to_string(), display_safe_text);
+      .map_or_else(|| "-".to_string(), |e| display_safe_text(e).replace('\t', " "));
     table.add_row([&step.name, status(step), &duration, &error]);
   }
   table
@@ -92,5 +92,13 @@ mod tests {
     assert!(table.contains("line1") && table.contains("line2\\x1b[2K"), "{table}");
     let rows: Vec<&str> = table.lines().filter(|l| l.contains("line1") || l.contains("line2")).collect();
     assert_eq!(rows.len(), 2, "{table}");
+  }
+
+  #[test]
+  fn a_tab_in_an_error_keeps_the_table_aligned() {
+    let table = build_table(&summary(vec![step("bad", false, false, Some("a\tb"), &[])], false)).to_string();
+    assert!(!table.contains('\t'), "{table:?}");
+    let widths: std::collections::HashSet<usize> = table.lines().map(|l| l.chars().count()).collect();
+    assert_eq!(widths.len(), 1, "{table}");
   }
 }
