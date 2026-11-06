@@ -60,8 +60,10 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
       let entries = compat::suggestions(list, args.offline).await;
       report(e, code, json);
       eprint!("{}", compat::render(&entries));
-    } else {
+    } else if json {
       report(e, code, json);
+    } else {
+      report(e.for_terminal(), code, json);
     }
   }
   code

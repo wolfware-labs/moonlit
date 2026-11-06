@@ -1,4 +1,5 @@
 use crate::pipeline::config::ConfigDiagnostic;
+use crate::sanitize::display_safe_text;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IncompatiblePlugin {
@@ -36,6 +37,19 @@ pub enum PipelineError {
 }
 
 impl PipelineError {
+  /// The same error with the plugin-sourced text escaped so it can be printed to a terminal.
+  #[must_use]
+  pub fn for_terminal(self) -> Self {
+    match self {
+      PipelineError::PluginLoad { plugin, message } => PipelineError::PluginLoad {
+        plugin,
+        message: display_safe_text(&message),
+      },
+      PipelineError::Execution(message) => PipelineError::Execution(display_safe_text(&message)),
+      other => other,
+    }
+  }
+
   #[must_use]
   pub fn exit_code(&self) -> i32 {
     match self {
@@ -98,5 +112,23 @@ mod tests {
       PipelineError::Execution("halted".to_string()).to_string(),
       "pipeline execution failed: halted"
     );
+  }
+
+  #[test]
+  fn for_terminal_escapes_plugin_text_and_keeps_lines() {
+    let load = PipelineError::PluginLoad {
+      plugin: "p".to_string(),
+      message: "init failed\n\u{1b}[2K".to_string(),
+    };
+    assert_eq!(
+      load.for_terminal().to_string(),
+      "failed to load plugin 'p': init failed\n\\x1b[2K"
+    );
+    let execution = PipelineError::Execution("boom\r\u{1b}[1A".to_string());
+    assert_eq!(
+      execution.for_terminal().to_string(),
+      "pipeline execution failed: boom\\x0d\\x1b[1A"
+    );
+    assert_eq!(PipelineError::from(anyhow::anyhow!("x")).for_terminal().to_string(), "x");
   }
 }

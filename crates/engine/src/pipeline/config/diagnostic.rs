@@ -1,6 +1,7 @@
 use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::Span;
 use crate::plugin::permissions::DeclaredPermission;
+use crate::sanitize::display_safe;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -230,7 +231,7 @@ impl ConfigDiagnostic {
     let values = if missing.values.is_empty() {
       String::new()
     } else {
-      format!(" ({})", missing.values.join(", "))
+      format!(" ({})", display_safe(&missing.values.join(", ")))
     };
     let mut diagnostic = Self::make(
       source.name,
@@ -238,7 +239,7 @@ impl ConfigDiagnostic {
       format!(
         "plugin '{plugin}' needs to {}{values} \u{2014} \"{}\"",
         lower_first(missing.kind.sentence()),
-        missing.reason
+        display_safe(&missing.reason)
       ),
       Some(span),
       "this plugin is missing a permission",
@@ -288,5 +289,23 @@ mod tests {
     assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
     let span = diagnostic.span().expect("span");
     assert_eq!((span.offset(), span.len()), (3, 8));
+  }
+
+  #[test]
+  fn missing_grant_escapes_plugin_text() {
+    use crate::plugin::permissions::PermissionKind;
+    let source = ConfigSource::new("plugins: []\n", "release.yml");
+    let missing = DeclaredPermission {
+      kind: PermissionKind::Exec,
+      values: vec!["git\u{1b}[2K".to_string()],
+      reason: "Tags.\u{1b}[1A".to_string(),
+      optional: false,
+    };
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp", &missing, Span::new(0, 7));
+    assert!(!diagnostic.message().contains('\u{1b}'), "{:?}", diagnostic.message());
+    assert!(diagnostic.message().contains("Tags.\\x1b[1A"), "{}", diagnostic.message());
+    assert!(diagnostic.message().contains("git\\x1b[2K"), "{}", diagnostic.message());
+    let help = diagnostic.help.as_deref().expect("help");
+    assert!(!help.contains('\u{1b}'), "{help:?}");
   }
 }
