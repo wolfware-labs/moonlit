@@ -1,0 +1,234 @@
+use std::net::IpAddr;
+use std::path::Path;
+
+use moonlit_engine::pipeline::config::{Permissions, parse_config};
+use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, is_covered, merge_grants, uncovered_required};
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+use moonlit_engine::registry::{RegistryClient, VersionRule};
+use semver::Version;
+
+use crate::cli::{OutputMode, UpdateArgs};
+use crate::consent::{self, Answer, ConsentView};
+use crate::manifest::resolve_manifest_path;
+use crate::plugin_probe::probe;
+use crate::release_file::{render_diff, set_plugin};
+use crate::render::resolve_mode;
+
+const REFUSAL: &str =
+  "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
+
+struct RegistryRef {
+  host: String,
+  org: String,
+  name: String,
+  version: Version,
+}
+
+struct Plan {
+  name: String,
+  old: String,
+  new: String,
+  url: String,
+  permissions: Permissions,
+  uncovered: Vec<DeclaredPermission>,
+  description: String,
+}
+
+#[must_use]
+pub async fn run(output: Option<OutputMode>, args: UpdateArgs) -> i32 {
+  match update(output, &args).await {
+    Ok(code) | Err(code) => code,
+  }
+}
+
+async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i32> {
+  let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
+  let before = std::fs::read_to_string(&path).or_else(|e| fail(&format!("cannot read '{}': {e}", path.display()), 2))?;
+  let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
+  let plugins = &config.plugins.value;
+  if let Some(wanted) = &args.plugin
+    && !plugins.iter().any(|p| &p.name == wanted)
+  {
+    return fail(&format!("no plugin named '{wanted}' is declared"), 2);
+  }
+
+  let mut plans = Vec::new();
+  for plugin in plugins.iter().filter(|p| args.plugin.as_ref().is_none_or(|w| *w == p.name)) {
+    let Some(reference) = registry_ref(plugin.url.value.as_str()) else {
+      if args.plugin.is_some() {
+        return fail(&format!("'{}' does not come from a registry", plugin.name), 2);
+      }
+      continue;
+    };
+    let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
+    match plan(&plugin.name, &reference, &granted, args).await? {
+      Some(plan) => plans.push(plan),
+      None => println!("{}: up to date", plugin.name),
+    }
+  }
+
+  if !args.yes && !consent::interactive() && plans.iter().any(|p| !p.uncovered.is_empty()) {
+    return fail(REFUSAL, 2);
+  }
+
+  let color = resolve_mode(output) == OutputMode::Pretty;
+  let file = display_path(args.file_path.as_deref(), &path);
+  let mut content = before.clone();
+  let mut declined = false;
+  for plan in &plans {
+    let after = set_plugin(&content, &plan.name, &plan.url, &plan.permissions).or_else(|e| fail(&e.to_string(), 2))?;
+    if !plan.uncovered.is_empty() {
+      let view = ConsentView {
+        plugin: &plan.name,
+        version: &plan.new,
+        status: None,
+        description: &plan.description,
+        required: plan.uncovered.iter().collect(),
+        optional: Vec::new(),
+      };
+      print!("{}", consent::render(&view, color));
+      print!("{}", consent::render_changes(&file, &render_diff(&content, &after)));
+      if !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
+        println!("{}: kept at {}", plan.name, plan.old);
+        declined = true;
+        continue;
+      }
+    }
+    content = after;
+    println!("{}: {} → {}", plan.name, plan.old, plan.new);
+  }
+
+  if content != before {
+    std::fs::write(&path, &content).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
+  }
+  Ok(i32::from(declined))
+}
+
+async fn plan(name: &str, reference: &RegistryRef, granted: &Permissions, args: &UpdateArgs) -> Result<Option<Plan>, i32> {
+  let rule = VersionRule {
+    current: Some(reference.version.clone()),
+    cross_major: args.major,
+    pre: args.pre,
+  };
+  let detail = registry_client(&reference.host)
+    .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
+    .await
+    .or_else(|e| fail(&format!("{name}: {e}"), 3))?;
+  let Some(detail) = detail else {
+    return Ok(None);
+  };
+  let newer = Version::parse(&detail.version).is_ok_and(|v| v > reference.version);
+  if !newer {
+    return Ok(None);
+  }
+  let url = format!(
+    "oci://{}/{}/{}:{}",
+    reference.host, reference.org, reference.name, detail.version
+  );
+  let probed = probe(&url).await.or_else(|e| fail(&format!("{name}: {e}"), 3))?;
+  let declared = &probed.meta.permissions;
+  let uncovered: Vec<DeclaredPermission> = uncovered_required(declared, granted).into_iter().cloned().collect();
+  for p in declared.iter().filter(|p| p.optional && !is_covered(p, granted)) {
+    println!(
+      "{name}: new optional permission available: {} ({})",
+      p.kind.sentence(),
+      consent::values_text(p)
+    );
+  }
+  let permissions = if uncovered.is_empty() {
+    granted.clone()
+  } else {
+    let wanted = grants_for(&uncovered, &|_| false);
+    merge_grants(granted, &wanted)
+  };
+  Ok(Some(Plan {
+    name: name.to_string(),
+    old: reference.version.to_string(),
+    new: detail.version,
+    url,
+    permissions,
+    uncovered,
+    description: probed.meta.description.clone(),
+  }))
+}
+
+fn registry_ref(url: &str) -> Option<RegistryRef> {
+  let rest = url.strip_prefix("oci://")?;
+  let (host, repo) = rest.split_once('/')?;
+  let (repo, tag) = repo.rsplit_once(':')?;
+  let (org, name) = repo.split_once('/')?;
+  if name.contains('/') {
+    return None;
+  }
+  Some(RegistryRef {
+    host: host.to_string(),
+    org: org.to_string(),
+    name: name.to_string(),
+    version: Version::parse(tag).ok()?,
+  })
+}
+
+fn registry_client(host: &str) -> RegistryClient {
+  if is_loopback(host) {
+    RegistryClient::for_host(&format!("http://{host}"))
+  } else {
+    RegistryClient::for_host(host)
+  }
+}
+
+fn is_loopback(host: &str) -> bool {
+  let name = if host.starts_with('[') {
+    host.split_once(']').map_or(host, |(ip, _)| ip.trim_start_matches('['))
+  } else {
+    host.rsplit_once(':').map_or(host, |(h, _)| h)
+  };
+  name.eq_ignore_ascii_case("localhost") || name.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
+fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
+  eprintln!("error: {message}");
+  Err(code)
+}
+
+fn display_path(given: Option<&Path>, resolved: &Path) -> String {
+  match given {
+    Some(given) => given.display().to_string(),
+    None => resolved
+      .file_name()
+      .map_or_else(|| resolved.display().to_string(), |n| n.to_string_lossy().into_owned()),
+  }
+}
+
+fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
+  if e.kind() == std::io::ErrorKind::Interrupted {
+    println!("Nothing changed.");
+    Err(1)
+  } else {
+    fail(&e.to_string(), 2)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn registry_ref_reads_oci_urls_only() {
+    let r = registry_ref("oci://registry.moonlit.rs/acme/x:1.2.3").unwrap();
+    assert_eq!(
+      (r.host.as_str(), r.org.as_str(), r.name.as_str()),
+      ("registry.moonlit.rs", "acme", "x")
+    );
+    assert_eq!(r.version, Version::new(1, 2, 3));
+    assert!(registry_ref("oci://127.0.0.1:5000/acme/x:latest").is_none());
+    assert!(registry_ref("file:///x.wasm").is_none());
+  }
+
+  #[test]
+  fn loopback_hosts_are_recognised() {
+    assert!(is_loopback("127.0.0.1:5185"));
+    assert!(is_loopback("localhost:80"));
+    assert!(is_loopback("[::1]:80"));
+    assert!(!is_loopback("registry.moonlit.rs"));
+  }
+}

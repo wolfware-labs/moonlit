@@ -115,7 +115,9 @@ fn icon(kind: PermissionKind) -> &'static str {
   }
 }
 
-fn values_text(p: &DeclaredPermission) -> String {
+/// The values of a permission as shown to the user.
+#[must_use]
+pub fn values_text(p: &DeclaredPermission) -> String {
   match p.kind {
     PermissionKind::FilesystemRead => "read-only".to_string(),
     PermissionKind::FilesystemWrite => "read-write".to_string(),

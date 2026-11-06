@@ -91,6 +91,7 @@ semantic-release, slack, moonlit) live at
 | `moonlit cache` | Inspect or clear the plugin content cache. |
 | `moonlit search` | Search the registry for plugins and list their middlewares. |
 | `moonlit add` | Add a plugin to `release.yml` after showing the permissions it asks for. |
+| `moonlit update` | Update the registry plugins in `release.yml`, asking again only for new required permissions. |
 | `moonlit version` | Print the version, author, and license. |
 
 Run `moonlit <command> --help` for the full options of any command.

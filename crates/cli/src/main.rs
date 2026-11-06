@@ -1,7 +1,7 @@
 use clap::Parser;
 use moonlit::cli::{Cli, Command};
 use moonlit::commands::auth::{login, logout};
-use moonlit::commands::{add, cache, plugin, run, search, validate, version};
+use moonlit::commands::{add, cache, plugin, run, search, update, validate, version};
 use std::process::ExitCode;
 
 #[tokio::main]
@@ -26,6 +26,7 @@ async fn main() -> ExitCode {
     Some(Command::Cache(c)) => cache::run(output, &c),
     Some(Command::Search(a)) => search::run(output, a).await,
     Some(Command::Add(a)) => add::run(output, a).await,
+    Some(Command::Update(a)) => update::run(output, a).await,
   };
   u8::try_from(code).map_or(ExitCode::FAILURE, ExitCode::from)
 }

@@ -48,6 +48,8 @@ pub enum Command {
   Search(SearchArgs),
   /// Add a plugin to the release file after showing the permissions it asks for.
   Add(AddArgs),
+  /// Update the registry plugins in the release file, asking again only for new required permissions.
+  Update(UpdateArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -70,6 +72,25 @@ pub struct AddArgs {
   /// Registry host or base URL (default: the public registry).
   #[arg(long)]
   pub registry: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct UpdateArgs {
+  /// Plugin entry to update, by its name in the release file (default: every registry plugin).
+  #[arg(value_name = "PLUGIN")]
+  pub plugin: Option<String>,
+  /// Release file path (default: ./release.yml, then ./release.yaml).
+  #[arg(short = 'f', long = "file-path")]
+  pub file_path: Option<PathBuf>,
+  /// Accept the new required permissions without asking; new optional ones are not granted.
+  #[arg(short = 'y', long)]
+  pub yes: bool,
+  /// Allow updates to a new major version.
+  #[arg(long)]
+  pub major: bool,
+  /// Allow updates to pre-release versions.
+  #[arg(long)]
+  pub pre: bool,
 }
 
 #[derive(Debug, clap::Args)]

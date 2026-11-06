@@ -4,5 +4,6 @@ pub mod cache;
 pub mod plugin;
 pub mod run;
 pub mod search;
+pub mod update;
 pub mod validate;
 pub mod version;
