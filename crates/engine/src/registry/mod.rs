@@ -21,9 +21,12 @@ package(org: $org, name: $name) { versions { version yanked status } } }";
 /// A failure talking to the registry.
 #[derive(Debug, thiserror::Error)]
 pub enum RegistryError {
-  /// The request could not be sent or the server answered with a non-success status.
+  /// The server answered with a non-success status.
   #[error("registry request failed: {0}")]
   Http(String),
+  /// The request could not reach the server or the connection broke before the answer was complete, including timeouts.
+  #[error("registry request failed: {0}")]
+  Unreachable(String),
   /// The server answered with a GraphQL error; holds the first message.
   #[error("registry returned an error: {0}")]
   GraphQl(String),
@@ -248,7 +251,7 @@ impl RegistryClient {
       .body(body)
       .send()
       .await
-      .map_err(|e| RegistryError::Http(format!("POST {}: {e}", self.url)))?;
+      .map_err(|e| RegistryError::Unreachable(format!("POST {}: {e}", self.url)))?;
     let status = response.status();
     if matches!(status.as_u16(), 404 | 405) {
       return Err(RegistryError::NotARegistry(self.url.clone()));
@@ -265,7 +268,7 @@ impl RegistryClient {
     let bytes = response
       .bytes()
       .await
-      .map_err(|e| RegistryError::Http(format!("POST {}: {e}", self.url)))?;
+      .map_err(|e| RegistryError::Unreachable(format!("POST {}: {e}", self.url)))?;
     let body: Value = serde_json::from_slice(&bytes).map_err(|_| RegistryError::NotARegistry(self.url.clone()))?;
     if body.get("data").or_else(|| body.get("errors")).is_none() {
       return Err(RegistryError::NotARegistry(self.url.clone()));

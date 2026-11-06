@@ -51,19 +51,25 @@ async fn suggestions_within(
       let mut out = Vec::with_capacity(group.len());
       let mut unreachable = false;
       for (index, reference) in group {
-        let suggestion = if unreachable {
-          Suggestion::RegistryUnavailable
-        } else {
-          suggest(&client, &reference).await
+        if unreachable {
+          out.push((index, Suggestion::RegistryUnavailable));
+          continue;
+        }
+        let suggestion = match lookup_suggestion(&client, &reference).await {
+          Ok(suggestion) => suggestion,
+          Err(error) => {
+            unreachable = matches!(error, RegistryError::Unreachable(_));
+            failed(&error, &reference.host)
+          }
         };
-        unreachable = suggestion == Suggestion::RegistryUnavailable;
         out.push((index, suggestion));
       }
       out
     });
   }
   while let Some(joined) = hosts.join_next().await {
-    for (index, suggestion) in joined.into_iter().flatten() {
+    let group = joined.unwrap_or_else(|e| std::panic::resume_unwind(e.into_panic()));
+    for (index, suggestion) in group {
       answers[index] = Some(suggestion);
     }
   }
@@ -75,7 +81,7 @@ async fn suggestions_within(
     .collect()
 }
 
-async fn suggest(client: &RegistryClient, reference: &RegistryRef) -> Suggestion {
+async fn lookup_suggestion(client: &RegistryClient, reference: &RegistryRef) -> Result<Suggestion, RegistryError> {
   let lookup = |current: Option<Version>, cross_major: bool| {
     let rule = VersionRule {
       current,
@@ -86,26 +92,21 @@ async fn suggest(client: &RegistryClient, reference: &RegistryRef) -> Suggestion
     let (org, name) = (reference.org.clone(), reference.name.clone());
     async move { client.newest_compatible(&org, &name, PLUGIN_WORLD, rule).await }
   };
-  if let Ok(current) = Version::parse(&reference.tag) {
-    match lookup(Some(current), false).await {
-      Ok(Some(detail)) => {
-        return Suggestion::Version {
-          version: detail.version,
-          major: false,
-        };
-      }
-      Ok(None) => {}
-      Err(e) => return failed(&e, &reference.host),
-    }
+  if let Ok(current) = Version::parse(&reference.tag)
+    && let Some(detail) = lookup(Some(current), false).await?
+  {
+    return Ok(Suggestion::Version {
+      version: detail.version,
+      major: false,
+    });
   }
-  match lookup(None, true).await {
-    Ok(Some(detail)) => Suggestion::Version {
+  Ok(match lookup(None, true).await? {
+    Some(detail) => Suggestion::Version {
       version: detail.version,
       major: true,
     },
-    Ok(None) => Suggestion::NoneCompatible,
-    Err(e) => failed(&e, &reference.host),
-  }
+    None => Suggestion::NoneCompatible,
+  })
 }
 
 fn failed(error: &RegistryError, host: &str) -> Suggestion {
@@ -248,14 +249,40 @@ mod tests {
       .collect();
 
     let started = Instant::now();
-    let entries = suggestions_within(&list, false, Duration::from_millis(500)).await;
+    let entries = suggestions_within(&list, false, Duration::from_millis(300)).await;
 
-    assert!(started.elapsed() < Duration::from_millis(900), "{:?}", started.elapsed());
+    assert!(started.elapsed() < Duration::from_millis(750), "{:?}", started.elapsed());
     assert!(entries.iter().all(|(_, s)| *s == Suggestion::RegistryUnavailable));
     assert_eq!(
       entries.iter().map(|(p, _)| p.name.as_str()).collect::<Vec<_>>(),
       ["a", "b", "c"]
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
+  }
+
+  #[tokio::test]
+  async fn a_server_error_does_not_stop_the_other_plugins_on_the_host_from_being_asked() {
+    use std::time::Duration;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+      .respond_with(ResponseTemplate::new(500))
+      .mount(&server)
+      .await;
+    let list: Vec<IncompatiblePlugin> = ["a", "b", "c"]
+      .iter()
+      .map(|name| IncompatiblePlugin {
+        name: (*name).to_string(),
+        url: format!("oci://{}/acme/{name}:1.0.0", server.address()),
+        plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
+        engine_world: "moonlit:plugin@0.4.0".to_string(),
+      })
+      .collect();
+
+    suggestions_within(&list, false, Duration::from_secs(5)).await;
+
+    assert_eq!(server.received_requests().await.unwrap().len(), 3);
   }
 }

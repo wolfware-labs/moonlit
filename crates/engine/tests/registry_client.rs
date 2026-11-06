@@ -288,7 +288,7 @@ async fn a_response_that_is_not_a_graphql_envelope_is_not_a_registry() {
 }
 
 #[tokio::test]
-async fn a_registry_that_does_not_answer_in_time_is_an_http_error() {
+async fn a_registry_that_does_not_answer_in_time_is_unreachable() {
   let server = MockServer::start().await;
   Mock::given(method("POST"))
     .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(5)))
@@ -299,7 +299,7 @@ async fn a_registry_that_does_not_answer_in_time_is_an_http_error() {
   let started = std::time::Instant::now();
   let err = client.search("x", 5).await.unwrap_err();
 
-  assert!(matches!(err, RegistryError::Http(_)), "{err:?}");
+  assert!(matches!(err, RegistryError::Unreachable(_)), "{err:?}");
   assert!(
     started.elapsed() < std::time::Duration::from_secs(2),
     "{:?}",
@@ -388,4 +388,42 @@ async fn newest_compatible_gives_up_after_ten_candidates() {
 
   assert!(found.is_none());
   assert_eq!(lookups(&server).await, 10);
+}
+
+#[tokio::test]
+async fn newest_compatible_prefers_the_newest_even_when_it_answers_last() {
+  let server = MockServer::start().await;
+  let all: Vec<String> = (0..14).map(|i| format!("1.0.{i}")).collect();
+  mount_package(&server, json!(all.iter().map(|v| summary(v, false)).collect::<Vec<_>>())).await;
+  for version in &all {
+    let world = if version == "1.0.13" || version == "1.0.12" {
+      "0.4.0"
+    } else {
+      "0.3.0"
+    };
+    if version == "1.0.13" {
+      Mock::given(method("POST"))
+        .and(path("/graphql"))
+        .and(body_string_contains("packageVersion"))
+        .and(body_string_contains("\"version\":\"1.0.13\""))
+        .respond_with(
+          ResponseTemplate::new(200)
+            .set_delay(std::time::Duration::from_millis(300))
+            .set_body_json(json!({ "data": { "packageVersion": {
+              "version": version, "worldVersion": world, "status": "VERIFIED", "middlewares": []
+            } } })),
+        )
+        .mount(&server)
+        .await;
+    } else {
+      mount_version(&server, version, world).await;
+    }
+  }
+
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", any_rule())
+    .await
+    .unwrap();
+
+  assert_eq!(found.unwrap().version, "1.0.13");
 }
