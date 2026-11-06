@@ -158,7 +158,10 @@ pub fn optional_for_target<'a>(
   target: &str,
 ) -> Option<&'a DeclaredPermission> {
   declared.iter().filter(|p| p.optional && p.kind == kind).find(|p| {
-    let set = exec_globset(&p.values);
+    let set = match kind {
+      PermissionKind::Network => network_globset(&p.values),
+      _ => exec_globset(&p.values),
+    };
     set.is_match(target)
   })
 }
@@ -289,6 +292,18 @@ mod tests {
     assert!(optional_for_target(&d, PermissionKind::Exec, "git").is_none());
     assert!(optional_for_target(&d, PermissionKind::Network, "api.example.com").is_some());
     assert!(optional_for_target(&d, PermissionKind::Env, "X").is_none());
+  }
+
+  #[test]
+  fn optional_for_target_matches_network_hosts_with_network_semantics() {
+    let d = vec![
+      decl(PermissionKind::Exec, &["api.example.com"], true),
+      decl(PermissionKind::Network, &["*.example.com", "cdn.test"], true),
+    ];
+    let hit = optional_for_target(&d, PermissionKind::Network, "api.example.com").unwrap();
+    assert_eq!(hit.kind, PermissionKind::Network);
+    assert!(optional_for_target(&d, PermissionKind::Network, "cdn.test").is_some());
+    assert!(optional_for_target(&d, PermissionKind::Network, "other.org").is_none());
   }
 
   #[test]
