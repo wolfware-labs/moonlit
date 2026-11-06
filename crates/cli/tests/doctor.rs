@@ -531,3 +531,37 @@ async fn doctor_exits_3_when_the_move_target_cannot_be_reached() {
 
   assert_eq!(project.release(), before);
 }
+
+fn evil_project(url: &str, permissions: &str) -> Project {
+  let project = Project::new(&entry("\"evil\\e[2K\"", url, permissions));
+  let release = project
+    .release()
+    .replace("test-plugin.log-and-output", "\"evil\\e[2K.log-and-output\"");
+  fs::write(project.dir.path().join("release.yml"), release).unwrap();
+  project
+}
+
+fn stdout_of(assert: &assert_cmd::assert::Assert) -> String {
+  String::from_utf8(assert.get_output().stdout.clone()).unwrap()
+}
+
+#[test]
+fn doctor_prints_a_plugin_name_with_escape_codes_as_visible_text() {
+  let healthy = evil_project(
+    &file_url("test_plugin.wasm"),
+    "    permissions:\n      network: [\"api.example.com\"]\n",
+  );
+  let stdout = stdout_of(&healthy.doctor(&[]).success());
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(stdout.contains("✓ evil\\x1b[2K"), "{stdout:?}");
+
+  let broken = evil_project(&file_url("does_not_exist.wasm"), "");
+  let stdout = stdout_of(&broken.doctor(&[]).code(1));
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(stdout.contains("✗ evil\\x1b[2K: "), "{stdout:?}");
+
+  let granted = evil_project(&file_url("test_plugin.wasm"), "");
+  let stdout = stdout_of(&granted.doctor(&["--yes"]).success());
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(stdout.contains("evil\\x1b[2K: permissions granted"), "{stdout:?}");
+}

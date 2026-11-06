@@ -52,18 +52,19 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
   let mut unfixed = false;
   let mut registry_down = false;
   for plugin in &config.plugins.value {
+    let shown = display_safe(&plugin.name);
     let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
     match check(&plugin.name, plugin.url.value.as_str(), &granted, args.major).await {
-      Outcome::Healthy => println!("✓ {}", plugin.name),
+      Outcome::Healthy => println!("✓ {shown}"),
       Outcome::Problem { text, fix } => {
-        println!("✗ {}: {}", plugin.name, display_safe(&text));
+        println!("✗ {shown}: {}", display_safe(&text));
         match fix {
           Some(fix) => fixes.push(*fix),
           None => unfixed = true,
         }
       }
       Outcome::RegistryDown { text } => {
-        println!("✗ {}: {}", plugin.name, display_safe(&text));
+        println!("✗ {shown}: {}", display_safe(&text));
         registry_down = true;
       }
     }
@@ -112,8 +113,8 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
   write_release(&path, &content)?;
   for fix in &fixes {
     match &fix.moved {
-      Some((old, new)) => println!("{}: {old} → {}", fix.name, display_safe(new)),
-      None => println!("{}: permissions granted", fix.name),
+      Some((old, new)) => println!("{}: {} → {}", display_safe(&fix.name), display_safe(old), display_safe(new)),
+      None => println!("{}: permissions granted", display_safe(&fix.name)),
     }
   }
   Ok(i32::from(unfixed))

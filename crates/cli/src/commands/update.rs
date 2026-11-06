@@ -51,6 +51,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
 
   let mut plans = Vec::new();
   for plugin in plugins.iter().filter(|p| args.plugin.as_ref().is_none_or(|w| *w == p.name)) {
+    let shown = display_safe(&plugin.name);
     let Some(reference) = registry_ref(plugin.url.value.as_str()) else {
       if args.plugin.is_some() {
         return fail(&format!("'{}' does not come from a registry", plugin.name), 2);
@@ -58,21 +59,18 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       continue;
     };
     let Ok(current) = Version::parse(&reference.tag) else {
-      println!("{}: pinned to {}, skipped", plugin.name, reference.tag);
+      println!("{shown}: pinned to {}, skipped", display_safe(&reference.tag));
       continue;
     };
     let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
     match plan(&plugin.name, &reference, &current, &granted, args).await? {
       Planned::Bump(plan) => plans.push(*plan),
-      Planned::UpToDate => println!("{}", display_safe(&format!("{}: up to date", plugin.name))),
-      Planned::NoCompatibleUpdate => println!("{}", display_safe(&format!("{}: no newer compatible version", plugin.name))),
-      Planned::NotARegistry => println!("{}: not from a Moonlit registry, skipped", plugin.name),
+      Planned::UpToDate => println!("{shown}: up to date"),
+      Planned::NoCompatibleUpdate => println!("{shown}: no newer compatible version"),
+      Planned::NotARegistry => println!("{shown}: not from a Moonlit registry, skipped"),
       Planned::Denied(status) => println!(
-        "{}",
-        display_safe(&format!(
-          "{}: registry at {} answered {status} on /graphql, skipped",
-          plugin.name, reference.host
-        ))
+        "{shown}: registry at {} answered {status} on /graphql, skipped",
+        display_safe(&reference.host)
       ),
     }
   }
@@ -101,13 +99,13 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       print!("{}", consent::render(&view, color));
       print!("{}", consent::render_changes(&file, &content, &after));
       if !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
-        println!("{}: kept at {}", plan.name, plan.old);
+        println!("{}: kept at {}", display_safe(&plan.name), plan.old);
         declined = true;
         continue;
       }
     }
     content = after;
-    println!("{}: {} → {}", plan.name, plan.old, display_safe(&plan.new));
+    println!("{}: {} → {}", display_safe(&plan.name), plan.old, display_safe(&plan.new));
   }
 
   if content != before {
@@ -153,7 +151,8 @@ async fn plan(
   let uncovered: Vec<DeclaredPermission> = uncovered_required(declared, granted).into_iter().cloned().collect();
   for p in declared.iter().filter(|p| p.optional && !is_covered(p, granted)) {
     println!(
-      "{name}: optional permission not granted: {} ({})",
+      "{}: optional permission not granted: {} ({})",
+      display_safe(name),
       p.kind.sentence(),
       consent::values_text(p)
     );

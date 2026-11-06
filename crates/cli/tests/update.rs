@@ -300,3 +300,30 @@ async fn update_skips_a_registry_that_refuses_anonymous_graphql_and_names_the_st
 
   assert_eq!(project.release(), release.replace("test-plugin:1.0.0", "test-plugin:1.0.1"));
 }
+
+fn evil_name(project: &Project) {
+  let release = project
+    .release()
+    .replace("name: test-plugin", "name: \"evil\\e[2K\"")
+    .replace("test-plugin.log-and-output", "\"evil\\e[2K.log-and-output\"");
+  fs::write(project.dir.path().join("release.yml"), release).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_prints_a_plugin_name_with_escape_codes_as_visible_text() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
+
+  let bumped = Project::new(&server, "1.0.0", "");
+  evil_name(&bumped);
+  let assert = bumped.update(&[]).success();
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(stdout.contains("evil\\x1b[2K: 1.0.0 → 1.0.1"), "{stdout:?}");
+
+  let pinned = Project::new(&server, "latest", "");
+  evil_name(&pinned);
+  let assert = pinned.update(&[]).success();
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(stdout.contains("evil\\x1b[2K: pinned to latest, skipped"), "{stdout:?}");
+}
