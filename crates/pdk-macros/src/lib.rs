@@ -38,10 +38,18 @@ impl Parse for PermissionDecl {
       kind_ident = input.parse()?;
     }
     let name = kind_ident.to_string();
+    if !matches!(name.as_str(), "network" | "exec" | "env" | "filesystem") {
+      return Err(syn::Error::new(
+        kind_ident.span(),
+        format!("unknown permission kind `{name}` (expected network, exec, env, filesystem)"),
+      ));
+    }
     let args;
     parenthesized!(args in input);
     let (kind, values) = if name == "filesystem" {
-      let access: Ident = args.parse()?;
+      let access: Ident = args
+        .parse()
+        .map_err(|e: syn::Error| syn::Error::new(e.span(), "filesystem takes read_only or read_write"))?;
       let kind = match access.to_string().as_str() {
         "read_only" => "FilesystemRead",
         "read_write" => "FilesystemWrite",
@@ -52,13 +60,7 @@ impl Parse for PermissionDecl {
       let kind = match name.as_str() {
         "network" => "Network",
         "exec" => "Exec",
-        "env" => "Env",
-        other => {
-          return Err(syn::Error::new(
-            kind_ident.span(),
-            format!("unknown permission kind `{other}` (expected network, exec, env, filesystem)"),
-          ));
-        }
+        _ => "Env",
       };
       let list;
       let bracket = bracketed!(list in args);
@@ -471,6 +473,23 @@ mod tests {
   fn a_filesystem_argument_must_be_read_only_or_read_write() {
     let message = permission_error(&quote! { filesystem(everything) => "why" });
     assert!(message.contains("filesystem takes read_only or read_write"), "got: {message}");
+  }
+
+  #[test]
+  fn a_filesystem_without_an_identifier_argument_is_rejected() {
+    for entry in [quote! { filesystem() => "why" }, quote! { filesystem(["x"]) => "why" }] {
+      let message = permission_error(&entry);
+      assert!(message.contains("filesystem takes read_only or read_write"), "got: {message}");
+    }
+  }
+
+  #[test]
+  fn an_unknown_kind_without_parentheses_names_the_kind() {
+    let message = permission_error(&quote! { socket => "why" });
+    assert!(
+      message.contains("unknown permission kind `socket` (expected network, exec, env, filesystem)"),
+      "got: {message}"
+    );
   }
 
   #[test]
