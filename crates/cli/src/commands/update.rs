@@ -10,18 +10,12 @@ use crate::cli::{OutputMode, UpdateArgs};
 use crate::consent::{self, Answer, ConsentView};
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
+use crate::plugin_spec::{RegistryRef, registry_ref};
 use crate::release_file::{render_diff, set_plugin, set_plugin_url};
 use crate::render::resolve_mode;
 
 const REFUSAL: &str =
   "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
-
-struct RegistryRef {
-  host: String,
-  org: String,
-  name: String,
-  tag: String,
-}
 
 struct Plan {
   name: String,
@@ -168,22 +162,6 @@ async fn plan(
   }))
 }
 
-fn registry_ref(url: &str) -> Option<RegistryRef> {
-  let rest = url.strip_prefix("oci://")?;
-  let (host, repo) = rest.split_once('/')?;
-  let (repo, tag) = repo.split_once('@').or_else(|| repo.rsplit_once(':'))?;
-  let (org, name) = repo.split_once('/')?;
-  if name.contains('/') {
-    return None;
-  }
-  Some(RegistryRef {
-    host: host.to_string(),
-    org: org.to_string(),
-    name: name.to_string(),
-    tag: tag.to_string(),
-  })
-}
-
 fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
   eprintln!("error: {message}");
   Err(code)
@@ -204,22 +182,5 @@ fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
     Err(1)
   } else {
     fail(&e.to_string(), 2)
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn registry_ref_reads_oci_urls_only() {
-    let r = registry_ref("oci://registry.moonlit.rs/acme/x:1.2.3").unwrap();
-    assert_eq!(
-      (r.host.as_str(), r.org.as_str(), r.name.as_str()),
-      ("registry.moonlit.rs", "acme", "x")
-    );
-    assert_eq!(r.tag, "1.2.3");
-    assert_eq!(registry_ref("oci://h.io/acme/x@sha256:ab").unwrap().tag, "sha256:ab");
-    assert!(registry_ref("file:///x.wasm").is_none());
   }
 }

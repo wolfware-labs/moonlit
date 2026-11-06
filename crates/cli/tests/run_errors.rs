@@ -1,6 +1,64 @@
+#[path = "support/oci_mock.rs"]
+mod oci_mock;
+
 use assert_cmd::Command;
 use predicates::str::contains;
+use serde_json::{Value, json};
 use std::path::Path;
+use wiremock::matchers::{body_string_contains, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+const OLD_WORLD: &str = "moonlit:plugin@0.3.0";
+const WORLD: &str = "moonlit:plugin@0.4.0";
+
+fn fixture(name: &str) -> Vec<u8> {
+  std::fs::read(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../engine/tests/fixtures")
+      .join(name),
+  )
+  .expect("fixture exists")
+}
+
+async fn mount(server: &MockServer, markers: &[&str], data: Value) {
+  let mut mock = Mock::given(method("POST")).and(path("/graphql"));
+  for marker in markers {
+    mock = mock.and(body_string_contains(*marker));
+  }
+  mock
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": data })))
+    .mount(server)
+    .await;
+}
+
+async fn registry_with_upgrade() -> MockServer {
+  let server = MockServer::start().await;
+  let listed = json!([
+    { "version": "1.0.0", "yanked": false, "status": "VERIFIED" },
+    { "version": "2.0.0", "yanked": false, "status": "VERIFIED" }
+  ]);
+  mount(&server, &["query versions("], json!({ "package": { "versions": listed } })).await;
+  for (version, world) in [("1.0.0", OLD_WORLD), ("2.0.0", WORLD)] {
+    mount(
+      &server,
+      &["query packageVersion(", &format!("\"version\":\"{version}\"")],
+      json!({ "packageVersion": { "version": version, "worldVersion": world, "status": "VERIFIED", "middlewares": [] } }),
+    )
+    .await;
+  }
+  for repo in ["acme/old-a", "acme/old-b"] {
+    oci_mock::serve_plugin(&server, repo, "1.0.0", &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+  }
+  server
+}
+
+fn oci_release(dir: &Path, server: &MockServer) {
+  let host = server.address();
+  let yaml = format!(
+    "name: demo\nplugins:\n  - name: old-a\n    url: oci://{host}/acme/old-a:1.0.0\n  - name: old-b\n    url: oci://{host}/acme/old-b:1.0.0\nstages:\n  build:\n    - run: old-a.log-and-output\n"
+  );
+  std::fs::write(dir.join("release.yml"), yaml).unwrap();
+}
 
 fn fixture_wasm_url() -> String {
   let p = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -131,4 +189,103 @@ fn unreadable_pipeline_file_is_reported() {
     .assert()
     .code(2)
     .stderr(contains("Error while reading"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn incompatible_error_lists_each_plugin_with_suggestion() {
+  let server = registry_with_upgrade().await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let host = server.address().to_string();
+  let output = tokio::task::spawn_blocking({
+    let dir = dir.path().to_path_buf();
+    move || {
+      moonlit_in(&dir)
+        .args(["run", "--output", "plain"])
+        .assert()
+        .code(3)
+        .get_output()
+        .clone()
+    }
+  })
+  .await
+  .unwrap();
+  let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+  for name in ["old-a", "old-b"] {
+    assert!(
+      stderr.contains(&format!("✗ {name}  oci://{host}/acme/{name}:1.0.0")),
+      "{stderr}"
+    );
+  }
+  assert_eq!(
+    stderr
+      .matches("built for moonlit:plugin@0.3.0, this CLI supports moonlit:plugin@0.4.0")
+      .count(),
+    2,
+    "{stderr}"
+  );
+  assert_eq!(
+    stderr.matches("use 2.0.0 instead (run `moonlit doctor` to fix)").count(),
+    2,
+    "{stderr}"
+  );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn incompatible_error_without_registry_still_names_worlds() {
+  let server = registry_with_upgrade().await;
+  server.reset().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(500))
+    .mount(&server)
+    .await;
+  oci_mock::serve_plugin(&server, "acme/old-a", "1.0.0", &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+  oci_mock::serve_plugin(&server, "acme/old-b", "1.0.0", &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let output = tokio::task::spawn_blocking({
+    let dir = dir.path().to_path_buf();
+    move || {
+      moonlit_in(&dir)
+        .args(["run", "--output", "plain"])
+        .assert()
+        .code(3)
+        .get_output()
+        .clone()
+    }
+  })
+  .await
+  .unwrap();
+  let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+  assert!(stderr.contains("✗ old-a"), "{stderr}");
+  assert!(stderr.contains("✗ old-b"), "{stderr}");
+  assert!(
+    stderr.contains("built for moonlit:plugin@0.3.0, this CLI supports moonlit:plugin@0.4.0"),
+    "{stderr}"
+  );
+  assert!(!stderr.contains("instead"), "{stderr}");
+}
+
+#[test]
+fn file_plugin_gets_rebuild_hint() {
+  let dir = tempfile::tempdir().unwrap();
+  let wasm = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .join("../engine/tests/fixtures/test_plugin_v0_3.wasm")
+    .canonicalize()
+    .unwrap();
+  let yaml = format!(
+    "name: demo\nplugins:\n  - name: old\n    url: file://{}\nstages:\n  build:\n    - run: old.log-and-output\n",
+    wasm.display()
+  );
+  std::fs::write(dir.path().join("release.yml"), yaml).unwrap();
+  moonlit_in(dir.path())
+    .args(["run", "--output", "plain"])
+    .assert()
+    .code(3)
+    .stderr(contains("✗ old  file://"))
+    .stderr(contains(
+      "built for moonlit:plugin@0.3.0, this CLI supports moonlit:plugin@0.4.0",
+    ))
+    .stderr(contains("rebuild it against moonlit-pdk for moonlit:plugin@0.4.0"));
 }

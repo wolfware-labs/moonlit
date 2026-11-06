@@ -1,7 +1,7 @@
 use crate::cli::{OutputMode, RunArgs};
 use crate::manifest::resolve_manifest_path;
 use crate::render::{Header, Renderer};
-use crate::{render, signal};
+use crate::{compat, render, signal};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::pipeline::manifest::PipelineManifest;
@@ -56,7 +56,13 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   let outcome = execute(&engine, &manifest, opts, header, renderer, cancel, args.dry_run).await;
   let code = exit_code(&outcome);
   if let Err(e) = outcome {
-    report(e, code, json);
+    if let (PipelineError::IncompatiblePlugins(list), false) = (&e, json) {
+      let entries = compat::suggestions(list, args.offline).await;
+      report(e, code, json);
+      eprint!("{}", compat::render(&entries));
+    } else {
+      report(e, code, json);
+    }
   }
   code
 }

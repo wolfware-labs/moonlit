@@ -39,6 +39,32 @@ impl PluginSpec {
   }
 }
 
+/// A plugin location of the form `oci://host/org/name:tag`.
+pub struct RegistryRef {
+  pub host: String,
+  pub org: String,
+  pub name: String,
+  pub tag: String,
+}
+
+/// Splits an `oci://host/org/name:tag` URL; `None` for any other URL.
+#[must_use]
+pub fn registry_ref(url: &str) -> Option<RegistryRef> {
+  let rest = url.strip_prefix("oci://")?;
+  let (host, repo) = rest.split_once('/')?;
+  let (repo, tag) = repo.split_once('@').or_else(|| repo.rsplit_once(':'))?;
+  let (org, name) = repo.split_once('/')?;
+  if name.contains('/') {
+    return None;
+  }
+  Some(RegistryRef {
+    host: host.to_string(),
+    org: org.to_string(),
+    name: name.to_string(),
+    tag: tag.to_string(),
+  })
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -77,5 +103,17 @@ mod tests {
     for spec in ["github", "/github", "wolfware/", "a/b/c", "wolfware/github@", "ftp://x/y"] {
       assert!(PluginSpec::parse(spec).is_err(), "{spec}");
     }
+  }
+
+  #[test]
+  fn registry_ref_reads_oci_urls_only() {
+    let r = registry_ref("oci://registry.moonlit.rs/acme/x:1.2.3").unwrap();
+    assert_eq!(
+      (r.host.as_str(), r.org.as_str(), r.name.as_str()),
+      ("registry.moonlit.rs", "acme", "x")
+    );
+    assert_eq!(r.tag, "1.2.3");
+    assert_eq!(registry_ref("oci://h.io/acme/x@sha256:ab").unwrap().tag, "sha256:ab");
+    assert!(registry_ref("file:///x.wasm").is_none());
   }
 }
