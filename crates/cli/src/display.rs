@@ -1,34 +1,4 @@
-/// Makes text from a plugin or a registry safe to print: control characters and bidirectional overrides
-/// become visible escapes such as `\x1b`, so they cannot restyle, move or erase what the terminal shows.
-#[must_use]
-pub fn display_safe(text: &str) -> String {
-  let mut out = String::with_capacity(text.len());
-  for c in text.chars() {
-    if let Some(escaped) = escape(c) {
-      out.push_str(&escaped);
-    } else {
-      out.push(c);
-    }
-  }
-  out
-}
-
-/// The visible escape for a character that must not reach the terminal as is; `None` for any other character.
-#[must_use]
-pub fn escape(c: char) -> Option<String> {
-  let code = u32::from(c);
-  if c.is_control() {
-    Some(format!("\\x{code:02x}"))
-  } else if is_bidi_control(c) {
-    Some(format!("\\u{code:04x}"))
-  } else {
-    None
-  }
-}
-
-fn is_bidi_control(c: char) -> bool {
-  matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-}
+pub use moonlit_engine::sanitize::{display_safe, display_safe_text, escape};
 
 #[cfg(test)]
 mod tests {

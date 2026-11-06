@@ -5,3 +5,4 @@ pub mod paths;
 pub mod pipeline;
 pub mod plugin;
 pub mod registry;
+pub mod sanitize;
