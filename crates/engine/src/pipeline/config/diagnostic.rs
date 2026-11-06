@@ -237,7 +237,8 @@ impl ConfigDiagnostic {
       source.name,
       source.yaml,
       format!(
-        "plugin '{plugin}' needs to {}{values} \u{2014} \"{}\"",
+        "plugin '{}' needs to {}{values} \u{2014} \"{}\"",
+        display_safe(plugin),
         missing.kind.verb_phrase(),
         display_safe(&missing.reason)
       ),
@@ -293,8 +294,13 @@ mod tests {
       reason: "Tags.\u{1b}[1A".to_string(),
       optional: false,
     };
-    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp", &missing, Span::new(0, 7));
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp\u{1b}[2J", &missing, Span::new(0, 7));
     assert!(!diagnostic.message().contains('\u{1b}'), "{:?}", diagnostic.message());
+    assert!(
+      diagnostic.message().starts_with("plugin 'tp\\x1b[2J' needs"),
+      "{}",
+      diagnostic.message()
+    );
     assert!(diagnostic.message().contains("Tags.\\x1b[1A"), "{}", diagnostic.message());
     assert!(diagnostic.message().contains("git\\x1b[2K"), "{}", diagnostic.message());
     let help = diagnostic.help.as_deref().expect("help");
