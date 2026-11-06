@@ -4,7 +4,7 @@ use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn client(server: &MockServer) -> RegistryClient {
-  RegistryClient::with_base_url(&format!("{}/graphql", server.uri()))
+  RegistryClient::with_base_url(&format!("{}/graphql", server.uri())).expect("loopback")
 }
 
 async fn mount_data(server: &MockServer, marker: &str, data: Value) {
@@ -309,7 +309,7 @@ async fn a_registry_that_does_not_answer_in_time_is_unreachable() {
 
 #[test]
 fn for_host_builds_the_graphql_url() {
-  let url = |input: &str| RegistryClient::for_host(input).base_url().to_string();
+  let url = |input: &str| RegistryClient::for_host(input).expect("allowed").base_url().to_string();
   assert_eq!(url("registry.moonlit.rs"), "https://registry.moonlit.rs/graphql");
   assert_eq!(url("https://registry.moonlit.rs"), "https://registry.moonlit.rs/graphql");
   assert_eq!(
@@ -328,9 +328,30 @@ fn for_host_builds_the_graphql_url() {
 }
 
 #[test]
+fn plain_http_is_refused_for_a_remote_registry() {
+  for url in ["http://example.com", "http://example.com:8080/graphql", "http://127.evil.com"] {
+    let err = RegistryClient::for_host(url).expect_err(url);
+    assert!(matches!(err, RegistryError::Insecure(_)), "{err:?}");
+    let err = RegistryClient::with_base_url(url).expect_err(url);
+    assert!(matches!(err, RegistryError::Insecure(_)), "{err:?}");
+  }
+  for url in [
+    "http://localhost:9",
+    "http://[::1]:9/graphql",
+    "http://127.0.0.2/graphql",
+    "https://example.com",
+  ] {
+    assert!(RegistryClient::for_host(url).is_ok(), "{url}");
+    assert!(RegistryClient::with_base_url(url).is_ok(), "{url}");
+  }
+}
+
+#[test]
 fn with_base_url_is_verbatim() {
   assert_eq!(
-    RegistryClient::with_base_url("http://127.0.0.1:9/x").base_url(),
+    RegistryClient::with_base_url("http://127.0.0.1:9/x")
+      .expect("loopback")
+      .base_url(),
     "http://127.0.0.1:9/x"
   );
 }

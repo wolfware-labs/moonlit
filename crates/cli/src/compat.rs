@@ -57,7 +57,16 @@ async fn suggestions_within(
   let mut hosts = tokio::task::JoinSet::new();
   for (host, group) in by_host {
     hosts.spawn(async move {
-      let client = RegistryClient::for_host(&host).with_timeout(timeout);
+      let client = match RegistryClient::for_host(&host) {
+        Ok(client) => client.with_timeout(timeout),
+        Err(error) => {
+          let text = error.to_string();
+          return group
+            .into_iter()
+            .map(|(index, _)| (index, Suggestion::RegistryError { text: text.clone() }))
+            .collect();
+        }
+      };
       let mut out = Vec::with_capacity(group.len());
       let mut unreachable = false;
       for (index, reference) in group {

@@ -304,3 +304,15 @@ fn add_into_a_release_file_without_stages_writes_the_plugin() {
     )
   );
 }
+
+#[test]
+fn add_refuses_plain_http_to_a_remote_registry() {
+  let project = Project::new(RELEASE);
+
+  project
+    .add(&["acme/test-plugin", "--registry", "http://registry.invalid", "--yes"])
+    .code(2)
+    .stderr(contains("http://registry.invalid"));
+
+  assert_eq!(project.release(), RELEASE);
+}

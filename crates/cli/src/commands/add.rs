@@ -87,7 +87,8 @@ async fn resolve_target(spec: PluginSpec, registry: Option<&str>) -> Result<Targ
     }),
     PluginSpec::Registry { org, name, version } => {
       let registry = registry.unwrap_or(DEFAULT_REGISTRY_HOST);
-      let detail = registry_version(registry, &org, &name, version.as_deref())
+      let client = RegistryClient::for_host(registry).or_else(|e| fail(&e.to_string(), 2))?;
+      let detail = registry_version(&client, &org, &name, version.as_deref())
         .await
         .or_else(|message| fail(&message, 3))?;
       let reference = RegistryRef {
@@ -140,8 +141,12 @@ fn accepted_optional<'a>(optional: &[&'a DeclaredPermission], args: &AddArgs) ->
   Ok(accepted)
 }
 
-async fn registry_version(registry: &str, org: &str, name: &str, version: Option<&str>) -> Result<VersionDetail, String> {
-  let client = RegistryClient::for_host(registry);
+async fn registry_version(
+  client: &RegistryClient,
+  org: &str,
+  name: &str,
+  version: Option<&str>,
+) -> Result<VersionDetail, String> {
   let Some(version) = version else {
     let rule = VersionRule {
       cross_major: true,

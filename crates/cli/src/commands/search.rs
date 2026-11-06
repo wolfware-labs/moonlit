@@ -24,7 +24,13 @@ struct Card {
 
 #[must_use]
 pub async fn run(output: Option<OutputMode>, args: SearchArgs) -> i32 {
-  let client = RegistryClient::for_host(args.registry.as_deref().unwrap_or(DEFAULT_REGISTRY_HOST));
+  let client = match RegistryClient::for_host(args.registry.as_deref().unwrap_or(DEFAULT_REGISTRY_HOST)) {
+    Ok(client) => client,
+    Err(e) => {
+      eprintln!("error: {}", display_safe(&e.to_string()));
+      return 2;
+    }
+  };
   let cards = match fetch(&client, &args).await {
     Ok(cards) => cards,
     Err(e) => {

@@ -218,3 +218,21 @@ async fn search_escapes_control_characters_from_the_registry() {
   assert!(stdout.contains("Safe\\x1b[1A\\x1b[2K plugin"), "{stdout:?}");
   assert!(stdout.contains("evil/hide\\x1b[8m"), "{stdout:?}");
 }
+
+#[test]
+fn search_refuses_plain_http_to_a_remote_registry() {
+  Command::cargo_bin("moonlit")
+    .unwrap()
+    .args([
+      "search",
+      "github",
+      "--registry",
+      "http://registry.invalid",
+      "--output",
+      "plain",
+    ])
+    .assert()
+    .code(2)
+    .stderr(contains("http://registry.invalid"))
+    .stderr(contains("https://"));
+}

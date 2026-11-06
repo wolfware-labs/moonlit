@@ -44,6 +44,9 @@ pub enum RegistryError {
     /// The HTTP status it answered with.
     status: u16,
   },
+  /// The registry URL is plain `http://` to a host that is not loopback, which would send requests unencrypted.
+  #[error("refusing to send registry requests over plain HTTP to {0}; use https:// (http:// is only allowed for localhost)")]
+  Insecure(String),
 }
 
 const MAX_CANDIDATES: usize = 10;
@@ -152,8 +155,8 @@ struct PackageVersions {
 
 impl RegistryClient {
   /// Builds a client for a registry host, or for an `http(s)://` URL; `/graphql` is appended unless already present.
-  #[must_use]
-  pub fn for_host(host: &str) -> Self {
+  /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
+  pub fn for_host(host: &str) -> Result<Self, RegistryError> {
     if host.starts_with("http://") || host.starts_with("https://") {
       let trimmed = host.trim_end_matches('/');
       if trimmed.ends_with("/graphql") {
@@ -169,12 +172,18 @@ impl RegistryClient {
   }
 
   /// Builds a client that posts to `url` exactly as given.
-  #[must_use]
-  pub fn with_base_url(url: &str) -> Self {
-    Self {
+  /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
+  pub fn with_base_url(url: &str) -> Result<Self, RegistryError> {
+    if let Some(rest) = url.strip_prefix("http://") {
+      let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+      if !is_loopback(authority) {
+        return Err(RegistryError::Insecure(url.to_string()));
+      }
+    }
+    Ok(Self {
       url: url.to_string(),
       http: http_client(REGISTRY_TIMEOUT),
-    }
+    })
   }
 
   /// Replaces the connect and request timeouts, [`REGISTRY_TIMEOUT`] each by default.
