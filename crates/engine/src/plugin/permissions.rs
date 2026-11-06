@@ -13,6 +13,20 @@ pub enum PermissionKind {
   FilesystemWrite,
 }
 
+impl PermissionKind {
+  /// What the permission lets a plugin do, phrased as a verb phrase.
+  #[must_use]
+  pub fn sentence(self) -> &'static str {
+    match self {
+      PermissionKind::Network => "Connect to the internet",
+      PermissionKind::Exec => "Run programs on your machine",
+      PermissionKind::Env => "Read environment variables",
+      PermissionKind::FilesystemRead => "Read files in your project",
+      PermissionKind::FilesystemWrite => "Read and change files in your project",
+    }
+  }
+}
+
 /// A permission a plugin declares in its metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +53,24 @@ fn push_unique(target: &mut Vec<String>, values: &[String]) {
   for v in values {
     if !target.contains(v) {
       target.push(v.clone());
+    }
+  }
+}
+
+impl DeclaredPermission {
+  /// The line to add under a plugin's `permissions:` block to grant this declaration.
+  #[must_use]
+  pub fn yaml_line(&self) -> String {
+    let list = || {
+      let quoted: Vec<String> = self.values.iter().map(|v| format!("\"{v}\"")).collect();
+      format!("[{}]", quoted.join(", "))
+    };
+    match self.kind {
+      PermissionKind::Network => format!("network: {}", list()),
+      PermissionKind::Exec => format!("exec: {}", list()),
+      PermissionKind::Env => format!("env: {}", list()),
+      PermissionKind::FilesystemRead => "filesystem: read-only".to_string(),
+      PermissionKind::FilesystemWrite => "filesystem: read-write".to_string(),
     }
   }
 }

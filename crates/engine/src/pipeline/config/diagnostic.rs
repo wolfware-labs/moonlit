@@ -1,5 +1,6 @@
 use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::Span;
+use crate::plugin::permissions::DeclaredPermission;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -13,6 +14,8 @@ pub struct ConfigDiagnostic {
   #[label("{label}")]
   span: Option<SourceSpan>,
   label: String,
+  #[help]
+  help: Option<String>,
 }
 
 impl ConfigDiagnostic {
@@ -223,12 +226,35 @@ impl ConfigDiagnostic {
   }
 
   #[must_use]
+  pub fn missing_grant(source: &ConfigSource, plugin: &str, missing: &DeclaredPermission, span: Span) -> ConfigDiagnostic {
+    let values = if missing.values.is_empty() {
+      String::new()
+    } else {
+      format!(" ({})", missing.values.join(", "))
+    };
+    let mut diagnostic = Self::make(
+      source.name,
+      source.yaml,
+      format!(
+        "plugin '{plugin}' needs to {}{values} \u{2014} \"{}\"",
+        lower_first(missing.kind.sentence()),
+        missing.reason
+      ),
+      Some(span),
+      "this plugin is missing a permission",
+    );
+    diagnostic.help = Some(format!("add to its permissions: {}", missing.yaml_line()));
+    diagnostic
+  }
+
+  #[must_use]
   fn make(config_name: &str, config_content: &str, message: String, span: Option<Span>, label: &str) -> ConfigDiagnostic {
     ConfigDiagnostic {
       message,
       src: NamedSource::new(config_name, config_content.to_string()),
       span: span.map(Span::to_source_span),
       label: label.to_owned(),
+      help: None,
     }
   }
 
@@ -241,6 +267,14 @@ impl ConfigDiagnostic {
   pub fn span(&self) -> Option<&SourceSpan> {
     self.span.as_ref()
   }
+}
+
+fn lower_first(text: &str) -> String {
+  let mut chars = text.chars();
+  chars
+    .next()
+    .map(|first| first.to_lowercase().chain(chars).collect())
+    .unwrap_or_default()
 }
 
 #[cfg(test)]

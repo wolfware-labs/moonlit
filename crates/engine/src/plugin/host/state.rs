@@ -1,6 +1,7 @@
 use crate::plugin::host::HostEventSink;
 use crate::plugin::host::child_process::ChildProcess;
 use crate::plugin::host::net::AllowlistHooks;
+use crate::plugin::permissions::DeclaredPermission;
 use crate::plugin::wit::moonlit::plugin::host::Host as MoonlitHost;
 use crate::plugin::wit::moonlit::plugin::process::{Command, Host as ProcessHost, HostChild, OutputChunk};
 use crate::plugin::wit::moonlit::plugin::types::LogLevel;
@@ -18,6 +19,7 @@ pub struct HostState {
   config_view: serde_json::Value,
   exec_allow: globset::GlobSet,
   current_step: String,
+  declared: Vec<DeclaredPermission>,
 }
 
 impl HostState {
@@ -38,7 +40,17 @@ impl HostState {
       config_view,
       exec_allow,
       current_step: String::new(),
+      declared: Vec::new(),
     }
+  }
+
+  pub fn set_declared(&mut self, declared: Vec<DeclaredPermission>) {
+    self.declared = declared;
+  }
+
+  #[must_use]
+  pub fn declared(&self) -> &[DeclaredPermission] {
+    &self.declared
   }
 
   pub fn set_step(&mut self, step: &str) {

@@ -1,10 +1,11 @@
 use crate::engine::Engine;
-use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, PipelineConfig, PluginUrl, parse_config};
+use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, PipelineConfig, PluginUrl, Span, parse_config};
 use crate::pipeline::expr::substitute_config;
 use crate::pipeline::manifest::PipelineManifest;
 use crate::pipeline::model::{ChannelSink, FlatStep};
 use crate::pipeline::{IncompatiblePlugin, Pipeline, PipelineData, PipelineError, PipelineEvent, PipelineOptions};
 use crate::plugin::host::HostEventSink;
+use crate::plugin::permissions::uncovered_required;
 use crate::plugin::publish::PLUGIN_WORLD;
 use crate::plugin::resolver::{PluginSource, ProgressFn, ResolveOptions, resolve};
 use crate::plugin::world::component_world;
@@ -19,6 +20,7 @@ use tokio::task::JoinSet;
 struct PluginRequest {
   name: String,
   url: String,
+  url_span: Span,
   permissions: Permissions,
   config_view: serde_json::Value,
 }
@@ -31,6 +33,8 @@ struct ResolvedPlugin {
 
 struct LoadedPlugin {
   name: String,
+  url_span: Span,
+  permissions: Permissions,
   instance: PluginInstance,
   middlewares: Vec<String>,
 }
@@ -56,6 +60,7 @@ impl Pipeline {
       requests.push(PluginRequest {
         name: plugin.name.clone(),
         url: plugin_url(&plugin.url.value),
+        url_span: plugin.url.span,
         permissions: plugin.permissions.clone().unwrap_or_else(Permissions::deny),
         config_view: layer.to_json(),
       });
@@ -66,6 +71,7 @@ impl Pipeline {
     }
 
     let plugins = load_plugins(engine, requests, &manifest.working_dir, opts.offline, events).await?;
+    reject_ungranted(&plugins, &source)?;
     let steps = flatten_steps(&config, &plugins, &source, &opts.stages_filter)?;
 
     Ok(Pipeline {
@@ -231,6 +237,7 @@ async fn load_plugin(
   let ResolvedPlugin { request, bytes, cached } = plugin;
   let PluginRequest {
     name,
+    url_span,
     permissions,
     config_view,
     ..
@@ -242,7 +249,7 @@ async fn load_plugin(
 
   let instance_config = PluginInstanceConfig {
     working_directory: working_dir,
-    permissions,
+    permissions: permissions.clone(),
     config_view: config_view.clone(),
     env_snapshot,
   };
@@ -251,6 +258,8 @@ async fn load_plugin(
   let mut instance = Plugin::instantiate(engine, &bytes, instance_config, sink)
     .await
     .map_err(|e| load_error(e.to_string()))?;
+  let declared = instance.describe().await.map_err(|e| load_error(e.to_string()))?.permissions;
+  instance.set_declared(declared);
   let metadata = instance.init(&config_view).await.map_err(load_error)?;
   let middlewares = instance
     .list_middlewares()
@@ -270,9 +279,27 @@ async fn load_plugin(
 
   Ok(LoadedPlugin {
     name,
+    url_span,
+    permissions,
     instance,
     middlewares,
   })
+}
+
+fn reject_ungranted(plugins: &IndexMap<String, LoadedPlugin>, source: &ConfigSource) -> Result<(), PipelineError> {
+  let missing: Vec<ConfigDiagnostic> = plugins
+    .values()
+    .flat_map(|plugin| {
+      uncovered_required(plugin.instance.declared(), &plugin.permissions)
+        .into_iter()
+        .map(|permission| ConfigDiagnostic::missing_grant(source, &plugin.name, permission, plugin.url_span))
+    })
+    .collect();
+  if missing.is_empty() {
+    Ok(())
+  } else {
+    Err(PipelineError::MissingGrants(missing))
+  }
 }
 
 fn flatten_steps(

@@ -52,7 +52,7 @@ fn drain(rx: &mut Receiver<PipelineEvent>) -> Vec<PipelineEvent> {
 
 fn conditional_yaml() -> String {
   format!(
-    "arguments:\n  version: '1'\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: gated\n      run: tp.log-and-output\n      condition: $(args:version) == 2\n",
+    "arguments:\n  version: '1'\nplugins:\n  - name: tp\n    url: {}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: gated\n      run: tp.log-and-output\n      condition: $(args:version) == 2\n",
     fixture_url()
   )
 }
@@ -88,7 +88,7 @@ async fn http_plugins_report_download_progress_then_come_from_the_cache() {
     .mount(&server)
     .await;
   let yaml = format!(
-    "plugins:\n  - name: tp\n    url: {}/tp.wasm\nstages:\n  build:\n    - run: tp.log-and-output\n",
+    "plugins:\n  - name: tp\n    url: {}/tp.wasm\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - run: tp.log-and-output\n",
     server.uri()
   );
   let cache = tempfile::tempdir().unwrap();
@@ -131,7 +131,7 @@ async fn http_plugins_report_download_progress_then_come_from_the_cache() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_poisoned_plugin_stops_the_run_without_continue_on_error() {
   let yaml = format!(
-    "plugins:\n  - name: a\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: a.boom\n      continueOnError: \"true\"\n    - name: s2\n      run: a.log-and-output\n    - name: s3\n      run: a.log-and-output\n",
+    "plugins:\n  - name: a\n    url: {}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: s1\n      run: a.boom\n      continueOnError: \"true\"\n    - name: s2\n      run: a.log-and-output\n    - name: s3\n      run: a.log-and-output\n",
     fixture_url()
   );
   let cache = tempfile::tempdir().unwrap();

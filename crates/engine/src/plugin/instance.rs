@@ -2,6 +2,7 @@ use crate::pipeline::config::Permissions;
 use crate::plugin::host::ReleaseContext;
 use crate::plugin::host::state::HostState;
 use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
+use crate::plugin::permissions::DeclaredPermission;
 use crate::plugin::wit::PluginHost;
 use crate::plugin::{PluginError, PluginMetadata};
 use std::path::PathBuf;
@@ -23,6 +24,15 @@ impl PluginInstance {
   #[must_use]
   pub fn new(store: Store<HostState>, bindings: PluginHost) -> Self {
     Self { store, bindings }
+  }
+
+  pub fn set_declared(&mut self, declared: Vec<DeclaredPermission>) {
+    self.store.data_mut().set_declared(declared);
+  }
+
+  #[must_use]
+  pub fn declared(&self) -> &[DeclaredPermission] {
+    self.store.data().declared()
   }
 
   pub async fn describe(&mut self) -> Result<PluginMetadata, PluginError> {

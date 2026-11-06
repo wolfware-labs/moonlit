@@ -22,6 +22,10 @@ pub enum PipelineError {
   #[diagnostic(code(moonlit::pipeline::incompatible_plugins))]
   IncompatiblePlugins(Vec<IncompatiblePlugin>),
 
+  #[error("release file does not grant what its plugins need")]
+  #[diagnostic(code(moonlit::pipeline::missing_grants))]
+  MissingGrants(#[related] Vec<ConfigDiagnostic>),
+
   #[error("pipeline execution failed: {0}")]
   #[diagnostic(code(moonlit::pipeline::execution))]
   Execution(String),
@@ -35,7 +39,7 @@ impl PipelineError {
   #[must_use]
   pub fn exit_code(&self) -> i32 {
     match self {
-      PipelineError::Config(_) => 2,
+      PipelineError::Config(_) | PipelineError::MissingGrants(_) => 2,
       PipelineError::PluginLoad { .. } | PipelineError::IncompatiblePlugins(_) => 3,
       PipelineError::Execution(_) => 4,
       PipelineError::Internal(_) => 1,

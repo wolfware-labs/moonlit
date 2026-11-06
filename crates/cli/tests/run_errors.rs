@@ -20,7 +20,7 @@ fn unwrapped_stderr(output: &std::process::Output) -> String {
 
 fn write_release(path: &Path) {
   let yaml = format!(
-    "name: demo\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n  other:\n    - name: s2\n      run: tp.log-and-output\n",
+    "name: demo\nplugins:\n  - name: tp\n    url: {}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n  other:\n    - name: s2\n      run: tp.log-and-output\n",
     fixture_wasm_url()
   );
   std::fs::write(path, yaml).unwrap();

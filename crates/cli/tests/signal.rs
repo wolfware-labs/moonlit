@@ -21,7 +21,7 @@ fn ctrl_c_cancels_a_running_pipeline() {
   std::fs::write(
     &release,
     format!(
-      "name: demo\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.sleep\n      config:\n        ms: '60000'\n",
+      "name: demo\nplugins:\n  - name: tp\n    url: {}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: s1\n      run: tp.sleep\n      config:\n        ms: '60000'\n",
       fixture_wasm_url()
     ),
   )

@@ -31,7 +31,7 @@ fn opts() -> PipelineOptions {
 
 fn one_plugin_yaml(run: &str) -> String {
   format!(
-    "name: demo\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: {}\n",
+    "name: demo\nplugins:\n  - name: tp\n    url: {}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: s1\n      run: {}\n",
     fixture_url(),
     run
   )
@@ -121,7 +121,7 @@ async fn init_domain_error_is_exit_3_plugin_load() {
   let eng = Engine::new(EngineSettings::default()).unwrap();
   let (tx, _rx) = channel(64);
   let yaml = format!(
-    "name: d\nplugins:\n  - name: tp\n    url: {}\n    config:\n      failInit: 'true'\nstages:\n  b:\n    - name: s\n      run: tp.log-and-output\n",
+    "name: d\nplugins:\n  - name: tp\n    url: {}\n    permissions:\n      network: [api.example.com]\n    config:\n      failInit: 'true'\nstages:\n  b:\n    - name: s\n      run: tp.log-and-output\n",
     fixture_url()
   );
   let Err(err) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
@@ -145,7 +145,7 @@ async fn zero_plugins_is_exit_2_config_error() {
 
 fn two_plugin_yaml(url_a: &str, url_b: &str) -> String {
   format!(
-    "name: demo\nplugins:\n  - name: a\n    url: {url_a}\n  - name: b\n    url: {url_b}\nstages:\n  build:\n    - name: s1\n      run: a.log-and-output\n    - name: s2\n      run: b.log-and-output\n"
+    "name: demo\nplugins:\n  - name: a\n    url: {url_a}\n    permissions:\n      network: [api.example.com]\n  - name: b\n    url: {url_b}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: s1\n      run: a.log-and-output\n    - name: s2\n      run: b.log-and-output\n"
   )
 }
 
@@ -196,7 +196,7 @@ async fn middleware_validation_covers_stages_excluded_by_the_filter() {
   let mut o = opts();
   o.stages_filter = vec!["build".to_string()];
   let yaml = format!(
-    "name: d\nplugins:\n  - name: tp\n    url: {url}\nstages:\n  build:\n    - name: ok\n      run: tp.log-and-output\n  other:\n    - name: bad\n      run: tp.nosuch\n",
+    "name: d\nplugins:\n  - name: tp\n    url: {url}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: ok\n      run: tp.log-and-output\n  other:\n    - name: bad\n      run: tp.nosuch\n",
     url = fixture_url()
   );
   let Err(err) = Pipeline::load(&eng, &manifest(&yaml), o, &tx).await else {
@@ -222,7 +222,7 @@ async fn reports_every_incompatible_plugin() {
   std::fs::copy(&old, &first).unwrap();
   std::fs::copy(&old, &second).unwrap();
   let yaml = format!(
-    "name: demo\nplugins:\n  - name: a\n    url: file://{}\n  - name: ok\n    url: {}\n  - name: b\n    url: file://{}\nstages:\n  build:\n    - name: s1\n      run: ok.log-and-output\n",
+    "name: demo\nplugins:\n  - name: a\n    url: file://{}\n  - name: ok\n    url: {}\n    permissions:\n      network: [api.example.com]\n  - name: b\n    url: file://{}\nstages:\n  build:\n    - name: s1\n      run: ok.log-and-output\n",
     first.display(),
     fixture_url(),
     second.display()
@@ -242,4 +242,50 @@ async fn reports_every_incompatible_plugin() {
     assert_eq!(plugin.plugin_world.as_deref(), Some("moonlit:plugin@0.3.0"));
     assert_eq!(plugin.engine_world, PLUGIN_WORLD);
   }
+}
+
+fn yaml_with_permissions(permissions: &str) -> String {
+  format!(
+    "name: demo\nplugins:\n  - name: tp\n    url: {}\n{permissions}stages:\n  build:\n    - name: s1\n      run: tp.log-and-output\n",
+    fixture_url()
+  )
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn refuses_when_required_permission_not_granted() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml_with_permissions("")), opts(), &tx).await else {
+    panic!("must fail");
+  };
+  assert_eq!(err.exit_code(), 2);
+  assert_eq!(err.to_string(), "release file does not grant what its plugins need");
+  let PipelineError::MissingGrants(found) = err else {
+    panic!("expected MissingGrants, got {err:?}");
+  };
+  assert_eq!(found.len(), 1);
+  assert!(found[0].message().contains("api.example.com"), "{}", found[0].message());
+  assert!(
+    found[0].message().contains("Calls the example API."),
+    "{}",
+    found[0].message()
+  );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn optional_permission_not_required() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let yaml = yaml_with_permissions("    permissions:\n      network: [\"api.example.com\"]\n");
+  let pipeline = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await.expect("loads");
+  assert_eq!(pipeline.step_count(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn granted_glob_covers_required() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let yaml = yaml_with_permissions("    permissions:\n      network: [\"*.example.com\"]\n");
+  let pipeline = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await.expect("loads");
+  assert_eq!(pipeline.step_count(), 1);
 }
