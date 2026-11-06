@@ -95,7 +95,7 @@ async fn suggest(client: &RegistryClient, reference: &RegistryRef) -> Suggestion
         };
       }
       Ok(None) => {}
-      Err(e) => return failed(e, &reference.host),
+      Err(e) => return failed(&e, &reference.host),
     }
   }
   match lookup(None, true).await {
@@ -104,16 +104,16 @@ async fn suggest(client: &RegistryClient, reference: &RegistryRef) -> Suggestion
       major: true,
     },
     Ok(None) => Suggestion::NoneCompatible,
-    Err(e) => failed(e, &reference.host),
+    Err(e) => failed(&e, &reference.host),
   }
 }
 
-fn failed(error: RegistryError, host: &str) -> Suggestion {
+fn failed(error: &RegistryError, host: &str) -> Suggestion {
   match error {
     RegistryError::NotARegistry(_) => Suggestion::NotFromRegistry,
     RegistryError::Denied { status, .. } => Suggestion::RegistryDenied {
       host: host.to_string(),
-      status,
+      status: *status,
     },
     _ => Suggestion::RegistryUnavailable,
   }
