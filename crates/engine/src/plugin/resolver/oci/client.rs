@@ -21,21 +21,27 @@ impl OciClient {
 
   #[must_use]
   pub fn with_plain_http_for(registry: &str) -> Self {
-    Self::with_plain_http_and_timeouts(registry, CONNECT_TIMEOUT, READ_TIMEOUT)
+    Self::with_config(
+      ClientProtocol::HttpsExcept(vec![registry.to_string()]),
+      CONNECT_TIMEOUT,
+      READ_TIMEOUT,
+    )
   }
 
   #[must_use]
+  #[cfg(test)]
   pub fn with_plain_http_and_timeouts(registry: &str, connect: Duration, read: Duration) -> Self {
     Self::with_config(ClientProtocol::HttpsExcept(vec![registry.to_string()]), connect, read)
   }
 
   fn with_config(protocol: ClientProtocol, connect: Duration, read: Duration) -> Self {
-    Self(Client::new(ClientConfig {
+    let config = ClientConfig {
       protocol,
       connect_timeout: Some(connect),
       read_timeout: Some(read),
       ..Default::default()
-    }))
+    };
+    Self(Client::try_from(config).expect("the OCI client builds with static timeouts and the default TLS backend"))
   }
 }
 

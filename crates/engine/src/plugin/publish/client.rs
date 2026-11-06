@@ -28,11 +28,12 @@ pub struct OciPushClient(Client);
 
 #[must_use]
 pub fn new_push_client() -> OciPushClient {
-  OciPushClient(Client::new(oci_client::client::ClientConfig {
+  let config = oci_client::client::ClientConfig {
     connect_timeout: Some(CONNECT_TIMEOUT),
     read_timeout: Some(READ_TIMEOUT),
     ..Default::default()
-  }))
+  };
+  OciPushClient(Client::try_from(config).expect("the OCI client builds with static timeouts and the default TLS backend"))
 }
 
 #[cfg(test)]
