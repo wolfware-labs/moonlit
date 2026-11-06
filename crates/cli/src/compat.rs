@@ -22,6 +22,9 @@ pub enum Suggestion {
     host: String,
     status: u16,
   },
+  RegistryError {
+    text: String,
+  },
 }
 
 /// Looks up, for each incompatible plugin, what the user can do about it; registry lookups happen only for `oci://` URLs.
@@ -125,7 +128,8 @@ fn failed(error: &RegistryError, host: &str) -> Suggestion {
       host: host.to_string(),
       status: *status,
     },
-    _ => Suggestion::RegistryUnavailable,
+    RegistryError::Unreachable(_) => Suggestion::RegistryUnavailable,
+    other => Suggestion::RegistryError { text: other.to_string() },
   }
 }
 
@@ -166,6 +170,7 @@ pub fn hint(suggestion: &Suggestion, engine: &str) -> Option<String> {
     Suggestion::RegistryDenied { host, status } => Some(format!(
       "registry at {host} answered {status} on /graphql, no version to suggest"
     )),
+    Suggestion::RegistryError { text } => Some(format!("the registry answered with an error: {text}")),
     Suggestion::RegistryUnavailable => None,
   }
 }
@@ -235,6 +240,13 @@ mod tests {
       denied.contains("registry at public.ecr.aws answered 401 on /graphql, no version to suggest\n"),
       "{denied}"
     );
+    let answered = entry(Suggestion::RegistryError {
+      text: "registry returned an error: boom".to_string(),
+    });
+    assert!(
+      answered.contains("  the registry answered with an error: registry returned an error: boom\n"),
+      "{answered}"
+    );
   }
 
   #[tokio::test]
@@ -291,8 +303,13 @@ mod tests {
       })
       .collect();
 
-    suggestions_within(&list, false, Duration::from_secs(5)).await;
+    let entries = suggestions_within(&list, false, Duration::from_secs(5)).await;
 
     assert_eq!(server.received_requests().await.unwrap().len(), 3);
+    for (_, suggestion) in &entries {
+      let line = hint(suggestion, "moonlit:plugin@0.4.0").unwrap_or_default();
+      assert!(line.starts_with("the registry answered with an error: "), "{suggestion:?}");
+      assert!(line.contains("500"), "{line}");
+    }
   }
 }

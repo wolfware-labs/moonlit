@@ -267,7 +267,7 @@ async fn doctor_move_that_needs_a_grant_asks_for_yes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn doctor_exits_3_and_writes_nothing_when_the_registry_is_down() {
+async fn doctor_reports_a_registry_error_as_unfixed_and_fixes_the_rest() {
   let server = MockServer::start().await;
   Mock::given(method("POST"))
     .and(path("/graphql"))
@@ -282,18 +282,24 @@ async fn doctor_exits_3_and_writes_nothing_when_the_registry_is_down() {
   ]
   .concat();
   let project = Project::new(&plugins);
-  let before = project.release();
 
-  project
+  let assert = project
     .doctor(&["--yes"])
-    .code(3)
+    .code(1)
     .stdout(contains(
       "✗ granted: not granted: Connect to the internet (api.example.com)\n",
     ))
     .stdout(contains(format!(
-      "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; cannot reach the registry\n"
-    )));
-  assert_eq!(project.release(), before);
+      "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; the registry answered with an error: "
+    )))
+    .stdout(contains("granted: permissions granted"));
+  let output = assert.get_output();
+  let all = format!("{}{}", stdout_of(&assert), String::from_utf8_lossy(&output.stderr));
+  assert!(!all.contains("cannot reach"), "{all}");
+
+  let release = project.release();
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert!(release.contains("test-plugin:0.3.0"), "{release}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
