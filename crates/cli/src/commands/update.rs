@@ -71,7 +71,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       Planned::Bump(plan) => plans.push(*plan),
       Planned::UpToDate => println!("{}: up to date", plugin.name),
       Planned::NotARegistry => println!("{}: not from a Moonlit registry, skipped", plugin.name),
-      Planned::Denied(status) => eprintln!(
+      Planned::Denied(status) => println!(
         "{}",
         display_safe(&format!(
           "{}: registry at {} answered {status} on /graphql, skipped",

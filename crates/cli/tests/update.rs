@@ -255,7 +255,7 @@ async fn update_skips_a_registry_that_refuses_anonymous_graphql_and_names_the_st
   project
     .update(&[])
     .success()
-    .stderr(contains(format!(
+    .stdout(contains(format!(
       "other: registry at {} answered 401 on /graphql, skipped",
       guarded.address()
     )))
