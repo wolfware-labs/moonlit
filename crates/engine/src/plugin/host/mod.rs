@@ -7,7 +7,7 @@ pub mod state;
 use crate::logging::LogLevel;
 use crate::plugin::host::state::HostState;
 use crate::plugin::wit;
-pub use auth::{build_wasi_ctx, exec_globset};
+pub use auth::{build_wasi_ctx, exec_globset, network_globset};
 pub use child_process::ChildProcess;
 pub use net::AllowlistHooks;
 use wasmtime::component::{HasSelf, Linker};
