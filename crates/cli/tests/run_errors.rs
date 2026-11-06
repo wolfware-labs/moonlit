@@ -32,17 +32,28 @@ async fn mount(server: &MockServer, markers: &[&str], data: Value) {
 }
 
 async fn registry_with_upgrade() -> MockServer {
-  registry_with_versions("2.0.0").await
+  registry_with_versions(&["2.0.0"], &[]).await
 }
 
-async fn registry_with_versions(compatible: &str) -> MockServer {
+async fn registry_with_versions(compatible: &[&str], broken: &[&str]) -> MockServer {
   let server = MockServer::start().await;
-  let listed = json!([
-    { "version": "1.0.0", "yanked": false, "status": "VERIFIED" },
-    { "version": compatible, "yanked": false, "status": "VERIFIED" }
-  ]);
+  let listed: Vec<Value> = std::iter::once("1.0.0")
+    .chain(compatible.iter().copied())
+    .chain(broken.iter().copied())
+    .map(|v| json!({ "version": v, "yanked": false, "status": "VERIFIED" }))
+    .collect();
   mount(&server, &["query versions("], json!({ "package": { "versions": listed } })).await;
-  for (version, world) in [("1.0.0", OLD_WORLD), (compatible, WORLD)] {
+  for version in broken {
+    Mock::given(method("POST"))
+      .and(path("/graphql"))
+      .and(body_string_contains("query packageVersion("))
+      .and(body_string_contains(format!("\"version\":\"{version}\"")))
+      .respond_with(ResponseTemplate::new(500))
+      .mount(&server)
+      .await;
+  }
+  let versions = std::iter::once(("1.0.0", OLD_WORLD)).chain(compatible.iter().map(|v| (*v, WORLD)));
+  for (version, world) in versions {
     mount(
       &server,
       &["query packageVersion(", &format!("\"version\":\"{version}\"")],
@@ -51,15 +62,31 @@ async fn registry_with_versions(compatible: &str) -> MockServer {
     .await;
   }
   for repo in ["acme/old-a", "acme/old-b"] {
-    oci_mock::serve_plugin(&server, repo, "1.0.0", &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+    for tag in ["1.0.0", "latest"] {
+      oci_mock::serve_plugin(&server, repo, tag, &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+    }
   }
   server
 }
 
+fn run_stderr(dir: &Path) -> String {
+  let output = moonlit_in(dir)
+    .args(["run", "--output", "plain"])
+    .assert()
+    .code(3)
+    .get_output()
+    .clone();
+  String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
 fn oci_release(dir: &Path, server: &MockServer) {
+  oci_release_tagged(dir, server, "1.0.0");
+}
+
+fn oci_release_tagged(dir: &Path, server: &MockServer, tag: &str) {
   let host = server.address();
   let yaml = format!(
-    "name: demo\nplugins:\n  - name: old-a\n    url: oci://{host}/acme/old-a:1.0.0\n  - name: old-b\n    url: oci://{host}/acme/old-b:1.0.0\nstages:\n  build:\n    - run: old-a.log-and-output\n"
+    "name: demo\nplugins:\n  - name: old-a\n    url: oci://{host}/acme/old-a:{tag}\n  - name: old-b\n    url: oci://{host}/acme/old-b:{tag}\nstages:\n  build:\n    - run: old-a.log-and-output\n"
   );
   std::fs::write(dir.join("release.yml"), yaml).unwrap();
 }
@@ -239,29 +266,44 @@ async fn incompatible_error_lists_each_plugin_with_suggestion() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn same_major_suggestion_points_at_plain_doctor() {
-  let server = registry_with_versions("1.1.0").await;
+  let server = registry_with_versions(&["1.1.0", "2.0.0"], &[]).await;
   let dir = tempfile::tempdir().unwrap();
   oci_release(dir.path(), &server);
-  let output = tokio::task::spawn_blocking({
-    let dir = dir.path().to_path_buf();
-    move || {
-      moonlit_in(&dir)
-        .args(["run", "--output", "plain"])
-        .assert()
-        .code(3)
-        .get_output()
-        .clone()
-    }
-  })
-  .await
-  .unwrap();
-  let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+  let path = dir.path().to_path_buf();
+  let stderr = tokio::task::spawn_blocking(move || run_stderr(&path)).await.unwrap();
   assert_eq!(
     stderr.matches("use 1.1.0 instead (run `moonlit doctor` to fix)").count(),
     2,
     "{stderr}"
   );
   assert!(!stderr.contains("--major"), "{stderr}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn non_semver_tag_goes_straight_to_the_cross_major_lookup() {
+  let server = registry_with_versions(&["1.1.0", "2.0.0"], &[]).await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release_tagged(dir.path(), &server, "latest");
+  let path = dir.path().to_path_buf();
+  let stderr = tokio::task::spawn_blocking(move || run_stderr(&path)).await.unwrap();
+  assert_eq!(
+    stderr
+      .matches("use 2.0.0 instead (run `moonlit doctor --major` to fix)")
+      .count(),
+    2,
+    "{stderr}"
+  );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn registry_error_on_the_same_major_lookup_gives_no_suggestion() {
+  let server = registry_with_versions(&["2.0.0"], &["1.1.0"]).await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let path = dir.path().to_path_buf();
+  let stderr = tokio::task::spawn_blocking(move || run_stderr(&path)).await.unwrap();
+  assert!(stderr.contains("✗ old-a"), "{stderr}");
+  assert!(!stderr.contains("instead"), "{stderr}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
