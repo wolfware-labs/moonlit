@@ -64,6 +64,13 @@ no configuration or publishes nothing. Both types derive `schemars::JsonSchema`,
 the macro emits those schemas into the component so `moonlit plugin inspect` and the
 registry can document the plugin without running it.
 
+Alongside `moonlit-pdk`, a plugin crate needs `serde` (with `derive`),
+`serde_json`, and `schemars = "1"`. `moonlit plugin new` scaffolds all of this.
+The example above is what it generates.
+
+Build with `cargo build --target wasm32-wasip2 --release` (requires
+`rustup target add wasm32-wasip2`).
+
 ## Declaring permissions
 
 A plugin has no access to the network, programs, environment, or files unless the pipeline
@@ -93,13 +100,6 @@ moonlit_plugin! {
   separately and is not granted unless the user allows it. State in the reason when it is
   needed.
 - Omit `permissions:` for a plugin that needs none.
-
-Alongside `moonlit-pdk`, a plugin crate needs `serde` (with `derive`),
-`serde_json`, and `schemars = "1"`. `moonlit plugin new` scaffolds all of this.
-The example above is what it generates.
-
-Build with `cargo build --target wasm32-wasip2 --release` (requires
-`rustup target add wasm32-wasip2`).
 
 ## License
 

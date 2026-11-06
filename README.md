@@ -101,7 +101,7 @@ each step's output is published under its name for later steps to read.
 
 A plugin declares the permissions it needs, each with a reason, in its own code. The
 declaration is part of the component, so `moonlit add` reads it from the plugin that will
-actually run:
+run:
 
 ```sh
 moonlit search github              # find plugins and see their middlewares
@@ -112,9 +112,9 @@ moonlit doctor                     # check the release file and offer to fix wha
 
 `add` prints what the plugin wants in plain sentences (connect to the internet, run programs,
 read environment variables, read or change files), with the author's reason for each, the
-change it will make to `release.yml`, and asks `Allow and add? [y/N]`. Permissions the
+change it will make to `release.yml`, and asks `Allow and add?` (default No). Permissions the
 plugin marks optional are listed separately and are not granted unless you say so. The
-`permissions:` block it writes holds exactly what the plugin declared.
+`permissions:` block it writes holds the required permissions plus any optional ones you allowed.
 
 | Command | Flags worth knowing |
 | --- | --- |
@@ -124,7 +124,7 @@ plugin marks optional are listed separately and are not granted unless you say s
 | `moonlit doctor` | `-f/--file-path`, `-y/--yes`, `--major` |
 
 Without a terminal, `add` refuses unless you pass `--yes`, and `update` and `doctor` refuse
-only when a change would grant new permissions. `--yes` accepts required permissions and
+only when a change would grant new permissions. `--yes` alone accepts required permissions and
 never grants optional ones. These commands exit 0 when done, 1 when you decline or `doctor`
 leaves a problem, 2 for usage or file errors, and 3 for registry or plugin resolution errors.
 
