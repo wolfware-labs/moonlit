@@ -252,3 +252,50 @@ impl Builder<'_, '_> {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn value_text(yaml: &str) -> String {
+    let src = ConfigSource::new(yaml, "test.yml");
+    let root = build_tree(&src).expect("yaml parses");
+    let NodeValue::Map(entries) = root.value else {
+      panic!("root is not a map");
+    };
+    let (_, value) = entries
+      .into_iter()
+      .find(|(k, _)| k.value == NodeValue::Scalar("k".into()))
+      .expect("key k");
+    yaml[value.span.start..value.span.end].to_string()
+  }
+
+  #[test]
+  fn a_double_quoted_scalar_spans_through_an_escaped_quote() {
+    assert_eq!(value_text("k: \"a\\\"b\"\nz: 1\n"), "\"a\\\"b\"");
+  }
+
+  #[test]
+  fn a_single_quoted_scalar_spans_through_a_doubled_quote() {
+    assert_eq!(value_text("k: 'it''s'\nz: 1\n"), "'it''s'");
+  }
+
+  #[test]
+  fn an_unterminated_quoted_scalar_ends_at_the_span_end() {
+    let yaml = "k: 'open";
+    let span = Span::new(3, yaml.len());
+    assert_eq!(quoted_end(yaml, span), yaml.len());
+  }
+
+  #[test]
+  fn a_flow_map_value_spans_to_its_closing_brace() {
+    assert_eq!(value_text("k: {a: 1}\nz: 1\n"), "{a: 1}");
+    assert_eq!(value_text("k: {a: 1}"), "{a: 1}");
+  }
+
+  #[test]
+  fn a_flow_sequence_value_spans_to_its_closing_bracket() {
+    assert_eq!(value_text("k: [a, b]\nz: 1\n"), "[a, b]");
+    assert_eq!(value_text("k: [a, b]"), "[a, b]");
+  }
+}
