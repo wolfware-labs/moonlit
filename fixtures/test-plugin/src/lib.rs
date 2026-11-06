@@ -69,6 +69,8 @@ impl Guest for Component {
             mw("run-process", "process::run", None, None),
             mw("spawn-stream", "process::spawn streaming", None, None),
             mw("http-get", "wasi:http GET", None, None),
+            mw("try-exec", "runs config program, ignores errors", None, None),
+            mw("try-fetch", "GETs config url, ignores errors", None, None),
             mw("boom", "panics", None, None),
             mw("fail", "returns successful=false", None, None),
             mw("dup-output", "two outputs, same key", None, None),
@@ -187,6 +189,41 @@ impl Guest for Component {
                         warnings: vec![],
                         output: vec![],
                     },
+                }
+            }
+            "try-exec" => {
+                let program = json_field(&config, "program").unwrap_or_else(|| "git".to_string());
+                let cmd = process::Command {
+                    program,
+                    args: vec!["--version".to_string()],
+                    cwd: None,
+                    env: vec![],
+                    stdin: None,
+                };
+                let _ = process::run(&cmd);
+                MiddlewareResult {
+                    successful: true,
+                    error_message: None,
+                    warnings: vec![],
+                    output: vec![],
+                }
+            }
+            "try-fetch" => {
+                let url = json_field(&config, "url").unwrap_or_default();
+                let (scheme, rest) = match url.split_once("://") {
+                    Some((s, r)) => (s.to_string(), r.to_string()),
+                    None => ("https".to_string(), url.clone()),
+                };
+                let (authority, path) = match rest.split_once('/') {
+                    Some((a, p)) => (a.to_string(), format!("/{p}")),
+                    None => (rest.clone(), "/".to_string()),
+                };
+                let _ = http_get(&scheme, &authority, &path);
+                MiddlewareResult {
+                    successful: true,
+                    error_message: None,
+                    warnings: vec![],
+                    output: vec![],
                 }
             }
             "fail" => MiddlewareResult {

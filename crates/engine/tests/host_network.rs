@@ -129,3 +129,43 @@ async fn denied_host_is_blocked_before_the_socket() {
     "expected a Warn event naming the denied host and permissions.network, got: {events:?}"
   );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn denied_network_fails_step() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let sink = Arc::new(CapturingSink::default());
+  let mut p = Plugin::instantiate(
+    &eng,
+    FIXTURE,
+    cfg_with_network(vec!["api.github.com".to_string()]),
+    sink.clone(),
+  )
+  .await
+  .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  let r = p
+    .execute(
+      "try-fetch",
+      ReleaseContext {
+        working_directory: "/work".to_string(),
+        step_name: "fetch".to_string(),
+      },
+      &serde_json::json!({ "url": "http://blocked.example.org/x" }),
+    )
+    .await
+    .unwrap();
+  assert!(!r.successful, "a blocked host must fail the step: {r:?}");
+  let msg = r.error_message.unwrap();
+  assert!(msg.contains("blocked from connecting to 'blocked.example.org'"), "{msg}");
+  assert!(msg.contains("permissions.network"), "{msg}");
+  assert!(!msg.contains("optional permission"), "{msg}");
+
+  let events = sink.events.lock().unwrap();
+  assert!(
+    events
+      .iter()
+      .any(|(step, level, msg)| step == "fetch" && *level == LogLevel::Warn && msg.contains("blocked.example.org")),
+    "expected the denial logged under the step name, got: {events:?}"
+  );
+}

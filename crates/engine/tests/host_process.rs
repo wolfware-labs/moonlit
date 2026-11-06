@@ -76,7 +76,7 @@ async fn run_process_denied_when_program_not_permitted() {
     .unwrap();
   let r = p.execute("run-process", ctx("run"), &serde_json::json!({})).await.unwrap();
   assert!(!r.successful, "denied exec must fail the middleware");
-  assert!(r.error_message.unwrap().contains("not permitted"));
+  assert!(r.error_message.unwrap().contains("permissions.exec"));
 
   let events = sink.events.lock().unwrap();
   assert!(
@@ -106,4 +106,57 @@ async fn spawn_stream_delivers_lines_live_in_order() {
     r.output.iter().find(|(k, _)| k == "exit_code").unwrap().1,
     serde_json::json!(0)
   );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn denied_exec_fails_step_even_if_plugin_succeeds() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  let r = p
+    .execute("try-exec", ctx("tag"), &serde_json::json!({ "program": "git" }))
+    .await
+    .unwrap();
+  assert!(!r.successful, "a blocked program must fail the step: {r:?}");
+  let msg = r.error_message.unwrap();
+  assert!(msg.contains("blocked from running 'git'"), "{msg}");
+  assert!(msg.contains("permissions.exec"), "{msg}");
+  assert!(msg.contains("Only for the tag middleware."), "{msg}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn granted_exec_does_not_fail() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["git".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  let r = p
+    .execute("try-exec", ctx("tag"), &serde_json::json!({ "program": "git" }))
+    .await
+    .unwrap();
+  assert!(r.successful, "granted exec must not fail: {r:?}");
+  assert!(r.error_message.is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn denials_do_not_leak_into_the_next_execute() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let first = p
+    .execute("try-exec", ctx("a"), &serde_json::json!({ "program": "git" }))
+    .await
+    .unwrap();
+  let second = p
+    .execute("try-exec", ctx("b"), &serde_json::json!({ "program": "ls" }))
+    .await
+    .unwrap();
+  assert!(!first.successful);
+  assert!(second.successful, "{second:?}");
 }

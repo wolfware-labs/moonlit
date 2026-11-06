@@ -1,8 +1,9 @@
 use crate::pipeline::config::Permissions;
 use crate::plugin::host::ReleaseContext;
+use crate::plugin::host::state::Denial;
 use crate::plugin::host::state::HostState;
 use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
-use crate::plugin::permissions::DeclaredPermission;
+use crate::plugin::permissions::{DeclaredPermission, PermissionKind, optional_for_target};
 use crate::plugin::wit::PluginHost;
 use crate::plugin::{PluginError, PluginMetadata};
 use std::path::PathBuf;
@@ -62,8 +63,9 @@ impl PluginInstance {
     config: &serde_json::Value,
   ) -> Result<MiddlewareResult, PluginError> {
     self.store.data_mut().set_step(&ctx.step_name);
+    self.store.data().denials().lock().unwrap().clear();
     let json = config.to_string();
-    match self
+    let result = match self
       .bindings
       .call_execute(&mut self.store, middleware, &ctx.into(), &json)
       .await
@@ -73,6 +75,15 @@ impl PluginInstance {
         op: format!("execute {middleware}"),
         message: format!("{e:?}"),
       }),
+    };
+    let denials = std::mem::take(&mut *self.store.data().denials().lock().unwrap());
+    match result {
+      Ok(mut r) if !denials.is_empty() => {
+        r.successful = false;
+        r.error_message = Some(denial_message(&denials, self.store.data().declared()));
+        Ok(r)
+      }
+      other => other,
     }
   }
 
@@ -85,4 +96,22 @@ impl PluginInstance {
       }),
     }
   }
+}
+
+fn denial_message(denials: &[Denial], declared: &[DeclaredPermission]) -> String {
+  denials
+    .iter()
+    .map(|d| {
+      let (verb, field) = match d.kind {
+        PermissionKind::Network => ("connecting to", "network"),
+        _ => ("running", "exec"),
+      };
+      let mut msg = format!("blocked from {verb} '{}' — add it to permissions.{field}", d.target);
+      if let Some(p) = optional_for_target(declared, d.kind, &d.target) {
+        msg = format!("{msg} (optional permission: \"{}\")", p.reason);
+      }
+      msg
+    })
+    .collect::<Vec<_>>()
+    .join("; ")
 }

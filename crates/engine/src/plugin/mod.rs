@@ -17,7 +17,7 @@ use crate::plugin::host::{AllowlistHooks, build_wasi_ctx, exec_globset};
 pub use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
 use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
-use host::state::HostState;
+use host::state::{DenialLog, HostState};
 use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -48,12 +48,14 @@ impl Plugin {
       ),
     );
 
+    let denials = DenialLog::default();
     let mut store = engine.build_store(HostState::new(
       wasi,
-      AllowlistHooks::new(&cfg.permissions, events.clone()),
+      AllowlistHooks::new(&cfg.permissions, events.clone(), denials.clone()),
       events,
       cfg.config_view,
       exec_globset(&cfg.permissions.exec),
+      denials,
     ));
 
     let component = engine

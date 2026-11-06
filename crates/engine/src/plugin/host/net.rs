@@ -1,6 +1,8 @@
 use crate::pipeline::config::Permissions;
 use crate::plugin::host::HostEventSink;
 use crate::plugin::host::auth::network_globset;
+use crate::plugin::host::state::{Denial, DenialLog};
+use crate::plugin::permissions::PermissionKind;
 use globset::GlobSet;
 use http_body_util::BodyExt;
 use hyper::http;
@@ -11,15 +13,23 @@ use wasmtime_wasi_http::{Error, RequestOptions, WasiBody, WasiHttpHooks, default
 pub struct AllowlistHooks {
   allowed: GlobSet,
   events: Arc<dyn HostEventSink>,
+  denials: DenialLog,
+  step: String,
 }
 
 impl AllowlistHooks {
   #[must_use]
-  pub fn new(p: &Permissions, events: Arc<dyn HostEventSink>) -> Self {
+  pub fn new(p: &Permissions, events: Arc<dyn HostEventSink>, denials: DenialLog) -> Self {
     Self {
       allowed: network_globset(&p.network),
       events,
+      denials,
+      step: String::new(),
     }
+  }
+
+  pub fn set_step(&mut self, step: &str) {
+    step.clone_into(&mut self.step);
   }
 }
 
@@ -38,10 +48,14 @@ impl WasiHttpHooks for AllowlistHooks {
 
     if !self.allowed.is_match(&host) {
       self.events.log(
-        "",
+        &self.step,
         crate::plugin::host::LogLevel::Warn,
         &format!("blocked from connecting to '{host}' — add it to the plugin's permissions.network"),
       );
+      self.denials.lock().unwrap().push(Denial {
+        kind: PermissionKind::Network,
+        target: host,
+      });
       return Box::new(async move { Err(Error::HttpRequestDenied) });
     }
 
