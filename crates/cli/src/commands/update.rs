@@ -88,6 +88,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
         description: &plan.description,
         required: plan.uncovered.iter().collect(),
         optional: Vec::new(),
+        not_requested: false,
       };
       print!("{}", consent::render(&view, color));
       print!("{}", consent::render_changes(&file, &render_diff(&content, &after)));

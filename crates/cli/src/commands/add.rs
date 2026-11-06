@@ -57,6 +57,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
     description: &meta.description,
     required,
     optional,
+    not_requested: true,
   };
   print!("{}", consent::render(&view, resolve_mode(output) == OutputMode::Pretty));
 

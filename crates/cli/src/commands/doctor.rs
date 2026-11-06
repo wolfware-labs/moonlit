@@ -102,6 +102,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
       description: &fix.description,
       required: fix.uncovered.iter().collect(),
       optional: Vec::new(),
+      not_requested: false,
     };
     print!("{}", consent::render(&view, color));
   }

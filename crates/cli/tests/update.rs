@@ -190,3 +190,17 @@ async fn update_stays_in_major_without_flag() {
     .stdout(contains("test-plugin: 1.0.1 → 2.0.0"));
   assert!(project.release().contains("test-plugin:2.0.0"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_screen_lists_only_new_permissions() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.1.0", "test_plugin.wasm")]).await;
+  let project = Project::new(&server, "1.0.0", "    permissions:\n      exec: [\"git\"]\n");
+
+  let assert = project
+    .update(&["--yes"])
+    .success()
+    .stdout(contains("This plugin wants to:"))
+    .stdout(contains("Connect to the internet"));
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains("Not requested"), "{stdout}");
+}

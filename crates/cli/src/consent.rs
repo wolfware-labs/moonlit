@@ -23,6 +23,8 @@ pub struct ConsentView<'a> {
   pub description: &'a str,
   pub required: Vec<&'a DeclaredPermission>,
   pub optional: Vec<&'a DeclaredPermission>,
+  /// Whether to list the kinds the plugin does not ask for; off on screens that show only new permissions.
+  pub not_requested: bool,
 }
 
 /// The user's answer to a consent question.
@@ -83,7 +85,7 @@ pub fn render(view: &ConsentView, color: bool) -> String {
       .filter(|k| !view.required.iter().chain(view.optional.iter()).any(|p| p.kind == **k))
       .map(|k| lower_first(k.sentence()))
       .collect();
-    if !missing.is_empty() {
+    if view.not_requested && !missing.is_empty() {
       let _ = writeln!(out, "  Not requested: {}", missing.join(", "));
       out.push('\n');
     }
@@ -196,6 +198,7 @@ mod tests {
       description: "Create GitHub releases and comment on PRs",
       required,
       optional,
+      not_requested: true,
     }
   }
 
@@ -251,6 +254,16 @@ mod tests {
       out.contains("Not requested: run programs on your machine, read and change files in your project"),
       "{out}"
     );
+  }
+
+  #[test]
+  fn delta_screen_has_no_not_requested_line() {
+    let perms = github();
+    let mut delta = view(vec![&perms[0]], vec![]);
+    delta.not_requested = false;
+    let out = render(&delta, false);
+    assert!(out.contains("Connect to the internet"), "{out}");
+    assert!(!out.contains("Not requested"), "{out}");
   }
 
   #[test]

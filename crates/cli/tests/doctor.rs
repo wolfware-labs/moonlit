@@ -336,3 +336,20 @@ async fn doctor_reports_a_target_it_cannot_fetch_and_fixes_the_rest() {
   assert!(release.contains("test-plugin:0.3.0"), "{release}");
   assert_ne!(release, before);
 }
+
+#[test]
+fn doctor_screen_lists_only_new_permissions() {
+  let project = Project::new(&entry(
+    "test-plugin",
+    &file_url("test_plugin.wasm"),
+    "    permissions:\n      exec: [\"git\"]\n",
+  ));
+
+  let assert = project
+    .doctor(&["--yes"])
+    .success()
+    .stdout(contains("This plugin wants to:"))
+    .stdout(contains("Connect to the internet"));
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains("Not requested"), "{stdout}");
+}
