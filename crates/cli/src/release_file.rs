@@ -48,7 +48,7 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
     let at = top_level_line(content, "stages:").unwrap_or(content.len());
     insertion(content, at, format!("plugins:\n{}\n", item_block(entry, 2, 4)))
   };
-  validated(apply(content, vec![edit]), &entry.name, &entry.url)
+  validated(apply(content, vec![edit]), &entry.name, &entry.url, Some(&entry.permissions))
 }
 
 /// Checks that a plugin entry with this name and URL could be added, without editing anything.
@@ -85,7 +85,7 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: &Permission
     let lines = format!("{}{}\n", " ".repeat(key), permissions_block(permissions, key));
     insertion(content, line_end(content, plugin.span.end), lines)
   };
-  validated(apply(content, vec![url_edit, permissions_edit]), name, url)
+  validated(apply(content, vec![url_edit, permissions_edit]), name, url, Some(permissions))
 }
 
 /// Replaces the `url` of one plugin entry, leaving every other byte of the file unchanged.
@@ -98,7 +98,7 @@ pub fn set_plugin_url(content: &str, name: &str, url: &str) -> Result<String, Re
     .find(|p| p.name == name)
     .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
   let edit = (plugin.url.span.start, plugin.url.span.end, scalar(url));
-  validated(apply(content, vec![edit]), name, url)
+  validated(apply(content, vec![edit]), name, url, plugin.permissions.as_ref())
 }
 
 /// Lists the lines that differ between two versions of a file, prefixed with `+ ` or `- `.
@@ -137,20 +137,24 @@ const SOURCE: &str = "release.yml";
 
 type Edit = (usize, usize, String);
 
-fn validated(content: String, name: &str, url: &str) -> Result<String, ReleaseFileError> {
+fn validated(content: String, name: &str, url: &str, permissions: Option<&Permissions>) -> Result<String, ReleaseFileError> {
   let config = parse_config(&content, SOURCE).map_err(|err| ReleaseFileError::Invalid(err.message().into()))?;
-  let reads_back = config
+  let Some(plugin) = config
     .plugins
     .value
     .iter()
-    .any(|p| p.name == name && p.url.value.as_str() == url);
-  if reads_back {
-    Ok(content)
-  } else {
-    Err(ReleaseFileError::Invalid(format!(
+    .find(|p| p.name == name && p.url.value.as_str() == url)
+  else {
+    return Err(ReleaseFileError::Invalid(format!(
       "plugin '{name}' would not read back with the URL '{url}'"
-    )))
+    )));
+  };
+  if plugin.permissions.as_ref() != permissions {
+    return Err(ReleaseFileError::Invalid(format!(
+      "plugin '{name}' would not read back with the requested permissions"
+    )));
   }
+  Ok(content)
 }
 
 #[must_use]
@@ -298,6 +302,24 @@ mod tests {
     let out = add_plugin(RELEASE, &entry).expect("added");
     assert!(!out.contains('\u{1b}'), "{out:?}");
     assert!(out.contains("network: [\"api.github.com\\x1b[8m\"]"), "{out}");
+  }
+
+  #[test]
+  fn read_back_with_other_permissions_is_invalid() {
+    let url = "oci://registry.moonlit.rs/moonlit/git:1.2.0";
+    let broader = Permissions {
+      exec: vec!["git".into(), "sh".into()],
+      ..Permissions::deny()
+    };
+    let err = validated(RELEASE.to_string(), "git", url, Some(&broader)).expect_err("permissions differ");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+    let err = validated(RELEASE.to_string(), "git", url, None).expect_err("permissions differ");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+    let granted = Permissions {
+      exec: vec!["git".into()],
+      ..Permissions::deny()
+    };
+    assert!(validated(RELEASE.to_string(), "git", url, Some(&granted)).is_ok());
   }
 
   #[test]
