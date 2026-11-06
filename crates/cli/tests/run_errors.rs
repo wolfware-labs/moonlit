@@ -307,6 +307,29 @@ async fn registry_error_on_the_same_major_lookup_gives_no_suggestion() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn oci_host_that_is_not_a_moonlit_registry_gets_the_rebuild_hint() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(404))
+    .mount(&server)
+    .await;
+  oci_mock::serve_plugin(&server, "acme/old-a", "1.0.0", &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+  oci_mock::serve_plugin(&server, "acme/old-b", "1.0.0", &fixture("test_plugin_v0_3.wasm"), OLD_WORLD).await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let path = dir.path().to_path_buf();
+  let stderr = tokio::task::spawn_blocking(move || run_stderr(&path)).await.unwrap();
+  assert_eq!(
+    stderr
+      .matches("rebuild it against moonlit-pdk for moonlit:plugin@0.4.0")
+      .count(),
+    2,
+    "{stderr}"
+  );
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn incompatible_error_without_registry_still_names_worlds() {
   let server = registry_with_upgrade().await;
   server.reset().await;

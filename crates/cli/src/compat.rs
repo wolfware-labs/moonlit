@@ -1,6 +1,6 @@
 use moonlit_engine::pipeline::IncompatiblePlugin;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
-use moonlit_engine::registry::{RegistryClient, VersionRule};
+use moonlit_engine::registry::{RegistryClient, RegistryError, VersionRule};
 use semver::Version;
 
 use crate::display::display_safe;
@@ -50,6 +50,7 @@ async fn suggest(plugin: &IncompatiblePlugin, offline: bool) -> Suggestion {
         };
       }
       Ok(None) => {}
+      Err(RegistryError::NotARegistry(_)) => return Suggestion::NotFromRegistry,
       Err(_) => return Suggestion::RegistryUnavailable,
     }
   }
@@ -59,6 +60,7 @@ async fn suggest(plugin: &IncompatiblePlugin, offline: bool) -> Suggestion {
       major: true,
     },
     Ok(None) => Suggestion::NoneCompatible,
+    Err(RegistryError::NotARegistry(_)) => Suggestion::NotFromRegistry,
     Err(_) => Suggestion::RegistryUnavailable,
   }
 }

@@ -28,6 +28,9 @@ pub enum RegistryError {
   /// The response body did not have the expected shape.
   #[error("registry response could not be decoded: {0}")]
   Decode(String),
+  /// The host answered, but not as a Moonlit registry: no GraphQL endpoint, or a body that is not a GraphQL response.
+  #[error("{0} is not a Moonlit registry")]
+  NotARegistry(String),
 }
 
 /// Which versions an upgrade or install may pick.
@@ -199,6 +202,9 @@ impl RegistryClient {
       .await
       .map_err(|e| RegistryError::Http(format!("POST {}: {e}", self.url)))?;
     let status = response.status();
+    if matches!(status.as_u16(), 404 | 405) {
+      return Err(RegistryError::NotARegistry(self.url.clone()));
+    }
     if !status.is_success() {
       return Err(RegistryError::Http(format!("POST {}: HTTP {status}", self.url)));
     }
@@ -206,7 +212,11 @@ impl RegistryClient {
       .bytes()
       .await
       .map_err(|e| RegistryError::Http(format!("POST {}: {e}", self.url)))?;
-    let envelope: Envelope<T> = serde_json::from_slice(&bytes).map_err(|e| RegistryError::Decode(e.to_string()))?;
+    let body: Value = serde_json::from_slice(&bytes).map_err(|_| RegistryError::NotARegistry(self.url.clone()))?;
+    if body.get("data").or_else(|| body.get("errors")).is_none() {
+      return Err(RegistryError::NotARegistry(self.url.clone()));
+    }
+    let envelope: Envelope<T> = serde_json::from_value(body).map_err(|e| RegistryError::Decode(e.to_string()))?;
     if let Some(first) = envelope.errors.into_iter().next() {
       return Err(RegistryError::GraphQl(first.message));
     }

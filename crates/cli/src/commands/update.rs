@@ -3,7 +3,7 @@ use std::path::Path;
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, is_covered, merge_grants, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
-use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionRule};
+use moonlit_engine::registry::{RegistryClient, RegistryError, VerificationStatus, VersionRule};
 use semver::Version;
 
 use crate::cli::{OutputMode, UpdateArgs};
@@ -17,6 +17,12 @@ use crate::render::resolve_mode;
 
 pub(crate) const REFUSAL: &str =
   "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
+
+enum Planned {
+  Bump(Box<Plan>),
+  UpToDate,
+  NotARegistry,
+}
 
 struct Plan {
   name: String,
@@ -61,8 +67,9 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
     };
     let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
     match plan(&plugin.name, &reference, &current, &granted, args).await? {
-      Some(plan) => plans.push(plan),
-      None => println!("{}: up to date", plugin.name),
+      Planned::Bump(plan) => plans.push(*plan),
+      Planned::UpToDate => println!("{}: up to date", plugin.name),
+      Planned::NotARegistry => println!("{}: not from a Moonlit registry, skipped", plugin.name),
     }
   }
 
@@ -115,22 +122,26 @@ async fn plan(
   current: &Version,
   granted: &Permissions,
   args: &UpdateArgs,
-) -> Result<Option<Plan>, i32> {
+) -> Result<Planned, i32> {
   let rule = VersionRule {
     current: Some(current.clone()),
     cross_major: args.major,
     pre: args.pre,
   };
-  let detail = RegistryClient::for_host(&reference.host)
+  let detail = match RegistryClient::for_host(&reference.host)
     .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
     .await
-    .or_else(|e| fail(&format!("{name}: {e}"), 3))?;
+  {
+    Ok(detail) => detail,
+    Err(RegistryError::NotARegistry(_)) => return Ok(Planned::NotARegistry),
+    Err(e) => return fail(&format!("{name}: {e}"), 3),
+  };
   let Some(detail) = detail else {
-    return Ok(None);
+    return Ok(Planned::UpToDate);
   };
   let newer = Version::parse(&detail.version).is_ok_and(|v| v > *current);
   if !newer {
-    return Ok(None);
+    return Ok(Planned::UpToDate);
   }
   let url = format!(
     "oci://{}/{}/{}:{}",
@@ -152,7 +163,7 @@ async fn plan(
     let wanted = grants_for(&uncovered, &|_| false);
     merge_grants(granted, &wanted)
   };
-  Ok(Some(Plan {
+  Ok(Planned::Bump(Box::new(Plan {
     name: name.to_string(),
     old: current.to_string(),
     new: detail.version,
@@ -161,7 +172,7 @@ async fn plan(
     permissions,
     uncovered,
     description: probed.meta.description.clone(),
-  }))
+  })))
 }
 
 pub(crate) fn fail<T>(message: &str, code: i32) -> Result<T, i32> {

@@ -353,3 +353,22 @@ fn doctor_screen_lists_only_new_permissions() {
   let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
   assert!(!stdout.contains("Not requested"), "{stdout}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_gives_the_rebuild_hint_when_the_host_is_not_a_moonlit_registry() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(404))
+    .mount(&server)
+    .await;
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  let project = Project::new(&oci_entry(&server, "test-plugin", "0.3.0"));
+  let before = project.release();
+
+  project.doctor(&["--yes"]).code(1).stdout(contains(format!(
+    "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; rebuild it against moonlit-pdk for {WORLD}\n"
+  )));
+  assert_eq!(project.release(), before);
+}

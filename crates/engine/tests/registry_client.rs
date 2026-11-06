@@ -241,6 +241,34 @@ async fn http_failures_are_reported() {
   assert!(matches!(err, RegistryError::Http(_)), "{err:?}");
 }
 
+#[tokio::test]
+async fn a_host_without_a_graphql_endpoint_is_not_a_registry() {
+  for status in [404, 405] {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+      .respond_with(ResponseTemplate::new(status))
+      .mount(&server)
+      .await;
+
+    let err = client(&server).versions("acme", "x").await.unwrap_err();
+
+    assert!(matches!(err, RegistryError::NotARegistry(_)), "{status}: {err:?}");
+  }
+}
+
+#[tokio::test]
+async fn a_response_that_is_not_a_graphql_envelope_is_not_a_registry() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .respond_with(ResponseTemplate::new(200).set_body_string("<html>hello</html>"))
+    .mount(&server)
+    .await;
+
+  let err = client(&server).versions("acme", "x").await.unwrap_err();
+
+  assert!(matches!(err, RegistryError::NotARegistry(_)), "{err:?}");
+}
+
 #[test]
 fn for_host_builds_the_graphql_url() {
   let url = |input: &str| RegistryClient::for_host(input).base_url().to_string();
