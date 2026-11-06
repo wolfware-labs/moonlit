@@ -86,6 +86,9 @@ impl VersionRule {
 /// Whether a registry `host[:port]` is a loopback address: `localhost`, 127.0.0.0/8 or `[::1]`.
 #[must_use]
 pub fn is_loopback(registry: &str) -> bool {
+  if registry.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
+    return true;
+  }
   let host = match registry.strip_prefix('[') {
     Some(rest) => rest.split_once(']').map_or(rest, |(h, _)| h),
     None => registry.split_once(':').map_or(registry, |(h, _)| h),
@@ -289,7 +292,17 @@ mod tests {
 
   #[test]
   fn loopback_registries_are_recognised() {
-    for registry in ["localhost:5000", "127.0.0.1:8080", "127.0.0.1", "[::1]:5000", "LOCALHOST"] {
+    for registry in [
+      "localhost:5000",
+      "127.0.0.1:8080",
+      "127.0.0.1",
+      "127.0.0.2:5185",
+      "[::1]",
+      "[::1]:5000",
+      "::1",
+      "LOCALHOST",
+      "LOCALHOST:5185",
+    ] {
       assert!(is_loopback(registry), "{registry}");
     }
   }
@@ -305,6 +318,7 @@ mod tests {
       "127.evil.com:5000",
       "127.0.0.1.nip.io",
       "[::ffff:127.0.0.1]:5000",
+      "host:port",
     ] {
       assert!(!is_loopback(registry), "{registry}");
     }
