@@ -1,9 +1,16 @@
-use comfy_table::{Table, presets::UTF8_BORDERS_ONLY};
+use comfy_table::{ContentLineStyle, LineStyle, Table, TableStyle};
 use console::style;
 use moonlit_engine::registry::{MiddlewareSummary, PackageHit, RegistryClient, RegistryError, VerificationStatus};
 
 use crate::cli::{DEFAULT_REGISTRY_HOST, OutputMode, SearchArgs};
 use crate::render::resolve_mode;
+
+const TABLE_STYLE: TableStyle = TableStyle::new()
+  .top_border(LineStyle::new('┌', '─', '┬', '┐'))
+  .header_lines(ContentLineStyle::new('│', '│', '│'))
+  .header_separator(LineStyle::new('├', '─', '┼', '┤'))
+  .content_lines(ContentLineStyle::new('│', '│', '│'))
+  .bottom_border(LineStyle::new('└', '─', '┴', '┘'));
 
 struct Card {
   hit: PackageHit,
@@ -111,12 +118,14 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
     }
     if !card.middlewares.is_empty() {
       let mut table = Table::new();
-      table.load_style(UTF8_BORDERS_ONLY);
+      table.load_style(TABLE_STYLE);
       table.set_header(["MIDDLEWARE", "DESCRIPTION"]);
       for m in &card.middlewares {
         table.add_row([m.name.as_str(), m.description.as_deref().unwrap_or("")]);
       }
-      println!("{table}");
+      for line in table.to_string().lines() {
+        println!("  {line}");
+      }
     }
   }
   println!();
