@@ -71,6 +71,15 @@ impl Parse for PermissionDecl {
       if values.is_empty() {
         return Err(syn::Error::new(bracket.span.join(), "list at least one value"));
       }
+      if let Some(value) = values.iter().find(|v| v.value().contains(['[', ']', '{', '}'])) {
+        return Err(syn::Error::new(
+          value.span(),
+          format!(
+            "permission value `{}` uses `[`, `]`, `{{` or `}}`; only `*` and `?` wildcards are allowed",
+            value.value()
+          ),
+        ));
+      }
       (kind, values)
     };
     if !input.peek(Token![=>]) {
@@ -466,6 +475,17 @@ mod tests {
     for kind in [quote! { network }, quote! { exec }, quote! { env }] {
       let message = permission_error(&quote! { #kind([]) => "why" });
       assert!(message.contains("list at least one value"), "got: {message}");
+    }
+  }
+
+  #[test]
+  fn values_with_glob_classes_or_alternatives_are_rejected() {
+    for value in ["{git,gh}", "git[0-9]", "a]", "b}"] {
+      let message = permission_error(&quote! { exec(["ok", #value]) => "why" });
+      assert!(
+        message.contains(&format!("`{value}`")) && message.contains("only `*` and `?` wildcards"),
+        "got: {message}"
+      );
     }
   }
 

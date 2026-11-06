@@ -1,6 +1,7 @@
 use crate::pipeline::config::{FilesystemAccess, Permissions};
 use crate::plugin::host::{exec_globset, network_globset};
 use crate::sanitize::quote_list;
+use globset::GlobSet;
 use serde::Serialize;
 
 /// The kind of capability a plugin asks for.
@@ -84,21 +85,16 @@ impl DeclaredPermission {
 #[must_use]
 pub fn is_covered(p: &DeclaredPermission, granted: &Permissions) -> bool {
   match p.kind {
-    PermissionKind::Network => {
-      let set = network_globset(&granted.network);
-      p.values.iter().all(|v| set.is_match(v))
-    }
-    PermissionKind::Exec => {
-      let set = exec_globset(&granted.exec);
-      p.values.iter().all(|v| set.is_match(v))
-    }
-    PermissionKind::Env => {
-      let set = exec_globset(&granted.env);
-      p.values.iter().all(|v| set.is_match(v))
-    }
+    PermissionKind::Network => all_granted(&p.values, &granted.network, &network_globset(&granted.network)),
+    PermissionKind::Exec => all_granted(&p.values, &granted.exec, &exec_globset(&granted.exec)),
+    PermissionKind::Env => all_granted(&p.values, &granted.env, &exec_globset(&granted.env)),
     PermissionKind::FilesystemRead => granted.filesystem >= FilesystemAccess::ReadOnly,
     PermissionKind::FilesystemWrite => granted.filesystem >= FilesystemAccess::ReadWrite,
   }
+}
+
+fn all_granted(values: &[String], granted: &[String], set: &GlobSet) -> bool {
+  values.iter().all(|v| granted.contains(v) || set.is_match(v))
 }
 
 /// The required (non-optional) declared permissions the granted set does not cover.
@@ -205,6 +201,19 @@ mod tests {
     assert!(is_covered(&p, &granted(&[], &[], &["*"], FilesystemAccess::None)));
     assert!(!is_covered(&p, &granted(&[], &[], &["CI"], FilesystemAccess::None)));
     assert!(!is_covered(&p, &Permissions::deny()));
+  }
+
+  #[test]
+  fn a_declared_value_equal_to_a_granted_value_is_covered() {
+    let braces = decl(PermissionKind::Exec, &["{git,gh}"], false);
+    assert!(is_covered(&braces, &granted(&[], &["{git,gh}"], &[], FilesystemAccess::None)));
+    let invalid = decl(PermissionKind::Network, &["[api.example.com"], false);
+    assert!(is_covered(
+      &invalid,
+      &granted(&["[api.example.com"], &[], &[], FilesystemAccess::None)
+    ));
+    let mixed = decl(PermissionKind::Env, &["CI", "[X"], false);
+    assert!(is_covered(&mixed, &granted(&[], &[], &["[X", "C*"], FilesystemAccess::None)));
   }
 
   #[test]
