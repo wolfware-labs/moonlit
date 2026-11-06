@@ -439,20 +439,29 @@ async fn doctor_leaves_a_digest_pinned_plugin_alone_and_says_how_to_move_it() {
   .await;
   let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
   let digest = oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
-  let project = Project::new(&entry(
-    "test-plugin",
-    &format!("oci://{}/acme/test-plugin@{digest}", server.address()),
-    "",
-  ));
+  let plugins = [
+    entry(
+      "test-plugin",
+      &format!("oci://{}/acme/test-plugin@{digest}", server.address()),
+      "",
+    ),
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
   let before = project.release();
 
   project
     .doctor(&["--yes"])
     .code(1)
     .stdout(contains(format!("pinned to {digest}")))
-    .stdout(contains("change the url to a version tag to move it"));
+    .stdout(contains("change the url to a version tag to move it"))
+    .stdout(contains("granted: permissions granted"));
 
-  assert_eq!(project.release(), before);
+  let release = project.release();
+  assert!(release.contains(&format!("@{digest}")), "{release}");
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert_ne!(release, before);
 }
 
 #[test]
@@ -461,17 +470,63 @@ fn doctor_exits_3_when_the_plugin_url_cannot_be_reached() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     listener.local_addr().unwrap().port()
   };
-  let project = Project::new(&entry(
-    "test-plugin",
-    &format!("oci://127.0.0.1:{port}/acme/test-plugin:0.3.0"),
-    "",
-  ));
+  let plugins = [
+    entry("test-plugin", &format!("oci://127.0.0.1:{port}/acme/test-plugin:0.3.0"), ""),
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
   let before = project.release();
 
   project
-    .doctor(&[])
+    .doctor(&["--yes"])
     .code(3)
     .stdout(contains("✗ test-plugin: "))
+    .stdout(contains("✗ granted: not granted: "))
+    .stderr(contains("cannot reach the registry"));
+
+  assert_eq!(project.release(), before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_exits_3_when_the_move_target_cannot_be_reached() {
+  let server = MockServer::start().await;
+  let listed: Vec<Value> = ["0.3.0", "0.4.0"]
+    .iter()
+    .map(|v| json!({ "version": v, "yanked": false, "status": "VERIFIED" }))
+    .collect();
+  mount(&server, &["query versions("], json!({ "package": { "versions": listed } })).await;
+  for (version, world) in [("0.3.0", OLD_WORLD), ("0.4.0", WORLD)] {
+    mount(
+      &server,
+      &["query packageVersion(", &format!("\"version\":\"{version}\"")],
+      json!({ "packageVersion": { "version": version, "worldVersion": world, "status": "VERIFIED", "middlewares": [] } }),
+    )
+    .await;
+  }
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  Mock::given(method("GET"))
+    .and(path("/v2/acme/test-plugin/manifests/0.4.0"))
+    .respond_with(ResponseTemplate::new(500))
+    .mount(&server)
+    .await;
+  let plugins = [
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+    oci_entry(&server, "test-plugin", "0.3.0"),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+  let before = project.release();
+
+  project
+    .doctor(&["--yes"])
+    .code(3)
+    .stdout(contains("✗ granted: not granted: "))
+    .stdout(contains(format!(
+      "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; cannot fetch oci://{}/acme/test-plugin:0.4.0: ",
+      server.address()
+    )))
     .stderr(contains("cannot reach the registry"));
 
   assert_eq!(project.release(), before);

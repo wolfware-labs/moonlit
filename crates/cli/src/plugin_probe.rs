@@ -35,24 +35,20 @@ pub enum ProbeError {
 
 /// Resolves a plugin URL through the cache and asks the component for its metadata and middlewares.
 pub async fn probe(url: &str) -> Result<Probe, ProbeError> {
-  let resolve_error = |message: String| ProbeError::Resolve {
+  let resolve_error = |message: String, network: bool| ProbeError::Resolve {
     url: url.to_string(),
     message,
-    network: false,
+    network,
   };
   let load_error = |message: String| ProbeError::Load {
     url: url.to_string(),
     message,
   };
-  let source = url.parse::<PluginSource>().map_err(|e| resolve_error(e.to_string()))?;
-  let cache = Cache::new().map_err(|e| resolve_error(e.to_string()))?;
+  let source = url.parse::<PluginSource>().map_err(|e| resolve_error(e.to_string(), false))?;
+  let cache = Cache::new().map_err(|e| resolve_error(e.to_string(), false))?;
   let resolved = resolve(&source, &ResolveOptions::default(), &cache, None)
     .await
-    .map_err(|e| ProbeError::Resolve {
-      url: url.to_string(),
-      message: e.to_string(),
-      network: matches!(e, ResolveError::Network(_)),
-    })?;
+    .map_err(|e| resolve_error(e.to_string(), matches!(e, ResolveError::Network(_))))?;
   let bytes = std::fs::read(&resolved.wasm_path).map_err(|e| load_error(e.to_string()))?;
   world::check(&bytes).map_err(|e| match e {
     WorldError::Mismatch(mismatch) => ProbeError::Incompatible {
