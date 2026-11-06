@@ -274,6 +274,7 @@ fn content_end(node: &Node, yaml: &str) -> usize {
         content_end(value, yaml)
       }
     }),
+    NodeValue::Scalar(_) => node.span.start + text.trim_end_matches([' ', '\t', '\r']).len(),
     _ => node.span.start + text.trim_end().len(),
   }
 }

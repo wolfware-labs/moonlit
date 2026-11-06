@@ -611,6 +611,42 @@ stages:
     assert!(matches!(err, ReleaseFileError::PluginNotFound(ref n) if n == "zz"), "{err:?}");
   }
 
+  fn config_text(content: &str, plugin: &str, key: &str) -> String {
+    let config = parse_config_unvalidated(content, SOURCE).expect("parses");
+    let plugin = config.plugins.value.iter().find(|p| p.name == plugin).expect("declared");
+    match &plugin.config.get(key).expect("key").value {
+      moonlit_engine::pipeline::config::ConfigValue::String(text) => text.clone(),
+      other => panic!("not a string: {other:?}"),
+    }
+  }
+
+  const KEPT_LAST: &str = "name: d\nstages:\n  s:\n    - run: a.go\nplugins:\n  - name: a\n    url: file://a.wasm\n    config:\n      notes: |+\n        line one\n\n\n";
+
+  #[test]
+  fn add_after_a_keep_chomped_scalar_keeps_its_trailing_lines() {
+    assert_eq!(config_text(KEPT_LAST, "a", "notes"), "line one\n\n\n");
+    let out = add_plugin(KEPT_LAST, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(config_text(&out, "a", "notes"), "line one\n\n\n");
+    assert_eq!(declared(&out, "b"), "file://b.wasm");
+
+    let folded = crlf(&KEPT_LAST.replace("|+", ">+"));
+    let out = add_plugin(&folded, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(config_text(&out, "a", "notes"), "line one\n\n\n");
+  }
+
+  #[test]
+  fn set_plugin_inserting_permissions_after_a_keep_chomped_scalar_keeps_it() {
+    let input = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\n      notes: |+\n        line one\n\n\nstages:\n  s:\n    - run: a.go\n";
+    let permissions = Permissions {
+      exec: vec!["git".into()],
+      ..Permissions::deny()
+    };
+    let out = set_plugin(input, "a", "file://a.wasm", Some(&permissions)).expect("set");
+    assert_eq!(config_text(&out, "a", "notes"), "line one\n\n\n");
+    let config = parse_config(&out, SOURCE).expect("valid");
+    assert_eq!(config.plugins.value[0].permissions.as_ref(), Some(&permissions));
+  }
+
   #[test]
   fn diff_shows_only_added_lines() {
     let diff = render_diff(RELEASE, &added_release());

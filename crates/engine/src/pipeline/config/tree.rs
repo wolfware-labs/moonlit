@@ -81,6 +81,19 @@ fn quoted_end(yaml: &str, span: Span) -> usize {
   span.end
 }
 
+#[must_use]
+fn block_end(yaml: &str, span: Span, raw: &str) -> usize {
+  let content = span.start + yaml[span.start..span.end].trim_end().len();
+  let kept = raw[raw.trim_end().len()..].matches('\n').count();
+  if kept < 2 {
+    return content;
+  }
+  yaml[content..]
+    .match_indices('\n')
+    .nth(kept - 1)
+    .map_or(content, |(i, _)| content + i)
+}
+
 pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
   let char_to_byte: Vec<usize> = {
     let mut v: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
@@ -103,8 +116,10 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       ConfigDiagnostic::invalid_syntax(src, e.info(), Span::point(byte))
     })?;
     let mut span = to_span(pspan);
-    if let Event::Scalar(_, ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted, ..) = &ev {
-      span.end = quoted_end(src.yaml, span);
+    match &ev {
+      Event::Scalar(_, ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted, ..) => span.end = quoted_end(src.yaml, span),
+      Event::Scalar(raw, ScalarStyle::Literal | ScalarStyle::Folded, ..) => span.end = block_end(src.yaml, span, raw),
+      _ => {}
     }
     let tok = match ev {
       Event::Nothing => continue,
@@ -285,6 +300,15 @@ mod tests {
     let yaml = "k: 'open";
     let span = Span::new(3, yaml.len());
     assert_eq!(quoted_end(yaml, span), yaml.len());
+  }
+
+  #[test]
+  fn a_block_scalar_spans_its_content_and_only_the_lines_it_keeps() {
+    assert_eq!(value_text("k: |\n  a\n\nz: 1\n"), "a");
+    assert_eq!(value_text("k: >-\n  a\n  b\n\nz: 1\n"), "a\n  b");
+    assert_eq!(value_text("k: |+\n  a\n\n\nz: 1\n"), "a\n\n");
+    assert_eq!(value_text("k: |+\n  a\n    \n\n"), "a\n    \n");
+    assert_eq!(value_text("k: |+\n  a\nz: 1\n"), "a");
   }
 
   #[test]
