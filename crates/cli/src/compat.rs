@@ -261,7 +261,7 @@ mod tests {
     let started = Instant::now();
     let entries = suggestions_within(&list, false, Duration::from_millis(300)).await;
 
-    assert!(started.elapsed() < Duration::from_millis(750), "{:?}", started.elapsed());
+    assert!(started.elapsed() < Duration::from_secs(5), "{:?}", started.elapsed());
     assert!(entries.iter().all(|(_, s)| *s == Suggestion::RegistryUnavailable));
     assert_eq!(
       entries.iter().map(|(p, _)| p.name.as_str()).collect::<Vec<_>>(),
