@@ -46,6 +46,30 @@ pub enum Command {
   Cache(CacheCommand),
   /// Search the registry for plugins.
   Search(SearchArgs),
+  /// Add a plugin to the release file after showing the permissions it asks for.
+  Add(AddArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct AddArgs {
+  /// Plugin to add: `org/name`, `org/name@version`, or an `oci://`, `file://` or `http(s)://` URL.
+  #[arg(value_name = "PLUGIN")]
+  pub plugin: String,
+  /// Release file path (default: ./release.yml, then ./release.yaml).
+  #[arg(short = 'f', long = "file-path")]
+  pub file_path: Option<PathBuf>,
+  /// Name for the plugin entry (default: the plugin's own name).
+  #[arg(long)]
+  pub name: Option<String>,
+  /// Accept the plugin's required permissions without asking; optional ones are not granted.
+  #[arg(short = 'y', long)]
+  pub yes: bool,
+  /// Also grant every optional permission the plugin declares.
+  #[arg(long)]
+  pub with_optional: bool,
+  /// Registry host or base URL (default: the public registry).
+  #[arg(long)]
+  pub registry: Option<String>,
 }
 
 #[derive(Debug, clap::Args)]

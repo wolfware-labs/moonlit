@@ -1,0 +1,189 @@
+use std::path::Path;
+
+use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for};
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionDetail, VersionRule};
+
+use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
+use crate::consent::{self, Answer, ConsentView};
+use crate::manifest::resolve_manifest_path;
+use crate::plugin_probe::probe;
+use crate::plugin_spec::PluginSpec;
+use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, render_diff};
+use crate::render::resolve_mode;
+
+const REFUSAL: &str =
+  "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
+
+struct Target {
+  url: String,
+  label: Option<String>,
+  version: Option<String>,
+  status: Option<VerificationStatus>,
+}
+
+#[must_use]
+pub async fn run(output: Option<OutputMode>, args: AddArgs) -> i32 {
+  match add(output, &args).await {
+    Ok(code) | Err(code) => code,
+  }
+}
+
+async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
+  if !args.yes && !consent::interactive() {
+    return fail(REFUSAL, 2);
+  }
+  let spec = PluginSpec::parse(&args.plugin).or_else(|e| fail(&e, 2))?;
+  let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
+  let before = std::fs::read_to_string(&path).or_else(|e| fail(&format!("cannot read '{}': {e}", path.display()), 2))?;
+  let target = resolve_target(spec, args.registry.as_deref()).await?;
+  let probe = probe(&target.url).await.or_else(|e| fail(&e.to_string(), 3))?;
+
+  let meta = &probe.meta;
+  let name = args
+    .name
+    .clone()
+    .unwrap_or_else(|| meta.name.rsplit('/').next().unwrap_or(&meta.name).to_string());
+  let (optional, required): (Vec<&DeclaredPermission>, Vec<&DeclaredPermission>) =
+    meta.permissions.iter().partition(|p| p.optional);
+  let accepted = accepted_optional(&optional, args)?;
+  let entry = PluginEntry {
+    name: name.clone(),
+    url: target.url.clone(),
+    permissions: grants_for(&meta.permissions, &|p| accepted.contains(&p)),
+  };
+  let after = add_plugin(&before, &entry).or_else(|e| match e {
+    ReleaseFileError::NameTaken(_) => fail(&format!("{e}; pass --name to add it under another name"), 2),
+    e => fail(&e.to_string(), 2),
+  })?;
+
+  let file = display_path(args.file_path.as_deref(), &path);
+  let view = ConsentView {
+    plugin: target.label.as_deref().unwrap_or(&meta.name),
+    version: target.version.as_deref().unwrap_or(&meta.version),
+    status: target.status,
+    description: &meta.description,
+    required,
+    optional,
+    diff: format!("{file}\n{}", render_diff(&before, &after).trim_end()),
+  };
+  print!("{}", consent::render(&view, resolve_mode(output) == OutputMode::Pretty));
+
+  if !args.yes && consent::ask("Allow and add?").or_else(|e| prompt_failed(&e))? == Answer::No {
+    println!("Nothing changed.");
+    return Ok(1);
+  }
+  std::fs::write(&path, &after).or_else(|e| fail(&format!("cannot write '{}': {e}", path.display()), 2))?;
+  println!("Added {name} to {file}.");
+  Ok(0)
+}
+
+async fn resolve_target(spec: PluginSpec, registry: Option<&str>) -> Result<Target, i32> {
+  match spec {
+    PluginSpec::Url(url) => Ok(Target {
+      url,
+      label: None,
+      version: None,
+      status: None,
+    }),
+    PluginSpec::Registry { org, name, version } => {
+      let registry = registry.unwrap_or(DEFAULT_REGISTRY_HOST);
+      let detail = registry_version(registry, &org, &name, version.as_deref())
+        .await
+        .or_else(|message| fail(&message, 3))?;
+      Ok(Target {
+        url: format!("oci://{}/{org}/{name}:{}", oci_host(registry), detail.version),
+        label: Some(format!("{org}/{name}")),
+        version: Some(detail.version),
+        status: Some(detail.status),
+      })
+    }
+  }
+}
+
+fn accepted_optional<'a>(optional: &[&'a DeclaredPermission], args: &AddArgs) -> Result<Vec<&'a DeclaredPermission>, i32> {
+  if args.with_optional {
+    return Ok(optional.to_vec());
+  }
+  if args.yes {
+    return Ok(Vec::new());
+  }
+  let mut accepted = Vec::new();
+  for p in optional {
+    if consent::ask_optional(p).or_else(|e| prompt_failed(&e))? == Answer::Yes {
+      accepted.push(*p);
+    }
+  }
+  Ok(accepted)
+}
+
+fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
+  eprintln!("error: {message}");
+  Err(code)
+}
+
+async fn registry_version(registry: &str, org: &str, name: &str, version: Option<&str>) -> Result<VersionDetail, String> {
+  let client = RegistryClient::for_host(registry);
+  let Some(version) = version else {
+    let rule = VersionRule {
+      current: None,
+      cross_major: true,
+      pre: false,
+    };
+    return client
+      .newest_compatible(org, name, PLUGIN_WORLD, rule)
+      .await
+      .map_err(|e| e.to_string())?
+      .ok_or_else(|| format!("no version of {org}/{name} in the registry supports {PLUGIN_WORLD}"));
+  };
+  let detail = client
+    .package_version(org, name, version)
+    .await
+    .map_err(|e| e.to_string())?
+    .ok_or_else(|| format!("{org}/{name}@{version} is not in the registry"))?;
+  match detail.world_version.as_deref() {
+    Some(PLUGIN_WORLD) => Ok(detail),
+    found => Err(format!(
+      "{org}/{name}@{version} targets {}; this CLI supports {PLUGIN_WORLD}",
+      found.unwrap_or("an unknown world")
+    )),
+  }
+}
+
+fn oci_host(registry: &str) -> &str {
+  let rest = registry
+    .strip_prefix("https://")
+    .or_else(|| registry.strip_prefix("http://"))
+    .unwrap_or(registry);
+  rest.split('/').next().unwrap_or(rest)
+}
+
+fn display_path(given: Option<&Path>, resolved: &Path) -> String {
+  match given {
+    Some(given) => given.display().to_string(),
+    None => resolved
+      .file_name()
+      .map_or_else(|| resolved.display().to_string(), |n| n.to_string_lossy().into_owned()),
+  }
+}
+
+fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
+  if e.kind() == std::io::ErrorKind::Interrupted {
+    println!("Nothing changed.");
+    Err(1)
+  } else {
+    fail(&e.to_string(), 2)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn oci_host_drops_scheme_and_path() {
+    assert_eq!(oci_host("registry.moonlit.rs"), "registry.moonlit.rs");
+    assert_eq!(oci_host("https://registry.moonlit.rs/graphql"), "registry.moonlit.rs");
+    assert_eq!(oci_host("http://127.0.0.1:5185"), "127.0.0.1:5185");
+  }
+}

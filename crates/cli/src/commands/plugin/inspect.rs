@@ -1,5 +1,5 @@
-use super::introspect::introspect;
 use crate::cli::{OutputMode, PluginInspectArgs};
+use crate::plugin_probe::introspect;
 use crate::render::resolve_mode;
 use moonlit_engine::cache::Cache;
 use moonlit_engine::plugin::PluginMetadata;

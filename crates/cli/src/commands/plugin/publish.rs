@@ -77,7 +77,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     return 2;
   }
 
-  let (meta, mws) = match super::introspect::introspect(&bytes).await {
+  let (meta, mws) = match crate::plugin_probe::introspect(&bytes).await {
     Ok(pair) => pair,
     Err(e) => {
       eprintln!("error: failed to instantiate component: {e}");

@@ -52,6 +52,8 @@ assert_cmd.workspace = true
 tempfile.workspace = true
 predicates = "3"
 wiremock.workspace = true
+sha2.workspace = true
+hex.workspace = true
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2"
