@@ -12,6 +12,7 @@ use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const WORLD: &str = "moonlit:plugin@0.4.0";
+const OLD_WORLD: &str = "moonlit:plugin@0.3.0";
 
 fn fixture(name: &str) -> Vec<u8> {
   let path: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -32,25 +33,30 @@ async fn mount(server: &MockServer, markers: &[&str], data: Value) {
 }
 
 async fn registry(versions: &[(&str, &str)]) -> MockServer {
+  let with_world: Vec<(&str, &str, &str)> = versions.iter().map(|(v, f)| (*v, *f, WORLD)).collect();
+  registry_with_worlds(&with_world).await
+}
+
+async fn registry_with_worlds(versions: &[(&str, &str, &str)]) -> MockServer {
   let server = MockServer::start().await;
   let listed: Vec<Value> = versions
     .iter()
-    .map(|(v, _)| json!({ "version": v, "yanked": false, "status": "VERIFIED" }))
+    .map(|(v, _, _)| json!({ "version": v, "yanked": false, "status": "VERIFIED" }))
     .collect();
   mount(&server, &["query versions("], json!({ "package": { "versions": listed } })).await;
-  for (version, fixture_name) in versions {
+  for (version, fixture_name, world) in versions {
     mount(
       &server,
       &["query packageVersion(", &format!("\"version\":\"{version}\"")],
       json!({ "packageVersion": {
         "version": version,
-        "worldVersion": WORLD,
+        "worldVersion": world,
         "status": "VERIFIED",
         "middlewares": []
       } }),
     )
     .await;
-    oci_mock::serve_plugin(&server, "acme/test-plugin", version, &fixture(fixture_name), WORLD).await;
+    oci_mock::serve_plugin(&server, "acme/test-plugin", version, &fixture(fixture_name), world).await;
   }
   server
 }
@@ -106,6 +112,37 @@ async fn update_bumps_without_prompt_when_no_new_required() {
 #[tokio::test(flavor = "multi_thread")]
 async fn update_reports_up_to_date() {
   let server = registry(&[("1.0.0", "pdk_sample.wasm")]).await;
+  let project = Project::new(&server, "1.0.0", "");
+
+  project.update(&[]).success().stdout(contains("test-plugin: up to date"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_says_so_when_no_newer_version_is_compatible() {
+  let server = registry_with_worlds(&[
+    ("1.0.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("1.0.1", "test_plugin_v0_3.wasm", OLD_WORLD),
+  ])
+  .await;
+  let project = Project::new(&server, "1.0.0", "");
+  let before = project.release();
+
+  let assert = project
+    .update(&[])
+    .success()
+    .stdout(contains("test-plugin: no newer compatible version"));
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains("up to date"), "{stdout}");
+  assert_eq!(project.release(), before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_keeps_saying_up_to_date_when_the_current_version_is_the_newest_compatible() {
+  let server = registry_with_worlds(&[
+    ("1.0.0", "pdk_sample.wasm", WORLD),
+    ("1.0.1", "test_plugin_v0_3.wasm", OLD_WORLD),
+  ])
+  .await;
   let project = Project::new(&server, "1.0.0", "");
 
   project.update(&[]).success().stdout(contains("test-plugin: up to date"));

@@ -17,6 +17,7 @@ use crate::render::resolve_mode;
 enum Planned {
   Bump(Box<Plan>),
   UpToDate,
+  NoCompatibleUpdate,
   NotARegistry,
   Denied(u16),
 }
@@ -66,6 +67,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
     match plan(&plugin.name, &reference, &current, &granted, args).await? {
       Planned::Bump(plan) => plans.push(*plan),
       Planned::UpToDate => println!("{}: up to date", plugin.name),
+      Planned::NoCompatibleUpdate => println!("{}", display_safe(&format!("{}: no newer compatible version", plugin.name))),
       Planned::NotARegistry => println!("{}: not from a Moonlit registry, skipped", plugin.name),
       Planned::Denied(status) => println!(
         "{}",
@@ -142,11 +144,14 @@ async fn plan(
     Err(e) => return fail(&format!("{name}: {e}"), 3),
   };
   let Some(detail) = detail else {
-    return Ok(Planned::UpToDate);
+    return Ok(Planned::NoCompatibleUpdate);
   };
-  let newer = Version::parse(&detail.version).is_ok_and(|v| v > *current);
-  if !newer {
+  let found = Version::parse(&detail.version);
+  if found.as_ref().is_ok_and(|v| v == current) {
     return Ok(Planned::UpToDate);
+  }
+  if !found.is_ok_and(|v| v > *current) {
+    return Ok(Planned::NoCompatibleUpdate);
   }
   let url = reference.with_tag(&detail.version);
   let probed = probe(&url).await.or_else(|e| fail(&format!("{name}: {e}"), 3))?;
