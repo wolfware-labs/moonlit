@@ -18,7 +18,11 @@ pub async fn resolve_oci(
   progress: Option<ProgressFn<'_>>,
 ) -> Result<ResolvedPlugin, ResolveError> {
   let home = crate::paths::home_dir().unwrap_or_default();
-  resolve_with(&OciClient::new(), &home, raw_ref, opts, cache, progress).await
+  let registry = raw_ref
+    .parse::<Reference>()
+    .map(|r| r.registry().to_string())
+    .unwrap_or_default();
+  resolve_with(&OciClient::for_registry(&registry), &home, raw_ref, opts, cache, progress).await
 }
 
 async fn resolve_with(
@@ -555,6 +559,6 @@ mod tests {
 
   #[test]
   fn the_production_client_is_constructible() {
-    let _client = OciClient::new();
+    let _client = OciClient::for_registry("registry.moonlit.rs");
   }
 }

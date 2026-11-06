@@ -9,11 +9,14 @@ pub struct OciClient(Client);
 
 impl OciClient {
   #[must_use]
-  pub fn new() -> Self {
-    Self(Client::default())
+  pub fn for_registry(registry: &str) -> Self {
+    if is_loopback(registry) {
+      Self::with_plain_http_for(registry)
+    } else {
+      Self(Client::default())
+    }
   }
 
-  #[cfg(test)]
   #[must_use]
   pub fn with_plain_http_for(registry: &str) -> Self {
     Self(Client::new(oci_client::client::ClientConfig {
@@ -21,6 +24,15 @@ impl OciClient {
       ..Default::default()
     }))
   }
+}
+
+#[must_use]
+fn is_loopback(registry: &str) -> bool {
+  let host = match registry.strip_prefix('[') {
+    Some(rest) => rest.split_once(']').map_or(rest, |(h, _)| h),
+    None => registry.split_once(':').map_or(registry, |(h, _)| h),
+  };
+  host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
 
 impl OciClient {
@@ -68,6 +80,31 @@ impl OciClient {
       }
       OciDistributionError::DigestError(_) => ResolveError::DigestMismatch(msg),
       _ => ResolveError::Network(msg),
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::is_loopback;
+
+  #[test]
+  fn loopback_registries_are_recognised() {
+    for registry in ["localhost:5000", "127.0.0.1:8080", "127.0.0.1", "[::1]:5000", "LOCALHOST"] {
+      assert!(is_loopback(registry), "{registry}");
+    }
+  }
+
+  #[test]
+  fn remote_registries_are_not_loopback() {
+    for registry in [
+      "registry.moonlit.rs",
+      "ghcr.io:443",
+      "10.0.0.1:5000",
+      "[2001:db8::1]:5000",
+      "localhost.example.com",
+    ] {
+      assert!(!is_loopback(registry), "{registry}");
     }
   }
 }
