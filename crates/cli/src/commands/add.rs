@@ -40,13 +40,26 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
   let probe = probe(&target.url).await.or_else(|e| fail(&e.to_string(), 3))?;
 
   let meta = &probe.meta;
-  let name = args
-    .name
-    .clone()
-    .unwrap_or_else(|| meta.name.rsplit('/').next().unwrap_or(&meta.name).to_string());
+  let name = args.name.clone().unwrap_or_else(|| {
+    meta
+      .name
+      .rsplit_once('/')
+      .map_or(meta.name.as_str(), |(_, last)| last)
+      .to_string()
+  });
   let (optional, required): (Vec<&DeclaredPermission>, Vec<&DeclaredPermission>) =
     meta.permissions.iter().partition(|p| p.optional);
-  let accepted = accepted_optional(&optional, args)?;
+  let view = ConsentView {
+    plugin: target.label.as_deref().unwrap_or(&meta.name),
+    version: target.version.as_deref().unwrap_or(&meta.version),
+    status: target.status,
+    description: &meta.description,
+    required,
+    optional,
+  };
+  print!("{}", consent::render(&view, resolve_mode(output) == OutputMode::Pretty));
+
+  let accepted = accepted_optional(&view.optional, args)?;
   let entry = PluginEntry {
     name: name.clone(),
     url: target.url.clone(),
@@ -56,18 +69,8 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
     ReleaseFileError::NameTaken(_) => fail(&format!("{e}; pass --name to add it under another name"), 2),
     e => fail(&e.to_string(), 2),
   })?;
-
   let file = display_path(args.file_path.as_deref(), &path);
-  let view = ConsentView {
-    plugin: target.label.as_deref().unwrap_or(&meta.name),
-    version: target.version.as_deref().unwrap_or(&meta.version),
-    status: target.status,
-    description: &meta.description,
-    required,
-    optional,
-    diff: format!("{file}\n{}", render_diff(&before, &after).trim_end()),
-  };
-  print!("{}", consent::render(&view, resolve_mode(output) == OutputMode::Pretty));
+  print!("{}", consent::render_changes(&file, &render_diff(&before, &after)));
 
   if !args.yes && consent::ask("Allow and add?").or_else(|e| prompt_failed(&e))? == Answer::No {
     println!("Nothing changed.");

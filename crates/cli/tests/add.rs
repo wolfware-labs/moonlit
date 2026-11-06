@@ -112,13 +112,16 @@ fn add_file_plugin_with_yes_writes_required_grants() {
   let project = Project::new(RELEASE);
   let url = file_url("test_plugin.wasm");
 
-  project
+  let assert = project
     .add(&[&url, "--yes"])
     .success()
     .stdout(contains("This plugin wants to:"))
     .stdout(contains("Connect to the internet"))
     .stdout(contains("\"Calls the example API.\""))
+    .stdout(contains("\n  release.yml\n  + plugins:\n"))
     .stdout(contains("Added test-plugin to release.yml."));
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(stdout.find("Not requested:") < stdout.find("+ plugins:"), "{stdout}");
 
   let release = project.release();
   assert!(release.starts_with(RELEASE.split("stages:").next().unwrap()), "{release}");

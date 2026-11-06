@@ -103,6 +103,9 @@ mod tests {
       "10.0.0.1:5000",
       "[2001:db8::1]:5000",
       "localhost.example.com",
+      "127.evil.com:5000",
+      "127.0.0.1.nip.io",
+      "[::ffff:127.0.0.1]:5000",
     ] {
       assert!(!is_loopback(registry), "{registry}");
     }

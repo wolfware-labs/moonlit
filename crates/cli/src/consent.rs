@@ -23,7 +23,6 @@ pub struct ConsentView<'a> {
   pub description: &'a str,
   pub required: Vec<&'a DeclaredPermission>,
   pub optional: Vec<&'a DeclaredPermission>,
-  pub diff: String,
 }
 
 /// The user's answer to a consent question.
@@ -90,10 +89,13 @@ pub fn render(view: &ConsentView, color: bool) -> String {
     }
   }
 
-  if !view.diff.is_empty() {
-    let _ = writeln!(out, "  {}", view.diff.replace('\n', "\n  "));
-  }
   out
+}
+
+/// Renders the changes a consent would make to `file`, as listed by `release_file::render_diff`.
+#[must_use]
+pub fn render_changes(file: &str, diff: &str) -> String {
+  format!("  {file}\n{diff}\n")
 }
 
 fn lower_first(sentence: &str) -> String {
@@ -192,7 +194,6 @@ mod tests {
       description: "Create GitHub releases and comment on PRs",
       required,
       optional,
-      diff: "./release.yml\n+  - name: github".to_string(),
     }
   }
 
@@ -212,7 +213,20 @@ mod tests {
     let env = lines.iter().position(|l| l.contains("Read environment variables")).unwrap();
     assert!(lines[env + 1].contains("Reads GITHUB_TOKEN"));
     assert!(lines[env + 2].contains("⚠ may include secrets"));
-    assert!(out.contains("./release.yml"));
+  }
+
+  #[test]
+  fn screen_renders_without_a_diff_section() {
+    let perms = github();
+    let out = render(&view(perms.iter().collect(), vec![]), false);
+    assert!(!out.contains("release.yml"), "{out}");
+    assert!(!out.contains("+ "), "{out}");
+  }
+
+  #[test]
+  fn changes_list_the_diff_under_the_file_at_the_same_indent() {
+    let out = render_changes("release.yml", "  + plugins:\n  +   - name: github\n");
+    assert_eq!(out, "  release.yml\n  + plugins:\n  +   - name: github\n\n");
   }
 
   #[test]
