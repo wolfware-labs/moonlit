@@ -1,5 +1,7 @@
 mod model;
 
+use std::time::Duration;
+
 use semver::Version;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -31,6 +33,17 @@ pub enum RegistryError {
   /// The host answered, but not as a Moonlit registry: no GraphQL endpoint, or a body that is not a GraphQL response.
   #[error("{0} is not a Moonlit registry")]
   NotARegistry(String),
+}
+
+/// How long a registry request may take to connect, and in all, before it fails.
+pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
+
+fn http_client(timeout: Duration) -> reqwest::Client {
+  reqwest::Client::builder()
+    .connect_timeout(timeout)
+    .timeout(timeout)
+    .build()
+    .unwrap_or_default()
 }
 
 /// Which versions an upgrade or install may pick.
@@ -132,7 +145,16 @@ impl RegistryClient {
   pub fn with_base_url(url: &str) -> Self {
     Self {
       url: url.to_string(),
-      http: reqwest::Client::new(),
+      http: http_client(REGISTRY_TIMEOUT),
+    }
+  }
+
+  /// Replaces the connect and request timeouts, [`REGISTRY_TIMEOUT`] each by default.
+  #[must_use]
+  pub fn with_timeout(self, timeout: Duration) -> Self {
+    Self {
+      url: self.url,
+      http: http_client(timeout),
     }
   }
 

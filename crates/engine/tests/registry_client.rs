@@ -269,6 +269,26 @@ async fn a_response_that_is_not_a_graphql_envelope_is_not_a_registry() {
   assert!(matches!(err, RegistryError::NotARegistry(_)), "{err:?}");
 }
 
+#[tokio::test]
+async fn a_registry_that_does_not_answer_in_time_is_an_http_error() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(5)))
+    .mount(&server)
+    .await;
+  let client = client(&server).with_timeout(std::time::Duration::from_millis(200));
+
+  let started = std::time::Instant::now();
+  let err = client.search("x", 5).await.unwrap_err();
+
+  assert!(matches!(err, RegistryError::Http(_)), "{err:?}");
+  assert!(
+    started.elapsed() < std::time::Duration::from_secs(2),
+    "{:?}",
+    started.elapsed()
+  );
+}
+
 #[test]
 fn for_host_builds_the_graphql_url() {
   let url = |input: &str| RegistryClient::for_host(input).base_url().to_string();
