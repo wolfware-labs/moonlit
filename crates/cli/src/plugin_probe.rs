@@ -7,7 +7,7 @@ use moonlit_engine::pipeline::config::Permissions;
 use moonlit_engine::plugin::host::HostEventSink;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
-use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
+use moonlit_engine::plugin::resolver::{PluginSource, ResolveError, ResolveOptions, resolve};
 use moonlit_engine::plugin::world::{self, WorldError, WorldMismatch};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig, PluginMetadata};
 
@@ -24,7 +24,7 @@ pub struct Probe {
 pub enum ProbeError {
   /// The URL could not be resolved to a component through the cache.
   #[error("cannot resolve '{url}': {message}")]
-  Resolve { url: String, message: String },
+  Resolve { url: String, message: String, network: bool },
   /// The component targets a plugin contract this CLI does not support.
   #[error("'{url}': {mismatch}")]
   Incompatible { url: String, mismatch: WorldMismatch },
@@ -38,6 +38,7 @@ pub async fn probe(url: &str) -> Result<Probe, ProbeError> {
   let resolve_error = |message: String| ProbeError::Resolve {
     url: url.to_string(),
     message,
+    network: false,
   };
   let load_error = |message: String| ProbeError::Load {
     url: url.to_string(),
@@ -47,7 +48,11 @@ pub async fn probe(url: &str) -> Result<Probe, ProbeError> {
   let cache = Cache::new().map_err(|e| resolve_error(e.to_string()))?;
   let resolved = resolve(&source, &ResolveOptions::default(), &cache, None)
     .await
-    .map_err(|e| resolve_error(e.to_string()))?;
+    .map_err(|e| ProbeError::Resolve {
+      url: url.to_string(),
+      message: e.to_string(),
+      network: matches!(e, ResolveError::Network(_)),
+    })?;
   let bytes = std::fs::read(&resolved.wasm_path).map_err(|e| load_error(e.to_string()))?;
   world::check(&bytes).map_err(|e| match e {
     WorldError::Mismatch(mismatch) => ProbeError::Incompatible {

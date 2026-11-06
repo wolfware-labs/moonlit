@@ -162,6 +162,7 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
         },
       }
     }
+    Err(e @ ProbeError::Resolve { network: true, .. }) => Outcome::RegistryDown { text: e.to_string() },
     Err(e) => Outcome::Problem {
       text: e.to_string(),
       fix: None,
@@ -198,6 +199,9 @@ async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissio
   let reference = registry_ref(url).ok_or_else(|| Unfixed::Problem("does not come from a registry".to_string()))?;
   let target = reference.with_tag(&version);
   let probed = probe(&target).await.map_err(|e| match e {
+    ProbeError::Resolve {
+      network: true, message, ..
+    } => Unfixed::RegistryDown(format!("cannot fetch {target}: {message}")),
     ProbeError::Resolve { message, .. } => Unfixed::Problem(format!("cannot fetch {target}: {message}")),
     other => Unfixed::Problem(other.to_string()),
   })?;

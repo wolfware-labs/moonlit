@@ -454,3 +454,25 @@ async fn doctor_leaves_a_digest_pinned_plugin_alone_and_says_how_to_move_it() {
 
   assert_eq!(project.release(), before);
 }
+
+#[test]
+fn doctor_exits_3_when_the_plugin_url_cannot_be_reached() {
+  let port = {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.local_addr().unwrap().port()
+  };
+  let project = Project::new(&entry(
+    "test-plugin",
+    &format!("oci://127.0.0.1:{port}/acme/test-plugin:0.3.0"),
+    "",
+  ));
+  let before = project.release();
+
+  project
+    .doctor(&[])
+    .code(3)
+    .stdout(contains("✗ test-plugin: "))
+    .stderr(contains("cannot reach the registry"));
+
+  assert_eq!(project.release(), before);
+}
