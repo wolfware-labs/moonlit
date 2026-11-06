@@ -10,7 +10,7 @@ fn digest(bytes: &[u8]) -> String {
 }
 
 /// Serves `wasm` as the OCI artifact `{repo}:{tag}` from `server`, with `config.moonlit.world = world`.
-pub async fn serve_plugin(server: &MockServer, repo: &str, tag: &str, wasm: &[u8], world: &str) {
+pub async fn serve_plugin(server: &MockServer, repo: &str, tag: &str, wasm: &[u8], world: &str) -> String {
   let config = serde_json::to_vec(&serde_json::json!({ "moonlit": { "world": world, "middlewares": [] } })).unwrap();
   let config_digest = digest(&config);
   let layer_digest = digest(wasm);
@@ -52,4 +52,5 @@ pub async fn serve_plugin(server: &MockServer, repo: &str, tag: &str, wasm: &[u8
     .respond_with(ResponseTemplate::new(200).set_body_bytes(wasm.to_vec()))
     .mount(server)
     .await;
+  manifest_digest
 }

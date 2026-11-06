@@ -429,3 +429,28 @@ async fn doctor_names_the_status_of_a_moved_plugin_in_the_consent_screen() {
     .stdout(contains("This plugin wants to:"))
     .stdout(contains("✓ verified"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_leaves_a_digest_pinned_plugin_alone_and_says_how_to_move_it() {
+  let server = registry(&[
+    ("0.3.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("0.4.0", "pdk_sample.wasm", WORLD),
+  ])
+  .await;
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  let digest = oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  let project = Project::new(&entry(
+    "test-plugin",
+    &format!("oci://{}/acme/test-plugin@{digest}", server.address()),
+    "",
+  ));
+  let before = project.release();
+
+  project
+    .doctor(&["--yes"])
+    .code(1)
+    .stdout(contains(format!("pinned to {digest}")))
+    .stdout(contains("change the url to a version tag to move it"));
+
+  assert_eq!(project.release(), before);
+}

@@ -54,6 +54,12 @@ impl RegistryRef {
   pub fn with_tag(&self, tag: &str) -> String {
     format!("oci://{}/{}/{}:{tag}", self.host, self.org, self.name)
   }
+
+  /// Whether the reference is pinned by content digest (`@sha256:...`) rather than by tag.
+  #[must_use]
+  pub fn is_digest(&self) -> bool {
+    self.tag.contains(':')
+  }
 }
 
 /// Splits an `oci://host/org/name:tag` URL; `None` for any other URL.
@@ -142,5 +148,7 @@ mod tests {
     assert_eq!(registry_ref(&r.with_tag("9.9.9")).unwrap().tag, "9.9.9");
     let pinned = registry_ref("oci://h.io/acme/x@sha256:ab").unwrap();
     assert_eq!(pinned.with_tag("1.0.0"), "oci://h.io/acme/x:1.0.0");
+    assert!(pinned.is_digest());
+    assert!(!r.is_digest());
   }
 }

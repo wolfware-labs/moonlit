@@ -11,7 +11,7 @@ use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::{ProbeError, probe};
-use crate::plugin_spec::registry_ref;
+use crate::plugin_spec::{RegistryRef, registry_ref};
 use crate::release_file::{render_diff, set_plugin, set_plugin_url};
 use crate::render::resolve_mode;
 
@@ -170,6 +170,12 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
 }
 
 async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissions, major: bool) -> Result<Fix, Unfixed> {
+  if let Some(pinned) = registry_ref(url).filter(RegistryRef::is_digest) {
+    return Err(Unfixed::Problem(format!(
+      "pinned to {}; change the url to a version tag to move it",
+      pinned.tag
+    )));
+  }
   let incompatible = IncompatiblePlugin {
     name: name.to_string(),
     url: url.to_string(),
