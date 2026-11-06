@@ -4,7 +4,7 @@ use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, merge_
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 
 use crate::cli::{DoctorArgs, OutputMode};
-use crate::commands::update::{REFUSAL, display_path, fail, prompt_failed};
+use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
 use crate::compat::{self, Suggestion};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
@@ -81,7 +81,7 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
 
   let grants = fixes.iter().any(|f| f.permissions.is_some());
   if grants && !args.yes && !consent::interactive() {
-    return fail(REFUSAL, 2);
+    return fail(PERMISSION_REFUSAL, 2);
   }
 
   let mut content = before.clone();
@@ -183,7 +183,7 @@ async fn moved(name: &str, url: &str, found: Option<String>, granted: &Permissio
     other => return Err(Unfixed::Problem(compat::hint(other, PLUGIN_WORLD).unwrap_or_default())),
   };
   let reference = registry_ref(url).ok_or_else(|| Unfixed::Problem("does not come from a registry".to_string()))?;
-  let target = format!("oci://{}/{}/{}:{}", reference.host, reference.org, reference.name, version);
+  let target = reference.with_tag(&version);
   let probed = probe(&target).await.map_err(|e| match e {
     ProbeError::Resolve { message, .. } => Unfixed::Problem(format!("cannot fetch {target}: {message}")),
     other => Unfixed::Problem(other.to_string()),

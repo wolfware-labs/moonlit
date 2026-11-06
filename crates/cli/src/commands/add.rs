@@ -1,20 +1,16 @@
-use std::path::Path;
-
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionDetail, VersionRule};
 
 use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
+use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
 use crate::plugin_probe::probe;
-use crate::plugin_spec::{PluginSpec, registry_ref};
+use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref};
 use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable, render_diff};
 use crate::render::resolve_mode;
-
-const REFUSAL: &str =
-  "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
 
 struct Target {
   url: String,
@@ -32,7 +28,7 @@ pub async fn run(output: Option<OutputMode>, args: AddArgs) -> i32 {
 
 async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
   if !args.yes && !consent::interactive() {
-    return fail(REFUSAL, 2);
+    return fail(PERMISSION_REFUSAL, 2);
   }
   let spec = PluginSpec::parse(&args.plugin).or_else(|e| fail(&e, 2))?;
   let path = resolve_manifest_path(args.file_path.as_deref()).or_else(|e| fail(&e.to_string(), 2))?;
@@ -94,8 +90,14 @@ async fn resolve_target(spec: PluginSpec, registry: Option<&str>) -> Result<Targ
       let detail = registry_version(registry, &org, &name, version.as_deref())
         .await
         .or_else(|message| fail(&message, 3))?;
+      let reference = RegistryRef {
+        host: oci_host(registry).to_string(),
+        org: org.clone(),
+        name: name.clone(),
+        tag: detail.version.clone(),
+      };
       Ok(Target {
-        url: format!("oci://{}/{org}/{name}:{}", oci_host(registry), detail.version),
+        url: reference.with_tag(&detail.version),
         label: Some(format!("{org}/{name}")),
         version: Some(detail.version),
         status: Some(detail.status),
@@ -138,11 +140,6 @@ fn accepted_optional<'a>(optional: &[&'a DeclaredPermission], args: &AddArgs) ->
   Ok(accepted)
 }
 
-fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
-  eprintln!("error: {}", display_safe(message));
-  Err(code)
-}
-
 async fn registry_version(registry: &str, org: &str, name: &str, version: Option<&str>) -> Result<VersionDetail, String> {
   let client = RegistryClient::for_host(registry);
   let Some(version) = version else {
@@ -177,24 +174,6 @@ fn oci_host(registry: &str) -> &str {
     .or_else(|| registry.strip_prefix("http://"))
     .unwrap_or(registry);
   rest.split('/').next().unwrap_or(rest)
-}
-
-fn display_path(given: Option<&Path>, resolved: &Path) -> String {
-  match given {
-    Some(given) => given.display().to_string(),
-    None => resolved
-      .file_name()
-      .map_or_else(|| resolved.display().to_string(), |n| n.to_string_lossy().into_owned()),
-  }
-}
-
-fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
-  if e.kind() == std::io::ErrorKind::Interrupted {
-    println!("Nothing changed.");
-    Err(1)
-  } else {
-    fail(&e.to_string(), 2)
-  }
 }
 
 #[cfg(test)]

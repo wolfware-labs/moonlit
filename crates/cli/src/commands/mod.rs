@@ -1,6 +1,7 @@
 pub mod add;
 pub mod auth;
 pub mod cache;
+pub(crate) mod common;
 pub mod doctor;
 pub mod plugin;
 pub mod run;

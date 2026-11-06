@@ -40,11 +40,20 @@ impl PluginSpec {
 }
 
 /// A plugin location of the form `oci://host/org/name:tag`.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RegistryRef {
   pub host: String,
   pub org: String,
   pub name: String,
   pub tag: String,
+}
+
+impl RegistryRef {
+  /// The `oci://host/org/name:tag` URL of this package at `tag`.
+  #[must_use]
+  pub fn with_tag(&self, tag: &str) -> String {
+    format!("oci://{}/{}/{}:{tag}", self.host, self.org, self.name)
+  }
 }
 
 /// Splits an `oci://host/org/name:tag` URL; `None` for any other URL.
@@ -115,5 +124,21 @@ mod tests {
     assert_eq!(r.tag, "1.2.3");
     assert_eq!(registry_ref("oci://h.io/acme/x@sha256:ab").unwrap().tag, "sha256:ab");
     assert!(registry_ref("file:///x.wasm").is_none());
+  }
+
+  #[test]
+  fn registry_ref_is_comparable_and_rebuilds_urls_with_another_tag() {
+    let r = registry_ref("oci://registry.moonlit.rs/acme/x:1.2.3").unwrap();
+    assert_eq!(
+      r,
+      RegistryRef {
+        host: "registry.moonlit.rs".into(),
+        org: "acme".into(),
+        name: "x".into(),
+        tag: "1.2.3".into(),
+      }
+    );
+    assert_eq!(r.clone().with_tag("2.0.0"), "oci://registry.moonlit.rs/acme/x:2.0.0");
+    assert_eq!(registry_ref(&r.with_tag("9.9.9")).unwrap().tag, "9.9.9");
   }
 }

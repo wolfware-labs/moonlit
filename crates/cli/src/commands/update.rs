@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for, is_covered, merge_grants, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
@@ -7,6 +5,7 @@ use moonlit_engine::registry::{RegistryClient, RegistryError, VerificationStatus
 use semver::Version;
 
 use crate::cli::{OutputMode, UpdateArgs};
+use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::manifest::resolve_manifest_path;
@@ -14,9 +13,6 @@ use crate::plugin_probe::probe;
 use crate::plugin_spec::{RegistryRef, registry_ref};
 use crate::release_file::{render_diff, set_plugin, set_plugin_url};
 use crate::render::resolve_mode;
-
-pub(crate) const REFUSAL: &str =
-  "refusing to grant permissions without a terminal; pass --yes to accept the plugin's required permissions";
 
 enum Planned {
   Bump(Box<Plan>),
@@ -82,7 +78,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
   }
 
   if !args.yes && !consent::interactive() && plans.iter().any(|p| !p.uncovered.is_empty()) {
-    return fail(REFUSAL, 2);
+    return fail(PERMISSION_REFUSAL, 2);
   }
 
   let color = resolve_mode(output) == OutputMode::Pretty;
@@ -152,10 +148,7 @@ async fn plan(
   if !newer {
     return Ok(Planned::UpToDate);
   }
-  let url = format!(
-    "oci://{}/{}/{}:{}",
-    reference.host, reference.org, reference.name, detail.version
-  );
+  let url = reference.with_tag(&detail.version);
   let probed = probe(&url).await.or_else(|e| fail(&format!("{name}: {e}"), 3))?;
   let declared = &probed.meta.permissions;
   let uncovered: Vec<DeclaredPermission> = uncovered_required(declared, granted).into_iter().cloned().collect();
@@ -182,27 +175,4 @@ async fn plan(
     uncovered,
     description: probed.meta.description.clone(),
   })))
-}
-
-pub(crate) fn fail<T>(message: &str, code: i32) -> Result<T, i32> {
-  eprintln!("error: {}", display_safe(message));
-  Err(code)
-}
-
-pub(crate) fn display_path(given: Option<&Path>, resolved: &Path) -> String {
-  match given {
-    Some(given) => given.display().to_string(),
-    None => resolved
-      .file_name()
-      .map_or_else(|| resolved.display().to_string(), |n| n.to_string_lossy().into_owned()),
-  }
-}
-
-pub(crate) fn prompt_failed<T>(e: &std::io::Error) -> Result<T, i32> {
-  if e.kind() == std::io::ErrorKind::Interrupted {
-    println!("Nothing changed.");
-    Err(1)
-  } else {
-    fail(&e.to_string(), 2)
-  }
 }
