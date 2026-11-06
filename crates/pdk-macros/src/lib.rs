@@ -9,9 +9,9 @@ use base64::Engine as _;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, LitStr, Token, Type, braced, bracketed};
+use syn::{Ident, LitStr, Token, Type, braced, bracketed, parenthesized};
 
-/// `moonlit_plugin! { name: "git", icon: "icon.png", config: C, middlewares: [A, B], state: S }`
+/// `moonlit_plugin! { name: "git", icon: "icon.png", config: C, middlewares: [A, B], state: S, permissions: [...] }`
 struct PluginDecl {
   name: LitStr,
   /// Path to a PNG/WebP icon, relative to the author crate's `CARGO_MANIFEST_DIR`.
@@ -19,6 +19,73 @@ struct PluginDecl {
   config: Option<Type>,
   middlewares: Vec<Type>,
   state: Option<Type>,
+  permissions: Vec<PermissionDecl>,
+}
+
+/// One entry of `permissions: [...]`, e.g. `optional exec(["git"]) => "why"`.
+struct PermissionDecl {
+  optional: bool,
+  kind: &'static str,
+  values: Vec<LitStr>,
+  reason: LitStr,
+}
+
+impl Parse for PermissionDecl {
+  fn parse(input: ParseStream) -> syn::Result<Self> {
+    let mut kind_ident: Ident = input.parse()?;
+    let optional = kind_ident == "optional";
+    if optional {
+      kind_ident = input.parse()?;
+    }
+    let name = kind_ident.to_string();
+    let args;
+    parenthesized!(args in input);
+    let (kind, values) = if name == "filesystem" {
+      let access: Ident = args.parse()?;
+      let kind = match access.to_string().as_str() {
+        "read_only" => "FilesystemRead",
+        "read_write" => "FilesystemWrite",
+        _ => return Err(syn::Error::new(access.span(), "filesystem takes read_only or read_write")),
+      };
+      (kind, Vec::new())
+    } else {
+      let kind = match name.as_str() {
+        "network" => "Network",
+        "exec" => "Exec",
+        "env" => "Env",
+        other => {
+          return Err(syn::Error::new(
+            kind_ident.span(),
+            format!("unknown permission kind `{other}` (expected network, exec, env, filesystem)"),
+          ));
+        }
+      };
+      let list;
+      let bracket = bracketed!(list in args);
+      let values: Vec<LitStr> = list
+        .parse_terminated(<LitStr as Parse>::parse, Token![,])?
+        .into_iter()
+        .collect();
+      if values.is_empty() {
+        return Err(syn::Error::new(bracket.span.join(), "list at least one value"));
+      }
+      (kind, values)
+    };
+    if !input.peek(Token![=>]) {
+      return Err(input.error("every permission needs a reason: add => \"why\""));
+    }
+    input.parse::<Token![=>]>()?;
+    let reason: LitStr = input.parse()?;
+    if reason.value().trim().is_empty() {
+      return Err(syn::Error::new(reason.span(), "a permission's reason cannot be empty"));
+    }
+    Ok(PermissionDecl {
+      optional,
+      kind,
+      values,
+      reason,
+    })
+  }
 }
 
 impl Parse for PluginDecl {
@@ -28,6 +95,7 @@ impl Parse for PluginDecl {
     let mut config: Option<Type> = None;
     let mut middlewares: Option<Vec<Type>> = None;
     let mut state: Option<Type> = None;
+    let mut permissions: Vec<PermissionDecl> = Vec::new();
 
     while !input.is_empty() {
       let key: Ident = input.parse()?;
@@ -43,10 +111,16 @@ impl Parse for PluginDecl {
           let types = content.parse_terminated(Type::parse, Token![,])?;
           middlewares = Some(types.into_iter().collect());
         }
+        "permissions" => {
+          let content;
+          bracketed!(content in input);
+          let entries = content.parse_terminated(PermissionDecl::parse, Token![,])?;
+          permissions = entries.into_iter().collect();
+        }
         other => {
           return Err(syn::Error::new(
             key.span(),
-            format!("unknown moonlit_plugin! field `{other}` (expected name, icon, config, middlewares, state)"),
+            format!("unknown moonlit_plugin! field `{other}` (expected name, icon, config, middlewares, state, permissions)"),
           ));
         }
       }
@@ -60,6 +134,7 @@ impl Parse for PluginDecl {
       config,
       middlewares: middlewares.ok_or_else(|| input.error("missing `middlewares:`"))?,
       state,
+      permissions,
     })
   }
 }
@@ -133,6 +208,7 @@ fn expand(decl: &PluginDecl) -> proc_macro2::TokenStream {
   let exec_arms = exec_arms(&decl.middlewares);
   let (state_static, state_attach) = state_tokens(decl.state.as_ref());
   let (config_static, config_init, config_attach) = config_tokens(decl.config.as_ref());
+  let permissions = permission_entries(&decl.permissions);
 
   quote! {
       #[derive(::core::default::Default)]
@@ -149,7 +225,7 @@ fn expand(decl: &PluginDecl) -> proc_macro2::TokenStream {
                   description: ::core::option_env!("CARGO_PKG_DESCRIPTION")
                       .unwrap_or("").to_string(),
                   icon: #icon,
-                  permissions: ::std::vec::Vec::new(),
+                  permissions: ::std::vec![ #(#permissions),* ],
               }
           }
 
@@ -215,6 +291,27 @@ fn expand(decl: &PluginDecl) -> proc_macro2::TokenStream {
 
       ::moonlit_pdk::export!(MoonlitComponent with_types_in ::moonlit_pdk::bindings);
   }
+}
+
+#[must_use]
+fn permission_entries(permissions: &[PermissionDecl]) -> Vec<proc_macro2::TokenStream> {
+  permissions
+    .iter()
+    .map(|p| {
+      let kind = Ident::new(p.kind, proc_macro2::Span::call_site());
+      let values = &p.values;
+      let reason = &p.reason;
+      let optional = p.optional;
+      quote! {
+          ::moonlit_pdk::bindings::moonlit::plugin::types::PermissionRequest {
+              kind: ::moonlit_pdk::bindings::moonlit::plugin::types::PermissionKind::#kind,
+              values: ::std::vec![ #(::std::string::String::from(#values)),* ],
+              reason: ::std::string::String::from(#reason),
+              optional: #optional,
+          }
+      }
+    })
+    .collect()
 }
 
 #[must_use]
@@ -332,6 +429,48 @@ mod tests {
   fn unknown_field_is_rejected_with_the_expected_list() {
     let message = parse_error(quote! { name: "p", bogus: "x" });
     assert!(message.contains("unknown moonlit_plugin! field `bogus`"), "got: {message}");
+  }
+
+  fn permission_error(entry: &proc_macro2::TokenStream) -> String {
+    parse_error(quote! { name: "p", middlewares: [A], permissions: [ #entry ] })
+  }
+
+  #[test]
+  fn a_permission_without_a_reason_is_rejected() {
+    let message = permission_error(&quote! { network(["a.com"]) });
+    assert!(
+      message.contains("every permission needs a reason: add => \"why\""),
+      "got: {message}"
+    );
+  }
+
+  #[test]
+  fn an_empty_reason_is_rejected() {
+    let message = permission_error(&quote! { network(["a.com"]) => "" });
+    assert!(message.contains("a permission's reason cannot be empty"), "got: {message}");
+  }
+
+  #[test]
+  fn an_unknown_permission_kind_is_rejected() {
+    let message = permission_error(&quote! { socket(["a"]) => "why" });
+    assert!(
+      message.contains("unknown permission kind `socket` (expected network, exec, env, filesystem)"),
+      "got: {message}"
+    );
+  }
+
+  #[test]
+  fn an_empty_value_list_is_rejected_for_network_exec_and_env() {
+    for kind in [quote! { network }, quote! { exec }, quote! { env }] {
+      let message = permission_error(&quote! { #kind([]) => "why" });
+      assert!(message.contains("list at least one value"), "got: {message}");
+    }
+  }
+
+  #[test]
+  fn a_filesystem_argument_must_be_read_only_or_read_write() {
+    let message = permission_error(&quote! { filesystem(everything) => "why" });
+    assert!(message.contains("filesystem takes read_only or read_write"), "got: {message}");
   }
 
   #[test]
