@@ -140,5 +140,7 @@ mod tests {
     );
     assert_eq!(r.clone().with_tag("2.0.0"), "oci://registry.moonlit.rs/acme/x:2.0.0");
     assert_eq!(registry_ref(&r.with_tag("9.9.9")).unwrap().tag, "9.9.9");
+    let pinned = registry_ref("oci://h.io/acme/x@sha256:ab").unwrap();
+    assert_eq!(pinned.with_tag("1.0.0"), "oci://h.io/acme/x:1.0.0");
   }
 }

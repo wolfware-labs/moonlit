@@ -66,7 +66,7 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
     let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
     match plan(&plugin.name, &reference, &current, &granted, args).await? {
       Planned::Bump(plan) => plans.push(*plan),
-      Planned::UpToDate => println!("{}: up to date", plugin.name),
+      Planned::UpToDate => println!("{}", display_safe(&format!("{}: up to date", plugin.name))),
       Planned::NoCompatibleUpdate => println!("{}", display_safe(&format!("{}: no newer compatible version", plugin.name))),
       Planned::NotARegistry => println!("{}: not from a Moonlit registry, skipped", plugin.name),
       Planned::Denied(status) => println!(

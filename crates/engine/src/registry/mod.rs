@@ -86,12 +86,21 @@ impl VersionRule {
 /// Whether a registry `host[:port]` is a loopback address: `localhost`, 127.0.0.0/8 or `[::1]`.
 #[must_use]
 pub fn is_loopback(registry: &str) -> bool {
-  if registry.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
-    return true;
-  }
-  let host = match registry.strip_prefix('[') {
-    Some(rest) => rest.split_once(']').map_or(rest, |(h, _)| h),
-    None => registry.split_once(':').map_or(registry, |(h, _)| h),
+  let valid_port = |port: &str| !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit());
+  let host = if let Some(rest) = registry.strip_prefix('[') {
+    match rest.split_once(']') {
+      Some((host, "")) => host,
+      Some((host, tail)) if tail.strip_prefix(':').is_some_and(valid_port) => host,
+      _ => return false,
+    }
+  } else if registry.parse::<std::net::Ipv6Addr>().is_ok() {
+    registry
+  } else {
+    match registry.split_once(':') {
+      Some((host, port)) if valid_port(port) => host,
+      Some(_) => return false,
+      None => registry,
+    }
   };
   host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
@@ -319,6 +328,17 @@ mod tests {
       "127.0.0.1.nip.io",
       "[::ffff:127.0.0.1]:5000",
       "host:port",
+      "localhost:x@evil.com",
+      "localhost:80@evil.com",
+      "localhost:abc",
+      "localhost:",
+      "127.0.0.1@evil.com",
+      "127.0.0.1:pw@evil.com",
+      "[::1]x",
+      "[::1]:",
+      "[::1]:x",
+      "localhost/x",
+      "localhost ",
     ] {
       assert!(!is_loopback(registry), "{registry}");
     }
