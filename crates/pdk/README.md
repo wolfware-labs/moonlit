@@ -97,8 +97,8 @@ moonlit_plugin! {
 - Every entry needs `=> "reason"`, a non-empty string shown to the user. A permission
   without one does not compile.
 - A leading `optional` marks a permission the plugin can run without. It is shown
-  separately and is not granted unless the user allows it. State in the reason when it is
-  needed.
+  separately and is not granted unless the user allows it. Say in the reason when the
+  permission is needed.
 - Omit `permissions:` for a plugin that needs none.
 
 ## License
