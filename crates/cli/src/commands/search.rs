@@ -1,5 +1,6 @@
 use comfy_table::{ContentLineStyle, LineStyle, Table, TableStyle};
 use console::style;
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::registry::{MiddlewareSummary, PackageHit, RegistryClient, RegistryError, VerificationStatus};
 
 use crate::cli::{DEFAULT_REGISTRY_HOST, OutputMode, SearchArgs};
@@ -13,9 +14,12 @@ const TABLE_STYLE: TableStyle = TableStyle::new()
   .content_lines(ContentLineStyle::new('│', '│', '│'))
   .bottom_border(LineStyle::new('└', '─', '┴', '┘'));
 
+const INCOMPATIBLE_MARKER: &str = "(not compatible with this moonlit)";
+
 struct Card {
   hit: PackageHit,
   middlewares: Vec<MiddlewareSummary>,
+  compatible: Option<bool>,
 }
 
 #[must_use]
@@ -39,15 +43,19 @@ async fn fetch(client: &RegistryClient, args: &SearchArgs) -> Result<Vec<Card>, 
   let hits = client.search(&args.query, args.limit).await?;
   let mut cards = Vec::with_capacity(hits.len());
   for hit in hits {
-    let middlewares = match &hit.latest_version {
-      Some(version) => client
-        .package_version(&hit.org, &hit.name, version)
-        .await?
-        .map(|detail| detail.middlewares)
-        .unwrap_or_default(),
-      None => Vec::new(),
+    let detail = match &hit.latest_version {
+      Some(version) => client.package_version(&hit.org, &hit.name, version).await?,
+      None => None,
     };
-    cards.push(Card { hit, middlewares });
+    let compatible = detail
+      .as_ref()
+      .map(|detail| detail.world_version.as_deref() == Some(PLUGIN_WORLD));
+    let middlewares = detail.map(|detail| detail.middlewares).unwrap_or_default();
+    cards.push(Card {
+      hit,
+      middlewares,
+      compatible,
+    });
   }
   Ok(cards)
 }
@@ -78,6 +86,7 @@ fn print_json(cards: &[Card]) {
           "name": c.hit.name,
           "version": c.hit.latest_version,
           "description": c.hit.description,
+          "compatible": c.compatible,
           "status": status_key(c.hit.status),
           "middlewares": c.middlewares.iter().map(|m| serde_json::json!({
               "name": m.name,
@@ -104,6 +113,11 @@ fn print_cards(cards: &[Card], query: &str, pretty: bool) {
       .latest_version
       .as_deref()
       .map_or_else(|| id.clone(), |v| format!("{id} {}", display_safe(v)));
+    let title = if card.compatible == Some(false) {
+      format!("{title} {INCOMPATIBLE_MARKER}")
+    } else {
+      title
+    };
     let badge = badge(hit.status);
     if pretty {
       let badge = match hit.status {
