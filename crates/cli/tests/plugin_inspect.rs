@@ -110,3 +110,38 @@ fn inspect_rejects_a_non_component() {
     .assert()
     .code(2);
 }
+
+const PERMISSIONS_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/tests/fixtures/test_plugin.wasm");
+const OLD_WORLD_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/tests/fixtures/test_plugin_v0_3.wasm");
+
+#[test]
+fn inspect_json_lists_permissions_and_world() {
+  let out = Command::cargo_bin("moonlit")
+    .unwrap()
+    .args(["--output", "json", "plugin", "inspect", PERMISSIONS_FIXTURE])
+    .assert()
+    .success()
+    .get_output()
+    .stdout
+    .clone();
+  let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+  assert_eq!(v["world"], "moonlit:plugin@0.4.0");
+  assert_eq!(
+    v["permissions"],
+    serde_json::json!([
+      {"kind": "network", "values": ["api.example.com"], "reason": "Calls the example API.", "optional": false},
+      {"kind": "exec", "values": ["git"], "reason": "Only for the tag middleware.", "optional": true},
+    ])
+  );
+}
+
+#[test]
+fn inspect_rejects_old_world() {
+  Command::cargo_bin("moonlit")
+    .unwrap()
+    .args(["plugin", "inspect", OLD_WORLD_FIXTURE])
+    .assert()
+    .code(2)
+    .stderr(predicates::str::contains("moonlit:plugin@0.3.0"))
+    .stderr(predicates::str::contains("moonlit:plugin@0.4.0"));
+}

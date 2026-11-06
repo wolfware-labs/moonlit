@@ -1,3 +1,4 @@
+use crate::plugin::permissions::DeclaredPermission;
 use crate::plugin::resolver::oci::CONFIG_MEDIA_TYPE;
 use oci_client::client::{Config, ImageLayer};
 use oci_client::manifest::OciImageManifest;
@@ -23,6 +24,7 @@ pub struct PluginArtifactMetadata {
   pub licenses: Option<String>,
   pub middlewares: Vec<String>,
   pub sdk_version: Option<String>,
+  pub permissions: Vec<DeclaredPermission>,
 }
 
 impl PluginArtifact {
@@ -33,6 +35,10 @@ impl PluginArtifact {
     let mut moonlit = serde_json::Map::new();
     moonlit.insert("world".into(), PLUGIN_WORLD.into());
     moonlit.insert("middlewares".into(), serde_json::Value::from(meta.middlewares.clone()));
+    moonlit.insert(
+      "permissions".into(),
+      serde_json::to_value(&meta.permissions).expect("permissions serialize"),
+    );
     if let Some(sdk) = &meta.sdk_version {
       moonlit.insert("sdkVersion".into(), sdk.clone().into());
     }
@@ -71,6 +77,7 @@ impl PluginArtifact {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
+  use crate::plugin::permissions::{DeclaredPermission, PermissionKind};
 
   pub(crate) fn metadata() -> PluginArtifactMetadata {
     PluginArtifactMetadata {
@@ -81,7 +88,29 @@ pub(crate) mod tests {
       licenses: Some("MIT OR Apache-2.0".into()),
       middlewares: vec!["build".into(), "test".into()],
       sdk_version: Some("0.1.0".into()),
+      permissions: vec![DeclaredPermission {
+        kind: PermissionKind::Network,
+        values: vec!["api.example.com".into()],
+        reason: "Calls the example API.".into(),
+        optional: false,
+      }],
     }
+  }
+
+  #[test]
+  fn artifact_config_carries_permissions() {
+    let PluginArtifact { config, .. } = PluginArtifact::assemble(b"\0asm", &metadata());
+    let cfg: serde_json::Value = serde_json::from_slice(&config.data).unwrap();
+    assert_eq!(cfg["moonlit"]["permissions"][0]["kind"], "network");
+    assert_eq!(
+      cfg["moonlit"]["permissions"][0],
+      serde_json::json!({
+        "kind": "network",
+        "values": ["api.example.com"],
+        "reason": "Calls the example API.",
+        "optional": false,
+      })
+    );
   }
 
   #[test]

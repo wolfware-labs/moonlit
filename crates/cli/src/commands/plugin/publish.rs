@@ -98,6 +98,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     licenses,
     middlewares: mws.iter().map(|m| m.name.clone()).collect(),
     sdk_version,
+    permissions: meta.permissions.clone(),
   };
 
   let home = moonlit_engine::paths::home_dir().unwrap_or_default();

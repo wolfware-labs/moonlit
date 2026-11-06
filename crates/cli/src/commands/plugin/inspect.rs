@@ -4,7 +4,10 @@ use crate::render::resolve_mode;
 use moonlit_engine::cache::Cache;
 use moonlit_engine::plugin::PluginMetadata;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
+use moonlit_engine::plugin::permissions::DeclaredPermission;
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
+use moonlit_engine::plugin::world::component_world;
 
 #[must_use]
 pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
@@ -59,6 +62,18 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
     return 2;
   }
 
+  let world = match component_world(&bytes) {
+    Ok(w) => w,
+    Err(e) => {
+      eprintln!("error: {e}");
+      return 2;
+    }
+  };
+  if let Some(found) = world.as_deref().filter(|w| *w != PLUGIN_WORLD) {
+    eprintln!("error: '{}' targets {found}; this CLI supports {PLUGIN_WORLD}", args.target);
+    return 2;
+  }
+
   let (meta, mws) = match introspect(&bytes).await {
     Ok(pair) => pair,
     Err(e) => {
@@ -68,7 +83,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
   };
 
   match resolve_mode(output) {
-    OutputMode::Json => print_json(&meta, &mws),
+    OutputMode::Json => print_json(&meta, &mws, world.as_deref()),
     OutputMode::Plain => print_plain(&meta, &mws),
     OutputMode::Pretty => print_pretty(&meta, &mws),
   }
@@ -88,6 +103,29 @@ fn print_pretty(plugin_metadata: &PluginMetadata, plugin_middlewares: &[Middlewa
     table.add_row([m.name.as_str(), m.description.as_str()]);
   }
   println!("{table}");
+  if !plugin_metadata.permissions.is_empty() {
+    println!("Permissions:");
+    for p in &plugin_metadata.permissions {
+      println!("  {}", permission_line(p));
+    }
+  }
+}
+
+fn permission_line(p: &DeclaredPermission) -> String {
+  let mut line = p.kind.sentence().to_string();
+  if !p.values.is_empty() {
+    line.push_str(" (");
+    line.push_str(&p.values.join(", "));
+    line.push(')');
+  }
+  if p.optional {
+    line.push_str(" [optional]");
+  }
+  if !p.reason.is_empty() {
+    line.push_str(": ");
+    line.push_str(&p.reason);
+  }
+  line
 }
 
 fn print_plain(plugin_metadata: &PluginMetadata, plgin_middlewares: &[MiddlewareInfo]) {
@@ -98,14 +136,20 @@ fn print_plain(plugin_metadata: &PluginMetadata, plgin_middlewares: &[Middleware
   for m in plgin_middlewares {
     println!("  {} - {}", m.name, m.description);
   }
+  println!("permissions:");
+  for p in &plugin_metadata.permissions {
+    println!("  {}", permission_line(p));
+  }
 }
 
-fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo]) {
+fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo], world: Option<&str>) {
   let v = serde_json::json!({
       "name": plugin_metadata.name,
       "version": plugin_metadata.version,
       "description": plugin_metadata.description,
       "icon": plugin_metadata.icon,
+      "world": world,
+      "permissions": plugin_metadata.permissions,
       "middlewares": plugin_middlewares.iter().map(|m| serde_json::json!({
           "name": m.name,
           "description": m.description,
