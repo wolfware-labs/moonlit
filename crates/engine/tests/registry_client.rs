@@ -243,12 +243,25 @@ async fn http_failures_are_reported() {
 
 #[test]
 fn for_host_builds_the_graphql_url() {
+  let url = |input: &str| RegistryClient::for_host(input).base_url().to_string();
+  assert_eq!(url("registry.moonlit.rs"), "https://registry.moonlit.rs/graphql");
+  assert_eq!(url("https://registry.moonlit.rs"), "https://registry.moonlit.rs/graphql");
   assert_eq!(
-    RegistryClient::for_host("registry.moonlit.rs").base_url(),
+    url("https://registry.moonlit.rs/graphql"),
     "https://registry.moonlit.rs/graphql"
   );
+  assert_eq!(url("https://registry.moonlit.rs/"), "https://registry.moonlit.rs/graphql");
   assert_eq!(
-    RegistryClient::for_host("http://127.0.0.1:9").base_url(),
-    "http://127.0.0.1:9"
+    url("https://registry.moonlit.rs/graphql/"),
+    "https://registry.moonlit.rs/graphql"
+  );
+  assert_eq!(url("http://127.0.0.1:9"), "http://127.0.0.1:9/graphql");
+}
+
+#[test]
+fn with_base_url_is_verbatim() {
+  assert_eq!(
+    RegistryClient::with_base_url("http://127.0.0.1:9/x").base_url(),
+    "http://127.0.0.1:9/x"
   );
 }

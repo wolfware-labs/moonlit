@@ -16,12 +16,16 @@ packageVersion(org: $org, name: $name, version: $version) { version worldVersion
 const VERSIONS_QUERY: &str = "query versions($org: String!, $name: String!) { \
 package(org: $org, name: $name) { versions { version yanked status } } }";
 
+/// A failure talking to the registry.
 #[derive(Debug, thiserror::Error)]
 pub enum RegistryError {
+  /// The request could not be sent or the server answered with a non-success status.
   #[error("registry request failed: {0}")]
   Http(String),
+  /// The server answered with a GraphQL error; holds the first message.
   #[error("registry returned an error: {0}")]
   GraphQl(String),
+  /// The response body did not have the expected shape.
   #[error("registry response could not be decoded: {0}")]
   Decode(String),
 }
@@ -93,16 +97,22 @@ struct PackageVersions {
 }
 
 impl RegistryClient {
-  /// Builds a client for a registry host, or for a full `http(s)://` base URL.
+  /// Builds a client for a registry host, or for an `http(s)://` URL; `/graphql` is appended unless already present.
   #[must_use]
   pub fn for_host(host: &str) -> Self {
     if host.starts_with("http://") || host.starts_with("https://") {
-      Self::with_base_url(host)
+      let trimmed = host.trim_end_matches('/');
+      if trimmed.ends_with("/graphql") {
+        Self::with_base_url(trimmed)
+      } else {
+        Self::with_base_url(&format!("{trimmed}/graphql"))
+      }
     } else {
       Self::with_base_url(&format!("https://{host}/graphql"))
     }
   }
 
+  /// Builds a client that posts to `url` exactly as given.
   #[must_use]
   pub fn with_base_url(url: &str) -> Self {
     Self {
@@ -111,29 +121,34 @@ impl RegistryClient {
     }
   }
 
+  /// The GraphQL endpoint this client posts to.
   #[must_use]
   pub fn base_url(&self) -> &str {
     &self.url
   }
 
+  /// Searches packages by free text, returning at most `limit` hits.
   pub async fn search(&self, query: &str, limit: u32) -> Result<Vec<PackageHit>, RegistryError> {
     let variables = json!({ "filter": { "query": query }, "paging": { "limit": limit } });
     let data: SearchData = self.execute(SEARCH_QUERY, variables).await?;
     Ok(data.packages.items)
   }
 
+  /// Fetches one version of a package, or `None` when it does not exist.
   pub async fn package_version(&self, org: &str, name: &str, version: &str) -> Result<Option<VersionDetail>, RegistryError> {
     let variables = json!({ "org": org, "name": name, "version": version });
     let data: VersionData = self.execute(PACKAGE_VERSION_QUERY, variables).await?;
     Ok(data.package_version)
   }
 
+  /// Lists every published version of a package, yanked ones included.
   pub async fn versions(&self, org: &str, name: &str) -> Result<Vec<VersionSummary>, RegistryError> {
     let variables = json!({ "org": org, "name": name });
     let data: VersionsData = self.execute(VERSIONS_QUERY, variables).await?;
     Ok(data.package.map(|p| p.versions).unwrap_or_default())
   }
 
+  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`.
   pub async fn newest_compatible(
     &self,
     org: &str,
