@@ -46,6 +46,11 @@ wit-parser.workspace = true
 wiremock.workspace = true
 flate2.workspace = true
 wat = "1.259"
+criterion.workspace = true
+
+[[bench]]
+name = "engine"
+harness = false
 
 [lints]
 workspace = true

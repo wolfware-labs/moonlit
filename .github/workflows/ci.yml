@@ -173,6 +173,40 @@ jobs:
           path: mutants.out
           retention-days: 7
 
+  benchmarks:
+    name: benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install cargo-codspeed
+        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: cargo-codspeed@6.0.0
+      - name: Cache cargo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-codspeed-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build the benchmarks
+        run: cargo codspeed build --workspace --locked
+      - name: Run each benchmark once
+        run: cargo codspeed run
+      - name: Measure on CodSpeed
+        continue-on-error: true
+        uses: CodSpeedHQ/action@78102a468f96d8e0ccb92d0ec49425753fc42062 # v5.6.0
+        with:
+          mode: simulation
+          run: cargo codspeed run
+
   docker:
     name: docker image
     runs-on: ubuntu-latest
