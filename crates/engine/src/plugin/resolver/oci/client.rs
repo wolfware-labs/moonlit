@@ -89,7 +89,8 @@ impl OciClient {
         ResolveError::NotFound(msg)
       }
       OciDistributionError::DigestError(_) => ResolveError::DigestMismatch(msg),
-      _ => ResolveError::Network(msg),
+      OciDistributionError::RequestError(e) if e.is_connect() || e.is_timeout() || e.is_request() => ResolveError::Network(msg),
+      _ => ResolveError::Registry(msg),
     }
   }
 }

@@ -39,6 +39,10 @@ pub enum ResolveError {
   #[diagnostic(code(moonlit::resolve::network))]
   Network(String),
 
+  #[error("the registry answered with an error while resolving plugin: {0}")]
+  #[diagnostic(code(moonlit::resolve::registry))]
+  Registry(String),
+
   #[error("offline: no cached plugin for {0}")]
   #[diagnostic(code(moonlit::resolve::offline_miss))]
   OfflineMiss(String),

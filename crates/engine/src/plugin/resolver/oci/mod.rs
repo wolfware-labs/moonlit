@@ -532,16 +532,18 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn other_envelopes_are_network_errors() {
+  async fn other_envelopes_are_registry_errors() {
     let body = r#"{"errors":[{"code":"TOOMANYREQUESTS","message":"slow down"}]}"#;
     let err = failing_resolve(429, body).await;
-    assert!(matches!(err, ResolveError::Network(_)), "{err:?}");
+    assert!(matches!(err, ResolveError::Registry(_)), "{err:?}");
   }
 
   #[tokio::test]
-  async fn a_server_error_is_a_network_error() {
-    let err = failing_resolve(500, "boom").await;
-    assert!(matches!(err, ResolveError::Network(_)), "{err:?}");
+  async fn a_server_error_is_a_registry_error() {
+    for status in [500, 503] {
+      let err = failing_resolve(status, "boom").await;
+      assert!(matches!(err, ResolveError::Registry(_)), "{status}: {err:?}");
+    }
   }
 
   #[test]

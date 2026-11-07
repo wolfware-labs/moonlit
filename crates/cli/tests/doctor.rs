@@ -495,7 +495,7 @@ fn doctor_exits_3_when_the_plugin_url_cannot_be_reached() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn doctor_exits_3_when_the_move_target_cannot_be_reached() {
+async fn doctor_reports_a_move_target_whose_registry_answers_500_and_fixes_the_rest() {
   let server = MockServer::start().await;
   let listed: Vec<Value> = ["0.3.0", "0.4.0"]
     .iter()
@@ -525,17 +525,26 @@ async fn doctor_exits_3_when_the_move_target_cannot_be_reached() {
   let project = Project::new(&plugins);
   let before = project.release();
 
-  project
+  let assert = project
     .doctor(&["--yes"])
-    .code(3)
+    .code(1)
     .stdout(contains("✗ granted: not granted: "))
     .stdout(contains(format!(
       "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; cannot fetch oci://{}/acme/test-plugin:0.4.0: ",
       server.address()
     )))
-    .stderr(contains("cannot reach the registry"));
+    .stdout(contains("granted: permissions granted"));
+  let all = format!(
+    "{}{}",
+    stdout_of(&assert),
+    String::from_utf8_lossy(&assert.get_output().stderr)
+  );
+  assert!(!all.contains("cannot reach"), "{all}");
 
-  assert_eq!(project.release(), before);
+  let release = project.release();
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert!(release.contains("test-plugin:0.3.0"), "{release}");
+  assert_ne!(release, before);
 }
 
 fn evil_project(url: &str, permissions: &str) -> Project {
