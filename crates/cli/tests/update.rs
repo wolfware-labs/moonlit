@@ -271,34 +271,29 @@ async fn update_skips_a_plugin_whose_host_is_not_a_moonlit_registry() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn update_skips_a_registry_that_refuses_anonymous_graphql_and_names_the_status() {
+async fn update_fails_a_registry_that_refuses_anonymous_graphql_and_updates_the_rest() {
   let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
-  let guarded = MockServer::start().await;
-  Mock::given(method("POST"))
-    .and(path("/graphql"))
-    .respond_with(ResponseTemplate::new(401))
-    .mount(&guarded)
-    .await;
-  let project = Project::new(&server, "1.0.0", "");
-  let release = project.release().replace(
-    "\nstages:",
-    &format!(
-      "  - name: other\n    url: oci://{}/acme/other:1.0.0\n\nstages:",
-      guarded.address()
-    ),
-  );
-  fs::write(project.dir.path().join("release.yml"), &release).unwrap();
+  for status in [401, 403] {
+    let guarded = MockServer::start().await;
+    Mock::given(method("POST"))
+      .and(path("/graphql"))
+      .respond_with(ResponseTemplate::new(status))
+      .mount(&guarded)
+      .await;
+    let project = Project::new(&server, "1.0.0", "");
+    let release = with_other(&project, &guarded);
 
-  project
-    .update(&[])
-    .success()
-    .stdout(contains(format!(
-      "other: registry at {} answered 401 on /graphql, skipped",
-      guarded.address()
-    )))
-    .stdout(contains("test-plugin: 1.0.0 → 1.0.1"));
+    project
+      .update(&[])
+      .code(1)
+      .stdout(contains(format!(
+        "other: registry at {} answered {status} on /graphql, skipped",
+        guarded.address()
+      )))
+      .stdout(contains("test-plugin: 1.0.0 → 1.0.1"));
 
-  assert_eq!(project.release(), release.replace("test-plugin:1.0.0", "test-plugin:1.0.1"));
+    assert_eq!(project.release(), release.replace("test-plugin:1.0.0", "test-plugin:1.0.1"));
+  }
 }
 
 fn evil_name(project: &Project) {

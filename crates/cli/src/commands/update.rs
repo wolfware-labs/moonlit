@@ -70,10 +70,13 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
       Planned::UpToDate => println!("{shown}: up to date"),
       Planned::NoCompatibleUpdate => println!("{shown}: no newer compatible version"),
       Planned::NotARegistry => println!("{shown}: not from a Moonlit registry, skipped"),
-      Planned::Denied(status) => println!(
-        "{shown}: registry at {} answered {status} on /graphql, skipped",
-        display_safe(&reference.host)
-      ),
+      Planned::Denied(status) => {
+        println!(
+          "{shown}: registry at {} answered {status} on /graphql, skipped",
+          display_safe(&reference.host)
+        );
+        failed = true;
+      }
       Planned::Failed(error) => {
         println!("{shown}: {}, skipped", display_safe(&error));
         failed = true;
