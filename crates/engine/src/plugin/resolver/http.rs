@@ -54,7 +54,7 @@ async fn resolve_http_with(
     return Err(ResolveError::NotFound(format!("HTTP 404 for {url}")));
   }
   if !status.is_success() {
-    return Err(ResolveError::Network(format!("HTTP {status} for {url}")));
+    return Err(ResolveError::Registry(format!("HTTP {status} for {url}")));
   }
 
   let total = response.content_length();

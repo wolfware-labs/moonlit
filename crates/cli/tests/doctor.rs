@@ -495,6 +495,35 @@ fn doctor_exits_3_when_the_plugin_url_cannot_be_reached() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn doctor_reports_a_plugin_url_answering_500_and_fixes_the_rest() {
+  let server = MockServer::start().await;
+  Mock::given(method("GET"))
+    .and(path("/plugin.wasm"))
+    .respond_with(ResponseTemplate::new(500))
+    .mount(&server)
+    .await;
+  let plugins = [
+    entry("test-plugin", &format!("{}/plugin.wasm", server.uri()), ""),
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+
+  let assert = project
+    .doctor(&["--yes"])
+    .code(1)
+    .stdout(contains("✗ test-plugin: "))
+    .stdout(contains("granted: permissions granted"));
+  let all = format!(
+    "{}{}",
+    stdout_of(&assert),
+    String::from_utf8_lossy(&assert.get_output().stderr)
+  );
+  assert!(!all.contains("cannot reach"), "{all}");
+  assert!(project.release().contains("network: [\"api.example.com\"]"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn doctor_reports_a_move_target_whose_registry_answers_500_and_fixes_the_rest() {
   let server = MockServer::start().await;
   let listed: Vec<Value> = ["0.3.0", "0.4.0"]
