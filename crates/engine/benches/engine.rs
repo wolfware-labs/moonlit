@@ -94,7 +94,7 @@ fn execute_middleware(c: &mut Criterion) {
   });
 }
 
-fn declared(kind: PermissionKind, values: &[&str], optional: bool) -> DeclaredPermission {
+fn declaration(kind: PermissionKind, values: &[&str], optional: bool) -> DeclaredPermission {
   DeclaredPermission {
     kind,
     values: values.iter().map(|v| (*v).to_string()).collect(),
@@ -105,11 +105,11 @@ fn declared(kind: PermissionKind, values: &[&str], optional: bool) -> DeclaredPe
 
 fn check_grants(c: &mut Criterion) {
   let declared = vec![
-    declared(PermissionKind::Network, &["api.github.com", "uploads.github.com"], false),
-    declared(PermissionKind::Exec, &["git", "gh"], true),
-    declared(PermissionKind::Env, &["GITHUB_TOKEN", "GITHUB_REF", "CI"], false),
-    declared(PermissionKind::FilesystemRead, &[], false),
-    declared(PermissionKind::FilesystemWrite, &[], true),
+    declaration(PermissionKind::Network, &["api.github.com", "uploads.github.com"], false),
+    declaration(PermissionKind::Exec, &["git", "gh"], true),
+    declaration(PermissionKind::Env, &["GITHUB_TOKEN", "GITHUB_REF", "CI"], false),
+    declaration(PermissionKind::FilesystemRead, &[], false),
+    declaration(PermissionKind::FilesystemWrite, &[], true),
   ];
   let granted = Permissions {
     network: vec!["*.github.com".to_string(), "ghcr.io".to_string()],

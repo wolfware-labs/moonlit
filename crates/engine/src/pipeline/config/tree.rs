@@ -83,11 +83,12 @@ fn quoted_end(yaml: &str, span: Span) -> usize {
 
 #[must_use]
 fn block_end(yaml: &str, span: Span, raw: &str) -> usize {
-  if raw.trim_end().is_empty() {
+  let raw_content = raw.trim_end().len();
+  if raw_content == 0 {
     return span.end;
   }
   let content = span.start + yaml[span.start..span.end].trim_end().len();
-  let kept = raw[raw.trim_end().len()..].matches('\n').count();
+  let kept = raw[raw_content..].matches('\n').count();
   if kept < 2 {
     return content;
   }
@@ -277,16 +278,10 @@ mod tests {
   use super::*;
 
   fn value_text(yaml: &str) -> String {
-    let src = ConfigSource::new(yaml, "test.yml");
-    let root = build_tree(&src).expect("yaml parses");
-    let NodeValue::Map(entries) = root.value else {
-      panic!("root is not a map");
-    };
-    let (_, value) = entries
+    value_texts(yaml)
       .into_iter()
-      .find(|(k, _)| k.value == NodeValue::Scalar("k".into()))
-      .expect("key k");
-    yaml[value.span.start..value.span.end].to_string()
+      .find_map(|(key, value)| (key == "k").then_some(value))
+      .expect("key k")
   }
 
   #[test]

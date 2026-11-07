@@ -293,8 +293,7 @@ async fn doctor_reports_a_registry_error_as_unfixed_and_fixes_the_rest() {
       "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; the registry answered with an error: "
     )))
     .stdout(contains("granted: permissions granted"));
-  let output = assert.get_output();
-  let all = format!("{}{}", stdout_of(&assert), String::from_utf8_lossy(&output.stderr));
+  let all = output_of(&assert);
   assert!(!all.contains("cannot reach"), "{all}");
 
   let release = project.release();
@@ -356,7 +355,7 @@ fn doctor_screen_lists_only_new_permissions() {
     .success()
     .stdout(contains("This plugin wants to:"))
     .stdout(contains("Connect to the internet"));
-  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  let stdout = stdout_of(&assert);
   assert!(!stdout.contains("Not requested"), "{stdout}");
 }
 
@@ -514,11 +513,7 @@ async fn doctor_reports_a_plugin_url_answering_500_and_fixes_the_rest() {
     .code(1)
     .stdout(contains("✗ test-plugin: "))
     .stdout(contains("granted: permissions granted"));
-  let all = format!(
-    "{}{}",
-    stdout_of(&assert),
-    String::from_utf8_lossy(&assert.get_output().stderr)
-  );
+  let all = output_of(&assert);
   assert!(!all.contains("cannot reach"), "{all}");
   assert!(project.release().contains("network: [\"api.example.com\"]"));
 }
@@ -563,11 +558,7 @@ async fn doctor_reports_a_move_target_whose_registry_answers_500_and_fixes_the_r
       server.address()
     )))
     .stdout(contains("granted: permissions granted"));
-  let all = format!(
-    "{}{}",
-    stdout_of(&assert),
-    String::from_utf8_lossy(&assert.get_output().stderr)
-  );
+  let all = output_of(&assert);
   assert!(!all.contains("cannot reach"), "{all}");
 
   let release = project.release();
@@ -587,6 +578,14 @@ fn evil_project(url: &str, permissions: &str) -> Project {
 
 fn stdout_of(assert: &assert_cmd::assert::Assert) -> String {
   String::from_utf8(assert.get_output().stdout.clone()).unwrap()
+}
+
+fn output_of(assert: &assert_cmd::assert::Assert) -> String {
+  format!(
+    "{}{}",
+    stdout_of(assert),
+    String::from_utf8_lossy(&assert.get_output().stderr)
+  )
 }
 
 #[test]
