@@ -83,12 +83,16 @@ fn quoted_end(yaml: &str, span: Span) -> usize {
 
 #[must_use]
 fn block_end(yaml: &str, span: Span, raw: &str) -> usize {
+  if raw.trim_end().is_empty() {
+    return span.end;
+  }
   let content = span.start + yaml[span.start..span.end].trim_end().len();
   let kept = raw[raw.trim_end().len()..].matches('\n').count();
   if kept < 2 {
     return content;
   }
-  yaml[content..]
+  let after = &yaml[content..];
+  after[..after.len() - after.trim_start().len()]
     .match_indices('\n')
     .nth(kept - 1)
     .map_or(content, |(i, _)| content + i)
@@ -309,6 +313,45 @@ mod tests {
     assert_eq!(value_text("k: |+\n  a\n\n\nz: 1\n"), "a\n\n");
     assert_eq!(value_text("k: |+\n  a\n    \n\n"), "a\n    \n");
     assert_eq!(value_text("k: |+\n  a\nz: 1\n"), "a");
+  }
+
+  fn value_texts(yaml: &str) -> Vec<(String, String)> {
+    let src = ConfigSource::new(yaml, "test.yml");
+    let root = build_tree(&src).expect("yaml parses");
+    let NodeValue::Map(entries) = root.value else {
+      panic!("root is not a map");
+    };
+    entries
+      .into_iter()
+      .map(|(k, v)| {
+        let NodeValue::Scalar(key) = k.value else {
+          panic!("key is not a scalar");
+        };
+        (key, yaml[v.span.start..v.span.end].to_string())
+      })
+      .collect()
+  }
+
+  #[test]
+  fn an_empty_keep_chomped_block_scalar_does_not_span_the_lines_after_it() {
+    for indicator in ["|+", ">+"] {
+      let yaml = format!("k: {indicator}\n\n\nz: 1\ny: 2\nw: 3\n");
+      let texts = value_texts(&yaml);
+      let k = &texts[0].1;
+      assert!(!k.contains('z') && !k.contains('y'), "{indicator}: {k:?}");
+      assert_eq!(
+        texts[1..],
+        [
+          ("z".to_string(), "1".to_string()),
+          ("y".to_string(), "2".to_string()),
+          ("w".to_string(), "3".to_string())
+        ],
+        "{indicator}"
+      );
+
+      let yaml = format!("k: {indicator}\n\n\n");
+      assert_eq!(value_text(&yaml), format!("{indicator}\n\n\n"));
+    }
   }
 
   #[test]

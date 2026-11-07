@@ -706,6 +706,15 @@ stages:
   }
 
   #[test]
+  fn add_after_an_empty_keep_chomped_scalar_keeps_its_value() {
+    let input = "name: d\nstages:\n  s:\n    - run: a.go\nplugins:\n  - name: a\n    url: file://a.wasm\n    config:\n      notes: |+\n\n\n";
+    let before = config_text(input, "a", "notes");
+    let out = add_plugin(input, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(config_text(&out, "a", "notes"), before);
+    assert_eq!(declared(&out, "b"), "file://b.wasm");
+  }
+
+  #[test]
   fn set_plugin_inserting_permissions_after_a_keep_chomped_scalar_keeps_it() {
     let input = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\n      notes: |+\n        line one\n\n\nstages:\n  s:\n    - run: a.go\n";
     let permissions = Permissions {
