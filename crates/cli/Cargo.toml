@@ -55,6 +55,11 @@ predicates = "3"
 wiremock.workspace = true
 sha2.workspace = true
 hex.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "release_file"
+harness = false
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2"
