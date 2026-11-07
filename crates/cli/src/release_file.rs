@@ -36,9 +36,9 @@ pub enum ReleaseFileError {
 
 /// Appends a plugin entry to the `plugins:` sequence, leaving every other byte of the file unchanged.
 pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseFileError> {
-  check_addable(content, &entry.name, &entry.url)?;
   let config = parse_structure(content)?;
   let plugins = &config.plugins.value;
+  addable(plugins, &entry.name, &entry.url)?;
   let edit = if let Some(last) = plugins.last() {
     let dash = column(content, last.span.start);
     let key = key_column(content, last.span.start);
@@ -56,6 +56,7 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
   };
   validated(
     content,
+    None,
     apply(content, vec![edit]),
     &entry.name,
     &entry.url,
@@ -65,8 +66,10 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
 
 /// Checks that a plugin entry with this name and URL could be added, without editing anything.
 pub fn check_addable(content: &str, name: &str, url: &str) -> Result<(), ReleaseFileError> {
-  let config = parse_structure(content)?;
-  let plugins = &config.plugins.value;
+  addable(&parse_structure(content)?.plugins.value, name, url)
+}
+
+fn addable(plugins: &[PluginDeclaration], name: &str, url: &str) -> Result<(), ReleaseFileError> {
   if let Some(p) = plugins.iter().find(|p| p.name == name) {
     return Err(ReleaseFileError::NameTaken {
       name: p.name.clone(),
@@ -83,12 +86,12 @@ pub fn check_addable(content: &str, name: &str, url: &str) -> Result<(), Release
 /// file unchanged.
 pub fn set_plugin(content: &str, name: &str, url: &str, permissions: Option<&Permissions>) -> Result<String, ReleaseFileError> {
   let config = parse_checked(content)?;
-  let plugin = config
-    .plugins
-    .value
+  let plugins = &config.plugins.value;
+  let position = plugins
     .iter()
-    .find(|p| p.name == name)
+    .position(|p| p.name == name)
     .ok_or_else(|| ReleaseFileError::PluginNotFound(name.to_string()))?;
+  let plugin = &plugins[position];
   let mut edits = Vec::new();
   if plugin.url.value.as_str() != url {
     edits.push((plugin.url.span.start, plugin.url.span.end, scalar(url)));
@@ -98,6 +101,7 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: Option<&Per
   }
   validated(
     content,
+    Some(position),
     apply(content, edits),
     name,
     url,
@@ -165,6 +169,7 @@ fn permissions_edit(content: &str, plugin: &PluginDeclaration, permissions: &Per
 
 fn validated(
   before: &str,
+  position_before: Option<usize>,
   content: String,
   name: &str,
   url: &str,
@@ -189,8 +194,9 @@ fn validated(
       "plugin '{name}' would not read back with the requested permissions"
     )));
   }
-  if let Ok((rest_before, entry_before)) = outside_entry(before, name) {
-    let (rest_after, entry_after) = outside_entry(&content, name)?;
+  if let Ok((rest_before, entry_before)) = outside_entry(before, position_before) {
+    let position_after = config.plugins.value.iter().position(|p| p.name == name);
+    let (rest_after, entry_after) = outside_entry(&content, position_after)?;
     if rest_after != rest_before || entry_before.is_some_and(|entry| Some(entry) != entry_after) {
       return Err(ReleaseFileError::Invalid(format!(
         "the edit would change more than the url and permissions of plugin '{name}'"
@@ -200,7 +206,7 @@ fn validated(
   Ok(content)
 }
 
-fn outside_entry(content: &str, name: &str) -> Result<(Value, Option<Value>), ReleaseFileError> {
+fn outside_entry(content: &str, position: Option<usize>) -> Result<(Value, Option<Value>), ReleaseFileError> {
   let mut document: Value = serde_yaml_ng::from_str(content).map_err(|e| ReleaseFileError::Invalid(e.to_string()))?;
   if document.is_null() {
     document = Value::Mapping(Mapping::new());
@@ -208,7 +214,6 @@ fn outside_entry(content: &str, name: &str) -> Result<(Value, Option<Value>), Re
   let Some(root) = document.as_mapping_mut() else {
     return Ok((document, None));
   };
-  let position = parse_structure(content)?.plugins.value.iter().position(|p| p.name == name);
   let mut entry = None;
   if let Some(Value::Sequence(items)) = root.get_mut("plugins") {
     if let Some(index) = position.filter(|&index| index < items.len()) {
@@ -360,15 +365,15 @@ mod tests {
       exec: vec!["git".into(), "sh".into()],
       ..Permissions::deny()
     };
-    let err = validated(RELEASE, RELEASE.to_string(), "git", url, Some(&broader)).expect_err("permissions differ");
+    let err = read_back(RELEASE, RELEASE.to_string(), "git", url, Some(&broader)).expect_err("permissions differ");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
-    let err = validated(RELEASE, RELEASE.to_string(), "git", url, None).expect_err("permissions differ");
+    let err = read_back(RELEASE, RELEASE.to_string(), "git", url, None).expect_err("permissions differ");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
     let granted = Permissions {
       exec: vec!["git".into()],
       ..Permissions::deny()
     };
-    assert!(validated(RELEASE, RELEASE.to_string(), "git", url, Some(&granted)).is_ok());
+    assert!(read_back(RELEASE, RELEASE.to_string(), "git", url, Some(&granted)).is_ok());
   }
 
   #[test]
@@ -682,6 +687,18 @@ stages:
     assert!(matches!(err, ReleaseFileError::PluginNotFound(ref n) if n == "zz"), "{err:?}");
   }
 
+  fn read_back(
+    before: &str,
+    content: String,
+    name: &str,
+    url: &str,
+    permissions: Option<&Permissions>,
+  ) -> Result<String, ReleaseFileError> {
+    let config = parse_structure(before).expect("parses");
+    let position = config.plugins.value.iter().position(|p| p.name == name);
+    validated(before, position, content, name, url, permissions)
+  }
+
   fn config_text(content: &str, plugin: &str, key: &str) -> String {
     let config = parse_config_unvalidated(content, SOURCE).expect("parses");
     let plugin = config.plugins.value.iter().find(|p| p.name == plugin).expect("declared");
@@ -731,21 +748,21 @@ stages:
   fn read_back_rejects_a_change_outside_the_edited_entry() {
     let url = "file://b-2.wasm";
     let after = set_plugin(TWO_PLUGINS, "b", url, None).expect("set");
-    assert!(validated(TWO_PLUGINS, after.clone(), "b", url, None).is_ok());
+    assert!(read_back(TWO_PLUGINS, after.clone(), "b", url, None).is_ok());
 
     let other_config = after.replace("level: 3", "level: 4");
-    let err = validated(TWO_PLUGINS, other_config, "b", url, None).expect_err("a's config changed");
+    let err = read_back(TWO_PLUGINS, other_config, "b", url, None).expect_err("a's config changed");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
 
     let stages = after.replace("    - run: a.go\n", "");
-    let err = validated(TWO_PLUGINS, stages, "b", url, None).expect_err("stages changed");
+    let err = read_back(TWO_PLUGINS, stages, "b", url, None).expect_err("stages changed");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
 
     let own_config = after.replace(
       "    url: file://b-2.wasm\n",
       "    url: file://b-2.wasm\n    config:\n      x: 1\n",
     );
-    let err = validated(TWO_PLUGINS, own_config, "b", url, None).expect_err("b's config changed");
+    let err = read_back(TWO_PLUGINS, own_config, "b", url, None).expect_err("b's config changed");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
   }
 
