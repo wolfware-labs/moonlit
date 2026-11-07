@@ -2,19 +2,19 @@
 
 Releases published before this crate was renamed from `moonlit-sdk-macros` to `moonlit-pdk-macros`. The version series restarted at 0.1.0 after the rename, so these entries live here: two headings for the same version in `CHANGELOG.md` stop release-plz from parsing it.
 
-## [0.3.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-macros-v0.3.0...moonlit-pdk-macros-v0.3.1) - 2026-08-01
+## [0.3.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-macros-v0.3.0...moonlit-sdk-macros-v0.3.1) - 2026-08-01
 
 ### Other
 
 - *(sdk)* pin the crate-doc ABI strings to the shipped WIT
 
-## [0.3.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-macros-v0.2.0...moonlit-pdk-macros-v0.3.0) - 2026-07-31
+## [0.3.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-macros-v0.2.0...moonlit-sdk-macros-v0.3.0) - 2026-07-31
 
 ### Added
 
 - *(sdk)* [**breaking**] rename Config to Input, add typed Output, emit input/output schema (ABI 0.3.0)
 
-## [0.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-macros-v0.1.1...moonlit-pdk-macros-v0.2.0) - 2026-07-30
+## [0.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-macros-v0.1.1...moonlit-sdk-macros-v0.2.0) - 2026-07-30
 
 ### Added
 
@@ -25,14 +25,14 @@ Releases published before this crate was renamed from `moonlit-sdk-macros` to `m
 
 - rustfmt Plan A files to satisfy CI fmt gate
 
-## [0.1.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-macros-v0.1.0...moonlit-pdk-macros-v0.1.1) - 2026-07-29
+## [0.1.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-sdk-macros-v0.1.0...moonlit-sdk-macros-v0.1.1) - 2026-07-29
 
 ### Other
 
 - relicense from Elastic-2.0 to MIT OR Apache-2.0
 - release v0.1.0 ([#1](https://github.com/wolfware-labs/moonlit/pull/1))
 
-## [0.1.0](https://github.com/wolfware-labs/moonlit/releases/tag/moonlit-pdk-macros-v0.1.0) - 2026-07-29
+## [0.1.0](https://github.com/wolfware-labs/moonlit/releases/tag/moonlit-sdk-macros-v0.1.0) - 2026-07-29
 
 ### Added
 
