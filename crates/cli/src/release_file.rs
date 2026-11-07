@@ -208,12 +208,10 @@ fn outside_entry(content: &str, name: &str) -> Result<(Value, Option<Value>), Re
   let Some(root) = document.as_mapping_mut() else {
     return Ok((document, None));
   };
+  let position = parse_structure(content)?.plugins.value.iter().position(|p| p.name == name);
   let mut entry = None;
   if let Some(Value::Sequence(items)) = root.get_mut("plugins") {
-    if let Some(index) = items
-      .iter()
-      .position(|item| item.get("name").and_then(scalar_text).as_deref() == Some(name))
-    {
+    if let Some(index) = position.filter(|&index| index < items.len()) {
       let mut removed = items.remove(index);
       if let Some(fields) = removed.as_mapping_mut() {
         fields.remove("url");
@@ -226,15 +224,6 @@ fn outside_entry(content: &str, name: &str) -> Result<(Value, Option<Value>), Re
     }
   }
   Ok((document, entry))
-}
-
-fn scalar_text(value: &Value) -> Option<String> {
-  match value {
-    Value::String(text) => Some(text.clone()),
-    Value::Number(number) => Some(number.to_string()),
-    Value::Bool(flag) => Some(flag.to_string()),
-    _ => None,
-  }
 }
 
 #[must_use]
@@ -749,6 +738,16 @@ stages:
     );
     let err = validated(TWO_PLUGINS, own_config, "b", url, None).expect_err("b's config changed");
     assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+  }
+
+  #[test]
+  fn edits_succeed_for_plugins_named_like_numbers_or_booleans() {
+    for name in ["1.10", "True", "0x1f"] {
+      let out = add_plugin(RELEASE, &entry(name, "file://n.wasm")).unwrap_or_else(|e| panic!("add {name}: {e}"));
+      assert_eq!(declared(&out, name), "file://n.wasm", "add {name}");
+      let out = set_plugin(&out, name, "file://n-2.wasm", None).unwrap_or_else(|e| panic!("set {name}: {e}"));
+      assert_eq!(declared(&out, name), "file://n-2.wasm", "set {name}");
+    }
   }
 
   #[test]
