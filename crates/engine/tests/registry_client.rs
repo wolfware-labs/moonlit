@@ -448,3 +448,38 @@ async fn newest_compatible_prefers_the_newest_even_when_it_answers_last() {
 
   assert_eq!(found.unwrap().version, "1.0.13");
 }
+
+#[tokio::test]
+async fn a_redirect_to_plain_http_on_a_remote_host_is_refused() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .respond_with(ResponseTemplate::new(307).insert_header("location", "http://192.0.2.1/graphql"))
+    .mount(&server)
+    .await;
+
+  let err = client(&server).versions("acme", "x").await.unwrap_err();
+
+  assert!(
+    matches!(&err, RegistryError::Insecure(url) if url.contains("192.0.2.1")),
+    "{err:?}"
+  );
+}
+
+#[tokio::test]
+async fn a_redirect_to_another_loopback_url_is_followed() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(307).insert_header("location", format!("{}/moved", server.uri())))
+    .mount(&server)
+    .await;
+  Mock::given(method("POST"))
+    .and(path("/moved"))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": { "package": { "versions": [] } } })))
+    .mount(&server)
+    .await;
+
+  let versions = client(&server).versions("acme", "x").await.expect("followed");
+
+  assert!(versions.is_empty(), "{versions:?}");
+}

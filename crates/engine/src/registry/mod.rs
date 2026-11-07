@@ -44,7 +44,8 @@ pub enum RegistryError {
     /// The HTTP status it answered with.
     status: u16,
   },
-  /// The registry URL is plain `http://` to a host that is not loopback, which would send requests unencrypted.
+  /// The registry URL, or a redirect from it, is plain `http://` to a host that is not loopback, which would send
+  /// requests unencrypted.
   #[error("refusing to send registry requests over plain HTTP to {0}; use https:// (http:// is only allowed for localhost)")]
   Insecure(String),
 }
@@ -54,10 +55,38 @@ const MAX_CANDIDATES: usize = 10;
 /// How long a registry request may take to connect, and in all, before it fails.
 pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
 
+const MAX_REDIRECTS: usize = 10;
+
+fn redirect_allowed(url: &reqwest::Url) -> bool {
+  url.scheme() != "http" || url.host_str().is_some_and(is_loopback)
+}
+
+fn refused_redirect(error: &reqwest::Error) -> Option<RegistryError> {
+  let mut source = std::error::Error::source(error);
+  while let Some(cause) = source {
+    if let Some(RegistryError::Insecure(url)) = cause.downcast_ref::<RegistryError>() {
+      return Some(RegistryError::Insecure(url.clone()));
+    }
+    source = cause.source();
+  }
+  None
+}
+
 fn http_client(timeout: Duration) -> reqwest::Client {
+  let policy = reqwest::redirect::Policy::custom(|attempt| {
+    if !redirect_allowed(attempt.url()) {
+      let refused = RegistryError::Insecure(attempt.url().to_string());
+      attempt.error(refused)
+    } else if attempt.previous().len() >= MAX_REDIRECTS {
+      attempt.error("too many redirects")
+    } else {
+      attempt.follow()
+    }
+  });
   reqwest::Client::builder()
     .connect_timeout(timeout)
     .timeout(timeout)
+    .redirect(policy)
     .build()
     .expect("the reqwest client builds with static timeouts and the default TLS backend")
 }
@@ -272,7 +301,7 @@ impl RegistryClient {
       .body(body)
       .send()
       .await
-      .map_err(|e| RegistryError::Unreachable(format!("POST {}: {e}", self.url)))?;
+      .map_err(|e| refused_redirect(&e).unwrap_or_else(|| RegistryError::Unreachable(format!("POST {}: {e}", self.url))))?;
     let status = response.status();
     if matches!(status.as_u16(), 404 | 405) {
       return Err(RegistryError::NotARegistry(self.url.clone()));
@@ -306,7 +335,25 @@ impl RegistryClient {
 
 #[cfg(test)]
 mod tests {
-  use super::is_loopback;
+  use super::{is_loopback, redirect_allowed};
+
+  #[test]
+  fn redirects_to_plain_http_are_allowed_only_for_loopback_hosts() {
+    for (url, allowed) in [
+      ("https://registry.moonlit.rs/graphql", true),
+      ("https://10.0.0.1:5000/graphql", true),
+      ("http://127.0.0.1:5000/graphql", true),
+      ("http://localhost/graphql", true),
+      ("http://[::1]:5000/graphql", true),
+      ("http://registry.moonlit.rs/graphql", false),
+      ("http://10.0.0.1:5000/graphql", false),
+      ("http://127.0.0.1.nip.io/graphql", false),
+      ("http://[2001:db8::1]/graphql", false),
+    ] {
+      let parsed = reqwest::Url::parse(url).unwrap();
+      assert_eq!(redirect_allowed(&parsed), allowed, "{url}");
+    }
+  }
 
   #[test]
   fn loopback_registries_are_recognised() {
