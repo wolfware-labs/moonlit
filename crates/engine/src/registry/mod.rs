@@ -57,8 +57,8 @@ pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
 
 const MAX_REDIRECTS: usize = 10;
 
-fn redirect_allowed(url: &reqwest::Url) -> bool {
-  url.scheme() != "http" || url.host_str().is_some_and(is_loopback)
+fn plain_http_to_remote(url: &reqwest::Url) -> bool {
+  url.scheme() == "http" && !url.host_str().is_some_and(is_loopback)
 }
 
 fn refused_redirect(error: &reqwest::Error) -> Option<RegistryError> {
@@ -74,7 +74,7 @@ fn refused_redirect(error: &reqwest::Error) -> Option<RegistryError> {
 
 fn http_client(timeout: Duration) -> reqwest::Client {
   let policy = reqwest::redirect::Policy::custom(|attempt| {
-    if !redirect_allowed(attempt.url()) {
+    if plain_http_to_remote(attempt.url()) {
       let refused = RegistryError::Insecure(attempt.url().to_string());
       attempt.error(refused)
     } else if attempt.previous().len() >= MAX_REDIRECTS {
@@ -203,11 +203,12 @@ impl RegistryClient {
   /// Builds a client that posts to `url` exactly as given.
   /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
   pub fn with_base_url(url: &str) -> Result<Self, RegistryError> {
-    if let Some(rest) = url.strip_prefix("http://") {
-      let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
-      if !is_loopback(authority) {
-        return Err(RegistryError::Insecure(url.to_string()));
-      }
+    if url.starts_with("http://")
+      && reqwest::Url::parse(url)
+        .ok()
+        .is_none_or(|parsed| plain_http_to_remote(&parsed))
+    {
+      return Err(RegistryError::Insecure(url.to_string()));
     }
     Ok(Self {
       url: url.to_string(),
@@ -335,23 +336,23 @@ impl RegistryClient {
 
 #[cfg(test)]
 mod tests {
-  use super::{is_loopback, redirect_allowed};
+  use super::{is_loopback, plain_http_to_remote};
 
   #[test]
-  fn redirects_to_plain_http_are_allowed_only_for_loopback_hosts() {
-    for (url, allowed) in [
-      ("https://registry.moonlit.rs/graphql", true),
-      ("https://10.0.0.1:5000/graphql", true),
-      ("http://127.0.0.1:5000/graphql", true),
-      ("http://localhost/graphql", true),
-      ("http://[::1]:5000/graphql", true),
-      ("http://registry.moonlit.rs/graphql", false),
-      ("http://10.0.0.1:5000/graphql", false),
-      ("http://127.0.0.1.nip.io/graphql", false),
-      ("http://[2001:db8::1]/graphql", false),
+  fn only_plain_http_to_a_non_loopback_host_counts_as_remote() {
+    for (url, remote) in [
+      ("https://registry.moonlit.rs/graphql", false),
+      ("https://10.0.0.1:5000/graphql", false),
+      ("http://127.0.0.1:5000/graphql", false),
+      ("http://localhost/graphql", false),
+      ("http://[::1]:5000/graphql", false),
+      ("http://registry.moonlit.rs/graphql", true),
+      ("http://10.0.0.1:5000/graphql", true),
+      ("http://127.0.0.1.nip.io/graphql", true),
+      ("http://[2001:db8::1]/graphql", true),
     ] {
       let parsed = reqwest::Url::parse(url).unwrap();
-      assert_eq!(redirect_allowed(&parsed), allowed, "{url}");
+      assert_eq!(plain_http_to_remote(&parsed), remote, "{url}");
     }
   }
 

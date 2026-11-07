@@ -329,7 +329,13 @@ fn for_host_builds_the_graphql_url() {
 
 #[test]
 fn plain_http_is_refused_for_a_remote_registry() {
-  for url in ["http://example.com", "http://example.com:8080/graphql", "http://127.evil.com"] {
+  for url in [
+    "http://example.com",
+    "http://example.com:8080/graphql",
+    "http://127.evil.com",
+    "http://localhost@example.com/graphql",
+    "http://localhost:abc/graphql",
+  ] {
     let err = RegistryClient::for_host(url).expect_err(url);
     assert!(matches!(err, RegistryError::Insecure(_)), "{err:?}");
     let err = RegistryClient::with_base_url(url).expect_err(url);
