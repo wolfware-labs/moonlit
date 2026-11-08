@@ -1,5 +1,8 @@
 #[path = "support/oci_mock.rs"]
 mod oci_mock;
+#[cfg(unix)]
+#[path = "support/terminal.rs"]
+mod terminal;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -96,6 +99,18 @@ impl Project {
       .args(args)
       .assert()
   }
+
+  #[cfg(unix)]
+  fn update_on_terminal(&self, args: &[&str], keys: &[u8]) -> std::process::Output {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
+    command
+      .current_dir(self.dir.path())
+      .env("MOONLIT_HOME", self.home.path())
+      .env("MOONLIT_CACHE_DIR", self.cache.path())
+      .args(["--output", "plain", "update"])
+      .args(args);
+    terminal::run_on_terminal(command, keys)
+  }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -157,12 +172,15 @@ async fn update_asks_when_new_required_and_yes_grants_it() {
   project.update(&[]).code(2).stderr(contains("pass --yes"));
   assert_eq!(project.release(), before);
 
-  project
+  let assert = project
     .update(&["--yes"])
     .success()
     .stdout(contains("This plugin wants to:"))
     .stdout(contains("Connect to the internet"))
     .stdout(contains("test-plugin: 1.0.0 → 1.1.0"));
+  let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+  assert!(!stdout.contains('\u{1b}'), "{stdout:?}");
+  assert!(!stdout.contains("optional permission not granted: Connect"), "{stdout}");
 
   let release = project.release();
   assert!(release.contains("test-plugin:1.1.0"), "{release}");
@@ -412,4 +430,24 @@ async fn update_exits_3_and_writes_nothing_when_a_registry_cannot_be_reached() {
     .stderr(contains("other: registry request failed: "));
 
   assert_eq!(project.release(), release);
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn update_on_a_terminal_keeps_the_version_when_the_new_grant_is_refused() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.1.0", "test_plugin.wasm")]).await;
+  let project = Project::new(&server, "1.0.0", "");
+  let before = project.release();
+
+  let output = project.update_on_terminal(&[], b"n");
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(1), "{stdout}");
+  assert!(stdout.contains("test-plugin: kept at 1.0.0"), "{stdout}");
+  assert_eq!(project.release(), before);
+
+  let output = project.update_on_terminal(&[], b"y");
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(0), "{stdout}");
+  assert!(stdout.contains("test-plugin: 1.0.0 → 1.1.0"), "{stdout}");
+  assert!(project.release().contains("test-plugin:1.1.0"));
 }

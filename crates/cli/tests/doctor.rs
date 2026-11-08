@@ -1,5 +1,8 @@
 #[path = "support/oci_mock.rs"]
 mod oci_mock;
+#[cfg(unix)]
+#[path = "support/terminal.rs"]
+mod terminal;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -91,6 +94,18 @@ impl Project {
       .args(["--output", "plain", "doctor"])
       .args(args)
       .assert()
+  }
+
+  #[cfg(unix)]
+  fn doctor_on_terminal(&self, args: &[&str], keys: &[u8]) -> std::process::Output {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
+    command
+      .current_dir(self.dir.path())
+      .env("MOONLIT_HOME", self.home.path())
+      .env("MOONLIT_CACHE_DIR", self.cache.path())
+      .args(["--output", "plain", "doctor"])
+      .args(args);
+    terminal::run_on_terminal(command, keys)
   }
 }
 
@@ -619,4 +634,23 @@ fn doctor_grant_only_fix_keeps_the_url_line_as_written() {
   let release = project.release();
   assert!(release.contains(&url_line), "{release}");
   assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+}
+
+#[cfg(unix)]
+#[test]
+fn doctor_on_a_terminal_asks_before_writing() {
+  let project = Project::new(&entry("test-plugin", &file_url("test_plugin.wasm"), ""));
+  let before = project.release();
+
+  let output = project.doctor_on_terminal(&[], b"n");
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(1), "{stdout}");
+  assert!(stdout.ends_with("Nothing changed.\n"), "{stdout}");
+  assert_eq!(project.release(), before);
+
+  let output = project.doctor_on_terminal(&[], b"y");
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(0), "{stdout}");
+  assert!(stdout.contains("test-plugin: permissions granted"), "{stdout}");
+  assert!(project.release().contains("network: [\"api.example.com\"]"));
 }

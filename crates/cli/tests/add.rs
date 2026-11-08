@@ -1,5 +1,8 @@
 #[path = "support/oci_mock.rs"]
 mod oci_mock;
+#[cfg(unix)]
+#[path = "support/terminal.rs"]
+mod terminal;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -57,6 +60,18 @@ impl Project {
       .args(["--output", "plain", "add"])
       .args(args)
       .assert()
+  }
+
+  #[cfg(unix)]
+  fn add_on_terminal(&self, args: &[&str], keys: &[u8]) -> std::process::Output {
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
+    command
+      .current_dir(self.dir.path())
+      .env("MOONLIT_HOME", self.home.path())
+      .env("MOONLIT_CACHE_DIR", self.cache.path())
+      .args(["--output", "plain", "add"])
+      .args(args);
+    terminal::run_on_terminal(command, keys)
   }
 }
 
@@ -314,5 +329,46 @@ fn add_refuses_plain_http_to_a_remote_registry() {
     .code(2)
     .stderr(contains("http://registry.invalid"));
 
+  assert_eq!(project.release(), RELEASE);
+}
+
+#[cfg(unix)]
+#[test]
+fn on_a_terminal_yes_to_the_optional_grant_and_the_write_adds_both_grants() {
+  let project = Project::new(RELEASE);
+
+  let output = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yy");
+
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(0), "{stdout}");
+  assert!(stdout.contains("Added test-plugin to release.yml."), "{stdout}");
+  let release = project.release();
+  assert!(release.contains("network: [\"api.example.com\"]"), "{release}");
+  assert!(release.contains("exec: [\"git\"]"), "{release}");
+}
+
+#[cfg(unix)]
+#[test]
+fn on_a_terminal_no_to_the_write_changes_nothing() {
+  let project = Project::new(RELEASE);
+
+  let output = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yn");
+
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(1), "{stdout}");
+  assert!(stdout.ends_with("Nothing changed.\n"), "{stdout}");
+  assert_eq!(project.release(), RELEASE);
+}
+
+#[cfg(unix)]
+#[test]
+fn on_a_terminal_ctrl_c_at_a_prompt_changes_nothing() {
+  let project = Project::new(RELEASE);
+
+  let output = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"\x03");
+
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(1), "{stdout}");
+  assert!(stdout.ends_with("Nothing changed.\n"), "{stdout}");
   assert_eq!(project.release(), RELEASE);
 }

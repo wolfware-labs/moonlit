@@ -236,3 +236,39 @@ fn search_refuses_plain_http_to_a_remote_registry() {
     .stderr(contains("http://registry.invalid"))
     .stderr(contains("https://"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn search_colors_badges_by_status_only_in_pretty_output() {
+  let server = MockServer::start().await;
+  mount(
+    &server,
+    "packages(",
+    json!({ "packages": { "items": [
+      { "orgSlug": "wolfware", "name": "good", "description": null,
+        "latestVersion": null, "status": "VERIFIED", "middlewares": [] },
+      { "orgSlug": "wolfware", "name": "bad", "description": null,
+        "latestVersion": null, "status": "FAILED", "middlewares": [] },
+      { "orgSlug": "wolfware", "name": "new", "description": null,
+        "latestVersion": null, "status": "PENDING", "middlewares": [] }
+    ], "cursor": null } }),
+  )
+  .await;
+  let colored = |output: &str| {
+    let assert = Command::cargo_bin("moonlit")
+      .unwrap()
+      .env("CLICOLOR_FORCE", "1")
+      .env_remove("NO_COLOR")
+      .args(["search", "x", "--registry", &server.uri(), "--output", output])
+      .assert()
+      .success();
+    String::from_utf8(assert.get_output().stdout.clone()).unwrap()
+  };
+
+  let pretty = colored("pretty");
+  assert!(pretty.contains("\u{1b}[32m✓ verified"), "{pretty:?}");
+  assert!(pretty.contains("\u{1b}[31mfailed"), "{pretty:?}");
+  assert!(pretty.contains("\u{1b}[2mpending"), "{pretty:?}");
+
+  let plain = colored("plain");
+  assert!(!plain.contains('\u{1b}'), "{plain:?}");
+}
