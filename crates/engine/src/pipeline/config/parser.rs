@@ -644,6 +644,29 @@ mod tests {
   }
 
   #[test]
+  fn plugin_span_ends_where_its_last_value_ends() {
+    let stages = "stages:\n  s:\n    - run: a.go\n";
+    for (body, end) in [
+      ("    permissions:\n      exec:\n        - git\n  # trailing\n", "- git"),
+      ("    config: {x: 1}  # c\n", "{x: 1}"),
+      ("    config:\n      note: |+\n        a\n\n\n", "a\n\n"),
+    ] {
+      let yaml = format!("plugins:\n  - name: a\n    url: file://a.wasm\n{body}{stages}");
+      let config = parse(&yaml);
+      let span = config.plugins.value[0].span;
+      assert!(yaml[span.start..span.end].ends_with(end), "{:?}", &yaml[span.start..span.end]);
+    }
+  }
+
+  #[test]
+  fn flow_plugin_span_starts_at_its_brace() {
+    let yaml = "name: a-\nplugins: [{name: a, url: file://a.wasm}]\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let span = config.plugins.value[0].span;
+    assert!(yaml[span.start..].starts_with("{name: a"), "{:?}", &yaml[span.start..]);
+  }
+
+  #[test]
   fn unvalidated_parse_accepts_a_stage_running_an_undeclared_plugin() {
     let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: b.go\n";
     assert!(parse_config(yaml, "release.yml").is_err());

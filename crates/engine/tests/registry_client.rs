@@ -177,6 +177,18 @@ async fn newest_compatible_ignores_prereleases_unless_asked() {
     .unwrap();
   assert_eq!(found.version, "1.0.0");
 
+  let from_stable = VersionRule {
+    current: Some(semver::Version::parse("1.0.0").unwrap()),
+    cross_major: true,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", from_stable)
+    .await
+    .unwrap()
+    .unwrap();
+  assert_eq!(found.version, "1.0.0");
+
   let pre = VersionRule {
     current: None,
     cross_major: true,

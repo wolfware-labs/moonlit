@@ -35,13 +35,20 @@ impl OciClient {
   }
 
   fn with_config(protocol: ClientProtocol, connect: Duration, read: Duration) -> Self {
-    let config = ClientConfig {
-      protocol,
-      connect_timeout: Some(connect),
-      read_timeout: Some(read),
-      ..Default::default()
-    };
-    Self(Client::try_from(config).expect("the OCI client builds with static timeouts and the default TLS backend"))
+    Self(
+      Client::try_from(client_config(protocol, connect, read))
+        .expect("the OCI client builds with static timeouts and the default TLS backend"),
+    )
+  }
+}
+
+#[must_use]
+pub(crate) fn client_config(protocol: ClientProtocol, connect: Duration, read: Duration) -> ClientConfig {
+  ClientConfig {
+    protocol,
+    connect_timeout: Some(connect),
+    read_timeout: Some(read),
+    ..Default::default()
   }
 }
 
@@ -92,5 +99,17 @@ impl OciClient {
       OciDistributionError::RequestError(e) if e.is_connect() || e.is_timeout() || e.is_request() => ResolveError::Network(msg),
       _ => ResolveError::Registry(msg),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn client_config_sets_both_timeouts() {
+    let config = client_config(ClientProtocol::default(), CONNECT_TIMEOUT, READ_TIMEOUT);
+    assert_eq!(config.connect_timeout, Some(CONNECT_TIMEOUT));
+    assert_eq!(config.read_timeout, Some(READ_TIMEOUT));
   }
 }

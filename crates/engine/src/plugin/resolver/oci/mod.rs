@@ -1,5 +1,5 @@
 pub mod auth;
-mod client;
+pub(crate) mod client;
 
 use crate::cache::{Cache, PluginMeta};
 use crate::plugin::resolver::oci::client::OciClient;

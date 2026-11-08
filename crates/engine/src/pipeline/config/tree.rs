@@ -290,6 +290,12 @@ mod tests {
   }
 
   #[test]
+  fn a_quoted_scalar_ends_at_its_closing_quote_before_a_comment() {
+    assert_eq!(value_text("k: \"a\\\"b\"  # c\nz: 1\n"), "\"a\\\"b\"");
+    assert_eq!(value_text("k: 'a\\'  # c\nz: 1\n"), "'a\\'");
+  }
+
+  #[test]
   fn a_single_quoted_scalar_spans_through_a_doubled_quote() {
     assert_eq!(value_text("k: 'it''s'\nz: 1\n"), "'it''s'");
   }
@@ -308,6 +314,7 @@ mod tests {
     assert_eq!(value_text("k: |+\n  a\n\n\nz: 1\n"), "a\n\n");
     assert_eq!(value_text("k: |+\n  a\n    \n\n"), "a\n    \n");
     assert_eq!(value_text("k: |+\n  a\nz: 1\n"), "a");
+    assert_eq!(value_text("k: |+\n  a\n\nz: 1\n"), "a\n");
   }
 
   fn value_texts(yaml: &str) -> Vec<(String, String)> {
