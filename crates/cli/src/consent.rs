@@ -214,6 +214,9 @@ mod tests {
     assert!(out.contains("api.github.com, uploads.github.com"));
     assert!(out.contains("\"Creates the release and uploads its assets.\""));
     assert!(out.contains("read-only"));
+    assert!(out.contains("  🌐 Connect to the internet"), "{out}");
+    assert!(out.contains("  🔑 Read environment variables"), "{out}");
+    assert!(out.contains("  📁 Read files in your project"), "{out}");
     assert_eq!(out.matches("⚠ may include secrets").count(), 1);
     let lines: Vec<&str> = out.lines().collect();
     let env = lines.iter().position(|l| l.contains("Read environment variables")).unwrap();
@@ -295,6 +298,34 @@ mod tests {
       assert!(after.starts_with("  "), "{line}");
       assert!(after.trim_start().starts_with(value), "{line}");
     }
+  }
+
+  #[test]
+  fn values_line_up_two_spaces_after_the_longest_sentence() {
+    let p = perm(PermissionKind::FilesystemWrite, &[], "Why.", false);
+    let out = render(&view(vec![&p], vec![]), false);
+    assert!(
+      out.contains("  📁 Read and change files in your project  read-write\n"),
+      "{out}"
+    );
+  }
+
+  #[test]
+  fn only_secret_like_env_values_carry_the_secret_warning() {
+    let env = perm(PermissionKind::Env, &["HOME"], "Why.", false);
+    let network = perm(PermissionKind::Network, &["TOKEN.example.com"], "Why.", false);
+    let out = render(&view(vec![&env, &network], vec![]), false);
+    assert!(!out.contains("may include secrets"), "{out}");
+  }
+
+  #[test]
+  fn colored_badge_is_green_only_when_verified() {
+    let verified = render(&view(vec![], vec![]), true);
+    assert!(verified.contains("\u{1b}[32m✓ verified"), "{verified:?}");
+    let mut pending = view(vec![], vec![]);
+    pending.status = Some(VerificationStatus::Pending);
+    let pending = render(&pending, true);
+    assert!(pending.contains("\u{1b}[2mpending"), "{pending:?}");
   }
 
   #[test]

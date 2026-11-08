@@ -130,7 +130,7 @@ pub fn render_diff(before: &str, after: &str) -> String {
     if i < a.len() && j < b.len() && a[i] == b[j] {
       i += 1;
       j += 1;
-    } else if j == b.len() || (i < a.len() && common[i + 1][j] >= common[i][j + 1]) {
+    } else if j == b.len() || (i < a.len() && common[i + 1][j] == common[i][j]) {
       out.push(format!("  - {}\n", a[i]));
       i += 1;
     } else {
@@ -279,7 +279,7 @@ fn key_column(content: &str, item_start: usize) -> usize {
       _ => return column(content, item_start + 1 + i),
     }
   }
-  col + 2
+  col
 }
 
 #[must_use]
@@ -789,5 +789,69 @@ stages:
   fn diff_shows_removed_then_added_lines() {
     let diff = render_diff("a\nb\nc\n", "a\nB\nc\n");
     assert_eq!(diff, "  - b\n  + B\n");
+  }
+
+  #[test]
+  fn diff_lists_lines_removed_at_the_end() {
+    assert_eq!(render_diff("a\nb\nc\n", "a\n"), "  - b\n  - c\n");
+  }
+
+  #[test]
+  fn diff_keeps_the_longest_run_of_common_lines() {
+    assert_eq!(render_diff("a\nb\nc\n", "b\nc\nd\n"), "  - a\n  + d\n");
+    assert_eq!(render_diff("a\na\n", "b\na\na\n"), "  + b\n");
+    assert_eq!(render_diff("a\na\n", "b\na\n"), "  - a\n  + b\n");
+    assert_eq!(render_diff("a\nb\na\n", "c\na\n"), "  - a\n  - b\n  + c\n");
+    assert_eq!(render_diff("x\na\nb\n", "a\nb\nx\n"), "  - x\n  + x\n");
+    assert_eq!(render_diff("a\nb\n", "b\na\n"), "  - a\n  + a\n");
+    assert_eq!(render_diff("a\nx\nb\ny\n", "x\na\ny\nb\n"), "  - a\n  - b\n  + a\n  + b\n");
+    assert_eq!(
+      render_diff("p\nq\nr\ns\n", "q\np\ns\nr\nt\n"),
+      "  - p\n  - r\n  + p\n  + r\n  + t\n"
+    );
+  }
+
+  #[test]
+  fn read_back_needs_both_the_name_and_the_url() {
+    let granted = Permissions {
+      exec: vec!["git".into()],
+      ..Permissions::deny()
+    };
+    let err = read_back(RELEASE, RELEASE.to_string(), "git", "file://other.wasm", Some(&granted)).expect_err("other url");
+    assert!(matches!(err, ReleaseFileError::Invalid(_)), "{err:?}");
+  }
+
+  #[test]
+  fn outside_entry_ignores_a_position_past_the_last_plugin() {
+    let content = "plugins:\n  - name: a\n    url: file://a.wasm\n";
+    let (rest, entry) = outside_entry(content, Some(1)).expect("parses");
+    assert_eq!(entry, None);
+    assert_eq!(rest, serde_yaml_ng::from_str::<Value>(content).unwrap());
+  }
+
+  #[test]
+  fn add_to_a_file_without_a_final_newline_starts_a_new_line() {
+    let item = "  - name: b\n    url: file://b.wasm\n    permissions: {}\n";
+    let out = add_plugin("name: demo", &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(out, format!("name: demo\nplugins:\n{item}"));
+    let out = add_plugin("", &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(out, format!("plugins:\n{item}"));
+    let last = "plugins:\n  - name: a\n    url: file://a.wasm";
+    let out = add_plugin(last, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(out, format!("{last}\n{item}"));
+    let stages = "\nstages:\n  s:\n    - run: a.go";
+    let middle = format!("{last}{stages}");
+    let out = add_plugin(&middle, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(out, format!("{last}\n{}{stages}", item.trim_end_matches('\n')));
+  }
+
+  #[test]
+  fn add_after_an_item_with_a_comment_further_after_the_dash() {
+    let input = "plugins:\n  -   # note\n    name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n";
+    let out = add_plugin(input, &entry("b", "file://b.wasm")).expect("added");
+    assert_eq!(
+      out,
+      "plugins:\n  -   # note\n    name: a\n    url: file://a.wasm\n  - name: b\n    url: file://b.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
+    );
   }
 }

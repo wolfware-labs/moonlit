@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use moonlit_engine::pipeline::config::{Permissions, parse_config};
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grant_missing, is_covered, uncovered_required};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
@@ -150,12 +152,10 @@ async fn plan(
   let Some(detail) = detail else {
     return Ok(Planned::NoCompatibleUpdate);
   };
-  let found = Version::parse(&detail.version);
-  if found.as_ref().is_ok_and(|v| v == current) {
-    return Ok(Planned::UpToDate);
-  }
-  if !found.is_ok_and(|v| v > *current) {
-    return Ok(Planned::NoCompatibleUpdate);
+  match Version::parse(&detail.version).map(|found| found.cmp(current)) {
+    Ok(Ordering::Greater) => {}
+    Ok(Ordering::Equal) => return Ok(Planned::UpToDate),
+    _ => return Ok(Planned::NoCompatibleUpdate),
   }
   let url = reference.with_tag(&detail.version);
   let probed = match probe(&url).await {

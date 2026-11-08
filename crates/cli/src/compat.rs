@@ -213,6 +213,8 @@ mod tests {
     );
     let older = render(&[(plugin(Some("moonlit:plugin@0.3.0")), Suggestion::RegistryUnavailable)]);
     assert!(!older.contains("upgrade the CLI"), "{older}");
+    let same = render(&[(plugin(Some("moonlit:plugin@0.4.0")), Suggestion::RegistryUnavailable)]);
+    assert!(!same.contains("upgrade the CLI"), "{same}");
   }
 
   #[test]
@@ -315,6 +317,38 @@ mod tests {
       let line = hint(suggestion, "moonlit:plugin@0.4.0").unwrap_or_default();
       assert!(line.starts_with("the registry answered with an error: "), "{suggestion:?}");
       assert!(line.contains("500"), "{line}");
+    }
+  }
+
+  #[tokio::test]
+  async fn each_plugin_is_asked_at_its_own_registry() {
+    use std::time::Duration;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let mut servers = Vec::new();
+    for _ in 0..2 {
+      let server = MockServer::start().await;
+      Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&server)
+        .await;
+      servers.push(server);
+    }
+    let list: Vec<IncompatiblePlugin> = servers
+      .iter()
+      .map(|server| IncompatiblePlugin {
+        name: "p".to_string(),
+        url: format!("oci://{}/acme/p:1.0.0", server.address()),
+        plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
+        engine_world: "moonlit:plugin@0.4.0".to_string(),
+      })
+      .collect();
+
+    suggestions_within(&list, false, Duration::from_secs(5)).await;
+
+    for server in &servers {
+      assert_eq!(server.received_requests().await.unwrap().len(), 1);
     }
   }
 }

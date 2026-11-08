@@ -378,6 +378,59 @@ mod tests {
     }
   }
 
+  #[derive(Debug, Default, Clone)]
+  struct Screen(std::sync::Arc<std::sync::Mutex<String>>);
+
+  impl indicatif::TermLike for Screen {
+    fn width(&self) -> u16 {
+      80
+    }
+    fn move_cursor_up(&self, _: usize) -> std::io::Result<()> {
+      Ok(())
+    }
+    fn move_cursor_down(&self, _: usize) -> std::io::Result<()> {
+      Ok(())
+    }
+    fn move_cursor_right(&self, _: usize) -> std::io::Result<()> {
+      Ok(())
+    }
+    fn move_cursor_left(&self, _: usize) -> std::io::Result<()> {
+      Ok(())
+    }
+    fn write_line(&self, s: &str) -> std::io::Result<()> {
+      self.write_str(&format!("{s}\n"))
+    }
+    fn write_str(&self, s: &str) -> std::io::Result<()> {
+      self.0.lock().unwrap().push_str(s);
+      Ok(())
+    }
+    fn clear_line(&self) -> std::io::Result<()> {
+      Ok(())
+    }
+    fn flush(&self) -> std::io::Result<()> {
+      Ok(())
+    }
+  }
+
+  #[test]
+  fn step_logs_print_and_debug_ones_only_when_verbose() {
+    for verbose in [false, true] {
+      let screen = Screen::default();
+      let mut r = PrettyRenderer::new(verbose);
+      r.mp = MultiProgress::with_draw_target(indicatif::ProgressDrawTarget::term_like(Box::new(screen.clone())));
+      for (level, message) in [(LogLevel::Info, "shown"), (LogLevel::Debug, "detail")] {
+        r.handle(&PipelineEvent::StepLog {
+          step: "s1".into(),
+          level,
+          message: message.into(),
+        });
+      }
+      let text = screen.0.lock().unwrap().clone();
+      assert!(text.contains("s1: shown"), "{text:?}");
+      assert_eq!(text.contains("s1: detail"), verbose, "{text:?}");
+    }
+  }
+
   #[test]
   fn percent_is_a_ratio_of_received_over_total() {
     assert!((percent(25, 100) - 25.0).abs() < f64::EPSILON);

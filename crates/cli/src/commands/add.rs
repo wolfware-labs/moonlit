@@ -148,12 +148,8 @@ async fn registry_version(
   version: Option<&str>,
 ) -> Result<VersionDetail, String> {
   let Some(version) = version else {
-    let rule = VersionRule {
-      cross_major: true,
-      ..VersionRule::default()
-    };
     return client
-      .newest_compatible(org, name, PLUGIN_WORLD, rule)
+      .newest_compatible(org, name, PLUGIN_WORLD, VersionRule::default())
       .await
       .map_err(|e| e.to_string())?
       .ok_or_else(|| format!("no version of {org}/{name} in the registry supports {PLUGIN_WORLD}"));
@@ -189,5 +185,13 @@ mod tests {
     assert_eq!(oci_host("registry.moonlit.rs"), "registry.moonlit.rs");
     assert_eq!(oci_host("https://registry.moonlit.rs/graphql"), "registry.moonlit.rs");
     assert_eq!(oci_host("http://127.0.0.1:5185"), "127.0.0.1:5185");
+  }
+
+  #[test]
+  fn same_plugin_needs_the_same_host_org_and_name() {
+    assert!(same_plugin("oci://h/o/n:1.0.0", "oci://h/o/n:2.0.0"));
+    assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://g/o/n:1.0.0"));
+    assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/p/n:1.0.0"));
+    assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/o/m:1.0.0"));
   }
 }
