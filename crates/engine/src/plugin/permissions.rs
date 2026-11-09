@@ -1,5 +1,5 @@
 use crate::pipeline::config::{FilesystemAccess, Permissions};
-use crate::plugin::host::{exec_globset, network_globset};
+use crate::plugin::host::{build_globset, exec_globset, network_globset};
 use crate::sanitize::quote_list;
 use globset::GlobSet;
 use serde::Serialize;
@@ -154,13 +154,10 @@ pub fn optional_for_target<'a>(
   kind: PermissionKind,
   target: &str,
 ) -> Option<&'a DeclaredPermission> {
-  declared.iter().filter(|p| p.optional && p.kind == kind).find(|p| {
-    let set = match kind {
-      PermissionKind::Network => network_globset(&p.values),
-      _ => exec_globset(&p.values),
-    };
-    set.is_match(target)
-  })
+  declared
+    .iter()
+    .filter(|p| p.optional && p.kind == kind)
+    .find(|p| build_globset(&p.values).is_match(target))
 }
 
 #[cfg(test)]

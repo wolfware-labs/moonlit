@@ -4,7 +4,7 @@ use globset::{Glob, GlobSet, GlobSetBuilder};
 use wasmtime_wasi::{FsPerms, WasiCtx, WasiCtxBuilder};
 
 #[must_use]
-fn build_globset(patterns: &[String]) -> GlobSet {
+pub fn build_globset(patterns: &[String]) -> GlobSet {
   let mut b = GlobSetBuilder::new();
   for p in patterns {
     if let Ok(g) = Glob::new(p) {
