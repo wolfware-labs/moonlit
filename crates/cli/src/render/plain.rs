@@ -46,12 +46,12 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
   fn handle(&mut self, event: &PipelineEvent) {
     match event {
       PipelineEvent::PluginResolving { name, .. } => {
-        let _ = writeln!(self.out, "resolving {name}");
+        let _ = writeln!(self.out, "resolving {}", display_safe(name));
       }
       PipelineEvent::PluginPullProgress { .. } => {}
       PipelineEvent::PluginReady { name, version, cached } => {
         let how = if *cached { "cached" } else { "pulled" };
-        let _ = writeln!(self.out, "ready {name} {} ({how})", display_safe(version));
+        let _ = writeln!(self.out, "ready {} {} ({how})", display_safe(name), display_safe(version));
       }
       PipelineEvent::StepStarted {
         index,
@@ -191,8 +191,12 @@ mod tests {
     let text = render(
       false,
       &[
+        PipelineEvent::PluginResolving {
+          name: "rp\u{1b}[8m".into(),
+          url: "oci://h/o/rp:1.0.0".into(),
+        },
         PipelineEvent::PluginReady {
-          name: "tp".into(),
+          name: "tp\u{1b}[8m".into(),
           version: "1.0\u{1b}[2K".into(),
           cached: true,
         },
@@ -209,7 +213,13 @@ mod tests {
       ],
     );
     assert!(!text.contains('\u{1b}'), "{text:?}");
-    for expected in ["1.0\\x1b[2K", "log\\x1b[2K", "progress\\x1b[2K", "warn\\x1b[2K"] {
+    for expected in [
+      "resolving rp\\x1b[8m",
+      "ready tp\\x1b[8m 1.0\\x1b[2K",
+      "log\\x1b[2K",
+      "progress\\x1b[2K",
+      "warn\\x1b[2K",
+    ] {
       assert!(text.contains(expected), "missing {expected:?} in {text:?}");
     }
   }

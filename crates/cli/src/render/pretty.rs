@@ -78,7 +78,7 @@ impl Renderer for PrettyRenderer {
       PipelineEvent::PluginResolving { name, .. } => {
         let pb = self.mp.add(ProgressBar::new_spinner());
         pb.set_style(Self::spinner_style());
-        pb.set_message(format!("resolving {name}"));
+        pb.set_message(format!("resolving {}", display_safe(name)));
         pb.enable_steady_tick(std::time::Duration::from_millis(100));
         self.plugins.insert(name.clone(), pb);
       }
@@ -180,7 +180,12 @@ fn progress_text(message: &str) -> String {
 
 #[must_use]
 fn ready_text(name: &str, version: &str, how: &str) -> String {
-  format!("{} {name} {} ({how})", style("✔").green(), display_safe(version))
+  format!(
+    "{} {} {} ({how})",
+    style("✔").green(),
+    display_safe(name),
+    display_safe(version)
+  )
 }
 
 #[must_use]
@@ -370,9 +375,9 @@ mod tests {
       r.log_text("s1", LogLevel::Info, "log\u{1b}[2K").expect("shown"),
       progress_text("progress\u{1b}[2K"),
       warning_text("s1", "warn\u{1b}[2K"),
-      ready_text("tp", "1.0\u{1b}[2K", "cached"),
+      ready_text("tp\u{1b}[8m", "1.0\u{1b}[2K", "cached"),
     ];
-    for (text, expected) in texts.iter().zip(["log", "progress", "warn", "1.0"]) {
+    for (text, expected) in texts.iter().zip(["log", "progress", "warn", "tp\\x1b[8m 1.0"]) {
       assert!(!text.contains('\u{1b}'), "{text:?}");
       assert!(text.contains(&format!("{expected}\\x1b[2K")), "{text:?}");
     }

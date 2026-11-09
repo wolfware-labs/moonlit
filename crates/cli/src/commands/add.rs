@@ -169,9 +169,14 @@ async fn registry_version(
 }
 
 fn oci_host(registry: &str) -> &str {
-  let rest = registry
-    .strip_prefix("https://")
-    .or_else(|| registry.strip_prefix("http://"))
+  let rest = ["https://", "http://"]
+    .iter()
+    .find_map(|scheme| {
+      registry
+        .get(..scheme.len())
+        .filter(|head| head.eq_ignore_ascii_case(scheme))
+        .map(|_| &registry[scheme.len()..])
+    })
     .unwrap_or(registry);
   rest.split('/').next().unwrap_or(rest)
 }
@@ -185,6 +190,8 @@ mod tests {
     assert_eq!(oci_host("registry.moonlit.rs"), "registry.moonlit.rs");
     assert_eq!(oci_host("https://registry.moonlit.rs/graphql"), "registry.moonlit.rs");
     assert_eq!(oci_host("http://127.0.0.1:5185"), "127.0.0.1:5185");
+    assert_eq!(oci_host("HTTPS://registry.moonlit.rs/graphql"), "registry.moonlit.rs");
+    assert_eq!(oci_host("Http://127.0.0.1:5185"), "127.0.0.1:5185");
   }
 
   #[test]
