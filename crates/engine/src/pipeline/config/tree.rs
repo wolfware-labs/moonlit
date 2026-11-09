@@ -367,4 +367,9 @@ mod tests {
     assert_eq!(value_text("k: [a, b]\nz: 1\n"), "[a, b]");
     assert_eq!(value_text("k: [a, b]"), "[a, b]");
   }
+
+  #[test]
+  fn an_unquoted_span_keeps_its_end() {
+    assert_eq!(quoted_end("abc", Span::new(0, 3)), 3);
+  }
 }

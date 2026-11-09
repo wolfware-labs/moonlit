@@ -194,4 +194,10 @@ mod tests {
     assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/p/n:1.0.0"));
     assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/o/m:1.0.0"));
   }
+
+  #[test]
+  fn other_clashes_keep_their_message() {
+    let e = ReleaseFileError::Invalid("broken".to_string());
+    assert_eq!(clash_message(&e, "file://x.wasm"), e.to_string());
+  }
 }

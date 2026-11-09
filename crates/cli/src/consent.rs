@@ -334,4 +334,15 @@ mod tests {
     assert!(out.contains("This plugin needs no permissions."));
     assert!(!out.contains("wants to"));
   }
+
+  #[test]
+  fn only_optional_permissions_skip_the_required_heading() {
+    let optional = perm(PermissionKind::Network, &["api.example.com"], "Why.", true);
+    let mut unverified = view(vec![], vec![&optional]);
+    unverified.status = Some(VerificationStatus::Unverified);
+    let out = render(&unverified, false);
+    assert!(out.contains("Optional:"), "{out}");
+    assert!(!out.contains("wants to"), "{out}");
+    assert!(out.contains("unverified"), "{out}");
+  }
 }

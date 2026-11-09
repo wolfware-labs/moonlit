@@ -435,4 +435,16 @@ mod tests {
   fn percent_is_a_ratio_of_received_over_total() {
     assert!((percent(25, 100) - 25.0).abs() < f64::EPSILON);
   }
+
+  #[test]
+  fn screen_ignores_cursor_moves_and_records_lines() {
+    use indicatif::TermLike;
+    let screen = Screen::default();
+    screen.move_cursor_down(1).unwrap();
+    screen.move_cursor_right(1).unwrap();
+    screen.move_cursor_left(1).unwrap();
+    screen.clear_line().unwrap();
+    screen.write_line("a").unwrap();
+    assert_eq!(*screen.0.lock().unwrap(), "a\n");
+  }
 }

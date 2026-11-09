@@ -151,4 +151,9 @@ mod tests {
     assert!(pinned.is_digest());
     assert!(!r.is_digest());
   }
+
+  #[test]
+  fn registry_ref_refuses_a_nested_name() {
+    assert!(registry_ref("oci://h.io/acme/x/y:1.0.0").is_none());
+  }
 }

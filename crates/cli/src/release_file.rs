@@ -854,4 +854,17 @@ stages:
       "plugins:\n  -   # note\n    name: a\n    url: file://a.wasm\n  - name: b\n    url: file://b.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
     );
   }
+
+  #[test]
+  fn a_document_that_is_not_a_map_has_no_entry() {
+    let (document, entry) = outside_entry("- a\n", Some(0)).expect("parsed");
+    assert!(document.is_sequence(), "{document:?}");
+    assert!(entry.is_none());
+  }
+
+  #[test]
+  fn key_column_of_a_flow_item_or_a_bare_dash_is_its_own_column() {
+    assert_eq!(key_column("  {name: a}", 2), 2);
+    assert_eq!(key_column("  -  # c\n", 2), 2);
+  }
 }

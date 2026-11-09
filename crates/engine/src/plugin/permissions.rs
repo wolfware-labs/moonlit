@@ -324,4 +324,12 @@ mod tests {
       "read and change files in your project"
     );
   }
+
+  #[test]
+  fn read_grant_line_and_env_grants() {
+    let line = decl(PermissionKind::FilesystemRead, &[], false).yaml_line();
+    assert!(line.ends_with(": read-only"), "{line}");
+    let grants = grants_for(&[decl(PermissionKind::Env, &["A", "A", "B"], false)], &|_| false);
+    assert_eq!(grants.env, ["A", "B"]);
+  }
 }

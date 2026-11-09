@@ -140,4 +140,11 @@ mod tests {
     assert!(p.env.is_empty());
     assert_eq!(p.filesystem, FilesystemAccess::None);
   }
+
+  #[test]
+  fn filesystem_access_is_written_as_in_the_release_file() {
+    assert_eq!(FilesystemAccess::None.as_str(), "none");
+    assert_eq!(FilesystemAccess::ReadOnly.as_str(), "read-only");
+    assert_eq!(FilesystemAccess::ReadWrite.as_str(), "read-write");
+  }
 }

@@ -110,4 +110,9 @@ mod tests {
   fn line_variant_escapes_newline_and_tab() {
     assert_eq!(display_safe("a\nb\tc"), "a\\x0ab\\x09c");
   }
+
+  #[test]
+  fn quote_escapes_carriage_return_and_tab() {
+    assert_eq!(quote("a\rb\tc"), "\"a\\rb\\tc\"");
+  }
 }

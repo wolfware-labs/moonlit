@@ -115,4 +115,15 @@ mod tests {
     assert_eq!(LogLevel::from(WitLogLevel::Warn), LogLevel::Warn);
     assert_eq!(LogLevel::from(WitLogLevel::Error), LogLevel::Error);
   }
+
+  #[test]
+  fn every_guest_permission_kind_maps_to_the_engine_kind() {
+    use crate::plugin::permissions::PermissionKind;
+    use moonlit::plugin::types::PermissionKind as Wit;
+    assert_eq!(PermissionKind::from(Wit::Network), PermissionKind::Network);
+    assert_eq!(PermissionKind::from(Wit::Exec), PermissionKind::Exec);
+    assert_eq!(PermissionKind::from(Wit::Env), PermissionKind::Env);
+    assert_eq!(PermissionKind::from(Wit::FilesystemRead), PermissionKind::FilesystemRead);
+    assert_eq!(PermissionKind::from(Wit::FilesystemWrite), PermissionKind::FilesystemWrite);
+  }
 }

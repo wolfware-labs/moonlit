@@ -451,3 +451,62 @@ async fn update_on_a_terminal_keeps_the_version_when_the_new_grant_is_refused() 
   assert!(stdout.contains("test-plugin: 1.0.0 → 1.1.0"), "{stdout}");
   assert!(project.release().contains("test-plugin:1.1.0"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_refuses_a_plugin_name_that_is_not_declared() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm")]).await;
+  let project = Project::new(&server, "1.0.0", "");
+
+  project
+    .update(&["nope"])
+    .code(2)
+    .stderr(contains("no plugin named 'nope' is declared"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_skips_a_plugin_from_a_file_and_refuses_it_by_name() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.0.1", "pdk_sample.wasm")]).await;
+  let project = Project::new(&server, "1.0.0", "");
+  let release = project
+    .release()
+    .replace("\nstages:", "  - name: local\n    url: file:///plugins/local.wasm\n\nstages:");
+  fs::write(project.dir.path().join("release.yml"), &release).unwrap();
+
+  project
+    .update(&["local"])
+    .code(2)
+    .stderr(contains("'local' does not come from a registry"));
+  assert_eq!(project.release(), release);
+
+  project
+    .update(&["--file-path", "./release.yml"])
+    .success()
+    .stdout(contains("test-plugin: 1.0.0 → 1.0.1"));
+  assert_eq!(project.release(), release.replace("test-plugin:1.0.0", "test-plugin:1.0.1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_ignores_a_registry_answer_older_than_the_current_version() {
+  let server = MockServer::start().await;
+  mount(
+    &server,
+    &["query versions("],
+    json!({ "package": { "versions": [{ "version": "1.0.1", "yanked": false, "status": "VERIFIED" }] } }),
+  )
+  .await;
+  mount(
+    &server,
+    &["query packageVersion("],
+    json!({ "packageVersion": { "version": "0.9.0", "worldVersion": WORLD, "status": "VERIFIED", "middlewares": [] } }),
+  )
+  .await;
+  let project = Project::new(&server, "1.0.0", "");
+  let before = project.release();
+
+  project
+    .update(&[])
+    .success()
+    .stdout(contains("test-plugin: no newer compatible version"));
+
+  assert_eq!(project.release(), before);
+}

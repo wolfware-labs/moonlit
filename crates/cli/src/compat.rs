@@ -351,4 +351,47 @@ mod tests {
       assert_eq!(server.received_requests().await.unwrap().len(), 1);
     }
   }
+
+  #[test]
+  fn an_unknown_plugin_world_does_not_ask_for_a_cli_upgrade() {
+    let text = render(&[(plugin(None), Suggestion::RegistryUnavailable)]);
+    assert!(!text.contains("upgrade the CLI"), "{text}");
+  }
+
+  #[tokio::test]
+  async fn offline_lookups_are_unavailable_and_bad_hosts_are_errors() {
+    let registry_plugin = |host: &str| IncompatiblePlugin {
+      url: format!("oci://{host}/acme/p:1.0.0"),
+      ..plugin(Some("moonlit:plugin@0.3.0"))
+    };
+    let offline = suggestions(&[registry_plugin("registry.moonlit.rs")], true).await;
+    assert_eq!(offline[0].1, Suggestion::RegistryUnavailable);
+    let bad_port = suggestions(&[registry_plugin("localhost:99999")], false).await;
+    assert!(
+      matches!(&bad_port[0].1, Suggestion::RegistryError { text } if text.contains("localhost:99999")),
+      "{:?}",
+      bad_port[0].1
+    );
+  }
+
+  #[tokio::test]
+  async fn a_package_without_versions_has_none_compatible() {
+    use std::time::Duration;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+      .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "data": { "package": { "versions": [] } } })))
+      .mount(&server)
+      .await;
+    let list = [IncompatiblePlugin {
+      url: format!("oci://{}/acme/p:1.0.0", server.address()),
+      ..plugin(Some("moonlit:plugin@0.3.0"))
+    }];
+
+    let entries = suggestions_within(&list, false, Duration::from_secs(5)).await;
+
+    assert_eq!(entries[0].1, Suggestion::NoneCompatible);
+  }
 }

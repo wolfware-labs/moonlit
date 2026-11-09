@@ -374,3 +374,21 @@ async fn missing_grant_of_one_plugin_stops_init_of_every_plugin() {
   assert_eq!(found.len(), 1);
   assert!(found[0].message().starts_with("plugin 'bare'"), "{}", found[0].message());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_file_that_is_not_a_component_is_exit_3_plugin_load() {
+  let eng = Engine::new(EngineSettings::default()).unwrap();
+  let (tx, _rx) = channel(64);
+  let dir = tempfile::tempdir().unwrap();
+  let path = dir.path().join("plugin.wasm");
+  std::fs::write(&path, "not a component").unwrap();
+  let yaml = format!(
+    "name: d\nplugins:\n  - name: tp\n    url: file://{}\nstages:\n  b:\n    - name: s\n      run: tp.x\n",
+    path.display()
+  );
+  let Err(err) = Pipeline::load(&eng, &manifest(&yaml), opts(), &tx).await else {
+    panic!("must fail");
+  };
+  assert_eq!(err.exit_code(), 3);
+  assert!(matches!(err, PipelineError::PluginLoad { .. }), "{err:?}");
+}

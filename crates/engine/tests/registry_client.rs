@@ -501,3 +501,30 @@ async fn a_redirect_to_another_loopback_url_is_followed() {
 
   assert!(versions.is_empty(), "{versions:?}");
 }
+
+#[tokio::test]
+async fn a_json_body_without_data_or_errors_is_not_a_registry() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+    .mount(&server)
+    .await;
+
+  let err = client(&server).versions("acme", "x").await.unwrap_err();
+
+  assert!(matches!(err, RegistryError::NotARegistry(_)), "{err:?}");
+}
+
+#[tokio::test]
+async fn a_redirect_loop_gives_up() {
+  let server = MockServer::start().await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .respond_with(ResponseTemplate::new(307).insert_header("location", format!("{}/graphql", server.uri())))
+    .mount(&server)
+    .await;
+
+  let err = client(&server).versions("acme", "x").await.unwrap_err();
+
+  assert!(matches!(err, RegistryError::Unreachable(_)), "{err:?}");
+}

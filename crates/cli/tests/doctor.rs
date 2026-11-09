@@ -654,3 +654,73 @@ fn doctor_on_a_terminal_asks_before_writing() {
   assert!(stdout.contains("test-plugin: permissions granted"), "{stdout}");
   assert!(project.release().contains("network: [\"api.example.com\"]"));
 }
+
+#[test]
+fn doctor_names_the_release_file_as_given() {
+  let project = Project::new(&entry(
+    "test-plugin",
+    &file_url("test_plugin.wasm"),
+    "    permissions:\n      network: [\"api.example.com\"]\n",
+  ));
+
+  project
+    .doctor(&["--file-path", "./release.yml"])
+    .success()
+    .stdout(contains("./release.yml looks good."));
+}
+
+#[test]
+fn doctor_reports_a_file_that_is_not_a_component() {
+  let dir = tempfile::tempdir().unwrap();
+  let path = dir.path().join("plugin.wasm");
+  fs::write(&path, "not a component").unwrap();
+  let project = Project::new(&entry("test-plugin", &format!("file://{}", path.display()), ""));
+
+  project
+    .doctor(&[])
+    .code(1)
+    .stdout(contains(format!("✗ test-plugin: cannot load 'file://{}': ", path.display())));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_reports_a_move_target_that_is_still_incompatible() {
+  let server = registry(&[
+    ("0.3.0", "test_plugin_v0_3.wasm", OLD_WORLD),
+    ("0.4.0", "test_plugin_v0_3.wasm", WORLD),
+  ])
+  .await;
+  let project = Project::new(&oci_entry(&server, "test-plugin", "0.3.0"));
+  let before = project.release();
+
+  project.doctor(&["--yes"]).code(1).stdout(contains(format!(
+    "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; 'oci://{}/acme/test-plugin:0.4.0': ",
+    server.address()
+  )));
+
+  assert_eq!(project.release(), before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn doctor_exits_3_when_the_registry_goes_away_after_the_plugin_was_cached() {
+  let server = MockServer::builder().start().await;
+  mount(&server, &["query versions("], json!({ "package": { "versions": [] } })).await;
+  let wasm = fs::read(fixture_path("test_plugin_v0_3.wasm")).unwrap();
+  oci_mock::serve_plugin(&server, "acme/test-plugin", "0.3.0", &wasm, OLD_WORLD).await;
+  let project = Project::new(&oci_entry(&server, "test-plugin", "0.3.0"));
+  let before = project.release();
+  project
+    .doctor(&[])
+    .code(1)
+    .stdout(contains("no version of this plugin supports"));
+  drop(server);
+
+  project
+    .doctor(&[])
+    .code(3)
+    .stdout(contains(format!(
+      "✗ test-plugin: built for {OLD_WORLD}, this CLI supports {WORLD}; cannot reach the registry\n"
+    )))
+    .stderr(contains("cannot reach the registry; nothing was changed"));
+
+  assert_eq!(project.release(), before);
+}

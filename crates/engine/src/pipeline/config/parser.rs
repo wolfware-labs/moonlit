@@ -1097,4 +1097,16 @@ mod tests {
     let contents = source.read_span(&(0, 1).into(), 0, 0).expect("readable source");
     assert_eq!(contents.name(), Some("release.yaml"));
   }
+
+  #[test]
+  fn plugin_span_ends_at_a_last_key_without_a_value() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let span = config.plugins.value[0].span;
+    assert!(
+      yaml[span.start..span.end].ends_with("config"),
+      "{:?}",
+      &yaml[span.start..span.end]
+    );
+  }
 }
