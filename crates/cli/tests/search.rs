@@ -179,6 +179,55 @@ async fn search_prints_the_bare_id_for_a_hit_without_a_latest_version() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn search_fetches_hit_details_concurrently_and_keeps_the_hit_order() {
+  let server = MockServer::start().await;
+  let names: Vec<String> = (0..12).map(|i| format!("p{i:02}")).collect();
+  let items: Vec<Value> = names
+    .iter()
+    .map(|n| json!({ "orgSlug": "acme", "name": n, "description": null, "latestVersion": "1.0.0", "status": "VERIFIED" }))
+    .collect();
+  mount(
+    &server,
+    "packages(",
+    json!({ "packages": { "items": items, "cursor": null } }),
+  )
+  .await;
+  for (i, name) in names.iter().enumerate() {
+    let delay = if i == 0 { 900 } else { 600 };
+    Mock::given(method("POST"))
+      .and(path("/graphql"))
+      .and(body_string_contains("packageVersion"))
+      .and(body_string_contains(format!("\"name\":\"{name}\"")))
+      .respond_with(
+        ResponseTemplate::new(200)
+          .set_delay(std::time::Duration::from_millis(delay))
+          .set_body_json(json!({ "data": { "packageVersion": {
+            "version": "1.0.0", "worldVersion": "moonlit:plugin@0.4.0", "status": "VERIFIED",
+            "middlewares": [{ "name": format!("mw-{name}"), "description": null }]
+          } } })),
+      )
+      .mount(&server)
+      .await;
+  }
+
+  let started = std::time::Instant::now();
+  let out = search(&server, "p", "json").success().get_output().stdout.clone();
+  let elapsed = started.elapsed();
+  let parsed: Value = serde_json::from_slice(&out).unwrap();
+
+  let order: Vec<&str> = parsed
+    .as_array()
+    .unwrap()
+    .iter()
+    .map(|c| c["name"].as_str().unwrap())
+    .collect();
+  assert_eq!(order, names.iter().map(String::as_str).collect::<Vec<_>>());
+  assert_eq!(parsed[0]["middlewares"][0]["name"], "mw-p00");
+  assert_eq!(parsed[11]["middlewares"][0]["name"], "mw-p11");
+  assert!(elapsed < std::time::Duration::from_secs(4), "took {elapsed:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn search_empty_result() {
   let server = MockServer::start().await;
   mount(&server, "packages(", json!({ "packages": { "items": [], "cursor": null } })).await;

@@ -15,6 +15,8 @@ const TABLE_STYLE: TableStyle = TableStyle::new()
   .content_lines(ContentLineStyle::new('│', '│', '│'))
   .bottom_border(LineStyle::new('└', '─', '┴', '┘'));
 
+const DETAIL_BATCH: usize = 10;
+
 const INCOMPATIBLE_MARKER: &str = "(not compatible with this moonlit; add picks the newest compatible version)";
 
 struct Card {
@@ -44,20 +46,34 @@ async fn search(output: Option<OutputMode>, args: &SearchArgs) -> Result<i32, i3
 async fn fetch(client: &RegistryClient, args: &SearchArgs) -> Result<Vec<Card>, RegistryError> {
   let hits = client.search(&args.query, args.limit).await?;
   let mut cards = Vec::with_capacity(hits.len());
-  for hit in hits {
-    let detail = match &hit.latest_version {
-      Some(version) => client.package_version(&hit.org, &hit.name, version).await?,
-      None => None,
-    };
-    let compatible = detail
-      .as_ref()
-      .map(|detail| detail.world_version.as_deref() == Some(PLUGIN_WORLD));
-    let middlewares = detail.map(|detail| detail.middlewares).unwrap_or_default();
-    cards.push(Card {
-      hit,
-      middlewares,
-      compatible,
-    });
+  for batch in hits.chunks(DETAIL_BATCH) {
+    let mut lookups = tokio::task::JoinSet::new();
+    for (index, hit) in batch.iter().enumerate() {
+      let (client, hit) = (client.clone(), hit.clone());
+      lookups.spawn(async move {
+        let detail = match &hit.latest_version {
+          Some(version) => client.package_version(&hit.org, &hit.name, version).await,
+          None => Ok(None),
+        };
+        (index, detail)
+      });
+    }
+    let mut details = vec![None; batch.len()];
+    while let Some(joined) = lookups.join_next().await {
+      let (index, detail) = joined.unwrap_or_else(|e| std::panic::resume_unwind(e.into_panic()));
+      details[index] = detail?;
+    }
+    for (hit, detail) in batch.iter().zip(details) {
+      let compatible = detail
+        .as_ref()
+        .map(|detail| detail.world_version.as_deref() == Some(PLUGIN_WORLD));
+      let middlewares = detail.map(|detail| detail.middlewares).unwrap_or_default();
+      cards.push(Card {
+        hit: hit.clone(),
+        middlewares,
+        compatible,
+      });
+    }
   }
   Ok(cards)
 }
