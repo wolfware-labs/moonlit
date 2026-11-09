@@ -558,4 +558,54 @@ mod tests {
     let missing = std::env::temp_dir().join("moonlit-pdk-macros-missing-icon.png");
     assert!(icon(&missing.display().to_string()).contains("cannot read icon"));
   }
+
+  fn permission(entry: proc_macro2::TokenStream) -> PermissionDecl {
+    syn::parse2::<PermissionDecl>(entry).expect("permission parses")
+  }
+
+  #[test]
+  fn each_permission_kind_maps_to_its_wit_variant() {
+    let cases = [
+      (quote! { filesystem(read_only) => "why" }, "FilesystemRead"),
+      (quote! { filesystem(read_write) => "why" }, "FilesystemWrite"),
+      (quote! { network(["a.com"]) => "why" }, "Network"),
+      (quote! { exec(["git"]) => "why" }, "Exec"),
+      (quote! { env(["HOME"]) => "why" }, "Env"),
+    ];
+    for (entry, kind) in cases {
+      assert_eq!(permission(entry).kind, kind);
+    }
+  }
+
+  #[test]
+  fn permission_entries_build_one_request_per_declaration() {
+    let decls = [
+      permission(quote! { exec(["git"]) => "runs git" }),
+      permission(quote! { optional network(["a.com"]) => "fetches" }),
+    ];
+    let entries = permission_entries(&decls);
+    assert_eq!(entries.len(), 2);
+    let exec = entries[0].to_string();
+    assert!(exec.contains("PermissionKind :: Exec"), "got: {exec}");
+    assert!(
+      exec.contains("\"git\"") && exec.contains("\"runs git\"") && exec.contains("optional : false"),
+      "got: {exec}"
+    );
+    let network = entries[1].to_string();
+    assert!(
+      network.contains("PermissionKind :: Network") && network.contains("optional : true"),
+      "got: {network}"
+    );
+  }
+
+  #[test]
+  fn expand_exports_the_component_with_its_permissions() {
+    let decl =
+      syn::parse2::<PluginDeclInput>(quote! { name: "p", middlewares: [A], permissions: [exec(["git"]) => "runs git"] })
+        .expect("declaration parses")
+        .0;
+    let expanded = expand(&decl).to_string();
+    assert!(expanded.contains("struct MoonlitComponent"), "got: {expanded}");
+    assert!(expanded.contains("PermissionKind :: Exec"), "got: {expanded}");
+  }
 }

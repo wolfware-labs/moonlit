@@ -112,4 +112,36 @@ mod tests {
     assert_eq!(config.connect_timeout, Some(CONNECT_TIMEOUT));
     assert_eq!(config.read_timeout, Some(READ_TIMEOUT));
   }
+
+  #[tokio::test]
+  async fn a_request_that_cannot_be_built_is_a_registry_error() {
+    let err = reqwest::Client::new().get("not a url").send().await.unwrap_err();
+    assert!(!err.is_connect() && !err.is_timeout() && !err.is_request());
+    let mapped = OciClient::map_oci_error(&OciDistributionError::RequestError(err));
+    assert!(matches!(mapped, ResolveError::Registry(_)), "got: {mapped:?}");
+  }
+
+  #[tokio::test]
+  async fn a_body_that_times_out_is_a_network_error() {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+      let (mut stream, _) = listener.accept().unwrap();
+      let mut buf = [0u8; 1024];
+      let _ = stream.read(&mut buf);
+      stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n").unwrap();
+      std::thread::sleep(Duration::from_secs(2));
+    });
+    let client = reqwest::Client::builder()
+      .timeout(Duration::from_millis(300))
+      .build()
+      .unwrap();
+    let response = client.get(format!("http://{addr}/")).send().await.unwrap();
+    let err = response.bytes().await.unwrap_err();
+    assert!(err.is_timeout() && !err.is_connect() && !err.is_request());
+    let mapped = OciClient::map_oci_error(&OciDistributionError::RequestError(err));
+    assert!(matches!(mapped, ResolveError::Network(_)), "got: {mapped:?}");
+    server.join().unwrap();
+  }
 }
