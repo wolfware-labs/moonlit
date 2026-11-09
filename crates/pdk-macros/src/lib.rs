@@ -490,6 +490,17 @@ mod tests {
   }
 
   #[test]
+  fn extra_tokens_after_a_permission_argument_are_rejected() {
+    for entry in [
+      quote! { filesystem(read_only, read_write) => "why" },
+      quote! { network(["a.com"], ["b.com"]) => "why" },
+    ] {
+      let message = permission_error(&entry);
+      assert!(message.contains("unexpected token"), "got: {message}");
+    }
+  }
+
+  #[test]
   fn a_filesystem_argument_must_be_read_only_or_read_write() {
     let message = permission_error(&quote! { filesystem(everything) => "why" });
     assert!(message.contains("filesystem takes read_only or read_write"), "got: {message}");
