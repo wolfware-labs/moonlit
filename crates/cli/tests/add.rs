@@ -30,6 +30,14 @@ fn file_url(name: &str) -> String {
   format!("file://{}", fixture(name).display())
 }
 
+fn written_url(url: &str) -> String {
+  if url.contains('\\') {
+    format!("\"{}\"", url.replace('\\', "\\\\"))
+  } else {
+    url.to_string()
+  }
+}
+
 struct Project {
   dir: TempDir,
   home: TempDir,
@@ -141,7 +149,7 @@ fn add_file_plugin_with_yes_writes_required_grants() {
   let release = project.release();
   assert!(release.starts_with(RELEASE.split("stages:").next().unwrap()), "{release}");
   assert!(release.contains("  - name: test-plugin\n"), "{release}");
-  assert!(release.contains(&format!("    url: {url}\n")), "{release}");
+  assert!(release.contains(&format!("    url: {}\n", written_url(&url))), "{release}");
   assert!(release.contains("      network: [\"api.example.com\"]\n"), "{release}");
   assert!(!release.contains("exec:"), "{release}");
   assert!(
@@ -315,7 +323,8 @@ fn add_into_a_release_file_without_stages_writes_the_plugin() {
   assert_eq!(
     project.release(),
     format!(
-      "name: demo\nplugins:\n  - name: test-plugin\n    url: {url}\n    permissions:\n      network: [\"api.example.com\"]\n"
+      "name: demo\nplugins:\n  - name: test-plugin\n    url: {}\n    permissions:\n      network: [\"api.example.com\"]\n",
+      written_url(&url)
     )
   );
 }

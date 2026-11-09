@@ -27,7 +27,7 @@ pub fn run_on_terminal(mut command: Command, keys: &[u8]) -> Output {
 
 fn open_raw_pty() -> (OwnedFd, OwnedFd) {
   let (mut master, mut slave) = (0, 0);
-  let size = libc::winsize {
+  let mut size = libc::winsize {
     ws_row: 24,
     ws_col: 80,
     ws_xpixel: 0,
@@ -39,8 +39,8 @@ fn open_raw_pty() -> (OwnedFd, OwnedFd) {
         &raw mut master,
         &raw mut slave,
         std::ptr::null_mut(),
-        std::ptr::null(),
-        &raw const size,
+        std::ptr::null_mut(),
+        &raw mut size,
       )
     },
     0

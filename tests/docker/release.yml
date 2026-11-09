@@ -8,6 +8,8 @@ name: docker-image-smoke
 plugins:
   - name: probe
     url: file:///work/test_plugin.wasm
+    permissions:
+      network: ["api.example.com"]
 
 stages:
   smoke:
