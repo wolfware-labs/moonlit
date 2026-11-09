@@ -1,5 +1,5 @@
 use crate::pipeline::config::ConfigDiagnostic;
-use crate::sanitize::display_safe_text;
+use crate::sanitize::{display_safe, display_safe_text};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IncompatiblePlugin {
@@ -42,7 +42,7 @@ impl PipelineError {
   pub fn for_terminal(self) -> Self {
     match self {
       PipelineError::PluginLoad { plugin, message } => PipelineError::PluginLoad {
-        plugin,
+        plugin: display_safe(&plugin),
         message: display_safe_text(&message),
       },
       PipelineError::Execution(message) => PipelineError::Execution(display_safe_text(&message)),
@@ -117,12 +117,12 @@ mod tests {
   #[test]
   fn for_terminal_escapes_plugin_text_and_keeps_lines() {
     let load = PipelineError::PluginLoad {
-      plugin: "p".to_string(),
+      plugin: "p\n\u{1b}]0;x".to_string(),
       message: "init failed\n\u{1b}[2K".to_string(),
     };
     assert_eq!(
       load.for_terminal().to_string(),
-      "failed to load plugin 'p': init failed\n\\x1b[2K"
+      "failed to load plugin 'p\\x0a\\x1b]0;x': init failed\n\\x1b[2K"
     );
     let execution = PipelineError::Execution("boom\r\u{1b}[1A".to_string());
     assert_eq!(
