@@ -57,6 +57,10 @@ pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
 
 const MAX_REDIRECTS: usize = 10;
 
+fn has_scheme(url: &str, prefix: &str) -> bool {
+  url.get(..prefix.len()).is_some_and(|head| head.eq_ignore_ascii_case(prefix))
+}
+
 fn plain_http_to_remote(url: &reqwest::Url) -> bool {
   url.scheme() == "http" && !url.host_str().is_some_and(is_loopback)
 }
@@ -186,7 +190,7 @@ impl RegistryClient {
   /// Builds a client for a registry host, or for an `http(s)://` URL; `/graphql` is appended unless already present.
   /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
   pub fn for_host(host: &str) -> Result<Self, RegistryError> {
-    if host.starts_with("http://") || host.starts_with("https://") {
+    if has_scheme(host, "http://") || has_scheme(host, "https://") {
       let trimmed = host.trim_end_matches('/');
       if trimmed.ends_with("/graphql") {
         Self::with_base_url(trimmed)
@@ -203,7 +207,7 @@ impl RegistryClient {
   /// Builds a client that posts to `url` exactly as given.
   /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
   pub fn with_base_url(url: &str) -> Result<Self, RegistryError> {
-    if url.starts_with("http://")
+    if has_scheme(url, "http://")
       && reqwest::Url::parse(url)
         .ok()
         .is_none_or(|parsed| plain_http_to_remote(&parsed))

@@ -347,6 +347,8 @@ fn plain_http_is_refused_for_a_remote_registry() {
     "http://127.evil.com",
     "http://localhost@example.com/graphql",
     "http://localhost:abc/graphql",
+    "HTTP://example.com/graphql",
+    "Http://example.com",
   ] {
     let err = RegistryClient::for_host(url).expect_err(url);
     assert!(matches!(err, RegistryError::Insecure(_)), "{err:?}");
