@@ -414,7 +414,7 @@ async fn newest_compatible_finds_a_compatible_version_behind_incompatible_newer_
 }
 
 #[tokio::test]
-async fn newest_compatible_gives_up_after_ten_candidates() {
+async fn newest_compatible_asks_about_every_candidate_when_none_matches() {
   let server = MockServer::start().await;
   let all: Vec<String> = (0..25).map(|i| format!("1.0.{i}")).collect();
   mount_package(&server, json!(all.iter().map(|v| summary(v, false)).collect::<Vec<_>>())).await;
@@ -428,7 +428,30 @@ async fn newest_compatible_gives_up_after_ten_candidates() {
     .unwrap();
 
   assert!(found.is_none());
-  assert_eq!(lookups(&server).await, 10);
+  assert_eq!(lookups(&server).await, 25);
+}
+
+#[tokio::test]
+async fn newest_compatible_looks_past_the_first_ten_and_stops_at_the_batch_that_matches() {
+  let server = MockServer::start().await;
+  let all: Vec<String> = (0..25).map(|i| format!("1.0.{i}")).collect();
+  mount_package(&server, json!(all.iter().map(|v| summary(v, false)).collect::<Vec<_>>())).await;
+  for version in &all {
+    let world = if version == "1.0.12" || version == "1.0.3" {
+      "0.4.0"
+    } else {
+      "0.3.0"
+    };
+    mount_version(&server, version, world).await;
+  }
+
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", any_rule())
+    .await
+    .unwrap();
+
+  assert_eq!(found.unwrap().version, "1.0.12");
+  assert_eq!(lookups(&server).await, 20);
 }
 
 #[tokio::test]

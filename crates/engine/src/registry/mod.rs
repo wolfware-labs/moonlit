@@ -256,7 +256,7 @@ impl RegistryClient {
     Ok(data.package.map(|p| p.versions).unwrap_or_default())
   }
 
-  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`, looking at the newest ten candidates only.
+  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`, asking about ten candidates at a time.
   pub async fn newest_compatible(
     &self,
     org: &str,
@@ -274,11 +274,24 @@ impl RegistryClient {
       .collect();
     candidates.sort_by(|a, b| b.0.cmp(&a.0));
 
-    candidates.truncate(MAX_CANDIDATES);
+    for batch in candidates.chunks(MAX_CANDIDATES) {
+      if let Some(detail) = self.first_for_world(org, name, world, batch).await? {
+        return Ok(Some(detail));
+      }
+    }
+    Ok(None)
+  }
 
+  async fn first_for_world(
+    &self,
+    org: &str,
+    name: &str,
+    world: &str,
+    batch: &[(Version, String)],
+  ) -> Result<Option<VersionDetail>, RegistryError> {
     let mut lookups = tokio::task::JoinSet::new();
-    for (index, (_, raw)) in candidates.into_iter().enumerate() {
-      let (client, org, name) = (self.clone(), org.to_string(), name.to_string());
+    for (index, (_, raw)) in batch.iter().enumerate() {
+      let (client, org, name, raw) = (self.clone(), org.to_string(), name.to_string(), raw.clone());
       lookups.spawn(async move { (index, client.package_version(&org, &name, &raw).await) });
     }
     let mut answers = Vec::new();
