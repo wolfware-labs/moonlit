@@ -28,6 +28,10 @@ pub enum ReleaseFileError {
   #[error("no plugin named '{0}' is declared")]
   #[diagnostic(code(moonlit::release_file::plugin_not_found))]
   PluginNotFound(String),
+  /// The edit would have to add lines inside a flow-style (`{ ... }` or `[ ... ]`) part of the file.
+  #[error("plugin '{0}' is written in flow style; write it as a block mapping, one key per line, so moonlit can edit it")]
+  #[diagnostic(code(moonlit::release_file::flow_style))]
+  FlowStyle(String),
   /// The file cannot be read, or the edited file would not parse back to the requested entry.
   #[error("the edited release file would be invalid: {0}")]
   #[diagnostic(code(moonlit::release_file::invalid))]
@@ -40,6 +44,9 @@ pub fn add_plugin(content: &str, entry: &PluginEntry) -> Result<String, ReleaseF
   let plugins = &config.plugins.value;
   addable(plugins, &entry.name, &entry.url)?;
   let edit = if let Some(last) = plugins.last() {
+    if !content[last.span.start..].starts_with('-') {
+      return Err(ReleaseFileError::FlowStyle(last.name.clone()));
+    }
     let dash = column(content, last.span.start);
     let key = key_column(content, last.span.start);
     insertion(content, line_end(content, last.span.end), item_block(entry, dash, key))
@@ -97,6 +104,9 @@ pub fn set_plugin(content: &str, name: &str, url: &str, permissions: Option<&Per
     edits.push((plugin.url.span.start, plugin.url.span.end, scalar(url)));
   }
   if let Some(permissions) = permissions {
+    if is_flow_entry(content, plugin.span.start) {
+      return Err(ReleaseFileError::FlowStyle(name.to_string()));
+    }
     edits.push(permissions_edit(content, plugin, permissions));
   }
   validated(
@@ -251,6 +261,12 @@ fn insertion(content: &str, at: usize, lines: String) -> Edit {
     lines
   };
   (at, at, text)
+}
+
+#[must_use]
+fn is_flow_entry(content: &str, item_start: usize) -> bool {
+  let rest = &content[item_start..];
+  rest.strip_prefix('-').unwrap_or(rest).trim_start().starts_with('{')
 }
 
 #[must_use]
@@ -679,6 +695,57 @@ stages:
       1,
     );
     assert_eq!(out, expected);
+  }
+
+  #[test]
+  fn set_plugin_names_a_flow_style_entry_instead_of_writing_into_it() {
+    let permissions = Permissions {
+      filesystem: FilesystemAccess::ReadWrite,
+      ..Permissions::deny()
+    };
+    for plugins in [
+      "plugins:\n  - { name: b, url: file://b.wasm }\n",
+      "plugins:\n  - {name: b, url: file://b.wasm, permissions: {filesystem: read-only}}\n",
+      "plugins: [{ name: b, url: file://b.wasm }]\n",
+    ] {
+      let content = format!("{plugins}stages:\n  s:\n    - run: b.go\n");
+      let err = set_plugin(&content, "b", "file://b-2.wasm", Some(&permissions)).expect_err("flow");
+      assert!(
+        matches!(err, ReleaseFileError::FlowStyle(ref n) if n == "b"),
+        "{content:?}: {err:?}"
+      );
+    }
+  }
+
+  #[test]
+  fn set_plugin_changes_the_url_of_a_flow_style_entry() {
+    let content = "plugins:\n  - { name: b, url: file://b.wasm }\nstages:\n  s:\n    - run: b.go\n";
+    let out = set_plugin(content, "b", "file://b-2.wasm", None).expect("set");
+    assert_eq!(out, content.replace("file://b.wasm", "file://b-2.wasm"));
+  }
+
+  #[test]
+  fn set_plugin_rewrites_flow_style_permissions_of_a_block_entry() {
+    let permissions = Permissions {
+      filesystem: FilesystemAccess::ReadWrite,
+      ..Permissions::deny()
+    };
+    let content = "plugins:\n  - name: b\n    url: file://b.wasm\n    permissions: { filesystem: read-only }\nstages:\n  s:\n    - run: b.go\n";
+    let out = set_plugin(content, "b", "file://b.wasm", Some(&permissions)).expect("set");
+    assert_eq!(
+      out,
+      content.replace(
+        "permissions: { filesystem: read-only }",
+        "permissions:\n      filesystem: read-write"
+      )
+    );
+  }
+
+  #[test]
+  fn add_names_the_last_entry_of_a_flow_style_plugins_list() {
+    let input = "plugins: [{ name: a, url: file://a.wasm }]\nstages:\n  s:\n    - run: b.go\n";
+    let err = add_plugin(input, &entry("b", "file://b.wasm")).expect_err("flow");
+    assert!(matches!(err, ReleaseFileError::FlowStyle(ref n) if n == "a"), "{err:?}");
   }
 
   #[test]
