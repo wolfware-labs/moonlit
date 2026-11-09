@@ -95,7 +95,78 @@ pub fn is_covered(p: &DeclaredPermission, granted: &Permissions) -> bool {
 
 fn all_granted(values: &[String], granted: &[String], globset: fn(&[String]) -> GlobSet) -> bool {
   let set = globset(granted);
-  values.iter().all(|v| granted.contains(v) || set.is_match(v))
+  values.iter().all(|v| {
+    granted.contains(v)
+      || match Pattern::parse(v) {
+        Some(declared) if declared.is_literal() => set.is_match(v),
+        Some(declared) => granted
+          .iter()
+          .filter_map(|g| Pattern::parse(g))
+          .any(|grant| grant.includes(&declared)),
+        None => false,
+      }
+  })
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Symbol {
+  Char(char),
+  One,
+  Any,
+}
+
+struct Pattern(Vec<Symbol>);
+
+impl Pattern {
+  fn parse(glob: &str) -> Option<Self> {
+    let mut out = Vec::new();
+    let mut ones = 0;
+    let mut any = false;
+    for c in glob.chars() {
+      match c {
+        '?' => ones += 1,
+        '*' => any = true,
+        '[' | ']' | '{' | '}' | '\\' => return None,
+        c => {
+          flush_wildcards(&mut out, &mut ones, &mut any);
+          out.push(Symbol::Char(c));
+        }
+      }
+    }
+    flush_wildcards(&mut out, &mut ones, &mut any);
+    Some(Self(out))
+  }
+
+  fn is_literal(&self) -> bool {
+    self.0.iter().all(|s| matches!(s, Symbol::Char(_)))
+  }
+
+  fn includes(&self, other: &Self) -> bool {
+    let (g, d) = (&self.0, &other.0);
+    let mut row = vec![false; d.len() + 1];
+    row[d.len()] = true;
+    for i in (0..g.len()).rev() {
+      let mut next = vec![false; d.len() + 1];
+      for j in (0..=d.len()).rev() {
+        next[j] = match g[i] {
+          Symbol::Any => row[j] || (j < d.len() && next[j + 1]),
+          Symbol::One => j < d.len() && d[j] != Symbol::Any && row[j + 1],
+          Symbol::Char(c) => j < d.len() && d[j] == Symbol::Char(c) && row[j + 1],
+        };
+      }
+      row = next;
+    }
+    row[0]
+  }
+}
+
+fn flush_wildcards(out: &mut Vec<Symbol>, ones: &mut usize, any: &mut bool) {
+  out.extend(std::iter::repeat_n(Symbol::One, *ones));
+  if *any {
+    out.push(Symbol::Any);
+  }
+  *ones = 0;
+  *any = false;
 }
 
 /// The required (non-optional) declared permissions the granted set does not cover.
@@ -199,6 +270,43 @@ mod tests {
     assert!(is_covered(&p, &granted(&[], &[], &["*"], FilesystemAccess::None)));
     assert!(!is_covered(&p, &granted(&[], &[], &["CI"], FilesystemAccess::None)));
     assert!(!is_covered(&p, &Permissions::deny()));
+  }
+
+  fn exec_covered(declared: &str, grants: &[&str]) -> bool {
+    is_covered(
+      &decl(PermissionKind::Exec, &[declared], false),
+      &granted(&[], grants, &[], FilesystemAccess::None),
+    )
+  }
+
+  #[test]
+  fn a_grant_covers_a_declared_glob_only_when_it_matches_everything_the_glob_does() {
+    assert!(!exec_covered("a*c", &["a?c"]));
+    assert!(!exec_covered("a?c", &["abc"]));
+    assert!(!exec_covered("a*", &["a?*"]));
+    assert!(!exec_covered("*", &["a*"]));
+    assert!(!exec_covered("a*c", &["a*d"]));
+    assert!(!exec_covered("a?", &["a?c"]));
+    assert!(!exec_covered("ab*", &["ab"]));
+    assert!(exec_covered("a*c", &["a*"]));
+    assert!(exec_covered("a*c", &["*c"]));
+    assert!(exec_covered("a*c", &["*"]));
+    assert!(exec_covered("a?c", &["a*c"]));
+    assert!(exec_covered("abc?", &["a?c?"]));
+    assert!(exec_covered("a**c", &["a*c"]));
+    assert!(exec_covered("x*?", &["x?*"]));
+    assert!(exec_covered("x?*", &["x*?"]));
+    assert!(exec_covered("a*c", &["b*", "a*c*"]));
+  }
+
+  #[test]
+  fn a_declared_glob_is_not_covered_by_a_grant_with_classes_or_alternatives() {
+    assert!(!exec_covered("g*", &["{g*,h*}"]));
+    assert!(!exec_covered("g*", &["[g]*"]));
+    assert!(!exec_covered("g*", &["\\g*"]));
+    assert!(exec_covered("gh", &["{git,gh}"]));
+    assert!(exec_covered("[g]*", &["[g]*"]));
+    assert!(!exec_covered("[g]*", &["*"]));
   }
 
   #[test]
