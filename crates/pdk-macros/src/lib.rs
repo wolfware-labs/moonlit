@@ -71,11 +71,11 @@ impl Parse for PermissionDecl {
       if values.is_empty() {
         return Err(syn::Error::new(bracket.span.join(), "list at least one value"));
       }
-      if let Some(value) = values.iter().find(|v| v.value().contains(['[', ']', '{', '}'])) {
+      if let Some(value) = values.iter().find(|v| v.value().contains(['[', ']', '{', '}', '\\'])) {
         return Err(syn::Error::new(
           value.span(),
           format!(
-            "permission value `{}` uses `[`, `]`, `{{` or `}}`; only `*` and `?` wildcards are allowed",
+            "permission value `{}` uses `[`, `]`, `{{`, `}}` or `\\`; only `*` and `?` wildcards are allowed",
             value.value()
           ),
         ));
@@ -480,7 +480,7 @@ mod tests {
 
   #[test]
   fn values_with_glob_classes_or_alternatives_are_rejected() {
-    for value in ["{git,gh}", "git[0-9]", "a]", "b}"] {
+    for value in ["{git,gh}", "git[0-9]", "a]", "b}", "foo\\*"] {
       let message = permission_error(&quote! { exec(["ok", #value]) => "why" });
       assert!(
         message.contains(&format!("`{value}`")) && message.contains("only `*` and `?` wildcards"),
