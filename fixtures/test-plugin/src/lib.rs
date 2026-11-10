@@ -10,6 +10,8 @@ use crate::moonlit::plugin::types::{LogLevel, PermissionKind, PermissionRequest}
 
 struct Component;
 
+static EXEC_ON_LIST: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
 const ICON_DATA_URI: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const LOG_AND_OUTPUT_INPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputConfig","type":"object","properties":{"name":{"type":"string","description":"config name echoed into the step output"}},"additionalProperties":false}"#;
 const LOG_AND_OUTPUT_OUTPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputOutput","type":"object","properties":{"step":{"type":"string","description":"the step name this ran under"},"echoed_config":{"description":"the raw config echoed back"},"cfg_seen":{"description":"the plugin:name config value observed"}},"additionalProperties":false}"#;
@@ -39,6 +41,9 @@ impl Guest for Component {
     }
 
     fn init(plugin_config: String) -> Result<PluginMetadata, String> {
+        if let Some(program) = json_field(&plugin_config, "execOnInit") {
+            try_exec(program);
+        }
         if plugin_config.contains("\"failInit\":true")
             || plugin_config.contains("\"failInit\": true")
             || plugin_config.contains("\"failInit\":\"true\"")
@@ -46,10 +51,14 @@ impl Guest for Component {
         {
             return Err("init failed on request (failInit=true)".to_string());
         }
+        *EXEC_ON_LIST.lock().unwrap() = json_field(&plugin_config, "execOnList");
         Ok(Self::describe())
     }
 
     fn list_middlewares() -> Vec<MiddlewareInfo> {
+        if let Some(program) = EXEC_ON_LIST.lock().unwrap().clone() {
+            try_exec(program);
+        }
         let mw = |name: &str,
                   description: &str,
                   input_schema: Option<String>,
@@ -192,15 +201,7 @@ impl Guest for Component {
                 }
             }
             "try-exec" => {
-                let program = json_field(&config, "program").unwrap_or_else(|| "git".to_string());
-                let cmd = process::Command {
-                    program,
-                    args: vec!["--version".to_string()],
-                    cwd: None,
-                    env: vec![],
-                    stdin: None,
-                };
-                let _ = process::run(&cmd);
+                try_exec(json_field(&config, "program").unwrap_or_else(|| "git".to_string()));
                 MiddlewareResult {
                     successful: true,
                     error_message: None,
@@ -268,6 +269,17 @@ impl Guest for Component {
             },
         }
     }
+}
+
+fn try_exec(program: String) {
+    let cmd = process::Command {
+        program,
+        args: vec!["--version".to_string()],
+        cwd: None,
+        env: vec![],
+        stdin: None,
+    };
+    let _ = process::run(&cmd);
 }
 
 fn json_field(json: &str, key: &str) -> Option<String> {

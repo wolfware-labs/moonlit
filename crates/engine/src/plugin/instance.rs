@@ -48,11 +48,19 @@ impl PluginInstance {
 
   pub async fn init(&mut self, plugin_config: &serde_json::Value) -> Result<PluginMetadata, String> {
     self.store.data_mut().set_step("init");
+    let _ = self.store.data().take_denials();
     let json = plugin_config.to_string();
-    match self.bindings.call_init(&mut self.store, &json).await {
+    let result = match self.bindings.call_init(&mut self.store, &json).await {
       Ok(Ok(meta)) => Ok(meta.into()),
       Ok(Err(msg)) => Err(msg),
       Err(trap) => Err(format!("plugin trapped during init: {trap:?}")),
+    };
+    match self.denied() {
+      None => result,
+      Some(denied) => Err(match result {
+        Err(own) => format!("{own}; {denied}"),
+        Ok(_) => denied,
+      }),
     }
   }
 
@@ -81,13 +89,23 @@ impl PluginInstance {
   }
 
   pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, PluginError> {
-    match self.bindings.call_list_middlewares(&mut self.store).await {
-      Ok(list) => Ok(list.into_iter().map(std::convert::Into::into).collect()),
-      Err(e) => Err(PluginError::Trap {
-        op: "list-middlewares".to_string(),
-        message: format!("{e:?}"),
-      }),
-    }
+    let _ = self.store.data().take_denials();
+    let result = self.bindings.call_list_middlewares(&mut self.store).await;
+    let message = match (result, self.denied()) {
+      (Ok(list), None) => return Ok(list.into_iter().map(std::convert::Into::into).collect()),
+      (Ok(_), Some(denied)) => denied,
+      (Err(e), None) => format!("{e:?}"),
+      (Err(e), Some(denied)) => format!("{e:?}; {denied}"),
+    };
+    Err(PluginError::Trap {
+      op: "list-middlewares".to_string(),
+      message,
+    })
+  }
+
+  fn denied(&self) -> Option<String> {
+    let denials = self.store.data().take_denials();
+    (!denials.is_empty()).then(|| denial_message(&denials, self.store.data().declared()))
   }
 }
 

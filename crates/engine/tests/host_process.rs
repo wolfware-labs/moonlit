@@ -160,3 +160,60 @@ async fn denials_do_not_leak_into_the_next_execute() {
   assert!(!first.successful);
   assert!(second.successful, "{second:?}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_denial_during_init_fails_init() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let err = p
+    .init(&serde_json::json!({ "execOnInit": "git" }))
+    .await
+    .expect_err("a blocked program must fail init");
+  assert!(err.contains("blocked from running 'git'"), "{err}");
+  assert!(err.contains("permissions.exec"), "{err}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_denial_while_listing_middlewares_fails_the_listing() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  p.init(&serde_json::json!({ "execOnList": "git" })).await.unwrap();
+  let err = p
+    .list_middlewares()
+    .await
+    .expect_err("a blocked program must fail the listing");
+  let msg = err.to_string();
+  assert!(msg.contains("blocked from running 'git'"), "{msg}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_granted_program_during_init_and_listing_does_not_fail() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["git".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  p.init(&serde_json::json!({ "execOnInit": "git", "execOnList": "git" }))
+    .await
+    .unwrap();
+  assert!(!p.list_middlewares().await.unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_denial_during_a_failed_init_keeps_the_plugins_own_error() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let err = p
+    .init(&serde_json::json!({ "execOnInit": "git", "failInit": true }))
+    .await
+    .expect_err("init must fail");
+  assert!(
+    err.starts_with("init failed on request (failInit=true); blocked from running 'git'"),
+    "{err}"
+  );
+}
