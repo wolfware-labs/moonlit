@@ -244,6 +244,23 @@ async fn package_version_is_none_when_absent() {
 }
 
 #[tokio::test]
+async fn package_version_is_none_when_the_registry_answers_for_another_version() {
+  let server = MockServer::start().await;
+  mount_data(
+    &server,
+    "packageVersion",
+    json!({ "packageVersion": {
+      "version": "2.0.0", "worldVersion": "0.4.0", "status": "VERIFIED", "middlewares": []
+    } }),
+  )
+  .await;
+
+  let found = client(&server).package_version("acme", "tool", "1.0.0").await.unwrap();
+
+  assert!(found.is_none(), "{found:?}");
+}
+
+#[tokio::test]
 async fn versions_lists_summaries() {
   let server = MockServer::start().await;
   mount_package(&server, json!([summary("1.0.0", true)])).await;

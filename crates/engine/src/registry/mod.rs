@@ -242,11 +242,11 @@ impl RegistryClient {
     Ok(data.packages.items)
   }
 
-  /// Fetches one version of a package, or `None` when it does not exist.
+  /// Fetches one version of a package, or `None` when it does not exist or the registry answers for another version.
   pub async fn package_version(&self, org: &str, name: &str, version: &str) -> Result<Option<VersionDetail>, RegistryError> {
     let variables = json!({ "org": org, "name": name, "version": version });
     let data: VersionData = self.execute(PACKAGE_VERSION_QUERY, variables).await?;
-    Ok(data.package_version)
+    Ok(data.package_version.filter(|detail| detail.version == version))
   }
 
   /// Lists every published version of a package, yanked ones included.
@@ -300,9 +300,8 @@ impl RegistryClient {
     }
     answers.sort_by_key(|(index, _)| *index);
 
-    for (index, answer) in answers {
+    for (_, answer) in answers {
       if let Some(detail) = answer?
-        && detail.version == batch[index].1
         && detail.world_version.as_deref() == Some(world)
       {
         return Ok(Some(detail));
