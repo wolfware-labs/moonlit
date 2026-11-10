@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::display::display_safe_text;
 use moonlit_engine::cache::Cache;
 use moonlit_engine::engine::Engine;
 use moonlit_engine::logging::LogLevel;
@@ -66,7 +67,16 @@ impl HostEventSink for SilentSink {
 }
 
 /// Instantiates a component with no permissions and reads its metadata and middlewares.
+/// The error text comes back escaped for the terminal.
 pub async fn introspect(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<MiddlewareInfo>)> {
+  read_plugin(bytes).await.map_err(|e| for_terminal(&e))
+}
+
+fn for_terminal(error: &anyhow::Error) -> anyhow::Error {
+  anyhow::anyhow!(display_safe_text(&error.to_string()))
+}
+
+async fn read_plugin(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<MiddlewareInfo>)> {
   let engine = Engine::try_default()?;
   let cfg = PluginInstanceConfig {
     working_directory: std::env::temp_dir(),
@@ -78,4 +88,15 @@ pub async fn introspect(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<Mid
   let meta = plugin_instance.describe().await?;
   let mws = plugin_instance.list_middlewares().await?;
   Ok((meta, mws))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn an_introspection_error_is_escaped_for_the_terminal() {
+    let shown = for_terminal(&anyhow::anyhow!("blocked from running 'git\u{1b}[2K'\nat list")).to_string();
+    assert_eq!(shown, "blocked from running 'git\\x1b[2K'\nat list");
+  }
 }
