@@ -2,7 +2,7 @@ use moonlit_engine::pipeline::config::{
   FilesystemAccess, Permissions, PipelineConfig, PluginDeclaration, parse_config, parse_config_unvalidated,
 };
 use moonlit_engine::plugin::permissions::PermissionKind;
-use moonlit_engine::sanitize::{quote, quote_list};
+use moonlit_engine::sanitize::{display_safe_text, quote, quote_list};
 use serde_yaml_ng::{Mapping, Value};
 
 /// A plugin entry to write into a release file.
@@ -141,10 +141,10 @@ pub fn render_diff(before: &str, after: &str) -> String {
       i += 1;
       j += 1;
     } else if j == b.len() || (i < a.len() && common[i + 1][j] == common[i][j]) {
-      out.push(format!("  - {}\n", a[i]));
+      out.push(format!("  - {}\n", display_safe_text(a[i])));
       i += 1;
     } else {
-      out.push(format!("  + {}\n", b[j]));
+      out.push(format!("  + {}\n", display_safe_text(b[j])));
       j += 1;
     }
   }
@@ -876,6 +876,13 @@ stages:
       render_diff("p\nq\nr\ns\n", "q\np\ns\nr\nt\n"),
       "  - p\n  - r\n  + p\n  + r\n  + t\n"
     );
+  }
+
+  #[test]
+  fn diff_escapes_control_characters_on_both_sides() {
+    let diff = render_diff("url: a\r\u{1b}[2K\n", "url: b\u{1b}]0;x\u{7}\n");
+    assert!(!diff.contains(['\r', '\u{1b}', '\u{7}']), "{diff:?}");
+    assert_eq!(diff, "  - url: a\\x0d\\x1b[2K\n  + url: b\\x1b]0;x\\x07\n");
   }
 
   #[test]
