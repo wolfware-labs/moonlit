@@ -7,7 +7,7 @@ use crate::commands::common::{display_path, fail, prompt_failed, read_release, w
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::plugin_probe::probe;
-use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref};
+use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref, strip_scheme};
 use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable};
 use crate::render::resolve_mode;
 
@@ -169,14 +169,8 @@ async fn registry_version(
 }
 
 fn oci_host(registry: &str) -> &str {
-  let rest = ["https://", "http://"]
-    .iter()
-    .find_map(|scheme| {
-      registry
-        .get(..scheme.len())
-        .filter(|head| head.eq_ignore_ascii_case(scheme))
-        .map(|_| &registry[scheme.len()..])
-    })
+  let rest = strip_scheme(registry, "https://")
+    .or_else(|| strip_scheme(registry, "http://"))
     .unwrap_or(registry);
   rest.split('/').next().unwrap_or(rest)
 }

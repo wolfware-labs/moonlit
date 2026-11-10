@@ -62,10 +62,19 @@ impl RegistryRef {
   }
 }
 
-/// Splits an `oci://host/org/name:tag` URL; `None` for any other URL.
+/// The rest of `url` after `scheme` (such as `"oci://"`), matched in any case; `None` when it has another scheme.
+#[must_use]
+pub fn strip_scheme<'a>(url: &'a str, scheme: &str) -> Option<&'a str> {
+  url
+    .get(..scheme.len())
+    .filter(|head| head.eq_ignore_ascii_case(scheme))
+    .map(|_| &url[scheme.len()..])
+}
+
+/// Splits an `oci://host/org/name:tag` URL, with the scheme in any case; `None` for any other URL.
 #[must_use]
 pub fn registry_ref(url: &str) -> Option<RegistryRef> {
-  let rest = url.strip_prefix("oci://")?;
+  let rest = strip_scheme(url, "oci://")?;
   let (host, repo) = rest.split_once('/')?;
   let (repo, tag) = repo.split_once('@').or_else(|| repo.rsplit_once(':'))?;
   let (org, name) = repo.split_once('/')?;
@@ -150,6 +159,20 @@ mod tests {
     assert_eq!(pinned.with_tag("1.0.0"), "oci://h.io/acme/x:1.0.0");
     assert!(pinned.is_digest());
     assert!(!r.is_digest());
+  }
+
+  #[test]
+  fn registry_ref_matches_the_scheme_in_any_case() {
+    let r = registry_ref("OCI://registry.moonlit.rs/acme/x:1.2.3").unwrap();
+    assert_eq!(r, registry_ref("oci://registry.moonlit.rs/acme/x:1.2.3").unwrap());
+    assert!(registry_ref("OCX://registry.moonlit.rs/acme/x:1.2.3").is_none());
+  }
+
+  #[test]
+  fn strip_scheme_needs_the_whole_scheme() {
+    assert_eq!(strip_scheme("Https://h/x", "https://"), Some("h/x"));
+    assert_eq!(strip_scheme("http", "https://"), None);
+    assert_eq!(strip_scheme("https:/h", "https://"), None);
   }
 
   #[test]
