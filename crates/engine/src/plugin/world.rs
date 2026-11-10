@@ -33,20 +33,26 @@ pub fn check(bytes: &[u8]) -> Result<(), WorldError> {
 }
 
 /// Reads the plugin contract a component targets from its import names, as `moonlit:plugin@<version>`.
+/// When the imports name several versions, returns the first one other than [`PLUGIN_WORLD`].
 /// Returns `None` when the component imports nothing from the `moonlit:plugin` package.
 pub fn component_world(bytes: &[u8]) -> Result<Option<String>, PluginError> {
+  let mut found = None;
   for payload in Parser::new(0).parse_all(bytes) {
     let payload = payload.map_err(|e| PluginError::Load(e.to_string()))?;
     if let Payload::ComponentImportSection(reader) = payload {
       for import in reader {
         let import = import.map_err(|e| PluginError::Load(e.to_string()))?;
         if let Some(version) = interface_version(import.name.name) {
-          return Ok(Some(format!("moonlit:plugin@{version}")));
+          let world = format!("moonlit:plugin@{version}");
+          if world != PLUGIN_WORLD {
+            return Ok(Some(world));
+          }
+          found = Some(world);
         }
       }
     }
   }
-  Ok(None)
+  Ok(found)
 }
 
 fn interface_version(import_name: &str) -> Option<&str> {
@@ -103,6 +109,22 @@ mod tests {
       "built for an unknown plugin contract, this CLI supports moonlit:plugin@0.4.0"
     );
     assert!(matches!(check(b"not wasm"), Err(WorldError::Load(_))));
+  }
+
+  #[test]
+  fn mixed_contract_imports_report_the_unsupported_one_in_any_order() {
+    for wat in [
+      r#"(component (import "moonlit:plugin/host@0.4.0" (instance)) (import "moonlit:plugin/log@0.3.0" (instance)))"#,
+      r#"(component (import "moonlit:plugin/log@0.3.0" (instance)) (import "moonlit:plugin/host@0.4.0" (instance)))"#,
+    ] {
+      let bytes = wat::parse_str(wat).unwrap();
+      assert_eq!(
+        component_world(&bytes).unwrap().as_deref(),
+        Some("moonlit:plugin@0.3.0"),
+        "{wat}"
+      );
+      assert!(matches!(check(&bytes), Err(WorldError::Mismatch(_))), "{wat}");
+    }
   }
 
   #[test]
