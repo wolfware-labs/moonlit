@@ -67,7 +67,19 @@ async fn fetch(client: &RegistryClient, args: &SearchArgs) -> Result<Vec<Card>, 
       let compatible = detail
         .as_ref()
         .map(|detail| detail.world_version.as_deref() == Some(PLUGIN_WORLD));
-      let middlewares = detail.map(|detail| detail.middlewares).unwrap_or_default();
+      let middlewares = detail.map_or_else(
+        || {
+          hit
+            .middlewares
+            .iter()
+            .map(|name| MiddlewareSummary {
+              name: name.clone(),
+              description: None,
+            })
+            .collect()
+        },
+        |detail| detail.middlewares,
+      );
       cards.push(Card {
         hit: hit.clone(),
         middlewares,

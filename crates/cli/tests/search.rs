@@ -179,6 +179,30 @@ async fn search_prints_the_bare_id_for_a_hit_without_a_latest_version() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn search_keeps_the_hit_middlewares_when_there_are_no_version_details() {
+  let server = MockServer::start().await;
+  mount(
+    &server,
+    "packages(",
+    json!({ "packages": { "items": [
+      { "orgSlug": "wolfware", "name": "draft", "description": null,
+        "latestVersion": null, "status": "PENDING", "middlewares": ["create-release"] }
+    ], "cursor": null } }),
+  )
+  .await;
+
+  search(&server, "draft", "plain")
+    .success()
+    .stdout(contains("  │ MIDDLEWARE     │ DESCRIPTION"))
+    .stdout(contains("  │ create-release │"));
+
+  let out = search(&server, "draft", "json").success().get_output().stdout.clone();
+  let parsed: Value = serde_json::from_slice(&out).unwrap();
+  assert_eq!(parsed[0]["middlewares"][0]["name"], "create-release");
+  assert_eq!(parsed[0]["middlewares"][0]["description"], Value::Null);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn search_fetches_hit_details_concurrently_and_keeps_the_hit_order() {
   let server = MockServer::start().await;
   let names: Vec<String> = (0..12).map(|i| format!("p{i:02}")).collect();
