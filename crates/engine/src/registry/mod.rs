@@ -300,8 +300,9 @@ impl RegistryClient {
     }
     answers.sort_by_key(|(index, _)| *index);
 
-    for (_, answer) in answers {
+    for (index, answer) in answers {
       if let Some(detail) = answer?
+        && detail.version == batch[index].1
         && detail.world_version.as_deref() == Some(world)
       {
         return Ok(Some(detail));

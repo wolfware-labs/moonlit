@@ -122,6 +122,37 @@ async fn newest_compatible_skips_versions_built_for_another_world() {
 }
 
 #[tokio::test]
+async fn newest_compatible_skips_details_for_a_version_it_did_not_ask_for() {
+  let server = MockServer::start().await;
+  mount_package(&server, json!([summary("1.3.0", false), summary("1.2.5", false)])).await;
+  Mock::given(method("POST"))
+    .and(path("/graphql"))
+    .and(body_string_contains("packageVersion"))
+    .and(body_string_contains("\"version\":\"1.3.0\""))
+    .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+      "data": { "packageVersion": {
+        "version": "2.0.0-rc.1", "worldVersion": "0.4.0", "status": "VERIFIED", "middlewares": []
+      } }
+    })))
+    .mount(&server)
+    .await;
+  mount_version(&server, "1.2.5", "0.4.0").await;
+
+  let rule = VersionRule {
+    current: Some(semver::Version::parse("1.2.0").unwrap()),
+    cross_major: false,
+    pre: false,
+  };
+  let found = client(&server)
+    .newest_compatible("acme", "tool", "0.4.0", rule)
+    .await
+    .unwrap()
+    .unwrap();
+
+  assert_eq!(found.version, "1.2.5");
+}
+
+#[tokio::test]
 async fn newest_compatible_stays_in_major() {
   let server = MockServer::start().await;
   mount_package(
