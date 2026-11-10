@@ -157,7 +157,9 @@ async fn check(name: &str, url: &str, granted: &Permissions, major: bool) -> Out
         },
       }
     }
-    Err(e @ ProbeError::Resolve { network: true, .. }) => Outcome::RegistryDown { text: e.to_string() },
+    Err(e @ ProbeError::Resolve { network: true, .. }) if registry_ref(url).is_some() => {
+      Outcome::RegistryDown { text: e.to_string() }
+    }
     Err(e) => Outcome::Problem {
       text: e.to_string(),
       fix: None,

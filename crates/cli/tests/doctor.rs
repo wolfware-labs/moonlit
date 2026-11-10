@@ -508,6 +508,29 @@ fn doctor_exits_3_when_the_plugin_url_cannot_be_reached() {
   assert_eq!(project.release(), before);
 }
 
+#[test]
+fn doctor_reports_an_unreachable_direct_url_and_fixes_the_rest() {
+  let port = {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.local_addr().unwrap().port()
+  };
+  let plugins = [
+    entry("test-plugin", &format!("http://127.0.0.1:{port}/plugin.wasm"), ""),
+    entry("granted", &file_url("test_plugin.wasm"), ""),
+  ]
+  .concat();
+  let project = Project::new(&plugins);
+
+  let assert = project
+    .doctor(&["--yes"])
+    .code(1)
+    .stdout(contains("✗ test-plugin: "))
+    .stdout(contains("granted: permissions granted"));
+  let all = output_of(&assert);
+  assert!(!all.contains("cannot reach the registry"), "{all}");
+  assert!(project.release().contains("network: [\"api.example.com\"]"));
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn doctor_reports_a_plugin_url_answering_500_and_fixes_the_rest() {
   let server = MockServer::start().await;
