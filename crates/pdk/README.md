@@ -94,8 +94,6 @@ moonlit_plugin! {
 - `network([...])`, `exec([...])` and `env([...])` take a non-empty list of strings: hosts,
   program names, and environment variable names or globs.
   Values are literal or use the `*` and `?` wildcards; `[`, `]`, `{`, `}` and `\` do not compile.
-  The CLI applies the same rule when it loads a plugin, so a component that declares such a value
-  without the macro fails to load.
 - `filesystem(read_only)` or `filesystem(read_write)` takes no list.
 - Every entry needs `=> "reason"`, a non-empty string shown to the user. A permission
   without one does not compile.
@@ -103,6 +101,9 @@ moonlit_plugin! {
   separately and is not granted unless the user allows it. Say in the reason when the
   permission is needed.
 - Omit `permissions:` for a plugin that needs none.
+
+The CLI checks the same rules when it loads a plugin, so a component built without the macro
+that breaks one of them fails to load.
 
 ## License
 

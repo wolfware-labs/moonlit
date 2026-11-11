@@ -81,14 +81,26 @@ impl DeclaredPermission {
   }
 }
 
-/// The first declared value that uses glob syntax other than `*` and `?`: `[`, `]`, `{`, `}` or `\`.
+/// Why the first malformed declaration breaks the contract `moonlit_plugin!` enforces: a blank reason, no
+/// values for `network`, `exec` or `env`, values for `filesystem`, or glob syntax other than `*` and `?`.
 #[must_use]
-pub fn unsupported_value(declared: &[DeclaredPermission]) -> Option<&str> {
-  declared
-    .iter()
-    .flat_map(|p| &p.values)
-    .find(|v| Pattern::parse(v).is_none())
-    .map(String::as_str)
+pub fn invalid_declaration(declared: &[DeclaredPermission]) -> Option<String> {
+  declared.iter().find_map(|p| {
+    let field = p.kind.field();
+    let listed = !matches!(p.kind, PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite);
+    if p.reason.trim().is_empty() {
+      Some(format!("the {field} permission has no reason"))
+    } else if listed && p.values.is_empty() {
+      Some(format!("the {field} permission lists no values"))
+    } else if !listed && !p.values.is_empty() {
+      Some(format!("the {field} permission takes no values"))
+    } else {
+      p.values
+        .iter()
+        .find(|v| Pattern::parse(v).is_none())
+        .map(|v| format!("permission value `{v}` uses `[`, `]`, `{{`, `}}` or `\\`; only `*` and `?` wildcards are allowed"))
+    }
+  })
 }
 
 /// Whether the granted permissions already cover every value of a declared permission.
@@ -246,24 +258,64 @@ mod tests {
   use super::*;
 
   #[test]
-  fn values_with_unsupported_glob_syntax_are_found() {
+  fn values_with_unsupported_glob_syntax_are_invalid() {
     for bad in ["{git,sh}", "git[0-9]", "a]", "b}", "foo\\*"] {
       let declared = [
         decl(PermissionKind::Network, &["example.com"], false),
         decl(PermissionKind::Exec, &["git", bad], false),
       ];
-      assert_eq!(unsupported_value(&declared), Some(bad));
+      assert_eq!(
+        invalid_declaration(&declared),
+        Some(format!(
+          "permission value `{bad}` uses `[`, `]`, `{{`, `}}` or `\\`; only `*` and `?` wildcards are allowed"
+        ))
+      );
     }
   }
 
   #[test]
-  fn literal_and_star_or_question_values_are_supported() {
+  fn a_blank_reason_is_invalid() {
+    for reason in ["", "  \t"] {
+      let mut p = decl(PermissionKind::Exec, &["git"], false);
+      p.reason = reason.to_string();
+      assert_eq!(
+        invalid_declaration(&[p]),
+        Some("the exec permission has no reason".to_string()),
+        "{reason:?}"
+      );
+    }
+  }
+
+  #[test]
+  fn a_listed_kind_without_values_is_invalid() {
+    for kind in [PermissionKind::Network, PermissionKind::Exec, PermissionKind::Env] {
+      assert_eq!(
+        invalid_declaration(&[decl(kind, &[], true)]),
+        Some(format!("the {} permission lists no values", kind.field()))
+      );
+    }
+  }
+
+  #[test]
+  fn filesystem_with_values_is_invalid() {
+    for kind in [PermissionKind::FilesystemRead, PermissionKind::FilesystemWrite] {
+      assert_eq!(
+        invalid_declaration(&[decl(kind, &["/tmp"], false)]),
+        Some("the filesystem permission takes no values".to_string())
+      );
+    }
+  }
+
+  #[test]
+  fn well_formed_declarations_are_valid() {
     let declared = [
       decl(PermissionKind::Exec, &["git", "cargo-*"], false),
       decl(PermissionKind::Env, &["GH_?OKEN"], true),
+      decl(PermissionKind::Network, &["api.example.com"], false),
       decl(PermissionKind::FilesystemRead, &[], false),
+      decl(PermissionKind::FilesystemWrite, &[], true),
     ];
-    assert_eq!(unsupported_value(&declared), None);
+    assert_eq!(invalid_declaration(&declared), None);
   }
 
   fn decl(kind: PermissionKind, values: &[&str], optional: bool) -> DeclaredPermission {
