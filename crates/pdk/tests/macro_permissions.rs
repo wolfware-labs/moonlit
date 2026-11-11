@@ -47,9 +47,3 @@ fn describe_carries_declared_permissions_in_order() {
   assert!(meta.permissions[3].optional && !meta.permissions[0].optional);
   assert_eq!(meta.permissions[1].reason, "Reads GITHUB_TOKEN to call the API.");
 }
-
-#[test]
-fn init_returns_the_same_permissions() {
-  let meta = <MoonlitComponent as Guest>::init("{}".to_string()).unwrap();
-  assert_eq!(meta.permissions.len(), 5);
-}

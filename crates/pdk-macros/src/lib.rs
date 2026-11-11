@@ -242,12 +242,9 @@ fn expand(decl: &PluginDecl) -> proc_macro2::TokenStream {
 
           fn init(
               plugin_config: ::std::string::String,
-          ) -> ::core::result::Result<
-              ::moonlit_pdk::bindings::PluginMetadata,
-              ::std::string::String,
-          > {
+          ) -> ::core::result::Result<(), ::std::string::String> {
               #config_init
-              ::core::result::Result::Ok(<Self as ::moonlit_pdk::bindings::Guest>::describe())
+              ::core::result::Result::Ok(())
           }
 
           fn list_middlewares(

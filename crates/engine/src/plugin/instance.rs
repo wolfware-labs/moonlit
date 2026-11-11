@@ -52,12 +52,12 @@ impl PluginInstance {
     }
   }
 
-  pub async fn init(&mut self, plugin_config: &serde_json::Value) -> Result<PluginMetadata, String> {
+  pub async fn init(&mut self, plugin_config: &serde_json::Value) -> Result<(), String> {
     self.store.data_mut().set_step("init");
     let _ = self.store.data().take_denials();
     let json = plugin_config.to_string();
     let result = match self.bindings.call_init(&mut self.store, &json).await {
-      Ok(Ok(meta)) => Ok(meta.into()),
+      Ok(Ok(())) => Ok(()),
       Ok(Err(msg)) => Err(msg),
       Err(trap) => Err(format!("plugin trapped during init: {trap:?}")),
     };
@@ -65,7 +65,7 @@ impl PluginInstance {
       None => result,
       Some(denied) => Err(match result {
         Err(own) => format!("{own}; {denied}"),
-        Ok(_) => denied,
+        Ok(()) => denied,
       }),
     }
   }

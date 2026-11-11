@@ -127,7 +127,7 @@ world plugin {
 
   /// Called once after instantiation with the plugin-level config block (JSON).
   /// Returning err aborts the pipeline with a plugin-load diagnostic (exit 3).
-  export init: func(plugin-config: json-value) -> result<plugin-metadata, string>;
+  export init: func(plugin-config: json-value) -> result<_, string>;
 
   /// Middleware discovery (used by `moonlit plugin inspect` and load-time validation
   /// of every `run:` reference -- unknown middleware fails fast BEFORE running, exit 2).

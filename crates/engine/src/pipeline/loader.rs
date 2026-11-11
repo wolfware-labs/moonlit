@@ -36,6 +36,7 @@ struct DescribedPlugin {
   url_span: Span,
   permissions: Permissions,
   instance: PluginInstance,
+  version: String,
   config_view: serde_json::Value,
   cached: bool,
 }
@@ -273,14 +274,15 @@ async fn describe_plugin(
   let mut instance = Plugin::instantiate(engine, &bytes, instance_config, sink)
     .await
     .map_err(|e| load_error(e.to_string()))?;
-  let declared = instance.describe().await.map_err(|e| load_error(e.to_string()))?.permissions;
-  instance.set_declared(declared);
+  let metadata = instance.describe().await.map_err(|e| load_error(e.to_string()))?;
+  instance.set_declared(metadata.permissions);
 
   Ok(DescribedPlugin {
     name,
     url_span,
     permissions,
     instance,
+    version: metadata.version,
     config_view,
     cached,
   })
@@ -290,13 +292,14 @@ async fn init_plugin(plugin: DescribedPlugin, events: &Sender<PipelineEvent>) ->
   let DescribedPlugin {
     name,
     mut instance,
+    version,
     config_view,
     cached,
     ..
   } = plugin;
   let load_error = plugin_load_error(&name);
 
-  let metadata = instance.init(&config_view).await.map_err(load_error)?;
+  instance.init(&config_view).await.map_err(load_error)?;
   let middlewares = instance
     .list_middlewares()
     .await
@@ -308,7 +311,7 @@ async fn init_plugin(plugin: DescribedPlugin, events: &Sender<PipelineEvent>) ->
   let _ = events
     .send(PipelineEvent::PluginReady {
       name: name.clone(),
-      version: metadata.version,
+      version,
       cached,
     })
     .await;

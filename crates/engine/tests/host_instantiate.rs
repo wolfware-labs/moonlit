@@ -36,8 +36,7 @@ async fn instance() -> PluginInstance {
 #[tokio::test]
 async fn init_ok_and_failinit_err() {
   let mut p = instance().await;
-  let meta = p.init(&serde_json::json!({})).await.expect("init Ok");
-  assert_eq!(meta.name, "test-plugin");
+  assert_eq!(p.init(&serde_json::json!({})).await, Ok(()));
 
   let mut p2 = instance().await;
   let err = p2.init(&serde_json::json!({ "failInit": true })).await;

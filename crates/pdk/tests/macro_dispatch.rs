@@ -1,6 +1,6 @@
 //! Exercises the `moonlit_plugin!`-generated `Guest` impl natively (host target).
 //! The generated code uses `__MoonlitUnavailableHost` off-wasm, so we assert on
-//! init metadata, the middleware list, and unknown-middleware dispatch — paths
+//! describe metadata, init, the middleware list, and unknown-middleware dispatch — paths
 //! that do not depend on host calls.
 
 use moonlit_pdk::bindings::Guest;
@@ -24,10 +24,11 @@ moonlit_plugin! {
 }
 
 #[test]
-fn init_reports_name_and_version() {
-  let meta = <MoonlitComponent as Guest>::init("{}".to_string()).unwrap();
+fn describe_reports_name_and_version_and_init_succeeds() {
+  let meta = <MoonlitComponent as Guest>::describe();
   assert_eq!(meta.name, "sample");
   assert_eq!(meta.version, env!("CARGO_PKG_VERSION"));
+  assert_eq!(<MoonlitComponent as Guest>::init("{}".to_string()), Ok(()));
 }
 
 #[test]

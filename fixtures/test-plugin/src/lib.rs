@@ -49,7 +49,7 @@ impl Guest for Component {
         }
     }
 
-    fn init(plugin_config: String) -> Result<PluginMetadata, String> {
+    fn init(plugin_config: String) -> Result<(), String> {
         if let Some(program) = json_field(&plugin_config, "execOnInit") {
             try_exec(program);
         }
@@ -61,7 +61,7 @@ impl Guest for Component {
             return Err("init failed on request (failInit=true)".to_string());
         }
         *EXEC_ON_LIST.lock().unwrap() = json_field(&plugin_config, "execOnList");
-        Ok(Self::describe())
+        Ok(())
     }
 
     fn list_middlewares() -> Vec<MiddlewareInfo> {

@@ -67,7 +67,7 @@ async fn load_pipeline_happy_path_emits_resolving_then_ready() {
   let ri = names_seen.iter().position(|(k, _)| *k == "resolving").unwrap();
   let yi = names_seen.iter().position(|(k, _)| *k == "ready").unwrap();
   assert!(ri < yi, "Resolving must precede Ready: {names_seen:?}");
-  assert!(ready_version.is_some());
+  assert_eq!(ready_version.as_deref(), Some("0.1.0"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
