@@ -81,6 +81,16 @@ impl DeclaredPermission {
   }
 }
 
+/// The first declared value that uses glob syntax other than `*` and `?`: `[`, `]`, `{`, `}` or `\`.
+#[must_use]
+pub fn unsupported_value(declared: &[DeclaredPermission]) -> Option<&str> {
+  declared
+    .iter()
+    .flat_map(|p| &p.values)
+    .find(|v| Pattern::parse(v).is_none())
+    .map(String::as_str)
+}
+
 /// Whether the granted permissions already cover every value of a declared permission.
 #[must_use]
 pub fn is_covered(p: &DeclaredPermission, granted: &Permissions) -> bool {
@@ -234,6 +244,27 @@ pub fn optional_for_target<'a>(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn values_with_unsupported_glob_syntax_are_found() {
+    for bad in ["{git,sh}", "git[0-9]", "a]", "b}", "foo\\*"] {
+      let declared = [
+        decl(PermissionKind::Network, &["example.com"], false),
+        decl(PermissionKind::Exec, &["git", bad], false),
+      ];
+      assert_eq!(unsupported_value(&declared), Some(bad));
+    }
+  }
+
+  #[test]
+  fn literal_and_star_or_question_values_are_supported() {
+    let declared = [
+      decl(PermissionKind::Exec, &["git", "cargo-*"], false),
+      decl(PermissionKind::Env, &["GH_?OKEN"], true),
+      decl(PermissionKind::FilesystemRead, &[], false),
+    ];
+    assert_eq!(unsupported_value(&declared), None);
+  }
 
   fn decl(kind: PermissionKind, values: &[&str], optional: bool) -> DeclaredPermission {
     DeclaredPermission {

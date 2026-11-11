@@ -18,25 +18,34 @@ const LOG_AND_OUTPUT_OUTPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.or
 
 impl Guest for Component {
     fn describe() -> PluginMetadata {
+        let mut permissions = vec![
+            PermissionRequest {
+                kind: PermissionKind::Network,
+                values: vec!["api.example.com".to_string()],
+                reason: "Calls the example API.".to_string(),
+                optional: false,
+            },
+            PermissionRequest {
+                kind: PermissionKind::Exec,
+                values: vec!["git".to_string()],
+                reason: "Only for the tag middleware.".to_string(),
+                optional: true,
+            },
+        ];
+        if let Ok(value) = std::env::var("TEST_PLUGIN_EXTRA_EXEC") {
+            permissions.push(PermissionRequest {
+                kind: PermissionKind::Exec,
+                values: vec![value],
+                reason: "Declared from the environment.".to_string(),
+                optional: true,
+            });
+        }
         PluginMetadata {
             name: "test-plugin".to_string(),
             version: "0.1.0".to_string(),
             description: "Moonlit host test fixture".to_string(),
             icon: Some(ICON_DATA_URI.to_string()),
-            permissions: vec![
-                PermissionRequest {
-                    kind: PermissionKind::Network,
-                    values: vec!["api.example.com".to_string()],
-                    reason: "Calls the example API.".to_string(),
-                    optional: false,
-                },
-                PermissionRequest {
-                    kind: PermissionKind::Exec,
-                    values: vec!["git".to_string()],
-                    reason: "Only for the tag middleware.".to_string(),
-                    optional: true,
-                },
-            ],
+            permissions,
         }
     }
 

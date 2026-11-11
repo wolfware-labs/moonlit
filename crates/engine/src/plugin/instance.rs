@@ -3,7 +3,7 @@ use crate::plugin::host::ReleaseContext;
 use crate::plugin::host::state::Denial;
 use crate::plugin::host::state::HostState;
 use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
-use crate::plugin::permissions::{DeclaredPermission, optional_for_target};
+use crate::plugin::permissions::{DeclaredPermission, optional_for_target, unsupported_value};
 use crate::plugin::wit::PluginHost;
 use crate::plugin::{PluginError, PluginMetadata};
 use std::path::PathBuf;
@@ -37,12 +37,20 @@ impl PluginInstance {
   }
 
   pub async fn describe(&mut self) -> Result<PluginMetadata, PluginError> {
-    match self.bindings.call_describe(&mut self.store).await {
-      Ok(meta) => Ok(meta.into()),
-      Err(e) => Err(PluginError::Trap {
-        op: "describe".to_string(),
-        message: format!("{e:?}"),
-      }),
+    let meta: PluginMetadata = match self.bindings.call_describe(&mut self.store).await {
+      Ok(meta) => meta.into(),
+      Err(e) => {
+        return Err(PluginError::Trap {
+          op: "describe".to_string(),
+          message: format!("{e:?}"),
+        });
+      }
+    };
+    match unsupported_value(&meta.permissions) {
+      None => Ok(meta),
+      Some(value) => Err(PluginError::Load(format!(
+        "permission value `{value}` uses `[`, `]`, `{{`, `}}` or `\\`; only `*` and `?` wildcards are allowed"
+      ))),
     }
   }
 
