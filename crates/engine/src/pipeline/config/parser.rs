@@ -246,19 +246,19 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
 #[must_use]
 fn item_start(start: usize, yaml: &str) -> usize {
   let mut end = start;
-  loop {
-    let line_start = yaml[..end].rfind('\n').map_or(0, |i| i + 1);
-    let line = &yaml[line_start..end];
+  for line in yaml[..start].rsplit('\n') {
+    let line_start = end - line.len();
     let code = line.find(" #").map_or(line, |i| &line[..i]);
     let code = if code.trim_start().starts_with('#') { "" } else { code }.trim_end();
     if code.ends_with('-') {
       return line_start + code.len() - 1;
     }
-    if !code.trim_start().is_empty() || line_start == 0 {
+    if !code.trim_start().is_empty() {
       return start;
     }
-    end = line_start - 1;
+    end = line_start.saturating_sub(1);
   }
+  start
 }
 
 #[must_use]
