@@ -167,10 +167,10 @@ jobs:
       # reused; the default copies the tree and rebuilds every dependency.
       - name: Mutate only the changed lines
         run: |
-          ( while sleep 30; do echo "disk: $(df -h / | awk 'NR==2 {print $3 " used, " $4 " free"}'); mem: $(free -m | awk '/^Mem:/ {print $3 " MB used of " $2}')"; done ) &
+          ( while sleep 10; do echo "disk: $(df -h / | awk 'NR==2 {print $3 " used, " $4 " free"}'); mem: $(free -m | awk '/^Mem:/ {print $3 " MB used of " $2}'); top rss: $(ps -eo rss=,comm= --sort=-rss | head -3 | awk '{printf "%s %d MB; ", $2, $1/1024}')"; done ) &
           cargo mutants --in-diff pr.diff --in-place --no-shuffle \
             --shard ${{ matrix.shard }}/16 \
-            --package moonlit-engine --package moonlit
+            --package moonlit-engine --package moonlit --package moonlit-pdk-macros
       - name: Upload the mutants report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
