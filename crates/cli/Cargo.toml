@@ -46,12 +46,20 @@ reqwest = { workspace = true, features = ["json"] }
 open = "5"
 gethostname = "1"
 anyhow.workspace = true
+semver.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
 tempfile.workspace = true
 predicates = "3"
 wiremock.workspace = true
+sha2.workspace = true
+hex.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "release_file"
+harness = false
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2"

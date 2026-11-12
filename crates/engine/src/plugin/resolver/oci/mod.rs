@@ -1,5 +1,5 @@
 pub mod auth;
-mod client;
+pub(crate) mod client;
 
 use crate::cache::{Cache, PluginMeta};
 use crate::plugin::resolver::oci::client::OciClient;
@@ -18,7 +18,11 @@ pub async fn resolve_oci(
   progress: Option<ProgressFn<'_>>,
 ) -> Result<ResolvedPlugin, ResolveError> {
   let home = crate::paths::home_dir().unwrap_or_default();
-  resolve_with(&OciClient::new(), &home, raw_ref, opts, cache, progress).await
+  let registry = raw_ref
+    .parse::<Reference>()
+    .map(|r| r.registry().to_string())
+    .unwrap_or_default();
+  resolve_with(&OciClient::for_registry(&registry), &home, raw_ref, opts, cache, progress).await
 }
 
 async fn resolve_with(
@@ -528,16 +532,18 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn other_envelopes_are_network_errors() {
+  async fn other_envelopes_are_registry_errors() {
     let body = r#"{"errors":[{"code":"TOOMANYREQUESTS","message":"slow down"}]}"#;
     let err = failing_resolve(429, body).await;
-    assert!(matches!(err, ResolveError::Network(_)), "{err:?}");
+    assert!(matches!(err, ResolveError::Registry(_)), "{err:?}");
   }
 
   #[tokio::test]
-  async fn a_server_error_is_a_network_error() {
-    let err = failing_resolve(500, "boom").await;
-    assert!(matches!(err, ResolveError::Network(_)), "{err:?}");
+  async fn a_server_error_is_a_registry_error() {
+    for status in [500, 503] {
+      let err = failing_resolve(status, "boom").await;
+      assert!(matches!(err, ResolveError::Registry(_)), "{status}: {err:?}");
+    }
   }
 
   #[test]
@@ -555,6 +561,41 @@ mod tests {
 
   #[test]
   fn the_production_client_is_constructible() {
-    let _client = OciClient::new();
+    let _client = OciClient::for_registry("registry.moonlit.rs");
+  }
+
+  #[tokio::test]
+  async fn a_registry_that_accepts_and_never_answers_is_a_network_error() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let host = listener.local_addr().unwrap().to_string();
+    let held = tokio::spawn(async move {
+      let mut open = Vec::new();
+      while let Ok((stream, _)) = listener.accept().await {
+        open.push(stream);
+      }
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let cache = cache_at(&dir, &Arc::new(AtomicU64::new(1_000)));
+    let home = tempfile::tempdir().unwrap();
+    let client = OciClient::with_plain_http_and_timeouts(&host, Duration::from_millis(200), Duration::from_millis(200));
+
+    let started = std::time::Instant::now();
+    let result = tokio::time::timeout(
+      Duration::from_secs(5),
+      resolve_with(
+        &client,
+        home.path(),
+        &format!("{host}/w/plugin:1.0.0"),
+        &opts(false),
+        &cache,
+        None,
+      ),
+    )
+    .await;
+    held.abort();
+
+    let err = result.expect("resolve returned before the outer timeout").unwrap_err();
+    assert!(matches!(err, ResolveError::Network(_)), "{err:?}");
+    assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
   }
 }

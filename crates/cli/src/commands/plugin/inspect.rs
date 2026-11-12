@@ -1,9 +1,12 @@
-use super::introspect::introspect;
 use crate::cli::{OutputMode, PluginInspectArgs};
+use crate::display::display_safe;
+use crate::plugin_probe::introspect;
 use crate::render::resolve_mode;
 use moonlit_engine::cache::Cache;
 use moonlit_engine::plugin::PluginMetadata;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
+use moonlit_engine::plugin::permissions::DeclaredPermission;
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveOptions, resolve};
 
 #[must_use]
@@ -59,6 +62,10 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
     return 2;
   }
 
+  if let Err(code) = super::wasm::check_world(&args.target, &bytes) {
+    return code;
+  }
+
   let (meta, mws) = match introspect(&bytes).await {
     Ok(pair) => pair,
     Err(e) => {
@@ -68,7 +75,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
   };
 
   match resolve_mode(output) {
-    OutputMode::Json => print_json(&meta, &mws),
+    OutputMode::Json => print_json(&meta, &mws, PLUGIN_WORLD),
     OutputMode::Plain => print_plain(&meta, &mws),
     OutputMode::Pretty => print_pretty(&meta, &mws),
   }
@@ -77,35 +84,70 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
 
 fn print_pretty(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo]) {
   use comfy_table::{Table, presets::UTF8_BORDERS_ONLY};
-  println!("{} v{}", plugin_metadata.name, plugin_metadata.version);
+  println!(
+    "{} v{}",
+    display_safe(&plugin_metadata.name),
+    display_safe(&plugin_metadata.version)
+  );
   if !plugin_metadata.description.is_empty() {
-    println!("{}", plugin_metadata.description);
+    println!("{}", display_safe(&plugin_metadata.description));
   }
   let mut table = Table::new();
   table.load_style(UTF8_BORDERS_ONLY);
   table.set_header(["Middleware", "Description"]);
   for m in plugin_middlewares {
-    table.add_row([m.name.as_str(), m.description.as_str()]);
+    table.add_row([display_safe(&m.name), display_safe(&m.description)]);
   }
   println!("{table}");
+  if !plugin_metadata.permissions.is_empty() {
+    println!("Permissions:");
+    for p in &plugin_metadata.permissions {
+      println!("  {}", permission_line(p));
+    }
+  }
+}
+
+fn permission_line(p: &DeclaredPermission) -> String {
+  let mut line = p.kind.sentence().to_string();
+  if !p.values.is_empty() {
+    line.push_str(" (");
+    line.push_str(&p.values.join(", "));
+    line.push(')');
+  }
+  if p.optional {
+    line.push_str(" [optional]");
+  }
+  if !p.reason.is_empty() {
+    line.push_str(": ");
+    line.push_str(&p.reason);
+  }
+  display_safe(&line)
 }
 
 fn print_plain(plugin_metadata: &PluginMetadata, plgin_middlewares: &[MiddlewareInfo]) {
-  println!("name: {}", plugin_metadata.name);
-  println!("version: {}", plugin_metadata.version);
-  println!("description: {}", plugin_metadata.description);
+  println!("name: {}", display_safe(&plugin_metadata.name));
+  println!("version: {}", display_safe(&plugin_metadata.version));
+  println!("description: {}", display_safe(&plugin_metadata.description));
   println!("middlewares:");
   for m in plgin_middlewares {
-    println!("  {} - {}", m.name, m.description);
+    println!("  {} - {}", display_safe(&m.name), display_safe(&m.description));
+  }
+  if !plugin_metadata.permissions.is_empty() {
+    println!("permissions:");
+    for p in &plugin_metadata.permissions {
+      println!("  {}", permission_line(p));
+    }
   }
 }
 
-fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo]) {
+fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[MiddlewareInfo], world: &str) {
   let v = serde_json::json!({
       "name": plugin_metadata.name,
       "version": plugin_metadata.version,
       "description": plugin_metadata.description,
       "icon": plugin_metadata.icon,
+      "world": world,
+      "permissions": plugin_metadata.permissions,
       "middlewares": plugin_middlewares.iter().map(|m| serde_json::json!({
           "name": m.name,
           "description": m.description,

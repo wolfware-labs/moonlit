@@ -1,6 +1,5 @@
 mod build;
 mod inspect;
-mod introspect;
 mod new;
 mod publish;
 mod scaffold;

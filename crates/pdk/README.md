@@ -71,6 +71,40 @@ The example above is what it generates.
 Build with `cargo build --target wasm32-wasip2 --release` (requires
 `rustup target add wasm32-wasip2`).
 
+## Declaring permissions
+
+A plugin has no access to the network, programs, environment, or files unless the pipeline
+grants it. Declare what the plugin needs with `permissions:`; `moonlit add` shows these to
+the user and writes them to `release.yml`, and `moonlit run` refuses to start if the
+pipeline does not grant the required ones.
+
+```rust
+moonlit_plugin! {
+    name: "github",
+    middlewares: [CreateRelease, CommentPr],
+    permissions: [
+        network(["api.github.com", "uploads.github.com"]) => "Creates the release and uploads its assets.",
+        env(["GITHUB_*"]) => "Reads GITHUB_TOKEN to call the API.",
+        filesystem(read_only) => "Reads the changelog and built artifacts.",
+        optional exec(["git"]) => "Only needed to read the latest tag from a local clone.",
+    ],
+}
+```
+
+- `network([...])`, `exec([...])` and `env([...])` take a non-empty list of strings: hosts,
+  program names, and environment variable names or globs.
+  Values are literal or use the `*` and `?` wildcards; `[`, `]`, `{`, `}` and `\` do not compile.
+- `filesystem(read_only)` or `filesystem(read_write)` takes no list.
+- Every entry needs `=> "reason"`, a non-empty string shown to the user. A permission
+  without one does not compile.
+- A leading `optional` marks a permission the plugin can run without. It is shown
+  separately and is not granted unless the user allows it. Say in the reason when the
+  permission is needed.
+- Omit `permissions:` for a plugin that needs none.
+
+The CLI checks the same rules when it loads a plugin, so a component built without the macro
+that breaks one of them fails to load.
+
 ## License
 
 Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.

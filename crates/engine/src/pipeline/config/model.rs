@@ -1,4 +1,4 @@
-use crate::pipeline::config::span::Spanned;
+use crate::pipeline::config::span::{Span, Spanned};
 use indexmap::IndexMap;
 
 pub type ConfigMap = IndexMap<String, Spanned<ConfigValue>>;
@@ -32,6 +32,8 @@ pub struct Plugin {
   pub url: Spanned<PluginUrl>,
   pub config: ConfigMap,
   pub permissions: Option<Permissions>,
+  pub span: Span,
+  pub permissions_span: Option<Span>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +42,15 @@ pub enum PluginUrl {
   File(String),
   Http(String),
   Https(String),
+}
+
+impl PluginUrl {
+  #[must_use]
+  pub fn as_str(&self) -> &str {
+    match self {
+      PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => s,
+    }
+  }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -88,11 +99,24 @@ impl Permissions {
   }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// How much of the project a plugin may touch, ordered from least to most access.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FilesystemAccess {
   None,
   ReadOnly,
   ReadWrite,
+}
+
+impl FilesystemAccess {
+  /// The value as written after `filesystem:` in a release file.
+  #[must_use]
+  pub fn as_str(self) -> &'static str {
+    match self {
+      FilesystemAccess::None => "none",
+      FilesystemAccess::ReadOnly => "read-only",
+      FilesystemAccess::ReadWrite => "read-write",
+    }
+  }
 }
 
 #[cfg(test)]
@@ -115,5 +139,12 @@ mod tests {
     assert!(p.exec.is_empty());
     assert!(p.env.is_empty());
     assert_eq!(p.filesystem, FilesystemAccess::None);
+  }
+
+  #[test]
+  fn filesystem_access_is_written_as_in_the_release_file() {
+    assert_eq!(FilesystemAccess::None.as_str(), "none");
+    assert_eq!(FilesystemAccess::ReadOnly.as_str(), "read-only");
+    assert_eq!(FilesystemAccess::ReadWrite.as_str(), "read-write");
   }
 }

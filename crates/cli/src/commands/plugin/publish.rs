@@ -76,8 +76,11 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     eprintln!("error: {e}");
     return 2;
   }
+  if let Err(code) = super::wasm::check_world(&file.display().to_string(), &bytes) {
+    return code;
+  }
 
-  let (meta, mws) = match super::introspect::introspect(&bytes).await {
+  let (meta, mws) = match crate::plugin_probe::introspect(&bytes).await {
     Ok(pair) => pair,
     Err(e) => {
       eprintln!("error: failed to instantiate component: {e}");
@@ -98,6 +101,7 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     licenses,
     middlewares: mws.iter().map(|m| m.name.clone()).collect(),
     sdk_version,
+    permissions: meta.permissions.clone(),
   };
 
   let home = moonlit_engine::paths::home_dir().unwrap_or_default();

@@ -6,9 +6,12 @@ mod span;
 mod tree;
 
 pub use crate::pipeline::config::diagnostic::ConfigDiagnostic;
-pub use crate::pipeline::config::model::{ConfigMap, ConfigValue, FilesystemAccess, Permissions, PipelineConfig, PluginUrl};
-pub use crate::pipeline::config::parser::parse_config;
+pub use crate::pipeline::config::model::{
+  ConfigMap, ConfigValue, FilesystemAccess, Permissions, PipelineConfig, Plugin as PluginDeclaration, PluginUrl,
+};
+pub use crate::pipeline::config::parser::{parse_config, parse_config_unvalidated};
 pub(crate) use crate::pipeline::config::source::ConfigSource;
+pub(crate) use crate::pipeline::config::span::Span;
 
 impl PipelineConfig {
   pub fn add_argument(&mut self, key: &str, value: &str) {

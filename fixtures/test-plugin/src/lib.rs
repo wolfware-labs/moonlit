@@ -6,9 +6,11 @@ wit_bindgen::generate!({
 
 use crate::moonlit::plugin::host;
 use crate::moonlit::plugin::process;
-use crate::moonlit::plugin::types::LogLevel;
+use crate::moonlit::plugin::types::{LogLevel, PermissionKind, PermissionRequest};
 
 struct Component;
+
+static EXEC_ON_LIST: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 const ICON_DATA_URI: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const LOG_AND_OUTPUT_INPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"LogAndOutputConfig","type":"object","properties":{"name":{"type":"string","description":"config name echoed into the step output"}},"additionalProperties":false}"#;
@@ -16,15 +18,41 @@ const LOG_AND_OUTPUT_OUTPUT_SCHEMA: &str = r#"{"$schema":"https://json-schema.or
 
 impl Guest for Component {
     fn describe() -> PluginMetadata {
+        let mut permissions = vec![
+            PermissionRequest {
+                kind: PermissionKind::Network,
+                values: vec!["api.example.com".to_string()],
+                reason: "Calls the example API.".to_string(),
+                optional: false,
+            },
+            PermissionRequest {
+                kind: PermissionKind::Exec,
+                values: vec!["git".to_string()],
+                reason: "Only for the tag middleware.".to_string(),
+                optional: true,
+            },
+        ];
+        if let Ok(value) = std::env::var("TEST_PLUGIN_EXTRA_EXEC") {
+            permissions.push(PermissionRequest {
+                kind: PermissionKind::Exec,
+                values: vec![value],
+                reason: "Declared from the environment.".to_string(),
+                optional: true,
+            });
+        }
         PluginMetadata {
             name: "test-plugin".to_string(),
             version: "0.1.0".to_string(),
             description: "Moonlit host test fixture".to_string(),
             icon: Some(ICON_DATA_URI.to_string()),
+            permissions,
         }
     }
 
-    fn init(plugin_config: String) -> Result<PluginMetadata, String> {
+    fn init(plugin_config: String) -> Result<(), String> {
+        if let Some(program) = json_field(&plugin_config, "execOnInit") {
+            try_exec(program);
+        }
         if plugin_config.contains("\"failInit\":true")
             || plugin_config.contains("\"failInit\": true")
             || plugin_config.contains("\"failInit\":\"true\"")
@@ -32,10 +60,14 @@ impl Guest for Component {
         {
             return Err("init failed on request (failInit=true)".to_string());
         }
-        Ok(Self::describe())
+        *EXEC_ON_LIST.lock().unwrap() = json_field(&plugin_config, "execOnList");
+        Ok(())
     }
 
     fn list_middlewares() -> Vec<MiddlewareInfo> {
+        if let Some(program) = EXEC_ON_LIST.lock().unwrap().clone() {
+            try_exec(program);
+        }
         let mw = |name: &str,
                   description: &str,
                   input_schema: Option<String>,
@@ -55,6 +87,8 @@ impl Guest for Component {
             mw("run-process", "process::run", None, None),
             mw("spawn-stream", "process::spawn streaming", None, None),
             mw("http-get", "wasi:http GET", None, None),
+            mw("try-exec", "runs config program, ignores errors", None, None),
+            mw("try-fetch", "GETs config url, ignores errors", None, None),
             mw("boom", "panics", None, None),
             mw("fail", "returns successful=false", None, None),
             mw("dup-output", "two outputs, same key", None, None),
@@ -175,6 +209,33 @@ impl Guest for Component {
                     },
                 }
             }
+            "try-exec" => {
+                try_exec(json_field(&config, "program").unwrap_or_else(|| "git".to_string()));
+                MiddlewareResult {
+                    successful: true,
+                    error_message: None,
+                    warnings: vec![],
+                    output: vec![],
+                }
+            }
+            "try-fetch" => {
+                let url = json_field(&config, "url").unwrap_or_default();
+                let (scheme, rest) = match url.split_once("://") {
+                    Some((s, r)) => (s.to_string(), r.to_string()),
+                    None => ("https".to_string(), url.clone()),
+                };
+                let (authority, path) = match rest.split_once('/') {
+                    Some((a, p)) => (a.to_string(), format!("/{p}")),
+                    None => (rest.clone(), "/".to_string()),
+                };
+                let _ = http_get(&scheme, &authority, &path);
+                MiddlewareResult {
+                    successful: true,
+                    error_message: None,
+                    warnings: vec![],
+                    output: vec![],
+                }
+            }
             "fail" => MiddlewareResult {
                 successful: false,
                 error_message: Some("intentional failure".to_string()),
@@ -217,6 +278,17 @@ impl Guest for Component {
             },
         }
     }
+}
+
+fn try_exec(program: String) {
+    let cmd = process::Command {
+        program,
+        args: vec!["--version".to_string()],
+        cwd: None,
+        env: vec![],
+        stdin: None,
+    };
+    let _ = process::run(&cmd);
 }
 
 fn json_field(json: &str, key: &str) -> Option<String> {

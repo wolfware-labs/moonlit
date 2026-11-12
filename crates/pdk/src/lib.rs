@@ -1,7 +1,7 @@
 //! Write a Moonlit plugin: one [`Middleware`] impl per step, and one
 //! [`moonlit_plugin!`] block naming them.
 //!
-//! Targets plugin ABI `moonlit:plugin@0.3.0`. Each middleware publishes a JSON
+//! Targets plugin ABI `moonlit:plugin@0.4.0`. Each middleware publishes a JSON
 //! Schema for its `Input` and `Output`, which is what `moonlit plugin inspect`
 //! reads. See [`Middleware`] for a worked example and [`testing`] for driving
 //! one in a unit test.
@@ -26,6 +26,157 @@ pub mod bindings {
 
 pub use bindings::export;
 
+/// Declares a plugin: its name, middlewares, and optional icon, config and state.
+///
+/// `permissions:` lists what the plugin needs, each with a reason shown to the
+/// user when they consent. A leading `optional` marks one the plugin can run
+/// without. Omitting `permissions:` declares none.
+///
+/// ```
+/// # use moonlit_pdk::prelude::*;
+/// # #[derive(Default)]
+/// # struct Noop;
+/// # impl Middleware for Noop {
+/// #   const NAME: &'static str = "noop";
+/// #   const DESCRIPTION: &'static str = "does nothing";
+/// #   type Input = NoInput;
+/// #   type Output = NoOutput;
+/// #   fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+/// #     MiddlewareResult::ok(NoOutput {})
+/// #   }
+/// # }
+/// moonlit_plugin! {
+///     name: "p",
+///     middlewares: [Noop],
+///     permissions: [
+///         network(["api.github.com"]) => "Creates the release.",
+///         env(["GITHUB_*"]) => "Reads GITHUB_TOKEN to call the API.",
+///         filesystem(read_only) => "Reads the changelog.",
+///         optional exec(["git"]) => "Only for the tag middleware.",
+///     ],
+/// }
+/// # fn main() {}
+/// ```
+///
+/// A permission without `=> "why"` does not compile.
+///
+/// ```compile_fail
+/// # use moonlit_pdk::prelude::*;
+/// # #[derive(Default)]
+/// # struct Noop;
+/// # impl Middleware for Noop {
+/// #   const NAME: &'static str = "noop";
+/// #   const DESCRIPTION: &'static str = "does nothing";
+/// #   type Input = NoInput;
+/// #   type Output = NoOutput;
+/// #   fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+/// #     MiddlewareResult::ok(NoOutput {})
+/// #   }
+/// # }
+/// moonlit_plugin! {
+///     name: "p",
+///     middlewares: [Noop],
+///     permissions: [
+///         network(["api.github.com"]),
+///     ],
+/// }
+/// ```
+///
+/// An empty reason does not compile.
+///
+/// ```compile_fail
+/// # use moonlit_pdk::prelude::*;
+/// # #[derive(Default)]
+/// # struct Noop;
+/// # impl Middleware for Noop {
+/// #   const NAME: &'static str = "noop";
+/// #   const DESCRIPTION: &'static str = "does nothing";
+/// #   type Input = NoInput;
+/// #   type Output = NoOutput;
+/// #   fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+/// #     MiddlewareResult::ok(NoOutput {})
+/// #   }
+/// # }
+/// moonlit_plugin! {
+///     name: "p",
+///     middlewares: [Noop],
+///     permissions: [
+///         network(["api.github.com"]) => "",
+///     ],
+/// }
+/// ```
+///
+/// An unknown kind does not compile.
+///
+/// ```compile_fail
+/// # use moonlit_pdk::prelude::*;
+/// # #[derive(Default)]
+/// # struct Noop;
+/// # impl Middleware for Noop {
+/// #   const NAME: &'static str = "noop";
+/// #   const DESCRIPTION: &'static str = "does nothing";
+/// #   type Input = NoInput;
+/// #   type Output = NoOutput;
+/// #   fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+/// #     MiddlewareResult::ok(NoOutput {})
+/// #   }
+/// # }
+/// moonlit_plugin! {
+///     name: "p",
+///     middlewares: [Noop],
+///     permissions: [
+///         socket(["x"]) => "why",
+///     ],
+/// }
+/// ```
+///
+/// An empty value list does not compile.
+///
+/// ```compile_fail
+/// # use moonlit_pdk::prelude::*;
+/// # #[derive(Default)]
+/// # struct Noop;
+/// # impl Middleware for Noop {
+/// #   const NAME: &'static str = "noop";
+/// #   const DESCRIPTION: &'static str = "does nothing";
+/// #   type Input = NoInput;
+/// #   type Output = NoOutput;
+/// #   fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+/// #     MiddlewareResult::ok(NoOutput {})
+/// #   }
+/// # }
+/// moonlit_plugin! {
+///     name: "p",
+///     middlewares: [Noop],
+///     permissions: [
+///         exec([]) => "why",
+///     ],
+/// }
+/// ```
+///
+/// A filesystem argument other than `read_only` or `read_write` does not compile.
+///
+/// ```compile_fail
+/// # use moonlit_pdk::prelude::*;
+/// # #[derive(Default)]
+/// # struct Noop;
+/// # impl Middleware for Noop {
+/// #   const NAME: &'static str = "noop";
+/// #   const DESCRIPTION: &'static str = "does nothing";
+/// #   type Input = NoInput;
+/// #   type Output = NoOutput;
+/// #   fn execute(&self, _ctx: &Context, _input: Self::Input) -> MiddlewareResult<Self::Output> {
+/// #     MiddlewareResult::ok(NoOutput {})
+/// #   }
+/// # }
+/// moonlit_plugin! {
+///     name: "p",
+///     middlewares: [Noop],
+///     permissions: [
+///         filesystem(everything) => "why",
+///     ],
+/// }
+/// ```
 pub use moonlit_pdk_macros::moonlit_plugin;
 
 mod result;

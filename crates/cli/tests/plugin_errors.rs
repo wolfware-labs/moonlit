@@ -96,15 +96,17 @@ fn inspect_rejects_an_invalid_component() {
 }
 
 #[test]
-fn inspect_reports_a_component_that_is_not_a_plugin() {
+fn inspect_rejects_a_component_without_the_plugin_contract() {
   let dir = tempfile::tempdir().unwrap();
   let path = write(dir.path(), "empty.wasm", EMPTY_COMPONENT);
   moonlit()
     .args(["plugin", "inspect"])
     .arg(&path)
     .assert()
-    .code(3)
-    .stderr(contains("failed to instantiate component"));
+    .code(2)
+    .stderr(contains(
+      "built for an unknown plugin contract, this CLI supports moonlit:plugin@0.4.0",
+    ));
 }
 
 #[test]
@@ -202,15 +204,17 @@ fn publish_rejects_an_invalid_component() {
 }
 
 #[test]
-fn publish_reports_a_component_that_is_not_a_plugin() {
+fn publish_rejects_a_component_without_the_plugin_contract() {
   let dir = tempfile::tempdir().unwrap();
   let path = write(dir.path(), "empty.wasm", EMPTY_COMPONENT);
   moonlit()
     .args(["plugin", "publish", "reg.example.com/w/x:1", "--file"])
     .arg(&path)
     .assert()
-    .code(3)
-    .stderr(contains("failed to instantiate component"));
+    .code(2)
+    .stderr(contains(
+      "built for an unknown plugin contract, this CLI supports moonlit:plugin@0.4.0",
+    ));
 }
 
 #[test]

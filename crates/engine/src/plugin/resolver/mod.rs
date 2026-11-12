@@ -3,8 +3,13 @@ mod http;
 mod model;
 pub mod oci;
 
+use std::time::Duration;
+
 use crate::cache::Cache;
 pub use crate::plugin::resolver::model::{PluginSource, ProgressFn, ResolveError, ResolveOptions, ResolvedPlugin};
+
+pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub async fn resolve(
   source: &PluginSource,

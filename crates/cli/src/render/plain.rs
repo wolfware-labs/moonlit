@@ -1,5 +1,6 @@
 use super::summary::{build_table, fmt_duration};
-use super::{Header, Renderer};
+use super::{Header, Renderer, error_block, release_error};
+use crate::display::display_safe;
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::{PipelineEvent, StepResult};
 use std::io::Write;
@@ -45,12 +46,12 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
   fn handle(&mut self, event: &PipelineEvent) {
     match event {
       PipelineEvent::PluginResolving { name, .. } => {
-        let _ = writeln!(self.out, "resolving {name}");
+        let _ = writeln!(self.out, "resolving {}", display_safe(name));
       }
       PipelineEvent::PluginPullProgress { .. } => {}
       PipelineEvent::PluginReady { name, version, cached } => {
         let how = if *cached { "cached" } else { "pulled" };
-        let _ = writeln!(self.out, "ready {name} {version} ({how})");
+        let _ = writeln!(self.out, "ready {} {} ({how})", display_safe(name), display_safe(version));
       }
       PipelineEvent::StepStarted {
         index,
@@ -65,10 +66,10 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
         if matches!(level, LogLevel::Trace | LogLevel::Debug) && !self.verbose {
           return; // DEBUG/TRACE only with -v (§9.4.7)
         }
-        let _ = writeln!(self.out, "  [{}] {step}: {message}", level_tag(*level));
+        let _ = writeln!(self.out, "  [{}] {step}: {}", level_tag(*level), display_safe(message));
       }
       PipelineEvent::StepProgress { step, message } => {
-        let _ = writeln!(self.out, "  {step}: {message}");
+        let _ = writeln!(self.out, "  {step}: {}", display_safe(message));
       }
       PipelineEvent::StepSkipped { step, condition } => {
         let _ = writeln!(self.out, "↷ {step} (condition not met: {condition})");
@@ -86,13 +87,7 @@ impl<W: Write + Send> Renderer for PlainRenderer<W> {
             summary.total_duration.as_secs_f64()
           );
         } else {
-          let msg = summary
-            .steps
-            .iter()
-            .rev()
-            .find_map(|s| s.error_message.clone())
-            .unwrap_or_else(|| "pipeline did not complete successfully".to_string());
-          let _ = writeln!(self.out, "Release failed: {msg}");
+          let _ = writeln!(self.out, "Release failed: {}", release_error(summary));
         }
       }
     }
@@ -109,12 +104,12 @@ impl<W: Write + Send> PlainRenderer<W> {
       return; // the `↷` line was already printed on StepSkipped
     }
     for w in &result.warnings {
-      let _ = writeln!(self.out, "  [WARN] {}: {w}", result.name);
+      let _ = writeln!(self.out, "  [WARN] {}: {}", result.name, display_safe(w));
     }
     if result.successful {
       let _ = writeln!(self.out, "✔ {} · {}", result.name, fmt_duration(result.duration));
     } else {
-      let err = result.error_message.as_deref().unwrap_or("failed");
+      let err = error_block(result.error_message.as_deref().unwrap_or("failed"));
       let _ = writeln!(self.out, "✘ {} · {} — {err}", result.name, fmt_duration(result.duration));
     }
   }
@@ -149,6 +144,83 @@ mod tests {
     PipelineEvent::StepFinished {
       step: result.name.clone(),
       result,
+    }
+  }
+
+  #[test]
+  fn failed_step_message_from_a_plugin_renders_escaped() {
+    let error = "blocked from running 'git' (optional permission: \"Tags.\u{1b}[1A\u{1b}[2K\")";
+    let text = render(
+      false,
+      &[
+        finished(step("s1", false, false, Some(error), &[])),
+        PipelineEvent::PipelineFinished {
+          summary: summary(vec![step("s1", false, false, Some(error), &[])], false),
+        },
+      ],
+    );
+    assert!(!text.contains('\u{1b}'), "{text:?}");
+    assert!(text.contains("\"Tags.\\x1b[1A\\x1b[2K\")"), "{text}");
+  }
+
+  #[test]
+  fn multi_line_step_errors_keep_their_lines_and_escape_the_rest() {
+    let error = "line1\nline2\r\u{1b}[2K\tend";
+    let text = render(
+      false,
+      &[
+        finished(step("s1", false, false, Some(error), &[])),
+        PipelineEvent::PipelineFinished {
+          summary: summary(vec![step("s1", false, false, Some(error), &[])], false),
+        },
+      ],
+    );
+    assert!(!text.contains('\u{1b}') && !text.contains('\r'), "{text:?}");
+    assert!(
+      text.contains("✘ s1 · 1.5s — line1\n    line2\\x0d\\x1b[2K\tend\n"),
+      "{text:?}"
+    );
+    assert!(
+      text.contains("Release failed: line1\n    line2\\x0d\\x1b[2K\tend\n"),
+      "{text:?}"
+    );
+  }
+
+  #[test]
+  fn plugin_text_with_escape_sequences_renders_escaped() {
+    let text = render(
+      false,
+      &[
+        PipelineEvent::PluginResolving {
+          name: "rp\u{1b}[8m".into(),
+          url: "oci://h/o/rp:1.0.0".into(),
+        },
+        PipelineEvent::PluginReady {
+          name: "tp\u{1b}[8m".into(),
+          version: "1.0\u{1b}[2K".into(),
+          cached: true,
+        },
+        PipelineEvent::StepLog {
+          step: "s1".into(),
+          level: LogLevel::Info,
+          message: "log\u{1b}[2K".into(),
+        },
+        PipelineEvent::StepProgress {
+          step: "s1".into(),
+          message: "progress\u{1b}[2K".into(),
+        },
+        finished(step("s1", true, false, None, &["warn\u{1b}[2K"])),
+      ],
+    );
+    assert!(!text.contains('\u{1b}'), "{text:?}");
+    for expected in [
+      "resolving rp\\x1b[8m",
+      "ready tp\\x1b[8m 1.0\\x1b[2K",
+      "log\\x1b[2K",
+      "progress\\x1b[2K",
+      "warn\\x1b[2K",
+    ] {
+      assert!(text.contains(expected), "missing {expected:?} in {text:?}");
     }
   }
 

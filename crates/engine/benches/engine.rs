@@ -5,125 +5,15 @@ use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::logging::LogLevel;
-use moonlit_engine::pipeline::config::{Permissions, parse_config};
+use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config};
 use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::permissions::{DeclaredPermission, PermissionKind, uncovered_required};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig};
 use tokio::runtime::Runtime;
 
 const FIXTURE: &[u8] = include_bytes!("../tests/fixtures/test_plugin.wasm");
 
-const RELEASE_YML: &str = r#"name: acme-service
-
-arguments:
-  version: "1.4.0"
-  channel: stable
-
-variables:
-  registry: ghcr.io/acme
-  region: eu-west-1
-
-plugins:
-  - name: git
-    url: oci://registry.moonlit.rs/wolfware/git:1.3.0
-    permissions:
-      exec: ["git"]
-      env: ["GIT_*"]
-      filesystem: read-write
-  - name: changelog
-    url: oci://registry.moonlit.rs/wolfware/changelog:2.1.0
-    config:
-      format: keep-a-changelog
-      sections: [added, changed, fixed, removed]
-    permissions:
-      filesystem: read-write
-  - name: cargo
-    url: oci://registry.moonlit.rs/wolfware/cargo:1.0.4
-    permissions:
-      exec: ["cargo", "rustc"]
-      env: ["CARGO_*", "RUST*"]
-      filesystem: read-write
-  - name: docker
-    url: oci://registry.moonlit.rs/wolfware/docker:3.2.0
-    config:
-      registry: $(vars:registry)
-      platforms: [linux/amd64, linux/arm64]
-    permissions:
-      network: ["ghcr.io"]
-      exec: ["docker"]
-      env: ["DOCKER_*"]
-      filesystem: read-only
-  - name: github
-    url: oci://registry.moonlit.rs/wolfware/github:2.0.0
-    config:
-      owner: acme
-      repo: service
-    permissions:
-      network: ["api.github.com", "uploads.github.com"]
-      env: ["GITHUB_*"]
-      filesystem: read-only
-
-stages:
-  prepare:
-    - name: tags
-      run: git.list-tags
-      config:
-        pattern: "v*"
-    - name: commits
-      run: git.commits-since
-      config:
-        since: $(output:tags)
-    - name: bump
-      run: changelog.next-version
-      config:
-        current: $(args:version)
-        commits: $(output:commits)
-  build:
-    - name: compile
-      run: cargo.build
-      config:
-        profile: release
-        features: [tls, metrics]
-        locked: true
-    - name: test
-      run: cargo.test
-      continueOnError: false
-      config:
-        workspace: true
-    - name: image
-      run: docker.build
-      condition: "args.channel == 'stable'"
-      config:
-        tag: $(vars:registry)/service:v$(output:bump)
-        context: .
-        labels:
-          org.opencontainers.image.version: $(output:bump)
-          org.opencontainers.image.source: https://github.com/acme/service
-  release:
-    - name: notes
-      run: changelog.render
-      config:
-        version: $(output:bump)
-        commits: $(output:commits)
-    - name: tag
-      run: git.create-tag
-      haltIf: "output.bump == ''"
-      config:
-        name: v$(output:bump)
-        message: Release v$(output:bump)
-    - name: push-image
-      run: docker.push
-      continueOnError: true
-      config:
-        image: $(output:image)
-    - name: publish
-      run: github.create-release
-      config:
-        tag: v$(output:bump)
-        name: v$(output:bump)
-        body: $(output:notes)
-        draft: false
-        assets: [target/release/service]
-"#;
+const RELEASE_YML: &str = include_str!("fixtures/release.yml");
 
 struct NullSink;
 
@@ -204,5 +94,33 @@ fn execute_middleware(c: &mut Criterion) {
   });
 }
 
-criterion_group!(benches, parse_release_config, load_plugin, execute_middleware);
+fn declaration(kind: PermissionKind, values: &[&str], optional: bool) -> DeclaredPermission {
+  DeclaredPermission {
+    kind,
+    values: values.iter().map(|v| (*v).to_string()).collect(),
+    reason: "benchmark".to_string(),
+    optional,
+  }
+}
+
+fn check_grants(c: &mut Criterion) {
+  let declared = vec![
+    declaration(PermissionKind::Network, &["api.github.com", "uploads.github.com"], false),
+    declaration(PermissionKind::Exec, &["git", "gh"], true),
+    declaration(PermissionKind::Env, &["GITHUB_TOKEN", "GITHUB_REF", "CI"], false),
+    declaration(PermissionKind::FilesystemRead, &[], false),
+    declaration(PermissionKind::FilesystemWrite, &[], true),
+  ];
+  let granted = Permissions {
+    network: vec!["*.github.com".to_string(), "ghcr.io".to_string()],
+    exec: vec!["git".to_string()],
+    env: vec!["GITHUB_*".to_string(), "CI".to_string(), "RUNNER_*".to_string()],
+    filesystem: FilesystemAccess::ReadOnly,
+  };
+  c.bench_function("check_grants", |b| {
+    b.iter(|| uncovered_required(black_box(&declared), black_box(&granted)).len());
+  });
+}
+
+criterion_group!(benches, parse_release_config, load_plugin, execute_middleware, check_grants);
 criterion_main!(benches);

@@ -1,0 +1,187 @@
+use std::cmp::Ordering;
+
+use moonlit_engine::pipeline::config::{Permissions, parse_config};
+use moonlit_engine::plugin::permissions::{DeclaredPermission, grant_missing, is_covered, uncovered_required};
+use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+use moonlit_engine::registry::{RegistryClient, RegistryError, VerificationStatus, VersionRule};
+use semver::Version;
+
+use crate::cli::{OutputMode, UpdateArgs};
+use crate::commands::common::{PERMISSION_REFUSAL, display_path, fail, prompt_failed, read_release, write_release};
+use crate::consent::{self, Answer, ConsentView};
+use crate::display::display_safe;
+use crate::plugin_probe::{ProbeError, probe};
+use crate::plugin_spec::{RegistryRef, registry_ref};
+use crate::release_file::set_plugin;
+use crate::render::resolve_mode;
+
+enum Planned {
+  Bump(Box<Plan>),
+  UpToDate,
+  NoCompatibleUpdate,
+  NotARegistry,
+  Denied(u16),
+  Failed(String),
+}
+
+struct Plan {
+  name: String,
+  old: String,
+  new: String,
+  url: String,
+  permissions: Permissions,
+  uncovered: Vec<DeclaredPermission>,
+  status: VerificationStatus,
+  description: String,
+}
+
+#[must_use]
+pub async fn run(output: Option<OutputMode>, args: UpdateArgs) -> i32 {
+  match update(output, &args).await {
+    Ok(code) | Err(code) => code,
+  }
+}
+
+async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i32> {
+  let (path, before) = read_release(args.file_path.as_deref())?;
+  let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
+  let plugins = &config.plugins.value;
+  if let Some(wanted) = &args.plugin
+    && !plugins.iter().any(|p| &p.name == wanted)
+  {
+    return fail(&format!("no plugin named '{wanted}' is declared"), 2);
+  }
+
+  let mut plans = Vec::new();
+  let mut failed = false;
+  for plugin in plugins.iter().filter(|p| args.plugin.as_ref().is_none_or(|w| *w == p.name)) {
+    let shown = display_safe(&plugin.name);
+    let Some(reference) = registry_ref(plugin.url.value.as_str()) else {
+      if args.plugin.is_some() {
+        return fail(&format!("'{}' does not come from a registry", plugin.name), 2);
+      }
+      continue;
+    };
+    let Ok(current) = Version::parse(&reference.tag) else {
+      println!("{shown}: pinned to {}, skipped", display_safe(&reference.tag));
+      continue;
+    };
+    let granted = plugin.permissions.clone().unwrap_or_else(Permissions::deny);
+    match plan(&plugin.name, &reference, &current, &granted, args).await? {
+      Planned::Bump(plan) => plans.push(*plan),
+      Planned::UpToDate => println!("{shown}: up to date"),
+      Planned::NoCompatibleUpdate => println!("{shown}: no newer compatible version"),
+      Planned::NotARegistry => println!("{shown}: not from a Moonlit registry, skipped"),
+      Planned::Denied(status) => {
+        println!(
+          "{shown}: registry at {} answered {status} on /graphql, skipped",
+          display_safe(&reference.host)
+        );
+        failed = true;
+      }
+      Planned::Failed(error) => {
+        println!("{shown}: {}, skipped", display_safe(&error));
+        failed = true;
+      }
+    }
+  }
+
+  if !args.yes && !consent::interactive() && plans.iter().any(|p| !p.uncovered.is_empty()) {
+    return fail(PERMISSION_REFUSAL, 2);
+  }
+
+  let color = resolve_mode(output) == OutputMode::Pretty;
+  let file = display_path(args.file_path.as_deref(), &path);
+  let mut content = before.clone();
+  let mut declined = false;
+  for plan in &plans {
+    let permissions = (!plan.uncovered.is_empty()).then_some(&plan.permissions);
+    let after = set_plugin(&content, &plan.name, &plan.url, permissions).or_else(|e| fail(&e.to_string(), 2))?;
+    if !plan.uncovered.is_empty() {
+      let view = ConsentView {
+        plugin: &plan.name,
+        version: &plan.new,
+        status: Some(plan.status),
+        description: &plan.description,
+        required: plan.uncovered.iter().collect(),
+        optional: Vec::new(),
+        not_requested: false,
+      };
+      print!("{}", consent::render(&view, color));
+      print!("{}", consent::render_changes(&file, &content, &after));
+      if !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
+        println!("{}: kept at {}", display_safe(&plan.name), plan.old);
+        declined = true;
+        continue;
+      }
+    }
+    content = after;
+    println!("{}: {} → {}", display_safe(&plan.name), plan.old, display_safe(&plan.new));
+  }
+
+  if content != before {
+    write_release(&path, &content)?;
+  }
+  Ok(i32::from(declined || failed))
+}
+
+async fn plan(
+  name: &str,
+  reference: &RegistryRef,
+  current: &Version,
+  granted: &Permissions,
+  args: &UpdateArgs,
+) -> Result<Planned, i32> {
+  let rule = VersionRule {
+    current: Some(current.clone()),
+    cross_major: args.major,
+    pre: args.pre,
+  };
+  let lookup = async {
+    RegistryClient::for_host(&reference.host)?
+      .newest_compatible(&reference.org, &reference.name, PLUGIN_WORLD, rule)
+      .await
+  };
+  let detail = match lookup.await {
+    Ok(detail) => detail,
+    Err(RegistryError::NotARegistry(_)) => return Ok(Planned::NotARegistry),
+    Err(RegistryError::Denied { status, .. }) => return Ok(Planned::Denied(status)),
+    Err(e @ RegistryError::Unreachable(_)) => return fail(&format!("{name}: {e}"), 3),
+    Err(e) => return Ok(Planned::Failed(e.to_string())),
+  };
+  let Some(detail) = detail else {
+    return Ok(Planned::NoCompatibleUpdate);
+  };
+  match Version::parse(&detail.version).map(|found| found.cmp(current)) {
+    Ok(Ordering::Greater) => {}
+    Ok(Ordering::Equal) => return Ok(Planned::UpToDate),
+    _ => return Ok(Planned::NoCompatibleUpdate),
+  }
+  let url = reference.with_tag(&detail.version);
+  let probed = match probe(&url).await {
+    Ok(probed) => probed,
+    Err(e @ ProbeError::Resolve { network: true, .. }) => return fail(&format!("{name}: {e}"), 3),
+    Err(e) => return Ok(Planned::Failed(e.to_string())),
+  };
+  let declared = &probed.meta.permissions;
+  let uncovered: Vec<DeclaredPermission> = uncovered_required(declared, granted).into_iter().cloned().collect();
+  for p in declared.iter().filter(|p| p.optional && !is_covered(p, granted)) {
+    println!(
+      "{}: optional permission not granted: {} ({})",
+      display_safe(name),
+      p.kind.sentence(),
+      consent::values_text(p)
+    );
+  }
+  let permissions = grant_missing(granted, &uncovered);
+  Ok(Planned::Bump(Box::new(Plan {
+    name: name.to_string(),
+    old: current.to_string(),
+    new: detail.version,
+    status: detail.status,
+    url,
+    permissions,
+    uncovered,
+    description: probed.meta.description.clone(),
+  })))
+}

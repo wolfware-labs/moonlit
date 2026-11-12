@@ -3,6 +3,8 @@ use std::time::Duration;
 use comfy_table::{ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
 use moonlit_engine::pipeline::{PipelineSummary, StepResult};
 
+use crate::display::display_safe_text;
+
 #[must_use]
 pub fn fmt_duration(d: Duration) -> String {
   let ms = d.as_millis();
@@ -37,7 +39,10 @@ pub fn build_table(summary: &PipelineSummary) -> Table {
     } else {
       fmt_duration(step.duration)
     };
-    let error = step.error_message.clone().unwrap_or_else(|| "-".to_string());
+    let error = step
+      .error_message
+      .as_deref()
+      .map_or_else(|| "-".to_string(), |e| display_safe_text(e).replace('\t', " "));
     table.add_row([&step.name, status(step), &duration, &error]);
   }
   table
@@ -74,5 +79,26 @@ mod tests {
     assert!(table.contains("SKIPPED"));
     assert!(table.contains("boom"));
     assert!(table.contains("1.5s"));
+  }
+
+  #[test]
+  fn multi_line_errors_stay_on_separate_lines_and_escape_the_rest() {
+    let table = build_table(&summary(
+      vec![step("bad", false, false, Some("line1\nline2\u{1b}[2K"), &[])],
+      false,
+    ))
+    .to_string();
+    assert!(!table.contains('\u{1b}'), "{table:?}");
+    assert!(table.contains("line1") && table.contains("line2\\x1b[2K"), "{table}");
+    let rows: Vec<&str> = table.lines().filter(|l| l.contains("line1") || l.contains("line2")).collect();
+    assert_eq!(rows.len(), 2, "{table}");
+  }
+
+  #[test]
+  fn a_tab_in_an_error_keeps_the_table_aligned() {
+    let table = build_table(&summary(vec![step("bad", false, false, Some("a\tb"), &[])], false)).to_string();
+    assert!(!table.contains('\t'), "{table:?}");
+    let widths: std::collections::HashSet<usize> = table.lines().map(|l| l.chars().count()).collect();
+    assert_eq!(widths.len(), 1, "{table}");
   }
 }

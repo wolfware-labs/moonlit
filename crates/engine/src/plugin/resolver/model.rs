@@ -39,6 +39,10 @@ pub enum ResolveError {
   #[diagnostic(code(moonlit::resolve::network))]
   Network(String),
 
+  #[error("the server answered with an error while resolving plugin: {0}")]
+  #[diagnostic(code(moonlit::resolve::registry))]
+  Registry(String),
+
   #[error("offline: no cached plugin for {0}")]
   #[diagnostic(code(moonlit::resolve::offline_miss))]
   OfflineMiss(String),
@@ -53,13 +57,13 @@ impl FromStr for PluginSource {
 
   fn from_str(url: &str) -> Result<Self, Self::Err> {
     let url = url.trim();
-    if let Some(rest) = url.strip_prefix("oci://") {
+    if let Some(rest) = strip_scheme(url, "oci://") {
       return Ok(PluginSource::Oci(rest.to_string()));
     }
-    if let Some(rest) = url.strip_prefix("file://") {
+    if let Some(rest) = strip_scheme(url, "file://") {
       return Ok(PluginSource::File(PathBuf::from(rest)));
     }
-    if url.starts_with("http://") || url.starts_with("https://") {
+    if strip_scheme(url, "http://").is_some() || strip_scheme(url, "https://").is_some() {
       return Ok(PluginSource::Http(url.to_string()));
     }
     if let Some(scheme) = url.split_once("://").map(|(s, _)| s) {
@@ -99,3 +103,39 @@ pub struct ResolvedPlugin {
 }
 
 pub type ProgressFn<'a> = &'a (dyn Fn(u64, Option<u64>) + Send + Sync);
+
+fn strip_scheme<'a>(url: &'a str, scheme: &str) -> Option<&'a str> {
+  url
+    .get(..scheme.len())
+    .filter(|head| head.eq_ignore_ascii_case(scheme))
+    .map(|_| &url[scheme.len()..])
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn plugin_source_reads_the_scheme_in_any_case() {
+    assert_eq!(
+      "OCI://h.io/acme/x:1.0.0".parse::<PluginSource>().unwrap(),
+      PluginSource::Oci("h.io/acme/x:1.0.0".into())
+    );
+    assert_eq!(
+      "File:///tmp/p.wasm".parse::<PluginSource>().unwrap(),
+      PluginSource::File(PathBuf::from("/tmp/p.wasm"))
+    );
+    assert_eq!(
+      "HTTPS://h.io/p.wasm".parse::<PluginSource>().unwrap(),
+      PluginSource::Http("HTTPS://h.io/p.wasm".into())
+    );
+    assert!(matches!(
+      "ftp://h.io/p.wasm".parse::<PluginSource>(),
+      Err(ResolveError::UnsupportedScheme { .. })
+    ));
+    assert!(matches!(
+      "oci:/h.io/acme/x:1".parse::<PluginSource>(),
+      Err(ResolveError::InvalidReference(_))
+    ));
+  }
+}

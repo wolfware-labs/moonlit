@@ -1,13 +1,56 @@
 use crate::plugin::host::HostEventSink;
 use crate::plugin::host::child_process::ChildProcess;
 use crate::plugin::host::net::AllowlistHooks;
+use crate::plugin::permissions::{DeclaredPermission, PermissionKind};
 use crate::plugin::wit::moonlit::plugin::host::Host as MoonlitHost;
 use crate::plugin::wit::moonlit::plugin::process::{Command, Host as ProcessHost, HostChild, OutputChunk};
 use crate::plugin::wit::moonlit::plugin::types::LogLevel;
-use std::sync::Arc;
+use std::fmt;
+use std::sync::{Arc, Mutex};
 use wasmtime::component::{Resource, ResourceTable};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 use wasmtime_wasi_http::{WasiHttpCtx, WasiHttpCtxView, WasiHttpView};
+
+/// A sandbox refusal recorded while a plugin ran.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Denial {
+  pub kind: PermissionKind,
+  pub target: String,
+}
+
+impl fmt::Display for Denial {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let verb = match self.kind {
+      PermissionKind::Network => "connecting to",
+      PermissionKind::Exec => "running",
+      PermissionKind::Env | PermissionKind::FilesystemRead | PermissionKind::FilesystemWrite => "using",
+    };
+    write!(
+      f,
+      "blocked from {verb} '{}' \u{2014} add it to permissions.{}",
+      self.target,
+      self.kind.field()
+    )
+  }
+}
+
+/// Denials shared between the host state and the HTTP hooks.
+#[derive(Clone, Debug, Default)]
+pub struct DenialLog(Arc<Mutex<Vec<Denial>>>);
+
+impl DenialLog {
+  /// Warns about a refusal on the step's log and keeps it for the step's result.
+  pub fn record(&self, events: &dyn HostEventSink, step: &str, denial: Denial) {
+    events.log(step, crate::plugin::host::LogLevel::Warn, &denial.to_string());
+    self.0.lock().unwrap().push(denial);
+  }
+
+  /// Removes and returns every refusal recorded so far.
+  #[must_use]
+  pub fn take(&self) -> Vec<Denial> {
+    std::mem::take(&mut *self.0.lock().unwrap())
+  }
+}
 
 pub struct HostState {
   table: ResourceTable,
@@ -18,6 +61,8 @@ pub struct HostState {
   config_view: serde_json::Value,
   exec_allow: globset::GlobSet,
   current_step: String,
+  declared: Vec<DeclaredPermission>,
+  denials: DenialLog,
 }
 
 impl HostState {
@@ -28,6 +73,7 @@ impl HostState {
     events: Arc<dyn HostEventSink>,
     config_view: serde_json::Value,
     exec_allow: globset::GlobSet,
+    denials: DenialLog,
   ) -> Self {
     Self {
       table: ResourceTable::new(),
@@ -38,11 +84,29 @@ impl HostState {
       config_view,
       exec_allow,
       current_step: String::new(),
+      declared: Vec::new(),
+      denials,
     }
+  }
+
+  /// Removes and returns the sandbox refusals recorded since the last call.
+  #[must_use]
+  pub fn take_denials(&self) -> Vec<Denial> {
+    self.denials.take()
+  }
+
+  pub fn set_declared(&mut self, declared: Vec<DeclaredPermission>) {
+    self.declared = declared;
+  }
+
+  #[must_use]
+  pub fn declared(&self) -> &[DeclaredPermission] {
+    &self.declared
   }
 
   pub fn set_step(&mut self, step: &str) {
     step.clone_into(&mut self.current_step);
+    self.hooks.set_step(step);
   }
 }
 
@@ -88,15 +152,27 @@ impl MoonlitHost for HostState {
   }
 }
 
+impl HostState {
+  fn refuse_exec(&self, program: &str) -> Option<String> {
+    if self.exec_allow.is_match(program) {
+      return None;
+    }
+    self.denials.record(
+      self.events.as_ref(),
+      &self.current_step,
+      Denial {
+        kind: PermissionKind::Exec,
+        target: program.to_string(),
+      },
+    );
+    Some(format!("program '{program}' not permitted"))
+  }
+}
+
 impl ProcessHost for HostState {
   async fn spawn(&mut self, cmd: Command) -> wasmtime::Result<Result<Resource<ChildProcess>, String>> {
-    if !self.exec_allow.is_match(&cmd.program) {
-      self.events.log(
-        &self.current_step,
-        crate::plugin::host::LogLevel::Warn,
-        &format!("blocked from running '{}' — add it to permissions.exec", cmd.program),
-      );
-      return Ok(Err(format!("program '{}' not permitted", cmd.program)));
+    if let Some(refusal) = self.refuse_exec(&cmd.program) {
+      return Ok(Err(refusal));
     }
     match ChildProcess::start(&cmd) {
       Ok(child) => Ok(Ok(self.table.push(child)?)),
@@ -105,13 +181,8 @@ impl ProcessHost for HostState {
   }
 
   async fn run(&mut self, cmd: Command) -> wasmtime::Result<Result<(i32, Vec<OutputChunk>), String>> {
-    if !self.exec_allow.is_match(&cmd.program) {
-      self.events.log(
-        &self.current_step,
-        crate::plugin::host::LogLevel::Warn,
-        &format!("blocked from running '{}' — add it to permissions.exec", cmd.program),
-      );
-      return Ok(Err(format!("program '{}' not permitted", cmd.program)));
+    if let Some(refusal) = self.refuse_exec(&cmd.program) {
+      return Ok(Err(refusal));
     }
     let mut child = match ChildProcess::start(&cmd) {
       Ok(c) => c,
@@ -190,12 +261,14 @@ mod tests {
       filesystem: FilesystemAccess::None,
     };
     let events: Arc<dyn HostEventSink> = sink.clone();
+    let denials = DenialLog::default();
     HostState::new(
       WasiCtxBuilder::new().build(),
-      AllowlistHooks::new(&permissions, events.clone()),
+      AllowlistHooks::new(&permissions, events.clone(), denials.clone()),
       events,
       serde_json::json!({}),
       exec_globset(&permissions.exec),
+      denials,
     )
   }
 

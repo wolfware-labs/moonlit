@@ -44,6 +44,80 @@ pub enum Command {
   /// Inspect or clear the plugin content cache.
   #[command(subcommand)]
   Cache(CacheCommand),
+  /// Search the registry for plugins.
+  Search(SearchArgs),
+  /// Add a plugin to the release file after showing the permissions it asks for.
+  Add(AddArgs),
+  /// Update the registry plugins in the release file, asking again only for new required permissions.
+  Update(UpdateArgs),
+  /// Check the plugins in the release file and offer to fix what is wrong.
+  Doctor(DoctorArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct AddArgs {
+  /// Plugin to add: `org/name`, `org/name@version`, or an `oci://`, `file://` or `http(s)://` URL.
+  #[arg(value_name = "PLUGIN")]
+  pub plugin: String,
+  /// Release file path (default: ./release.yml, then ./release.yaml).
+  #[arg(short = 'f', long = "file-path")]
+  pub file_path: Option<PathBuf>,
+  /// Name for the plugin entry (default: the plugin's own name).
+  #[arg(long)]
+  pub name: Option<String>,
+  /// Accept the plugin's required permissions without asking; optional ones are not granted.
+  #[arg(short = 'y', long)]
+  pub yes: bool,
+  /// Also grant every optional permission the plugin declares.
+  #[arg(long)]
+  pub with_optional: bool,
+  /// Registry host or base URL (default: the public registry).
+  #[arg(long)]
+  pub registry: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct UpdateArgs {
+  /// Plugin entry to update, by its name in the release file (default: every registry plugin).
+  #[arg(value_name = "PLUGIN")]
+  pub plugin: Option<String>,
+  /// Release file path (default: ./release.yml, then ./release.yaml).
+  #[arg(short = 'f', long = "file-path")]
+  pub file_path: Option<PathBuf>,
+  /// Accept the new required permissions without asking; new optional ones are not granted.
+  #[arg(short = 'y', long)]
+  pub yes: bool,
+  /// Allow updates to a new major version.
+  #[arg(long)]
+  pub major: bool,
+  /// Allow updates to pre-release versions.
+  #[arg(long)]
+  pub pre: bool,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct DoctorArgs {
+  /// Release file path (default: ./release.yml, then ./release.yaml).
+  #[arg(short = 'f', long = "file-path")]
+  pub file_path: Option<PathBuf>,
+  /// Accept the required permissions a fix adds without asking; optional ones are not granted.
+  #[arg(short = 'y', long)]
+  pub yes: bool,
+  /// Allow a fix to move a plugin to a new major version.
+  #[arg(long)]
+  pub major: bool,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct SearchArgs {
+  /// Free-text query.
+  pub query: String,
+  /// Maximum number of plugins to show.
+  #[arg(long, default_value_t = 10)]
+  pub limit: u32,
+  /// Registry host or base URL (default: the public registry).
+  #[arg(long)]
+  pub registry: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]

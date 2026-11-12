@@ -1,11 +1,14 @@
 use crate::engine::Engine;
-use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, PipelineConfig, PluginUrl, parse_config};
+use crate::pipeline::config::{ConfigDiagnostic, ConfigSource, Permissions, PipelineConfig, Span, parse_config};
 use crate::pipeline::expr::substitute_config;
 use crate::pipeline::manifest::PipelineManifest;
 use crate::pipeline::model::{ChannelSink, FlatStep};
-use crate::pipeline::{Pipeline, PipelineData, PipelineError, PipelineEvent, PipelineOptions};
+use crate::pipeline::{IncompatiblePlugin, Pipeline, PipelineData, PipelineError, PipelineEvent, PipelineOptions};
 use crate::plugin::host::HostEventSink;
+use crate::plugin::permissions::uncovered_required;
+use crate::plugin::publish::PLUGIN_WORLD;
 use crate::plugin::resolver::{PluginSource, ProgressFn, ResolveOptions, resolve};
+use crate::plugin::world::{self, WorldError};
 use crate::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -17,8 +20,25 @@ use tokio::task::JoinSet;
 struct PluginRequest {
   name: String,
   url: String,
+  url_span: Span,
   permissions: Permissions,
   config_view: serde_json::Value,
+}
+
+struct ResolvedPlugin {
+  request: PluginRequest,
+  bytes: Vec<u8>,
+  cached: bool,
+}
+
+struct DescribedPlugin {
+  name: String,
+  url_span: Span,
+  permissions: Permissions,
+  instance: PluginInstance,
+  version: String,
+  config_view: serde_json::Value,
+  cached: bool,
 }
 
 struct LoadedPlugin {
@@ -47,7 +67,8 @@ impl Pipeline {
       let layer = substitute_config(&plugin.config, &data);
       requests.push(PluginRequest {
         name: plugin.name.clone(),
-        url: plugin_url(&plugin.url.value),
+        url: plugin.url.value.as_str().to_string(),
+        url_span: plugin.url.span,
         permissions: plugin.permissions.clone().unwrap_or_else(Permissions::deny),
         config_view: layer.to_json(),
       });
@@ -57,7 +78,9 @@ impl Pipeline {
       data.push(layer);
     }
 
-    let plugins = load_plugins(engine, requests, &manifest.working_dir, opts.offline, events).await?;
+    let described = describe_plugins(engine, requests, &manifest.working_dir, opts.offline, events).await?;
+    reject_ungranted(&described, &source)?;
+    let plugins = init_plugins(described, events).await?;
     let steps = flatten_steps(&config, &plugins, &source, &opts.stages_filter)?;
 
     Ok(Pipeline {
@@ -70,26 +93,56 @@ impl Pipeline {
   }
 }
 
-async fn load_plugins(
+async fn describe_plugins(
   engine: &Engine,
   requests: Vec<PluginRequest>,
   working_dir: &Path,
   offline: bool,
   events: &Sender<PipelineEvent>,
-) -> Result<IndexMap<String, LoadedPlugin>, PipelineError> {
+) -> Result<IndexMap<String, DescribedPlugin>, PipelineError> {
   let declared: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
   let env_snapshot: Vec<(String, String)> = std::env::vars().collect();
 
+  let resolved = resolve_plugins(engine, requests, offline, events).await?;
+  reject_incompatible(&resolved)?;
+
   let mut tasks = JoinSet::new();
-  for request in requests {
+  for plugin in resolved {
     let engine = engine.clone();
     let working_dir = working_dir.to_path_buf();
     let env_snapshot = env_snapshot.clone();
     let events = events.clone();
-    tasks.spawn(async move { load_plugin(&engine, request, working_dir, env_snapshot, offline, &events).await });
+    tasks.spawn(async move { describe_plugin(&engine, plugin, working_dir, env_snapshot, &events).await });
   }
 
-  let mut loaded = HashMap::new();
+  let described = join_all(tasks).await?.into_iter().map(|plugin| (plugin.name.clone(), plugin));
+  Ok(in_order(&declared, described))
+}
+
+async fn init_plugins(
+  described: IndexMap<String, DescribedPlugin>,
+  events: &Sender<PipelineEvent>,
+) -> Result<IndexMap<String, LoadedPlugin>, PipelineError> {
+  let declared: Vec<String> = described.keys().cloned().collect();
+  let mut tasks = JoinSet::new();
+  for plugin in described.into_values() {
+    let events = events.clone();
+    tasks.spawn(async move { init_plugin(plugin, &events).await });
+  }
+  let loaded = join_all(tasks).await?.into_iter().map(|plugin| (plugin.name.clone(), plugin));
+  Ok(in_order(&declared, loaded))
+}
+
+fn in_order<T>(declared: &[String], items: impl Iterator<Item = (String, T)>) -> IndexMap<String, T> {
+  let mut by_name: HashMap<String, T> = items.collect();
+  declared
+    .iter()
+    .filter_map(|name| by_name.remove(name).map(|item| (name.clone(), item)))
+    .collect()
+}
+
+async fn join_all<T: 'static>(mut tasks: JoinSet<Result<T, PipelineError>>) -> Result<Vec<T>, PipelineError> {
+  let mut done = Vec::new();
   while let Some(joined) = tasks.join_next().await {
     let result = match joined {
       Ok(result) => result,
@@ -98,42 +151,66 @@ async fn load_plugins(
       ))),
     };
     match result {
-      Ok(plugin) => {
-        loaded.insert(plugin.name.clone(), plugin);
-      }
+      Ok(value) => done.push(value),
       Err(error) => {
         tasks.shutdown().await;
         return Err(error);
       }
     }
   }
-
-  Ok(
-    declared
-      .into_iter()
-      .filter_map(|name| loaded.remove(&name).map(|plugin| (name, plugin)))
-      .collect(),
-  )
+  Ok(done)
 }
 
-async fn load_plugin(
+async fn resolve_plugins(
   engine: &Engine,
-  request: PluginRequest,
-  working_dir: PathBuf,
-  env_snapshot: Vec<(String, String)>,
+  requests: Vec<PluginRequest>,
   offline: bool,
   events: &Sender<PipelineEvent>,
-) -> Result<LoadedPlugin, PipelineError> {
-  let PluginRequest {
-    name,
-    url,
-    permissions,
-    config_view,
-  } = request;
-  let load_error = |message: String| PipelineError::PluginLoad {
-    plugin: name.clone(),
-    message,
-  };
+) -> Result<Vec<ResolvedPlugin>, PipelineError> {
+  let order: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
+  let mut tasks = JoinSet::new();
+  for request in requests {
+    let engine = engine.clone();
+    let events = events.clone();
+    tasks.spawn(async move { resolve_plugin(&engine, request, offline, &events).await });
+  }
+  let mut resolved = join_all(tasks).await?;
+  resolved.sort_by_key(|plugin| order.iter().position(|name| *name == plugin.request.name));
+  Ok(resolved)
+}
+
+fn reject_incompatible(resolved: &[ResolvedPlugin]) -> Result<(), PipelineError> {
+  let mut incompatible = Vec::new();
+  for plugin in resolved {
+    match world::check(&plugin.bytes) {
+      Ok(()) => {}
+      Err(WorldError::Mismatch(mismatch)) => incompatible.push(IncompatiblePlugin {
+        name: plugin.request.name.clone(),
+        url: plugin.request.url.clone(),
+        plugin_world: mismatch.found,
+        engine_world: PLUGIN_WORLD.to_string(),
+      }),
+      Err(WorldError::Load(e)) => {
+        return Err(plugin_load_error(&plugin.request.name)(e.to_string()));
+      }
+    }
+  }
+  if incompatible.is_empty() {
+    Ok(())
+  } else {
+    Err(PipelineError::IncompatiblePlugins(incompatible))
+  }
+}
+
+async fn resolve_plugin(
+  engine: &Engine,
+  request: PluginRequest,
+  offline: bool,
+  events: &Sender<PipelineEvent>,
+) -> Result<ResolvedPlugin, PipelineError> {
+  let name = request.name.clone();
+  let url = request.url.clone();
+  let load_error = plugin_load_error(&name);
 
   let _ = events
     .send(PipelineEvent::PluginResolving {
@@ -161,9 +238,34 @@ async fn load_plugin(
 
   let bytes =
     std::fs::read(&resolved.wasm_path).map_err(|e| load_error(format!("reading {}: {e}", resolved.wasm_path.display())))?;
+
+  Ok(ResolvedPlugin {
+    request,
+    bytes,
+    cached: resolved.cached,
+  })
+}
+
+async fn describe_plugin(
+  engine: &Engine,
+  plugin: ResolvedPlugin,
+  working_dir: PathBuf,
+  env_snapshot: Vec<(String, String)>,
+  events: &Sender<PipelineEvent>,
+) -> Result<DescribedPlugin, PipelineError> {
+  let ResolvedPlugin { request, bytes, cached } = plugin;
+  let PluginRequest {
+    name,
+    url_span,
+    permissions,
+    config_view,
+    ..
+  } = request;
+  let load_error = plugin_load_error(&name);
+
   let instance_config = PluginInstanceConfig {
     working_directory: working_dir,
-    permissions,
+    permissions: permissions.clone(),
     config_view: config_view.clone(),
     env_snapshot,
   };
@@ -172,7 +274,32 @@ async fn load_plugin(
   let mut instance = Plugin::instantiate(engine, &bytes, instance_config, sink)
     .await
     .map_err(|e| load_error(e.to_string()))?;
-  let metadata = instance.init(&config_view).await.map_err(load_error)?;
+  let metadata = instance.describe().await.map_err(|e| load_error(e.to_string()))?;
+  instance.set_declared(metadata.permissions);
+
+  Ok(DescribedPlugin {
+    name,
+    url_span,
+    permissions,
+    instance,
+    version: metadata.version,
+    config_view,
+    cached,
+  })
+}
+
+async fn init_plugin(plugin: DescribedPlugin, events: &Sender<PipelineEvent>) -> Result<LoadedPlugin, PipelineError> {
+  let DescribedPlugin {
+    name,
+    mut instance,
+    version,
+    config_view,
+    cached,
+    ..
+  } = plugin;
+  let load_error = plugin_load_error(&name);
+
+  instance.init(&config_view).await.map_err(load_error)?;
   let middlewares = instance
     .list_middlewares()
     .await
@@ -184,8 +311,8 @@ async fn load_plugin(
   let _ = events
     .send(PipelineEvent::PluginReady {
       name: name.clone(),
-      version: metadata.version,
-      cached: resolved.cached,
+      version,
+      cached,
     })
     .await;
 
@@ -194,6 +321,29 @@ async fn load_plugin(
     instance,
     middlewares,
   })
+}
+
+fn plugin_load_error(plugin: &str) -> impl Fn(String) -> PipelineError + Copy + '_ {
+  move |message| PipelineError::PluginLoad {
+    plugin: plugin.to_string(),
+    message,
+  }
+}
+
+fn reject_ungranted(plugins: &IndexMap<String, DescribedPlugin>, source: &ConfigSource) -> Result<(), PipelineError> {
+  let missing: Vec<ConfigDiagnostic> = plugins
+    .values()
+    .flat_map(|plugin| {
+      uncovered_required(plugin.instance.declared(), &plugin.permissions)
+        .into_iter()
+        .map(|permission| ConfigDiagnostic::missing_grant(source, &plugin.name, permission, plugin.url_span))
+    })
+    .collect();
+  if missing.is_empty() {
+    Ok(())
+  } else {
+    Err(PipelineError::MissingGrants(missing))
+  }
 }
 
 fn flatten_steps(
@@ -227,11 +377,4 @@ fn flatten_steps(
     }
   }
   Ok(steps)
-}
-
-#[must_use]
-fn plugin_url(url: &PluginUrl) -> String {
-  match url {
-    PluginUrl::Oci(s) | PluginUrl::File(s) | PluginUrl::Http(s) | PluginUrl::Https(s) => s.clone(),
-  }
 }

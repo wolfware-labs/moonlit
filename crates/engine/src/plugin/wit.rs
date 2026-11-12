@@ -39,6 +39,31 @@ impl From<PluginMetadata> for crate::plugin::PluginMetadata {
       version: value.version,
       description: value.description,
       icon: value.icon,
+      permissions: value.permissions.into_iter().map(Into::into).collect(),
+    }
+  }
+}
+
+impl From<moonlit::plugin::types::PermissionRequest> for crate::plugin::permissions::DeclaredPermission {
+  fn from(value: moonlit::plugin::types::PermissionRequest) -> Self {
+    Self {
+      kind: value.kind.into(),
+      values: value.values,
+      reason: value.reason,
+      optional: value.optional,
+    }
+  }
+}
+
+impl From<moonlit::plugin::types::PermissionKind> for crate::plugin::permissions::PermissionKind {
+  fn from(value: moonlit::plugin::types::PermissionKind) -> Self {
+    use moonlit::plugin::types::PermissionKind as Wit;
+    match value {
+      Wit::Network => Self::Network,
+      Wit::Exec => Self::Exec,
+      Wit::Env => Self::Env,
+      Wit::FilesystemRead => Self::FilesystemRead,
+      Wit::FilesystemWrite => Self::FilesystemWrite,
     }
   }
 }
@@ -89,5 +114,16 @@ mod tests {
     assert_eq!(LogLevel::from(WitLogLevel::Info), LogLevel::Info);
     assert_eq!(LogLevel::from(WitLogLevel::Warn), LogLevel::Warn);
     assert_eq!(LogLevel::from(WitLogLevel::Error), LogLevel::Error);
+  }
+
+  #[test]
+  fn every_guest_permission_kind_maps_to_the_engine_kind() {
+    use crate::plugin::permissions::PermissionKind;
+    use moonlit::plugin::types::PermissionKind as Wit;
+    assert_eq!(PermissionKind::from(Wit::Network), PermissionKind::Network);
+    assert_eq!(PermissionKind::from(Wit::Exec), PermissionKind::Exec);
+    assert_eq!(PermissionKind::from(Wit::Env), PermissionKind::Env);
+    assert_eq!(PermissionKind::from(Wit::FilesystemRead), PermissionKind::FilesystemRead);
+    assert_eq!(PermissionKind::from(Wit::FilesystemWrite), PermissionKind::FilesystemWrite);
   }
 }

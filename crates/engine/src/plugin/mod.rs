@@ -6,7 +6,9 @@ pub mod wit;
 // mod expr;
 mod artifact;
 pub mod host;
+pub mod permissions;
 pub mod publish;
+pub mod world;
 
 use crate::engine::Engine;
 use crate::logging::LogLevel;
@@ -15,7 +17,7 @@ use crate::plugin::host::{AllowlistHooks, build_wasi_ctx, exec_globset};
 pub use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
 use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
-use host::state::HostState;
+use host::state::{DenialLog, HostState};
 use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -24,6 +26,7 @@ pub struct PluginMetadata {
   pub version: String,
   pub description: String,
   pub icon: Option<String>,
+  pub permissions: Vec<permissions::DeclaredPermission>,
 }
 
 pub struct Plugin;
@@ -45,12 +48,14 @@ impl Plugin {
       ),
     );
 
+    let denials = DenialLog::default();
     let mut store = engine.build_store(HostState::new(
       wasi,
-      AllowlistHooks::new(&cfg.permissions, events.clone()),
+      AllowlistHooks::new(&cfg.permissions, events.clone(), denials.clone()),
       events,
       cfg.config_view,
       exec_globset(&cfg.permissions.exec),
+      denials,
     ));
 
     let component = engine

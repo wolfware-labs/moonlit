@@ -1,7 +1,7 @@
 use crate::cli::{OutputMode, RunArgs};
 use crate::manifest::resolve_manifest_path;
 use crate::render::{Header, Renderer};
-use crate::{render, signal};
+use crate::{compat, render, signal};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
 use moonlit_engine::pipeline::manifest::PipelineManifest;
@@ -56,11 +56,21 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   let outcome = execute(&engine, &manifest, opts, header, renderer, cancel, args.dry_run).await;
   let code = exit_code(&outcome);
   if let Err(e) = outcome {
-    report(e, code, json);
+    if json {
+      let plugins = incompatible_json(&e);
+      report_with(e, code, json, plugins);
+    } else if let PipelineError::IncompatiblePlugins(list) = &e {
+      let entries = compat::suggestions(list, args.offline).await;
+      report(e, code, json);
+      eprint!("{}", compat::render(&entries));
+    } else {
+      report(e.for_terminal(), code, json);
+    }
   }
   code
 }
 
+#[allow(clippy::result_large_err)]
 async fn execute(
   engine: &Engine,
   manifest: &PipelineManifest,
@@ -127,12 +137,41 @@ fn build_header(manifest: &PipelineManifest, stages_filter: &[String]) -> Header
   )
 }
 
+#[must_use]
+fn incompatible_json(err: &PipelineError) -> Option<serde_json::Value> {
+  let PipelineError::IncompatiblePlugins(list) = err else {
+    return None;
+  };
+  let plugins: Vec<serde_json::Value> = list
+    .iter()
+    .map(|p| {
+      serde_json::json!({
+        "name": p.name,
+        "url": p.url,
+        "built_for": p.plugin_world,
+        "supports": p.engine_world,
+      })
+    })
+    .collect();
+  Some(serde_json::Value::Array(plugins))
+}
+
 fn report<E>(err: E, code: i32, json: bool)
 where
   E: miette::Diagnostic + Send + Sync + 'static,
 {
+  report_with(err, code, json, None);
+}
+
+fn report_with<E>(err: E, code: i32, json: bool, plugins: Option<serde_json::Value>)
+where
+  E: miette::Diagnostic + Send + Sync + 'static,
+{
   if json {
-    let obj = serde_json::json!({ "type": "error", "message": err.to_string(), "exit_code": code });
+    let mut obj = serde_json::json!({ "type": "error", "message": err.to_string(), "exit_code": code });
+    if let Some(plugins) = plugins {
+      obj["plugins"] = plugins;
+    }
     println!("{obj}");
   } else {
     eprintln!("{:?}", miette::Report::new(err));
