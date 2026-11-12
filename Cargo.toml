@@ -20,7 +20,7 @@ missing_panics_doc = "allow"
 [workspace.dependencies]
 wit-parser = "0.259"
 wit-bindgen = "0.62.0"
-saphyr-parser = "=0.0.12"
+saphyr-parser = "=0.3.1"
 miette = "7.6"
 thiserror = "2.0"
 indexmap = "2.14"
