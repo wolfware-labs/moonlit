@@ -70,6 +70,7 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   code
 }
 
+#[allow(clippy::result_large_err)]
 async fn execute(
   engine: &Engine,
   manifest: &PipelineManifest,
