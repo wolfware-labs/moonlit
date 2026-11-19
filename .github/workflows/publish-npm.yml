@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - name: Upgrade to an npm with OIDC trusted publishing (>= 11.5.1)
-        run: npm install -g npm@latest
+      - name: Install a pinned npm with OIDC trusted publishing (>= 11.5.1)
+        run: npm install -g npm@11.21.3
       - name: Publish via OIDC trusted publishing
         run: npm publish ./moonlit-npm-package.tar.gz --access public

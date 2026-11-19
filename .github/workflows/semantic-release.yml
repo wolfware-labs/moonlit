@@ -50,14 +50,13 @@ jobs:
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: stable
+      - name: Install semantic-release
+        # Locked install (no lifecycle scripts) so the code that runs with the
+        # release token is exactly what package-lock.json records.
+        run: npm ci --ignore-scripts --prefix .github/semantic-release
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          npx --yes
-          -p semantic-release@24
-          -p conventional-changelog-conventionalcommits@9
-          -p @semantic-release/changelog@6
-          -p @semantic-release/exec@7
-          -p @semantic-release/git@10
-          semantic-release
+        # Run from the repo root so .releaserc.json is picked up; the plugins
+        # resolve from the locked install next to the binary.
+        run: .github/semantic-release/node_modules/.bin/semantic-release

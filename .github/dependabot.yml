@@ -37,3 +37,10 @@ updates:
         update-types:
           - minor
           - patch
+
+  # The semantic-release toolchain runs with a push token, so it is locked in
+  # .github/semantic-release/package-lock.json and only moves through reviewed PRs.
+  - package-ecosystem: npm
+    directory: /.github/semantic-release
+    schedule:
+      interval: weekly
