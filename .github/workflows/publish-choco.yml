@@ -40,6 +40,12 @@ jobs:
           # workflow_dispatch supplies the tag directly; workflow_call carries it
           # inside the dist plan. Exactly one of the two is ever set.
           $tag = if ($env:TAG_INPUT) { $env:TAG_INPUT } else { ($env:PLAN | ConvertFrom-Json).announcement_tag }
+          # The tag ends up in a URL and in the install script shipped to users, so
+          # accept only a moonlit release tag.
+          if ($tag -notmatch '^moonlit-v[0-9][0-9A-Za-z.+-]*$') {
+            Write-Error "tag '$tag' is not a moonlit release tag"
+            exit 1
+          }
           $version = $tag -replace '^moonlit-v', ''
           $asset = 'moonlit-x86_64-pc-windows-msvc.zip'
           $url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$asset"
