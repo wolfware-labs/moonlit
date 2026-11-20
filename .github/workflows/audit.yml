@@ -3,6 +3,9 @@ name: Audit
 # Checks Cargo.lock against the RustSec advisory database. The schedule is
 # there because advisories appear without any commit to this repo. Warnings
 # (unmaintained, unsound) stay warnings; only a vulnerability fails the job.
+#
+# The job reports, it does not gate: the path filters below mean it cannot be a
+# required check, because a pull request that skips it would wait forever.
 
 on:
   push:
@@ -10,12 +13,14 @@ on:
     paths:
       - "**/Cargo.toml"
       - "Cargo.lock"
+      - ".cargo/audit.toml"
       - ".github/workflows/audit.yml"
   pull_request:
     branches: [main]
     paths:
       - "**/Cargo.toml"
       - "Cargo.lock"
+      - ".cargo/audit.toml"
       - ".github/workflows/audit.yml"
   schedule:
     - cron: "17 5 * * *"
@@ -23,7 +28,8 @@ on:
 
 concurrency:
   group: audit-${{ github.ref }}
-  cancel-in-progress: true
+  # A scheduled run must not cancel the run of a push to main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
 
