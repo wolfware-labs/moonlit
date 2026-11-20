@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [3.0.2](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.1...moonlit-v3.0.2) (2026-11-20)
+
+### Bug Fixes
+
+* **deps:** bump wasmtime to 49.0.7 and the TLS stack for advisories ([#57](https://github.com/wolfware-labs/moonlit/issues/57)) ([ffe2bf9](https://github.com/wolfware-labs/moonlit/commit/ffe2bf94474143fd3ec037d3bbd8cac21310e972))
+
 ## [3.0.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.0...moonlit-v3.0.1) (2026-10-29)
 
 ### Bug Fixes
