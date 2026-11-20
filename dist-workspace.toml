@@ -22,6 +22,11 @@ publish-jobs = ["homebrew", "./publish-npm", "./publish-choco", "./publish-docke
 # manual edit. Re-review the edit if you ever run `dist generate`.
 allow-dirty = ["ci"]
 
+# dist 0.32.0 builds aarch64-apple-darwin on macos-14 by default. GitHub
+# retired that image on 2026-11-02, so the job is refused before it starts.
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
+
 # The choco job authenticates to Chocolatey with an API key (not GITHUB_TOKEN),
 # so it does not need the default id-token/packages write. It only needs
 # contents:write to append a Chocolatey section to the release notes (dist does
