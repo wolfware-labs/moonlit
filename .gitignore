@@ -3,3 +3,4 @@ target/
 *.pdb
 dist/
 .idea/
+.github/semantic-release/node_modules/

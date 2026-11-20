@@ -4,7 +4,7 @@ members = ["crates/*"]
 exclude = ["fixtures/test-plugin", "fixtures/pdk-sample"]
 
 [workspace.package]
-version = "3.0.1"
+version = "3.0.3"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 authors = ["Wolfware LLC"]
@@ -20,7 +20,7 @@ assert_is_empty = "allow"
 unused_async_trait_impl = "allow"
 
 [workspace.dependencies]
-wit-parser = "0.259"
+wit-parser = "0.258.3"
 wit-bindgen = "0.62.0"
 saphyr-parser = "=0.0.12"
 miette = "7.6"
@@ -44,10 +44,10 @@ dirs = "7"
 base64 = "0.23"
 wiremock = "0.6"
 tempfile = "3"
-wasmtime = { version = "49.0.1", features = ["component-model", "async"] }
-wasmtime-wasi = { version = "49.0.1", default-features = false, features = ["p2"] }
-wasmtime-wasi-http = { version = "49.0.1", default-features = false, features = ["default-send-request", "p2"] }
-wasmparser = "0.259"
+wasmtime = { version = "49.0.7", features = ["component-model", "async"] }
+wasmtime-wasi = { version = "49.0.7", default-features = false, features = ["p2"] }
+wasmtime-wasi-http = { version = "49.0.7", default-features = false, features = ["default-send-request", "p2"] }
+wasmparser = "0.258.3"
 anyhow = "1"
 hyper = "1"
 http-body-util = "0.1"

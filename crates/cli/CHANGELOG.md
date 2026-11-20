@@ -2,6 +2,18 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [3.0.3](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.2...moonlit-v3.0.3) (2026-11-20)
+
+### Bug Fixes
+
+* **release:** build the macOS arm64 binary on macos-15 ([#59](https://github.com/wolfware-labs/moonlit/issues/59)) ([7dc33c0](https://github.com/wolfware-labs/moonlit/commit/7dc33c053f45a419b7809c3b90fab8eecb257c1f))
+
+## [3.0.2](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.1...moonlit-v3.0.2) (2026-11-20)
+
+### Bug Fixes
+
+* **deps:** bump wasmtime to 49.0.7 and the TLS stack for advisories ([#57](https://github.com/wolfware-labs/moonlit/issues/57)) ([ffe2bf9](https://github.com/wolfware-labs/moonlit/commit/ffe2bf94474143fd3ec037d3bbd8cac21310e972))
+
 ## [3.0.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.0...moonlit-v3.0.1) (2026-10-29)
 
 ### Bug Fixes

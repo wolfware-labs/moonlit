@@ -7,6 +7,12 @@ updates:
     schedule:
       interval: weekly
 
+  # The Dockerfile's base image is pinned by digest; this moves the digest.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
   - package-ecosystem: cargo
     directory: /
     schedule:
@@ -37,3 +43,10 @@ updates:
         update-types:
           - minor
           - patch
+
+  # The semantic-release toolchain runs with a push token, so it is locked in
+  # .github/semantic-release/package-lock.json and only moves through reviewed PRs.
+  - package-ecosystem: npm
+    directory: /.github/semantic-release
+    schedule:
+      interval: weekly
