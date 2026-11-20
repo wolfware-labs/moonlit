@@ -7,6 +7,12 @@ updates:
     schedule:
       interval: weekly
 
+  # The Dockerfile's base image is pinned by digest; this moves the digest.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
   - package-ecosystem: cargo
     directory: /
     schedule:
