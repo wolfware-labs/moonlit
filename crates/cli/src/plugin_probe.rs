@@ -3,9 +3,8 @@ use std::sync::Arc;
 use crate::display::display_safe_text;
 use moonlit_engine::cache::Cache;
 use moonlit_engine::engine::Engine;
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
-use moonlit_engine::plugin::host::HostEventSink;
+use moonlit_engine::plugin::host::NullSink;
 use moonlit_engine::plugin::middleware::MiddlewareInfo;
 use moonlit_engine::plugin::resolver::{PluginSource, ResolveError, ResolveOptions, resolve};
 use moonlit_engine::plugin::world::{self, WorldError, WorldMismatch};
@@ -60,12 +59,6 @@ pub async fn probe(url: &str) -> Result<Probe, ProbeError> {
   Ok(Probe { meta, middlewares })
 }
 
-struct SilentSink;
-impl HostEventSink for SilentSink {
-  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-  fn progress(&self, _step: &str, _message: &str) {}
-}
-
 /// Instantiates a component with no permissions and reads its metadata and middlewares.
 /// The error text comes back escaped for the terminal.
 pub async fn introspect(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<MiddlewareInfo>)> {
@@ -84,7 +77,7 @@ async fn read_plugin(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<Middle
     config_view: serde_json::json!({}),
     env_snapshot: vec![],
   };
-  let mut plugin_instance = Plugin::instantiate(&engine, bytes, cfg, Arc::new(SilentSink)).await?;
+  let mut plugin_instance = Plugin::instantiate(&engine, bytes, cfg, Arc::new(NullSink)).await?;
   let meta = plugin_instance.describe().await?;
   let mws = plugin_instance.list_middlewares().await?;
   Ok((meta, mws))

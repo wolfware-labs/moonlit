@@ -1,3 +1,4 @@
+use crate::scheme::strip_scheme;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -103,13 +104,6 @@ pub struct ResolvedPlugin {
 }
 
 pub type ProgressFn<'a> = &'a (dyn Fn(u64, Option<u64>) + Send + Sync);
-
-fn strip_scheme<'a>(url: &'a str, scheme: &str) -> Option<&'a str> {
-  url
-    .get(..scheme.len())
-    .filter(|head| head.eq_ignore_ascii_case(scheme))
-    .map(|_| &url[scheme.len()..])
-}
 
 #[cfg(test)]
 mod tests {

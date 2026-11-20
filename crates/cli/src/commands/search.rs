@@ -108,7 +108,10 @@ fn print_json(cards: &[Card]) {
       })
     })
     .collect();
-  println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+  println!(
+    "{}",
+    serde_json::to_string_pretty(&arr).expect("JSON values always serialize")
+  );
 }
 
 fn print_cards(cards: &[Card], query: &str, pretty: bool) {

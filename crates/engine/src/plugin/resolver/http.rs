@@ -97,17 +97,12 @@ async fn resolve_http_with(
 mod tests {
   use super::*;
   use crate::cache::SystemClock;
+  use crate::plugin::resolver::tests::silent_server;
 
   #[tokio::test]
   async fn a_server_that_accepts_and_never_answers_is_a_network_error() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let url = format!("http://{}/plugin.wasm", listener.local_addr().unwrap());
-    let held = tokio::spawn(async move {
-      let mut open = Vec::new();
-      while let Ok((stream, _)) = listener.accept().await {
-        open.push(stream);
-      }
-    });
+    let (addr, held) = silent_server().await;
+    let url = format!("http://{addr}/plugin.wasm");
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(SystemClock));
     let opts = ResolveOptions {

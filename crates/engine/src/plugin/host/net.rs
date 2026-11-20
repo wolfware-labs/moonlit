@@ -1,6 +1,6 @@
 use crate::pipeline::config::Permissions;
 use crate::plugin::host::HostEventSink;
-use crate::plugin::host::auth::network_globset;
+use crate::plugin::host::auth::build_globset;
 use crate::plugin::host::state::{Denial, DenialLog};
 use crate::plugin::permissions::PermissionKind;
 use globset::GlobSet;
@@ -21,7 +21,7 @@ impl AllowlistHooks {
   #[must_use]
   pub fn new(p: &Permissions, events: Arc<dyn HostEventSink>, denials: DenialLog) -> Self {
     Self {
-      allowed: network_globset(&p.network),
+      allowed: build_globset(&p.network),
       events,
       denials,
       step: String::new(),

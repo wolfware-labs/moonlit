@@ -151,7 +151,8 @@ pub fn render_diff(before: &str, after: &str) -> String {
   out.concat()
 }
 
-const SOURCE: &str = "release.yml";
+/// The source name config diagnostics give the release file.
+pub(crate) const SOURCE: &str = "release.yml";
 
 type Edit = (usize, usize, String);
 

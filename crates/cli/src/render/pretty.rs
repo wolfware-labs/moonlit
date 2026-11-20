@@ -29,7 +29,7 @@ impl PrettyRenderer {
   #[must_use]
   fn spinner_style() -> ProgressStyle {
     ProgressStyle::with_template("{spinner} {msg}")
-      .unwrap()
+      .expect("the spinner template is valid")
       .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")
   }
 

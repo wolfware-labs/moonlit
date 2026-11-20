@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use moonlit_engine::pipeline::IncompatiblePlugin;
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+use moonlit_engine::plugin::world::UNKNOWN_WORLD;
 use moonlit_engine::registry::{REGISTRY_TIMEOUT, RegistryClient, RegistryError, VerificationStatus, VersionRule};
 use semver::Version;
 
@@ -145,7 +146,7 @@ pub fn render(entries: &[(IncompatiblePlugin, Suggestion)]) -> String {
 }
 
 fn block(plugin: &IncompatiblePlugin, suggestion: &Suggestion) -> String {
-  let built_for = plugin.plugin_world.as_deref().unwrap_or("an unknown plugin contract");
+  let built_for = plugin.plugin_world.as_deref().unwrap_or(UNKNOWN_WORLD);
   let upgrade_cli = if world_is_newer(plugin.plugin_world.as_deref(), &plugin.engine_world) {
     " — upgrade the CLI"
   } else {
@@ -162,7 +163,8 @@ fn block(plugin: &IncompatiblePlugin, suggestion: &Suggestion) -> String {
   lines.iter().map(|line| display_safe(line)).collect::<Vec<_>>().join("\n") + "\n"
 }
 
-/// What the user can do about an incompatible plugin, for an engine supporting `engine`; `None` when the registry could not say.
+/// What the user can do about an incompatible plugin, for an engine supporting `engine`; `None` when the registry
+/// could not say.
 #[must_use]
 pub fn hint(suggestion: &Suggestion, engine: &str) -> Option<String> {
   match suggestion {
@@ -201,6 +203,14 @@ mod tests {
       url: "file:///p.wasm".to_string(),
       plugin_world: world.map(str::to_string),
       engine_world: "moonlit:plugin@0.4.0".to_string(),
+    }
+  }
+
+  fn on_registry(host: &str, name: &str) -> IncompatiblePlugin {
+    IncompatiblePlugin {
+      name: name.to_string(),
+      url: format!("oci://{host}/acme/{name}:1.0.0"),
+      ..plugin(Some("moonlit:plugin@0.3.0"))
     }
   }
 
@@ -267,15 +277,8 @@ mod tests {
       .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(10)))
       .mount(&server)
       .await;
-    let list: Vec<IncompatiblePlugin> = ["a", "b", "c"]
-      .iter()
-      .map(|name| IncompatiblePlugin {
-        name: (*name).to_string(),
-        url: format!("oci://{}/acme/{name}:1.0.0", server.address()),
-        plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
-        engine_world: "moonlit:plugin@0.4.0".to_string(),
-      })
-      .collect();
+    let host = server.address().to_string();
+    let list: Vec<IncompatiblePlugin> = ["a", "b", "c"].iter().map(|name| on_registry(&host, name)).collect();
 
     let started = Instant::now();
     let entries = suggestions_within(&list, false, Duration::from_millis(300)).await;
@@ -300,15 +303,8 @@ mod tests {
       .respond_with(ResponseTemplate::new(500))
       .mount(&server)
       .await;
-    let list: Vec<IncompatiblePlugin> = ["a", "b", "c"]
-      .iter()
-      .map(|name| IncompatiblePlugin {
-        name: (*name).to_string(),
-        url: format!("oci://{}/acme/{name}:1.0.0", server.address()),
-        plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
-        engine_world: "moonlit:plugin@0.4.0".to_string(),
-      })
-      .collect();
+    let host = server.address().to_string();
+    let list: Vec<IncompatiblePlugin> = ["a", "b", "c"].iter().map(|name| on_registry(&host, name)).collect();
 
     let entries = suggestions_within(&list, false, Duration::from_secs(5)).await;
 
@@ -337,12 +333,7 @@ mod tests {
     }
     let list: Vec<IncompatiblePlugin> = servers
       .iter()
-      .map(|server| IncompatiblePlugin {
-        name: "p".to_string(),
-        url: format!("oci://{}/acme/p:1.0.0", server.address()),
-        plugin_world: Some("moonlit:plugin@0.3.0".to_string()),
-        engine_world: "moonlit:plugin@0.4.0".to_string(),
-      })
+      .map(|server| on_registry(&server.address().to_string(), "p"))
       .collect();
 
     suggestions_within(&list, false, Duration::from_secs(5)).await;
@@ -360,13 +351,9 @@ mod tests {
 
   #[tokio::test]
   async fn offline_lookups_are_unavailable_and_bad_hosts_are_errors() {
-    let registry_plugin = |host: &str| IncompatiblePlugin {
-      url: format!("oci://{host}/acme/p:1.0.0"),
-      ..plugin(Some("moonlit:plugin@0.3.0"))
-    };
-    let offline = suggestions(&[registry_plugin("registry.moonlit.rs")], true).await;
+    let offline = suggestions(&[on_registry("registry.moonlit.rs", "p")], true).await;
     assert_eq!(offline[0].1, Suggestion::RegistryUnavailable);
-    let bad_port = suggestions(&[registry_plugin("localhost:99999")], false).await;
+    let bad_port = suggestions(&[on_registry("localhost:99999", "p")], false).await;
     assert!(
       matches!(&bad_port[0].1, Suggestion::RegistryError { text } if text.contains("localhost:99999")),
       "{:?}",
@@ -385,10 +372,7 @@ mod tests {
       .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "data": { "package": { "versions": [] } } })))
       .mount(&server)
       .await;
-    let list = [IncompatiblePlugin {
-      url: format!("oci://{}/acme/p:1.0.0", server.address()),
-      ..plugin(Some("moonlit:plugin@0.3.0"))
-    }];
+    let list = [on_registry(&server.address().to_string(), "p")];
 
     let entries = suggestions_within(&list, false, Duration::from_secs(5)).await;
 

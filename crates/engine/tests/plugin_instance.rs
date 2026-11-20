@@ -2,20 +2,12 @@ use std::sync::Arc;
 
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{NullSink, ReleaseContext};
 use moonlit_engine::plugin::permissions::PermissionKind;
 use moonlit_engine::plugin::{Plugin, PluginError, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
-
-struct NullSink;
-
-impl HostEventSink for NullSink {
-  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-  fn progress(&self, _step: &str, _message: &str) {}
-}
 
 fn engine() -> Engine {
   let cache = tempfile::tempdir().unwrap();

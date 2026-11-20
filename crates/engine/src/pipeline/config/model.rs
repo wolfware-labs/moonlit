@@ -16,7 +16,7 @@ pub struct PipelineConfig {
   pub name: String,
   pub arguments: IndexMap<String, String>,
   pub variables: IndexMap<String, String>,
-  pub plugins: Spanned<Vec<Plugin>>,
+  pub plugins: Spanned<Vec<PluginDeclaration>>,
   pub stages: Spanned<Vec<Stage>>,
 }
 
@@ -27,7 +27,7 @@ pub struct Stage {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Plugin {
+pub struct PluginDeclaration {
   pub name: String,
   pub url: Spanned<PluginUrl>,
   pub config: ConfigMap,

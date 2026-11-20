@@ -70,7 +70,10 @@ pub async fn run(output: Option<OutputMode>, verbose: bool, args: RunArgs) -> i3
   code
 }
 
-#[allow(clippy::result_large_err)]
+#[expect(
+  clippy::result_large_err,
+  reason = "PipelineError holds the unboxed ConfigDiagnostic the engine returns (decided in the engine)"
+)]
 async fn execute(
   engine: &Engine,
   manifest: &PipelineManifest,

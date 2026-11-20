@@ -1,13 +1,15 @@
 use moonlit_engine::plugin::permissions::{DeclaredPermission, grants_for};
 use moonlit_engine::plugin::publish::PLUGIN_WORLD;
+use moonlit_engine::plugin::world::WorldMismatch;
 use moonlit_engine::registry::{RegistryClient, VerificationStatus, VersionDetail, VersionRule};
+use moonlit_engine::scheme::strip_scheme;
 
 use crate::cli::{AddArgs, DEFAULT_REGISTRY_HOST, OutputMode};
 use crate::commands::common::{display_path, fail, prompt_failed, read_release, write_release};
 use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::plugin_probe::probe;
-use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref, strip_scheme};
+use crate::plugin_spec::{PluginSpec, RegistryRef, registry_ref};
 use crate::release_file::{PluginEntry, ReleaseFileError, add_plugin, check_addable};
 use crate::render::resolve_mode;
 
@@ -159,13 +161,13 @@ async fn registry_version(
     .await
     .map_err(|e| e.to_string())?
     .ok_or_else(|| format!("{org}/{name}@{version} is not in the registry"))?;
-  match detail.world_version.as_deref() {
-    Some(PLUGIN_WORLD) => Ok(detail),
-    found => Err(format!(
-      "{org}/{name}@{version} targets {}; this CLI supports {PLUGIN_WORLD}",
-      found.unwrap_or("an unknown world")
-    )),
+  if detail.world_version.as_deref() == Some(PLUGIN_WORLD) {
+    return Ok(detail);
   }
+  let mismatch = WorldMismatch {
+    found: detail.world_version,
+  };
+  Err(format!("{org}/{name}@{version}: {mismatch}"))
 }
 
 fn oci_host(registry: &str) -> &str {

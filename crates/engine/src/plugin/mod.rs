@@ -13,7 +13,7 @@ pub mod world;
 use crate::engine::Engine;
 use crate::logging::LogLevel;
 pub use crate::plugin::error::PluginError;
-use crate::plugin::host::{AllowlistHooks, build_wasi_ctx, exec_globset};
+use crate::plugin::host::{AllowlistHooks, build_globset, build_wasi_ctx};
 pub use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
 use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
@@ -54,7 +54,7 @@ impl Plugin {
       AllowlistHooks::new(&cfg.permissions, events.clone(), denials.clone()),
       events,
       cfg.config_view,
-      exec_globset(&cfg.permissions.exec),
+      build_globset(&cfg.permissions.exec),
       denials,
     ));
 

@@ -566,14 +566,8 @@ mod tests {
 
   #[tokio::test]
   async fn a_registry_that_accepts_and_never_answers_is_a_network_error() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let host = listener.local_addr().unwrap().to_string();
-    let held = tokio::spawn(async move {
-      let mut open = Vec::new();
-      while let Ok((stream, _)) = listener.accept().await {
-        open.push(stream);
-      }
-    });
+    let (addr, held) = crate::plugin::resolver::tests::silent_server().await;
+    let host = addr.to_string();
     let dir = tempfile::tempdir().unwrap();
     let cache = cache_at(&dir, &Arc::new(AtomicU64::new(1_000)));
     let home = tempfile::tempdir().unwrap();

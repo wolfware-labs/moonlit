@@ -1,6 +1,5 @@
 use crate::cli::{OutputMode, PluginInspectArgs};
 use crate::display::display_safe;
-use crate::plugin_probe::introspect;
 use crate::render::resolve_mode;
 use moonlit_engine::cache::Cache;
 use moonlit_engine::plugin::PluginMetadata;
@@ -43,35 +42,9 @@ pub async fn run(output: Option<OutputMode>, args: PluginInspectArgs) -> i32 {
     }
   };
 
-  match super::wasm::is_component(&bytes) {
-    Ok(true) => {}
-    Ok(false) => {
-      eprintln!(
-        "error: '{}' is a core wasm module, not a WASI-P2 component (build with `moonlit plugin build`)",
-        args.target
-      );
-      return 2;
-    }
-    Err(e) => {
-      eprintln!("error: {e}");
-      return 2;
-    }
-  }
-  if let Err(e) = super::wasm::validate(&bytes) {
-    eprintln!("error: {e}");
-    return 2;
-  }
-
-  if let Err(code) = super::wasm::check_world(&args.target, &bytes) {
-    return code;
-  }
-
-  let (meta, mws) = match introspect(&bytes).await {
+  let (meta, mws) = match super::wasm::load_component(&args.target, &bytes).await {
     Ok(pair) => pair,
-    Err(e) => {
-      eprintln!("error: failed to instantiate component: {e}");
-      return 3;
-    }
+    Err(code) => return code,
   };
 
   match resolve_mode(output) {
@@ -157,5 +130,5 @@ fn print_json(plugin_metadata: &PluginMetadata, plugin_middlewares: &[Middleware
               .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok()),
       })).collect::<Vec<_>>(),
   });
-  println!("{}", serde_json::to_string_pretty(&v).unwrap());
+  println!("{}", serde_json::to_string_pretty(&v).expect("JSON values always serialize"));
 }

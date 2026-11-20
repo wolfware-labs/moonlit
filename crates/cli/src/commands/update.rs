@@ -12,7 +12,7 @@ use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::plugin_probe::{ProbeError, probe};
 use crate::plugin_spec::{RegistryRef, registry_ref};
-use crate::release_file::set_plugin;
+use crate::release_file::{SOURCE, set_plugin};
 use crate::render::resolve_mode;
 
 enum Planned {
@@ -44,7 +44,7 @@ pub async fn run(output: Option<OutputMode>, args: UpdateArgs) -> i32 {
 
 async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i32> {
   let (path, before) = read_release(args.file_path.as_deref())?;
-  let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
+  let config = parse_config(&before, SOURCE).or_else(|e| fail(e.message(), 2))?;
   let plugins = &config.plugins.value;
   if let Some(wanted) = &args.plugin
     && !plugins.iter().any(|p| &p.name == wanted)

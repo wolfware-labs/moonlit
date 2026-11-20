@@ -11,7 +11,7 @@ use crate::consent::{self, Answer, ConsentView};
 use crate::display::display_safe;
 use crate::plugin_probe::{ProbeError, probe};
 use crate::plugin_spec::{RegistryRef, registry_ref};
-use crate::release_file::set_plugin;
+use crate::release_file::{SOURCE, set_plugin};
 use crate::render::resolve_mode;
 
 struct Fix {
@@ -45,7 +45,7 @@ pub async fn run(output: Option<OutputMode>, args: DoctorArgs) -> i32 {
 
 async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i32> {
   let (path, before) = read_release(args.file_path.as_deref())?;
-  let config = parse_config(&before, "release.yml").or_else(|e| fail(e.message(), 2))?;
+  let config = parse_config(&before, SOURCE).or_else(|e| fail(e.message(), 2))?;
   let file = display_path(args.file_path.as_deref(), &path);
 
   let mut fixes = Vec::new();

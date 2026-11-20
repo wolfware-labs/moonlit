@@ -7,6 +7,8 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
+use crate::scheme::strip_scheme;
+
 pub use model::{MiddlewareSummary, PackageHit, VerificationStatus, VersionDetail, VersionSummary};
 
 const SEARCH_QUERY: &str = "query search($filter: PackageFilterInput, $paging: PagingInput) { \
@@ -56,10 +58,6 @@ const MAX_CANDIDATES: usize = 10;
 pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
 
 const MAX_REDIRECTS: usize = 10;
-
-fn has_scheme(url: &str, prefix: &str) -> bool {
-  url.get(..prefix.len()).is_some_and(|head| head.eq_ignore_ascii_case(prefix))
-}
 
 fn plain_http_to_remote(url: &reqwest::Url) -> bool {
   url.scheme() == "http" && !url.host_str().is_some_and(is_loopback)
@@ -190,7 +188,7 @@ impl RegistryClient {
   /// Builds a client for a registry host, or for an `http(s)://` URL; `/graphql` is appended unless already present.
   /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
   pub fn for_host(host: &str) -> Result<Self, RegistryError> {
-    if has_scheme(host, "http://") || has_scheme(host, "https://") {
+    if strip_scheme(host, "http://").is_some() || strip_scheme(host, "https://").is_some() {
       let trimmed = host.trim_end_matches('/');
       if trimmed.ends_with("/graphql") {
         Self::with_base_url(trimmed)
@@ -207,7 +205,7 @@ impl RegistryClient {
   /// Builds a client that posts to `url` exactly as given.
   /// Fails with [`RegistryError::Insecure`] for an `http://` URL whose host is not loopback.
   pub fn with_base_url(url: &str) -> Result<Self, RegistryError> {
-    if has_scheme(url, "http://")
+    if strip_scheme(url, "http://").is_some()
       && reqwest::Url::parse(url)
         .ok()
         .is_none_or(|parsed| plain_http_to_remote(&parsed))
@@ -256,7 +254,8 @@ impl RegistryClient {
     Ok(data.package.map(|p| p.versions).unwrap_or_default())
   }
 
-  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`, asking about ten candidates at a time.
+  /// Returns the highest non-yanked version allowed by `rule` that was built for `world`, asking about ten candidates
+  /// at a time.
   pub async fn newest_compatible(
     &self,
     org: &str,

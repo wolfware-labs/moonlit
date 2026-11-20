@@ -15,16 +15,6 @@ pub fn build_globset(patterns: &[String]) -> GlobSet {
 }
 
 #[must_use]
-pub fn exec_globset(patterns: &[String]) -> GlobSet {
-  build_globset(patterns)
-}
-
-#[must_use]
-pub fn network_globset(patterns: &[String]) -> GlobSet {
-  build_globset(patterns)
-}
-
-#[must_use]
 pub fn filter_env(patterns: &[String], snapshot: &[(String, String)]) -> Vec<(String, String)> {
   let gs = build_globset(patterns);
   snapshot.iter().filter(|(k, _)| gs.is_match(k)).cloned().collect()

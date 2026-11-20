@@ -1,7 +1,6 @@
 use crate::pipeline::config::{FilesystemAccess, Permissions};
-use crate::plugin::host::{build_globset, exec_globset, network_globset};
+use crate::plugin::host::build_globset;
 use crate::sanitize::quote_list;
-use globset::GlobSet;
 use serde::Serialize;
 
 /// The kind of capability a plugin asks for.
@@ -107,16 +106,16 @@ pub fn invalid_declaration(declared: &[DeclaredPermission]) -> Option<String> {
 #[must_use]
 pub fn is_covered(p: &DeclaredPermission, granted: &Permissions) -> bool {
   match p.kind {
-    PermissionKind::Network => all_granted(&p.values, &granted.network, network_globset),
-    PermissionKind::Exec => all_granted(&p.values, &granted.exec, exec_globset),
-    PermissionKind::Env => all_granted(&p.values, &granted.env, exec_globset),
+    PermissionKind::Network => all_granted(&p.values, &granted.network),
+    PermissionKind::Exec => all_granted(&p.values, &granted.exec),
+    PermissionKind::Env => all_granted(&p.values, &granted.env),
     PermissionKind::FilesystemRead => granted.filesystem >= FilesystemAccess::ReadOnly,
     PermissionKind::FilesystemWrite => granted.filesystem >= FilesystemAccess::ReadWrite,
   }
 }
 
-fn all_granted(values: &[String], granted: &[String], globset: fn(&[String]) -> GlobSet) -> bool {
-  let set = globset(granted);
+fn all_granted(values: &[String], granted: &[String]) -> bool {
+  let set = build_globset(granted);
   values.iter().all(|v| {
     granted.contains(v)
       || match Pattern::parse(v) {

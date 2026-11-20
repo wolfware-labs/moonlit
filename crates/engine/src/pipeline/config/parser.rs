@@ -1,4 +1,4 @@
-use crate::pipeline::config::model::{ConfigValue, Plugin, PluginUrl, Run, Stage, Step};
+use crate::pipeline::config::model::{ConfigValue, PluginDeclaration, PluginUrl, Run, Stage, Step};
 use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::{Span, Spanned};
 use crate::pipeline::config::tree::{Node, NodeValue};
@@ -74,7 +74,7 @@ fn convert_root(entries: &[(Node, Node)], root_span: Span, src: &ConfigSource) -
   let mut name: Option<String> = None;
   let mut arguments: Option<IndexMap<String, String>> = None;
   let mut variables: Option<IndexMap<String, String>> = None;
-  let mut plugins: Option<Spanned<Vec<Plugin>>> = None;
+  let mut plugins: Option<Spanned<Vec<PluginDeclaration>>> = None;
   let mut stages: Option<Spanned<Vec<Stage>>> = None;
 
   let mut seen: Vec<&str> = Vec::new();
@@ -177,7 +177,7 @@ fn string_map(node: &Node, context: &str, src: &ConfigSource) -> Result<IndexMap
   Ok(out)
 }
 
-fn convert_plugins(node: &Node, src: &ConfigSource) -> Result<Spanned<Vec<Plugin>>, ConfigDiagnostic> {
+fn convert_plugins(node: &Node, src: &ConfigSource) -> Result<Spanned<Vec<PluginDeclaration>>, ConfigDiagnostic> {
   let mut plugins = Vec::new();
   if let NodeValue::Seq(items) = &node.value {
     for item in items {
@@ -187,7 +187,7 @@ fn convert_plugins(node: &Node, src: &ConfigSource) -> Result<Spanned<Vec<Plugin
   Ok(Spanned::new(plugins, node.span))
 }
 
-fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagnostic> {
+fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<PluginDeclaration, ConfigDiagnostic> {
   let NodeValue::Map(entries) = &node.value else {
     return Err(ConfigDiagnostic::expected_mapping(src, "a plugin", node.span));
   };
@@ -233,7 +233,7 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
   let Some(url) = url else {
     return Err(ConfigDiagnostic::missing_url(src, &name, node.span));
   };
-  Ok(Plugin {
+  Ok(PluginDeclaration {
     name,
     url,
     config: config.unwrap_or_default(),

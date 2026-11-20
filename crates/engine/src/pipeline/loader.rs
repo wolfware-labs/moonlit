@@ -167,16 +167,18 @@ async fn resolve_plugins(
   offline: bool,
   events: &Sender<PipelineEvent>,
 ) -> Result<Vec<ResolvedPlugin>, PipelineError> {
-  let order: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
+  let declared: Vec<String> = requests.iter().map(|request| request.name.clone()).collect();
   let mut tasks = JoinSet::new();
   for request in requests {
     let engine = engine.clone();
     let events = events.clone();
     tasks.spawn(async move { resolve_plugin(&engine, request, offline, &events).await });
   }
-  let mut resolved = join_all(tasks).await?;
-  resolved.sort_by_key(|plugin| order.iter().position(|name| *name == plugin.request.name));
-  Ok(resolved)
+  let resolved = join_all(tasks)
+    .await?
+    .into_iter()
+    .map(|plugin| (plugin.request.name.clone(), plugin));
+  Ok(in_order(&declared, resolved).into_values().collect())
 }
 
 fn reject_incompatible(resolved: &[ResolvedPlugin]) -> Result<(), PipelineError> {

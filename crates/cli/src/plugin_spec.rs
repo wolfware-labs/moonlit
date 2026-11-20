@@ -1,4 +1,5 @@
 use moonlit_engine::plugin::resolver::PluginSource;
+use moonlit_engine::scheme::strip_scheme;
 
 /// A plugin named on the command line: a registry package or a direct URL.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -60,15 +61,6 @@ impl RegistryRef {
   pub fn is_digest(&self) -> bool {
     self.tag.contains(':')
   }
-}
-
-/// The rest of `url` after `scheme` (such as `"oci://"`), matched in any case; `None` when it has another scheme.
-#[must_use]
-pub fn strip_scheme<'a>(url: &'a str, scheme: &str) -> Option<&'a str> {
-  url
-    .get(..scheme.len())
-    .filter(|head| head.eq_ignore_ascii_case(scheme))
-    .map(|_| &url[scheme.len()..])
 }
 
 /// Splits an `oci://host/org/name:tag` URL, with the scheme in any case; `None` for any other URL.
@@ -166,13 +158,6 @@ mod tests {
     let r = registry_ref("OCI://registry.moonlit.rs/acme/x:1.2.3").unwrap();
     assert_eq!(r, registry_ref("oci://registry.moonlit.rs/acme/x:1.2.3").unwrap());
     assert!(registry_ref("OCX://registry.moonlit.rs/acme/x:1.2.3").is_none());
-  }
-
-  #[test]
-  fn strip_scheme_needs_the_whole_scheme() {
-    assert_eq!(strip_scheme("Https://h/x", "https://"), Some("h/x"));
-    assert_eq!(strip_scheme("http", "https://"), None);
-    assert_eq!(strip_scheme("https:/h", "https://"), None);
   }
 
   #[test]

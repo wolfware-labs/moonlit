@@ -4,9 +4,12 @@ use wasmparser::{Parser, Payload};
 
 const INTERFACE_PREFIX: &str = "moonlit:plugin/";
 
+/// How a message names the contract of a component that imports none.
+pub const UNKNOWN_WORLD: &str = "an unknown plugin contract";
+
 /// A component built for a plugin contract other than [`PLUGIN_WORLD`]; `found` is `None` when it imports none.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("built for {}, this CLI supports {PLUGIN_WORLD}", .found.as_deref().unwrap_or("an unknown plugin contract"))]
+#[error("built for {}, this CLI supports {PLUGIN_WORLD}", .found.as_deref().unwrap_or(UNKNOWN_WORLD))]
 pub struct WorldMismatch {
   pub found: Option<String>,
 }

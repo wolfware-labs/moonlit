@@ -2,18 +2,12 @@ use std::sync::{Arc, Mutex};
 
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions};
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{HostEventSink, NullSink, ReleaseContext};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig};
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
-
-struct NullSink;
-impl HostEventSink for NullSink {
-  fn log(&self, _s: &str, _l: LogLevel, _m: &str) {}
-  fn progress(&self, _s: &str, _m: &str) {}
-}
 
 /// Records `(step, level, message)` triples so denial-diagnostic tests can
 /// assert on what the host logged.

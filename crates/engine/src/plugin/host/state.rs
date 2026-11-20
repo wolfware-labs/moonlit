@@ -42,13 +42,13 @@ impl DenialLog {
   /// Warns about a refusal on the step's log and keeps it for the step's result.
   pub fn record(&self, events: &dyn HostEventSink, step: &str, denial: Denial) {
     events.log(step, crate::plugin::host::LogLevel::Warn, &denial.to_string());
-    self.0.lock().unwrap().push(denial);
+    self.0.lock().expect("no thread panics holding the denial log").push(denial);
   }
 
   /// Removes and returns every refusal recorded so far.
   #[must_use]
   pub fn take(&self) -> Vec<Denial> {
-    std::mem::take(&mut *self.0.lock().unwrap())
+    std::mem::take(&mut *self.0.lock().expect("no thread panics holding the denial log"))
   }
 }
 
@@ -237,7 +237,7 @@ impl HostChild for HostState {
 mod tests {
   use super::*;
   use crate::pipeline::config::{FilesystemAccess, Permissions};
-  use crate::plugin::host::exec_globset;
+  use crate::plugin::host::build_globset;
   use std::sync::Mutex;
   use wasmtime_wasi::WasiCtxBuilder;
 
@@ -267,7 +267,7 @@ mod tests {
       AllowlistHooks::new(&permissions, events.clone(), denials.clone()),
       events,
       serde_json::json!({}),
-      exec_globset(&permissions.exec),
+      build_globset(&permissions.exec),
       denials,
     )
   }

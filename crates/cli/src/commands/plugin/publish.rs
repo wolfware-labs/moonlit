@@ -1,6 +1,7 @@
 use crate::cli::{OutputMode, PluginPublishArgs};
 use crate::render::resolve_mode;
 use moonlit_engine::plugin::publish::{PluginArtifactMetadata, new_push_client, publish_plugin};
+use moonlit_engine::scheme::strip_scheme;
 use std::path::PathBuf;
 
 #[must_use]
@@ -17,7 +18,7 @@ pub fn sdk_version_from_lock(lock_text: &str) -> Option<String> {
 
 #[must_use]
 fn strip_oci_scheme(reference: &str) -> &str {
-  reference.strip_prefix("oci://").unwrap_or(reference)
+  strip_scheme(reference, "oci://").unwrap_or(reference)
 }
 
 #[derive(serde::Deserialize)]
@@ -58,34 +59,9 @@ pub async fn run(output: Option<OutputMode>, args: PluginPublishArgs) -> i32 {
     }
   };
 
-  match super::wasm::is_component(&bytes) {
-    Ok(true) => {}
-    Ok(false) => {
-      eprintln!(
-        "error: '{}' is a core wasm module, not a WASI-P2 component (build with `moonlit plugin build`)",
-        file.display()
-      );
-      return 2;
-    }
-    Err(e) => {
-      eprintln!("error: {e}");
-      return 2;
-    }
-  }
-  if let Err(e) = super::wasm::validate(&bytes) {
-    eprintln!("error: {e}");
-    return 2;
-  }
-  if let Err(code) = super::wasm::check_world(&file.display().to_string(), &bytes) {
-    return code;
-  }
-
-  let (meta, mws) = match crate::plugin_probe::introspect(&bytes).await {
+  let (meta, mws) = match super::wasm::load_component(&file.display().to_string(), &bytes).await {
     Ok(pair) => pair,
-    Err(e) => {
-      eprintln!("error: failed to instantiate component: {e}");
-      return 3;
-    }
+    Err(code) => return code,
   };
 
   let (source, licenses) = read_crate_facts(&crate_dir);
@@ -186,6 +162,7 @@ version = "0.4.1"
   #[test]
   fn strips_oci_scheme_when_present() {
     assert_eq!(strip_oci_scheme("oci://ghcr.io/acme/p:1.0.0"), "ghcr.io/acme/p:1.0.0");
+    assert_eq!(strip_oci_scheme("OCI://ghcr.io/acme/p:1.0.0"), "ghcr.io/acme/p:1.0.0");
   }
 
   #[test]

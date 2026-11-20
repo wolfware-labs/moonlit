@@ -23,3 +23,19 @@ pub async fn resolve(
     PluginSource::Oci(raw_ref) => oci::resolve_oci(raw_ref, opts, cache, progress).await,
   }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+  /// A loopback server that accepts connections and never answers; abort the handle to close them.
+  pub(crate) async fn silent_server() -> (std::net::SocketAddr, tokio::task::JoinHandle<()>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let held = tokio::spawn(async move {
+      let mut open = Vec::new();
+      while let Ok((stream, _)) = listener.accept().await {
+        open.push(stream);
+      }
+    });
+    (addr, held)
+  }
+}

@@ -1,17 +1,10 @@
 use std::sync::Arc;
 
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{NullSink, ReleaseContext};
 use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/pdk_sample.wasm");
-
-struct NullSink;
-impl HostEventSink for NullSink {
-  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-  fn progress(&self, _step: &str, _message: &str) {}
-}
 
 fn cfg() -> PluginInstanceConfig {
   PluginInstanceConfig {

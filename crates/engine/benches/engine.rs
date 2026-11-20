@@ -4,9 +4,8 @@ use std::sync::Arc;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use moonlit_engine::engine::Engine;
 use moonlit_engine::engine::config::EngineSettings;
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions, parse_config};
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{HostEventSink, NullSink, ReleaseContext};
 use moonlit_engine::plugin::permissions::{DeclaredPermission, PermissionKind, uncovered_required};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig};
 use tokio::runtime::Runtime;
@@ -14,13 +13,6 @@ use tokio::runtime::Runtime;
 const FIXTURE: &[u8] = include_bytes!("../tests/fixtures/test_plugin.wasm");
 
 const RELEASE_YML: &str = include_str!("fixtures/release.yml");
-
-struct NullSink;
-
-impl HostEventSink for NullSink {
-  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-  fn progress(&self, _step: &str, _message: &str) {}
-}
 
 fn instance_config() -> PluginInstanceConfig {
   PluginInstanceConfig {

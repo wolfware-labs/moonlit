@@ -205,8 +205,9 @@ async fn pinned_version_for_another_world_fails() {
   project
     .add(&["acme/test-plugin@2.0.0", "--yes", "--registry", &server.uri()])
     .code(3)
-    .stderr(contains(OLD_WORLD))
-    .stderr(contains(WORLD));
+    .stderr(contains(format!(
+      "acme/test-plugin@2.0.0: built for {OLD_WORLD}, this CLI supports {WORLD}"
+    )));
 
   assert_eq!(project.release(), RELEASE);
 }
