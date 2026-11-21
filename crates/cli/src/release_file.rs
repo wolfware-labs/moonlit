@@ -205,16 +205,23 @@ fn validated(
       "plugin '{name}' would not read back with the requested permissions"
     )));
   }
-  if let Ok((rest_before, entry_before)) = outside_entry(before, position_before) {
-    let position_after = config.plugins.value.iter().position(|p| p.name == name);
-    let (rest_after, entry_after) = outside_entry(&content, position_after)?;
-    if rest_after != rest_before || entry_before.is_some_and(|entry| Some(entry) != entry_after) {
-      return Err(ReleaseFileError::Invalid(format!(
-        "the edit would change more than the url and permissions of plugin '{name}'"
-      )));
-    }
+  let (rest_before, entry_before) = outside_entry(before, position_before)
+    .map_err(|e| ReleaseFileError::Invalid(format!("{SOURCE} cannot be checked before editing: {}", invalid_reason(&e))))?;
+  let position_after = config.plugins.value.iter().position(|p| p.name == name);
+  let (rest_after, entry_after) = outside_entry(&content, position_after)?;
+  if rest_after != rest_before || entry_before.is_some_and(|entry| Some(entry) != entry_after) {
+    return Err(ReleaseFileError::Invalid(format!(
+      "the edit would change more than the url and permissions of plugin '{name}'"
+    )));
   }
   Ok(content)
+}
+
+fn invalid_reason(error: &ReleaseFileError) -> String {
+  match error {
+    ReleaseFileError::Invalid(reason) => reason.clone(),
+    other => other.to_string(),
+  }
 }
 
 fn outside_entry(content: &str, position: Option<usize>) -> Result<(Value, Option<Value>), ReleaseFileError> {
@@ -927,6 +934,41 @@ stages:
     assert_eq!(
       out,
       "plugins:\n  -   # note\n    name: a\n    url: file://a.wasm\n  - name: b\n    url: file://b.wasm\n    permissions: {}\nstages:\n  s:\n    - run: a.go\n"
+    );
+  }
+
+  const SHARED_URL: &str =
+    "plugins:\n  - name: a\n    url: &u file://a.wasm\n  - name: b\n    url: *u\nstages:\n  s:\n    - run: a.go\n";
+  const SHARED_URL_DUPLICATE_KEY: &str = "plugins:\n  - name: a\n    url: &u file://a.wasm\n    config:\n      k: 1\n      k: 2\n  - name: b\n    url: *u\nstages:\n  s:\n    - run: a.go\n";
+
+  #[test]
+  fn an_anchored_url_shared_with_another_plugin_is_not_edited() {
+    let err = set_plugin(SHARED_URL, "a", "file://a2.wasm", None).expect_err("b would change too");
+    let ReleaseFileError::Invalid(message) = err else {
+      panic!("{err:?}")
+    };
+    assert!(message.contains("more than the url and permissions"), "{message}");
+  }
+
+  #[test]
+  fn an_edit_fails_when_the_file_cannot_be_checked_before_it() {
+    let err = set_plugin(SHARED_URL_DUPLICATE_KEY, "a", "file://a2.wasm", None).expect_err("cannot be checked");
+    let ReleaseFileError::Invalid(message) = err else {
+      panic!("{err:?}")
+    };
+    assert!(
+      message.starts_with("release.yml cannot be checked before editing: "),
+      "{message}"
+    );
+    assert!(message.contains("duplicate"), "{message}");
+
+    let err = add_plugin(SHARED_URL_DUPLICATE_KEY, &entry("c", "file://c.wasm")).expect_err("cannot be checked");
+    let ReleaseFileError::Invalid(message) = err else {
+      panic!("{err:?}")
+    };
+    assert!(
+      message.starts_with("release.yml cannot be checked before editing: "),
+      "{message}"
     );
   }
 
