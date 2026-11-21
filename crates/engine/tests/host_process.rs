@@ -103,7 +103,7 @@ async fn spawn_stream_delivers_lines_live_in_order() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn denied_exec_fails_step_even_if_plugin_succeeds() {
+async fn denied_optional_exec_warns_and_the_step_succeeds() {
   let eng = moonlit_engine::engine::Engine::try_default().unwrap();
   let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
     .await
@@ -114,11 +114,55 @@ async fn denied_exec_fails_step_even_if_plugin_succeeds() {
     .execute("try-exec", ctx("tag"), &serde_json::json!({ "program": "git" }))
     .await
     .unwrap();
-  assert!(!r.successful, "a blocked program must fail the step: {r:?}");
+  assert!(
+    r.successful,
+    "an optional permission that is not granted must not fail the step: {r:?}"
+  );
+  assert!(r.error_message.is_none(), "{r:?}");
+  let [warning] = r.warnings.as_slice() else {
+    panic!("expected one warning, got {:?}", r.warnings);
+  };
+  assert!(warning.contains("blocked from running 'git'"), "{warning}");
+  assert!(warning.contains("permissions.exec"), "{warning}");
+  assert!(warning.contains("optional permission"), "{warning}");
+  assert!(warning.contains("Only for the tag middleware."), "{warning}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn denied_undeclared_exec_fails_step_even_if_plugin_succeeds() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  let r = p
+    .execute("try-exec", ctx("tag"), &serde_json::json!({ "program": "curl" }))
+    .await
+    .unwrap();
+  assert!(!r.successful, "a program the plugin never declared must fail the step: {r:?}");
   let msg = r.error_message.unwrap();
-  assert!(msg.contains("blocked from running 'git'"), "{msg}");
+  assert!(msg.contains("blocked from running 'curl'"), "{msg}");
   assert!(msg.contains("permissions.exec"), "{msg}");
-  assert!(msg.contains("Only for the tag middleware."), "{msg}");
+  assert!(!msg.contains("optional permission"), "{msg}");
+  assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_same_optional_denial_repeated_gives_one_warning() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  for _ in 0..2 {
+    let r = p
+      .execute("try-exec", ctx("tag"), &serde_json::json!({ "program": "git" }))
+      .await
+      .unwrap();
+    assert_eq!(r.warnings.len(), 1, "{:?}", r.warnings);
+  }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -210,4 +254,18 @@ async fn a_denial_during_a_failed_init_keeps_the_plugins_own_error() {
     err.starts_with("init failed on request (failInit=true); blocked from running 'git'"),
     "{err}"
   );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_optional_denial_during_init_and_listing_does_not_fail() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
+    .await
+    .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  p.init(&serde_json::json!({ "execOnInit": "git", "execOnList": "git" }))
+    .await
+    .unwrap();
+  assert!(!p.list_middlewares().await.unwrap().is_empty());
 }

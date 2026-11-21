@@ -109,10 +109,27 @@ impl PluginInstance {
     })
   }
 
+  /// The message for the denials that fail a call; denials of optional permissions are left out.
   fn denied(&self) -> Option<String> {
     let denials = self.store.data().take_denials();
-    (!denials.is_empty()).then(|| denial_message(&denials, self.store.data().declared()))
+    let (hard, _) = split_denials(&denials, self.store.data().declared());
+    (!hard.is_empty()).then(|| denial_message(&hard, self.store.data().declared()))
   }
+}
+
+/// Splits denials into those that fail the call and those of permissions the plugin declared `optional`, which only
+/// warn. The soft ones come back once per kind and target.
+fn split_denials(denials: &[Denial], declared: &[DeclaredPermission]) -> (Vec<Denial>, Vec<Denial>) {
+  let mut hard = Vec::new();
+  let mut soft: Vec<Denial> = Vec::new();
+  for d in denials {
+    if optional_for_target(declared, d.kind, &d.target).is_none() {
+      hard.push(d.clone());
+    } else if !soft.contains(d) {
+      soft.push(d.clone());
+    }
+  }
+  (hard, soft)
 }
 
 fn apply_denials(
@@ -120,10 +137,18 @@ fn apply_denials(
   denials: &[Denial],
   declared: &[DeclaredPermission],
 ) -> Result<MiddlewareResult, PluginError> {
-  if denials.is_empty() {
-    return result;
+  let (hard, soft) = split_denials(denials, declared);
+  let warnings: Vec<String> = soft
+    .iter()
+    .map(|d| denial_message(std::slice::from_ref(d), declared))
+    .collect();
+  if hard.is_empty() {
+    return result.map(|mut r| {
+      r.warnings.extend(warnings);
+      r
+    });
   }
-  let denied = denial_message(denials, declared);
+  let denied = denial_message(&hard, declared);
   match result {
     Ok(mut r) => {
       r.successful = false;
@@ -131,6 +156,7 @@ fn apply_denials(
         Some(own) if !own.is_empty() => format!("{own}; {denied}"),
         _ => denied,
       });
+      r.warnings.extend(warnings);
       Ok(r)
     }
     Err(PluginError::Trap { op, message }) => Err(PluginError::Trap {
@@ -140,7 +166,7 @@ fn apply_denials(
     Err(other) => Ok(MiddlewareResult {
       successful: false,
       error_message: Some(format!("{other}; {denied}")),
-      warnings: vec![],
+      warnings,
       output: vec![],
     }),
   }
@@ -306,6 +332,91 @@ mod tests {
     let shown = crate::sanitize::display_safe_text(&message);
     assert!(!shown.contains('\u{1b}'), "{shown:?}");
     assert!(shown.contains("git\\x1b[2K"), "{shown}");
+  }
+
+  fn optional_git() -> Vec<DeclaredPermission> {
+    vec![declared(PermissionKind::Exec, &["git"], "Reads the tag.", true)]
+  }
+
+  #[test]
+  fn an_optional_denial_warns_and_leaves_the_result_alone() {
+    let out = apply_denials(
+      Ok(result(true, None)),
+      &[denial(PermissionKind::Exec, "git")],
+      &optional_git(),
+    )
+    .unwrap();
+    assert!(out.successful);
+    assert!(out.error_message.is_none());
+    assert_eq!(
+      out.warnings,
+      ["blocked from running 'git' \u{2014} add it to permissions.exec (optional permission: \"Reads the tag.\")"]
+    );
+  }
+
+  #[test]
+  fn an_optional_denial_repeated_gives_one_warning() {
+    let git = denial(PermissionKind::Exec, "git");
+    let out = apply_denials(Ok(result(true, None)), &[git.clone(), git], &optional_git()).unwrap();
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+  }
+
+  #[test]
+  fn a_required_declaration_does_not_make_a_denial_optional() {
+    let required = [declared(PermissionKind::Exec, &["git"], "Reads the tag.", false)];
+    let out = apply_denials(Ok(result(true, None)), &[denial(PermissionKind::Exec, "git")], &required).unwrap();
+    assert!(!out.successful);
+    assert!(out.warnings.is_empty());
+  }
+
+  #[test]
+  fn a_mixed_call_fails_on_the_hard_denial_and_warns_about_the_soft_one() {
+    let out = apply_denials(
+      Ok(result(true, None)),
+      &[denial(PermissionKind::Exec, "git"), denial(PermissionKind::Exec, "curl")],
+      &optional_git(),
+    )
+    .unwrap();
+    assert!(!out.successful);
+    assert_eq!(
+      out.error_message.as_deref(),
+      Some("blocked from running 'curl' \u{2014} add it to permissions.exec")
+    );
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    assert!(out.warnings[0].contains("'git'"), "{:?}", out.warnings);
+  }
+
+  #[test]
+  fn an_optional_denial_next_to_a_plugin_error_keeps_the_error_and_the_message_clean() {
+    let out = apply_denials(
+      Ok(result(false, Some("git tag failed"))),
+      &[denial(PermissionKind::Exec, "git")],
+      &optional_git(),
+    )
+    .unwrap();
+    assert!(!out.successful);
+    assert_eq!(out.error_message.as_deref(), Some("git tag failed"));
+    assert_eq!(out.warnings.len(), 1);
+  }
+
+  #[test]
+  fn an_optional_denial_does_not_turn_a_decode_failure_into_a_result() {
+    let Err(PluginError::Load(message)) = apply_denials(
+      Err(PluginError::Load("x".to_string())),
+      &[denial(PermissionKind::Exec, "git")],
+      &optional_git(),
+    ) else {
+      panic!("expected the same error back");
+    };
+    assert_eq!(message, "x");
+  }
+
+  #[test]
+  fn hard_denials_leave_out_the_optional_ones() {
+    let denials = [denial(PermissionKind::Exec, "git"), denial(PermissionKind::Exec, "curl")];
+    let (hard, soft) = split_denials(&denials, &optional_git());
+    assert_eq!(hard, [denial(PermissionKind::Exec, "curl")]);
+    assert_eq!(soft, [denial(PermissionKind::Exec, "git")]);
   }
 
   #[test]
