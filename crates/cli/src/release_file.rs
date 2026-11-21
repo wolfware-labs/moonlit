@@ -32,6 +32,10 @@ pub enum ReleaseFileError {
   #[error("plugin '{0}' is written in flow style; write it as a block mapping, one key per line, so moonlit can edit it")]
   #[diagnostic(code(moonlit::release_file::flow_style))]
   FlowStyle(String),
+  /// The file as it is now cannot be checked, so no edit to it can be.
+  #[error("release.yml cannot be checked before editing: {0}")]
+  #[diagnostic(code(moonlit::release_file::unchecked))]
+  Unchecked(String),
   /// The file cannot be read, or the edited file would not parse back to the requested entry.
   #[error("the edited release file would be invalid: {0}")]
   #[diagnostic(code(moonlit::release_file::invalid))]
@@ -206,7 +210,7 @@ fn validated(
     )));
   }
   let (rest_before, entry_before) = outside_entry(before, position_before)
-    .map_err(|e| ReleaseFileError::Invalid(format!("{SOURCE} cannot be checked before editing: {e}")))?;
+    .map_err(|e| ReleaseFileError::Unchecked(format!("{e}{}", unchecked_hint(&e.to_string()))))?;
   let position_after = config.plugins.value.iter().position(|p| p.name == name);
   let (rest_after, entry_after) =
     outside_entry(&content, position_after).map_err(|e| ReleaseFileError::Invalid(e.to_string()))?;
@@ -216,6 +220,17 @@ fn validated(
     )));
   }
   Ok(content)
+}
+
+/// A hint for the YAML errors a user can fix by hand; empty for any other.
+fn unchecked_hint(yaml_error: &str) -> &'static str {
+  if yaml_error.contains("duplicate entry") {
+    "; remove the duplicate key"
+  } else if yaml_error.contains("invalid type: integer") {
+    "; quote the number"
+  } else {
+    ""
+  }
 }
 
 fn outside_entry(content: &str, position: Option<usize>) -> Result<(Value, Option<Value>), serde_yaml_ng::Error> {
@@ -947,23 +962,60 @@ stages:
   #[test]
   fn an_edit_fails_when_the_file_cannot_be_checked_before_it() {
     let err = set_plugin(SHARED_URL_DUPLICATE_KEY, "a", "file://a2.wasm", None).expect_err("cannot be checked");
-    let ReleaseFileError::Invalid(message) = err else {
+    let ReleaseFileError::Unchecked(_) = err else {
       panic!("{err:?}")
     };
+    let message = err.to_string();
     assert!(
       message.starts_with("release.yml cannot be checked before editing: "),
       "{message}"
     );
+    assert!(!message.contains("the edited release file would be invalid"), "{message}");
     assert!(message.contains("duplicate"), "{message}");
+    assert!(message.ends_with("; remove the duplicate key"), "{message}");
 
     let err = add_plugin(SHARED_URL_DUPLICATE_KEY, &entry("c", "file://c.wasm")).expect_err("cannot be checked");
-    let ReleaseFileError::Invalid(message) = err else {
+    let ReleaseFileError::Unchecked(_) = err else {
       panic!("{err:?}")
     };
+    let message = err.to_string();
     assert!(
       message.starts_with("release.yml cannot be checked before editing: "),
       "{message}"
     );
+  }
+
+  const HUGE_NUMBER_CONFIG: &str = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\n      k: 18446744073709551616\nstages:\n  s:\n    - run: a.go\n";
+
+  #[test]
+  fn a_number_too_large_for_yaml_integers_is_reported_with_a_hint_to_quote_it() {
+    let err = set_plugin(HUGE_NUMBER_CONFIG, "a", "file://a2.wasm", None).expect_err("cannot be checked");
+    let ReleaseFileError::Unchecked(_) = err else {
+      panic!("{err:?}")
+    };
+    let message = err.to_string();
+    assert!(
+      message.starts_with("release.yml cannot be checked before editing: "),
+      "{message}"
+    );
+    assert!(message.ends_with("; quote the number"), "{message}");
+
+    let quoted = HUGE_NUMBER_CONFIG.replace("18446744073709551616", "\"18446744073709551616\"");
+    let out = set_plugin(&quoted, "a", "file://a2.wasm", None).expect("edits");
+    assert!(
+      out.contains("file://a2.wasm") && out.contains("\"18446744073709551616\""),
+      "{out}"
+    );
+  }
+
+  #[test]
+  fn the_hint_follows_the_yaml_error() {
+    assert_eq!(unchecked_hint("duplicate entry with key \"k\""), "; remove the duplicate key");
+    assert_eq!(
+      unchecked_hint("config.k: invalid type: integer `1`, expected x"),
+      "; quote the number"
+    );
+    assert_eq!(unchecked_hint("did not find expected key"), "");
   }
 
   #[test]
