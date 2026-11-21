@@ -3,7 +3,9 @@ use std::io::{Read, Write};
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::process::{Command, Output, Stdio};
 
-pub fn run_on_terminal(mut command: Command, keys: &[u8]) -> Output {
+/// Runs `command` with stdin and stderr on a pseudo-terminal and stdout piped. Returns the piped output and everything the
+/// command wrote to the terminal.
+pub fn run_on_terminal(mut command: Command, keys: &[u8]) -> (Output, String) {
   let (master, slave) = open_raw_pty();
   let mut master = File::from(master);
   master.write_all(keys).unwrap();
@@ -18,11 +20,12 @@ pub fn run_on_terminal(mut command: Command, keys: &[u8]) -> Output {
   let drain = std::thread::spawn(move || {
     let mut screen = Vec::new();
     let _ = reader.read_to_end(&mut screen);
+    String::from_utf8_lossy(&screen).into_owned()
   });
   let output = child.wait_with_output().unwrap();
   drop(master);
-  let _ = drain.join();
-  output
+  let screen = drain.join().unwrap();
+  (output, screen)
 }
 
 fn open_raw_pty() -> (OwnedFd, OwnedFd) {

@@ -91,7 +91,8 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
   }
 
   let color = resolve_mode(output) == OutputMode::Pretty;
-  println!();
+  let prompts = !args.yes && consent::interactive();
+  consent::show("\n", prompts);
   for fix in fixes.iter().filter(|f| f.permissions.is_some()) {
     let view = ConsentView {
       plugin: &fix.name,
@@ -102,10 +103,10 @@ async fn doctor(output: Option<OutputMode>, args: &DoctorArgs) -> Result<i32, i3
       optional: Vec::new(),
       not_requested: false,
     };
-    print!("{}", consent::render(&view, color));
+    consent::show(&consent::render(&view, color), prompts);
   }
-  print!("{}", consent::render_changes(&file, &before, &content));
-  if !args.yes && consent::interactive() && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
+  consent::show(&consent::render_changes(&file, &before, &content), prompts);
+  if prompts && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
     println!("Nothing changed.");
     return Ok(1);
   }

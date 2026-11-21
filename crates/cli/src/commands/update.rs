@@ -107,8 +107,8 @@ async fn update(output: Option<OutputMode>, args: &UpdateArgs) -> Result<i32, i3
         optional: Vec::new(),
         not_requested: false,
       };
-      print!("{}", consent::render(&view, color));
-      print!("{}", consent::render_changes(&file, &content, &after));
+      consent::show(&consent::render(&view, color), !args.yes);
+      consent::show(&consent::render_changes(&file, &content, &after), !args.yes);
       if !args.yes && consent::ask("Allow and update?").or_else(|e| prompt_failed(&e))? == Answer::No {
         println!("{}: kept at {}", display_safe(&plan.name), plan.old);
         declined = true;

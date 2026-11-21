@@ -97,7 +97,7 @@ impl Project {
   }
 
   #[cfg(unix)]
-  fn doctor_on_terminal(&self, args: &[&str], keys: &[u8]) -> std::process::Output {
+  fn doctor_on_terminal(&self, args: &[&str], keys: &[u8]) -> (std::process::Output, String) {
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
     command
       .current_dir(self.dir.path())
@@ -665,13 +665,13 @@ fn doctor_on_a_terminal_asks_before_writing() {
   let project = Project::new(&entry("test-plugin", &file_url("test_plugin.wasm"), ""));
   let before = project.release();
 
-  let output = project.doctor_on_terminal(&[], b"n");
+  let (output, _) = project.doctor_on_terminal(&[], b"n");
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(1), "{stdout}");
   assert!(stdout.ends_with("Nothing changed.\n"), "{stdout}");
   assert_eq!(project.release(), before);
 
-  let output = project.doctor_on_terminal(&[], b"y");
+  let (output, _) = project.doctor_on_terminal(&[], b"y");
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(0), "{stdout}");
   assert!(stdout.contains("test-plugin: permissions granted"), "{stdout}");
@@ -746,4 +746,31 @@ async fn doctor_exits_3_when_the_registry_goes_away_after_the_plugin_was_cached(
     .stderr(contains("cannot reach the registry; nothing was changed"));
 
   assert_eq!(project.release(), before);
+}
+
+#[cfg(unix)]
+#[test]
+fn doctor_on_a_terminal_shows_the_screen_and_the_diff_on_the_terminal_before_the_question() {
+  let project = Project::new(&entry("test-plugin", &file_url("test_plugin.wasm"), ""));
+
+  let (output, screen) = project.doctor_on_terminal(&[], b"y");
+
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(0), "{stdout}");
+  let question = screen.find("Allow and update?").expect("question on the terminal");
+  for shown in [
+    "This plugin wants to:",
+    "Connect to the internet",
+    "api.example.com",
+    "release.yml\n  + ",
+  ] {
+    let at = screen
+      .find(shown)
+      .unwrap_or_else(|| panic!("{shown:?} missing from the terminal: {screen:?}"));
+    assert!(at < question, "{shown:?} comes after the question: {screen:?}");
+  }
+  for hidden in ["wants to", "\"Calls the example API.\"", "  + "] {
+    assert!(!stdout.contains(hidden), "{hidden:?} leaked to stdout: {stdout}");
+  }
+  assert!(stdout.contains("test-plugin: permissions granted"), "{stdout}");
 }

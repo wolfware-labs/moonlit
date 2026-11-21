@@ -58,7 +58,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
     optional,
     not_requested: true,
   };
-  print!("{}", consent::render(&view, resolve_mode(output) == OutputMode::Pretty));
+  consent::show(&consent::render(&view, resolve_mode(output) == OutputMode::Pretty), !args.yes);
 
   let accepted = accepted_optional(&view.optional, args)?;
   let entry = PluginEntry {
@@ -68,7 +68,7 @@ async fn add(output: Option<OutputMode>, args: &AddArgs) -> Result<i32, i32> {
   };
   let after = add_plugin(&before, &entry).or_else(|e| fail(&clash_message(&e, &target.url), 2))?;
   let file = display_path(args.file_path.as_deref(), &path);
-  print!("{}", consent::render_changes(&file, &before, &after));
+  consent::show(&consent::render_changes(&file, &before, &after), !args.yes);
 
   if !args.yes && consent::ask("Allow and add?").or_else(|e| prompt_failed(&e))? == Answer::No {
     println!("Nothing changed.");

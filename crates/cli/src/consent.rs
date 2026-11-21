@@ -138,6 +138,17 @@ fn write_entry(out: &mut String, p: &DeclaredPermission, paint: &dyn Fn(&str, St
   out.push('\n');
 }
 
+/// Writes consent text (the screen, or the changes it is about) where the reader will see it. When a prompt follows it goes
+/// to stderr, the stream the prompt itself uses, so redirecting stdout cannot hide what the answer agrees to. Otherwise it
+/// stays on stdout for scripts that capture it.
+pub fn show(text: &str, prompt_follows: bool) {
+  if prompt_follows {
+    eprint!("{text}");
+  } else {
+    print!("{text}");
+  }
+}
+
 /// Asks a yes/no question, defaulting to no.
 pub fn ask(question: &str) -> std::io::Result<Answer> {
   let yes = cliclack::confirm(question).initial_value(false).interact()?;

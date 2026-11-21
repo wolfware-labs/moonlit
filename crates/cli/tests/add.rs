@@ -71,7 +71,7 @@ impl Project {
   }
 
   #[cfg(unix)]
-  fn add_on_terminal(&self, args: &[&str], keys: &[u8]) -> std::process::Output {
+  fn add_on_terminal(&self, args: &[&str], keys: &[u8]) -> (std::process::Output, String) {
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
     command
       .current_dir(self.dir.path())
@@ -347,7 +347,7 @@ fn add_refuses_plain_http_to_a_remote_registry() {
 fn on_a_terminal_yes_to_the_optional_grant_and_the_write_adds_both_grants() {
   let project = Project::new(RELEASE);
 
-  let output = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yy");
+  let (output, _) = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yy");
 
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(0), "{stdout}");
@@ -362,7 +362,7 @@ fn on_a_terminal_yes_to_the_optional_grant_and_the_write_adds_both_grants() {
 fn on_a_terminal_no_to_the_write_changes_nothing() {
   let project = Project::new(RELEASE);
 
-  let output = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yn");
+  let (output, _) = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yn");
 
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(1), "{stdout}");
@@ -375,10 +375,37 @@ fn on_a_terminal_no_to_the_write_changes_nothing() {
 fn on_a_terminal_ctrl_c_at_a_prompt_changes_nothing() {
   let project = Project::new(RELEASE);
 
-  let output = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"\x03");
+  let (output, _) = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"\x03");
 
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(1), "{stdout}");
   assert!(stdout.ends_with("Nothing changed.\n"), "{stdout}");
   assert_eq!(project.release(), RELEASE);
+}
+
+#[cfg(unix)]
+#[test]
+fn on_a_terminal_the_screen_and_the_diff_go_to_the_terminal_before_the_question() {
+  let project = Project::new(RELEASE);
+
+  let (output, screen) = project.add_on_terminal(&[&file_url("test_plugin.wasm")], b"yy");
+
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(0), "{stdout}");
+  let question = screen.find("Allow and add?").expect("question on the terminal");
+  for shown in [
+    "This plugin wants to:",
+    "Connect to the internet",
+    "api.example.com",
+    "release.yml\n  + plugins:",
+  ] {
+    let at = screen
+      .find(shown)
+      .unwrap_or_else(|| panic!("{shown:?} missing from the terminal: {screen:?}"));
+    assert!(at < question, "{shown:?} comes after the question: {screen:?}");
+  }
+  for hidden in ["wants to", "Connect to the internet", "+ plugins:"] {
+    assert!(!stdout.contains(hidden), "{hidden:?} leaked to stdout: {stdout}");
+  }
+  assert!(stdout.contains("Added test-plugin to release.yml."), "{stdout}");
 }

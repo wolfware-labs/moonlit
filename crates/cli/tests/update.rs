@@ -101,7 +101,7 @@ impl Project {
   }
 
   #[cfg(unix)]
-  fn update_on_terminal(&self, args: &[&str], keys: &[u8]) -> std::process::Output {
+  fn update_on_terminal(&self, args: &[&str], keys: &[u8]) -> (std::process::Output, String) {
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
     command
       .current_dir(self.dir.path())
@@ -439,13 +439,13 @@ async fn update_on_a_terminal_keeps_the_version_when_the_new_grant_is_refused() 
   let project = Project::new(&server, "1.0.0", "");
   let before = project.release();
 
-  let output = project.update_on_terminal(&[], b"n");
+  let (output, _) = project.update_on_terminal(&[], b"n");
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(1), "{stdout}");
   assert!(stdout.contains("test-plugin: kept at 1.0.0"), "{stdout}");
   assert_eq!(project.release(), before);
 
-  let output = project.update_on_terminal(&[], b"y");
+  let (output, _) = project.update_on_terminal(&[], b"y");
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(0), "{stdout}");
   assert!(stdout.contains("test-plugin: 1.0.0 → 1.1.0"), "{stdout}");
@@ -509,4 +509,32 @@ async fn update_ignores_a_registry_answer_older_than_the_current_version() {
     .stdout(contains("test-plugin: no newer compatible version"));
 
   assert_eq!(project.release(), before);
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn update_on_a_terminal_shows_the_screen_and_the_diff_on_the_terminal_before_the_question() {
+  let server = registry(&[("1.0.0", "pdk_sample.wasm"), ("1.1.0", "test_plugin.wasm")]).await;
+  let project = Project::new(&server, "1.0.0", "");
+
+  let (output, screen) = project.update_on_terminal(&[], b"y");
+
+  let stdout = String::from_utf8(output.stdout).unwrap();
+  assert_eq!(output.status.code(), Some(0), "{stdout}");
+  let question = screen.find("Allow and update?").expect("question on the terminal");
+  for shown in [
+    "This plugin wants to:",
+    "Connect to the internet",
+    "api.example.com",
+    "release.yml\n  - ",
+  ] {
+    let at = screen
+      .find(shown)
+      .unwrap_or_else(|| panic!("{shown:?} missing from the terminal: {screen:?}"));
+    assert!(at < question, "{shown:?} comes after the question: {screen:?}");
+  }
+  for hidden in ["wants to", "Connect to the internet", "  + "] {
+    assert!(!stdout.contains(hidden), "{hidden:?} leaked to stdout: {stdout}");
+  }
+  assert!(stdout.contains("test-plugin: 1.0.0 → 1.1.0"), "{stdout}");
 }
