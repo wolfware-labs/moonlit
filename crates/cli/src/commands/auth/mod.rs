@@ -30,21 +30,12 @@ fn http_client(timeout: Duration) -> reqwest::Result<reqwest::Client> {
 
 #[must_use]
 fn base_url(host: &str) -> String {
-  let scheme = if is_loopback(host) { "http" } else { "https" };
-  format!("{scheme}://{host}")
-}
-
-#[must_use]
-fn is_loopback(host: &str) -> bool {
-  let hostname = if let Some(rest) = host.strip_prefix('[') {
-    rest.split(']').next().unwrap_or(rest)
+  let scheme = if moonlit_engine::registry::is_loopback(host) {
+    "http"
   } else {
-    match host.rsplit_once(':') {
-      Some((h, port)) if !h.contains(':') && !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => h,
-      _ => host,
-    }
+    "https"
   };
-  hostname.eq_ignore_ascii_case("localhost") || hostname == "127.0.0.1" || hostname == "::1"
+  format!("{scheme}://{host}")
 }
 
 fn write_doc_0600(path: &Path, text: &str) -> std::io::Result<()> {
@@ -102,21 +93,14 @@ mod tests {
       "[::1]:5185",
       "::1",
     ] {
-      assert!(is_loopback(host), "{host} should be loopback");
       assert!(base_url(host).starts_with("http://"), "{host}");
     }
   }
 
   #[test]
   fn remote_hosts_use_https() {
-    for host in [
-      "registry.moonlit.rs",
-      "example.com:443",
-      "10.0.0.1",
-      "localhost.evil.com",
-      "host:port",
-    ] {
-      assert!(!is_loopback(host), "{host} should not be loopback");
+    for host in ["example.com:443", "10.0.0.1", "localhost.evil.com", "host:port"] {
+      assert!(base_url(host).starts_with("https://"), "{host}");
     }
     assert_eq!(base_url("registry.moonlit.rs"), "https://registry.moonlit.rs");
   }

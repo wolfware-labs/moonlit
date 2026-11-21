@@ -20,6 +20,7 @@ async fn publish_then_pull_roundtrips() {
     licenses: None,
     middlewares: vec![],
     sdk_version: Some("0.1.0".into()),
+    permissions: vec![],
   };
 
   let home = tempfile::tempdir().unwrap();

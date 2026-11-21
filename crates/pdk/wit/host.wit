@@ -1,4 +1,4 @@
-package moonlit:plugin@0.3.0;
+package moonlit:plugin@0.4.0;
 
 /// Host-side bindgen world: identical to `plugin` MINUS wasi:http/outgoing-handler.
 /// The vendored 0.2.3 wasi:http WIT lacks the `@unstable` gates wasmtime's bindgen
@@ -18,7 +18,7 @@ world plugin-host {
   use types.{json-value, release-context, middleware-result, middleware-info, plugin-metadata};
 
   export describe: func() -> plugin-metadata;
-  export init: func(plugin-config: json-value) -> result<plugin-metadata, string>;
+  export init: func(plugin-config: json-value) -> result<_, string>;
   export list-middlewares: func() -> list<middleware-info>;
   export execute: func(middleware: string, ctx: release-context, config: json-value) -> middleware-result;
 }

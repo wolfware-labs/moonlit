@@ -1,5 +1,7 @@
 use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::Span;
+use crate::plugin::permissions::DeclaredPermission;
+use crate::sanitize::display_safe;
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use thiserror::Error;
 
@@ -13,6 +15,8 @@ pub struct ConfigDiagnostic {
   #[label("{label}")]
   span: Option<SourceSpan>,
   label: String,
+  #[help]
+  help: Option<String>,
 }
 
 impl ConfigDiagnostic {
@@ -223,12 +227,36 @@ impl ConfigDiagnostic {
   }
 
   #[must_use]
+  pub fn missing_grant(source: &ConfigSource, plugin: &str, missing: &DeclaredPermission, span: Span) -> ConfigDiagnostic {
+    let values = if missing.values.is_empty() {
+      String::new()
+    } else {
+      format!(" ({})", display_safe(&missing.values.join(", ")))
+    };
+    let mut diagnostic = Self::make(
+      source.name,
+      source.yaml,
+      format!(
+        "plugin '{}' needs to {}{values} \u{2014} \"{}\"",
+        display_safe(plugin),
+        missing.kind.verb_phrase(),
+        display_safe(&missing.reason)
+      ),
+      Some(span),
+      "this plugin is missing a permission",
+    );
+    diagnostic.help = Some(format!("add to its permissions: {}", missing.yaml_line()));
+    diagnostic
+  }
+
+  #[must_use]
   fn make(config_name: &str, config_content: &str, message: String, span: Option<Span>, label: &str) -> ConfigDiagnostic {
     ConfigDiagnostic {
       message,
       src: NamedSource::new(config_name, config_content.to_string()),
       span: span.map(Span::to_source_span),
       label: label.to_owned(),
+      help: None,
     }
   }
 
@@ -254,5 +282,77 @@ mod tests {
     assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
     let span = diagnostic.span().expect("span");
     assert_eq!((span.offset(), span.len()), (3, 8));
+  }
+
+  #[test]
+  fn missing_grant_escapes_plugin_text() {
+    use crate::plugin::permissions::PermissionKind;
+    let source = ConfigSource::new("plugins: []\n", "release.yml");
+    let missing = DeclaredPermission {
+      kind: PermissionKind::Exec,
+      values: vec!["git\u{1b}[2K".to_string()],
+      reason: "Tags.\u{1b}[1A".to_string(),
+      optional: false,
+    };
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp\u{1b}[2J", &missing, Span::new(0, 7));
+    assert!(!diagnostic.message().contains('\u{1b}'), "{:?}", diagnostic.message());
+    assert!(
+      diagnostic.message().starts_with("plugin 'tp\\x1b[2J' needs"),
+      "{}",
+      diagnostic.message()
+    );
+    assert!(diagnostic.message().contains("Tags.\\x1b[1A"), "{}", diagnostic.message());
+    assert!(diagnostic.message().contains("git\\x1b[2K"), "{}", diagnostic.message());
+    let help = diagnostic.help.as_deref().expect("help");
+    assert!(!help.contains('\u{1b}'), "{help:?}");
+  }
+
+  fn declared(kind: crate::plugin::permissions::PermissionKind, values: &[&str], reason: &str) -> DeclaredPermission {
+    DeclaredPermission {
+      kind,
+      values: values.iter().map(|v| (*v).to_string()).collect(),
+      reason: reason.to_string(),
+      optional: false,
+    }
+  }
+
+  #[test]
+  fn missing_grant_names_the_values_and_tells_what_to_add() {
+    use crate::plugin::permissions::PermissionKind;
+    let source = ConfigSource::new("plugins: []\n", "release.yml");
+    let missing = declared(
+      PermissionKind::Network,
+      &["api.example.com", "*.cdn.example.com"],
+      "Calls the API.",
+    );
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp", &missing, Span::new(2, 5));
+    assert_eq!(
+      diagnostic.message(),
+      "plugin 'tp' needs to connect to the internet (api.example.com, *.cdn.example.com) \u{2014} \"Calls the API.\""
+    );
+    assert_eq!(
+      diagnostic.help.as_deref(),
+      Some("add to its permissions: network: [\"api.example.com\", \"*.cdn.example.com\"]")
+    );
+    assert_eq!(diagnostic.label, "this plugin is missing a permission");
+    let span = diagnostic.span().expect("span");
+    assert_eq!((span.offset(), span.len()), (2, 3));
+  }
+
+  #[test]
+  fn missing_grant_without_values_omits_the_value_list() {
+    use crate::plugin::permissions::PermissionKind;
+    let source = ConfigSource::new("plugins: []\n", "release.yml");
+    let missing = declared(PermissionKind::FilesystemWrite, &[], "Writes the changelog.");
+    let diagnostic = ConfigDiagnostic::missing_grant(&source, "tp", &missing, Span::new(0, 7));
+    assert_eq!(
+      diagnostic.message(),
+      "plugin 'tp' needs to read and change files in your project \u{2014} \"Writes the changelog.\""
+    );
+    assert_eq!(
+      diagnostic.help.as_deref(),
+      Some("add to its permissions: filesystem: read-write")
+    );
+    assert!(diagnostic.span().is_some());
   }
 }
