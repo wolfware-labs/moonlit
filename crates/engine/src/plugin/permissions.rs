@@ -4,7 +4,7 @@ use crate::sanitize::quote_list;
 use serde::Serialize;
 
 /// The kind of capability a plugin asks for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PermissionKind {
   Network,

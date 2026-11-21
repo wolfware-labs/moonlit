@@ -6,6 +6,7 @@ use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
 use crate::plugin::permissions::{DeclaredPermission, invalid_declaration, optional_for_target};
 use crate::plugin::wit::PluginHost;
 use crate::plugin::{PluginError, PluginMetadata};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use wasmtime::Store;
 
@@ -61,13 +62,8 @@ impl PluginInstance {
       Ok(Err(msg)) => Err(msg),
       Err(trap) => Err(format!("plugin trapped during init: {trap:?}")),
     };
-    match self.denied() {
-      None => result,
-      Some(denied) => Err(match result {
-        Err(own) => format!("{own}; {denied}"),
-        Ok(()) => denied,
-      }),
-    }
+    let (hard, soft) = self.denied();
+    settle_call(result, hard, &soft)
   }
 
   pub async fn execute(
@@ -97,24 +93,59 @@ impl PluginInstance {
   pub async fn list_middlewares(&mut self) -> Result<Vec<MiddlewareInfo>, PluginError> {
     let _ = self.store.data().take_denials();
     let result = self.bindings.call_list_middlewares(&mut self.store).await;
-    let message = match (result, self.denied()) {
-      (Ok(list), None) => return Ok(list.into_iter().map(std::convert::Into::into).collect()),
-      (Ok(_), Some(denied)) => denied,
-      (Err(e), None) => format!("{e:?}"),
-      (Err(e), Some(denied)) => format!("{e:?}; {denied}"),
-    };
-    Err(PluginError::Trap {
-      op: "list-middlewares".to_string(),
-      message,
-    })
+    let (hard, soft) = self.denied();
+    settle_call(result.map_err(|e| format!("{e:?}")), hard, &soft)
+      .map(|list| list.into_iter().map(std::convert::Into::into).collect())
+      .map_err(|message| PluginError::Trap {
+        op: "list-middlewares".to_string(),
+        message,
+      })
   }
 
-  /// The message for the denials that fail a call; denials of optional permissions are left out.
-  fn denied(&self) -> Option<String> {
+  /// The message for the denials that fail a call, and the warnings for the denials of optional permissions.
+  fn denied(&self) -> (Option<String>, Vec<String>) {
     let denials = self.store.data().take_denials();
-    let (hard, _) = split_denials(&denials, self.store.data().declared());
-    (!hard.is_empty()).then(|| denial_message(&hard, self.store.data().declared()))
+    let declared = self.store.data().declared();
+    let (hard, soft) = split_denials(&denials, declared);
+    (
+      (!hard.is_empty()).then(|| denial_message(&hard, declared)),
+      soft_warnings(&soft, declared),
+    )
   }
+}
+
+/// Joins what a finished call returned with the denials it caused. A hard denial fails the call. Denials of optional
+/// permissions never fail one, but when the call failed anyway they are named in its error, since they may be why.
+fn settle_call<T>(result: Result<T, String>, hard: Option<String>, soft: &[String]) -> Result<T, String> {
+  match result {
+    Ok(value) => hard.map_or(Ok(value), Err),
+    Err(own) => Err(
+      std::iter::once(own)
+        .chain(hard)
+        .chain(soft.iter().cloned())
+        .collect::<Vec<_>>()
+        .join("; "),
+    ),
+  }
+}
+
+/// The most warnings a call reports for denied optional permissions; the rest are counted in one last entry.
+const MAX_DENIAL_WARNINGS: usize = 20;
+
+/// One warning per denial, at most [`MAX_DENIAL_WARNINGS`], then a line counting the others.
+fn soft_warnings(soft: &[Denial], declared: &[DeclaredPermission]) -> Vec<String> {
+  let mut warnings: Vec<String> = soft
+    .iter()
+    .take(MAX_DENIAL_WARNINGS)
+    .map(|d| denial_message(std::slice::from_ref(d), declared))
+    .collect();
+  if soft.len() > MAX_DENIAL_WARNINGS {
+    warnings.push(format!(
+      "and {} more denied optional permissions",
+      soft.len() - MAX_DENIAL_WARNINGS
+    ));
+  }
+  warnings
 }
 
 /// Splits denials into those that fail the call and those of permissions the plugin declared `optional`, which only
@@ -122,10 +153,11 @@ impl PluginInstance {
 fn split_denials(denials: &[Denial], declared: &[DeclaredPermission]) -> (Vec<Denial>, Vec<Denial>) {
   let mut hard = Vec::new();
   let mut soft: Vec<Denial> = Vec::new();
+  let mut seen = HashSet::new();
   for d in denials {
     if optional_for_target(declared, d.kind, &d.target).is_none() {
       hard.push(d.clone());
-    } else if !soft.contains(d) {
+    } else if seen.insert((d.kind, d.target.as_str())) {
       soft.push(d.clone());
     }
   }
@@ -138,15 +170,19 @@ fn apply_denials(
   declared: &[DeclaredPermission],
 ) -> Result<MiddlewareResult, PluginError> {
   let (hard, soft) = split_denials(denials, declared);
-  let warnings: Vec<String> = soft
-    .iter()
-    .map(|d| denial_message(std::slice::from_ref(d), declared))
-    .collect();
+  let warnings = soft_warnings(&soft, declared);
   if hard.is_empty() {
-    return result.map(|mut r| {
-      r.warnings.extend(warnings);
-      r
-    });
+    return match result {
+      Ok(mut r) => {
+        r.warnings.extend(warnings);
+        Ok(r)
+      }
+      Err(PluginError::Trap { op, message }) if !warnings.is_empty() => Err(PluginError::Trap {
+        op,
+        message: format!("{message}; {}", warnings.join("; ")),
+      }),
+      Err(other) => Err(other),
+    };
   }
   let denied = denial_message(&hard, declared);
   match result {
@@ -161,7 +197,11 @@ fn apply_denials(
     }
     Err(PluginError::Trap { op, message }) => Err(PluginError::Trap {
       op,
-      message: format!("{message}; {denied}"),
+      message: std::iter::once(message)
+        .chain([denied])
+        .chain(warnings)
+        .collect::<Vec<_>>()
+        .join("; "),
     }),
     Err(other) => Ok(MiddlewareResult {
       successful: false,
@@ -427,5 +467,110 @@ mod tests {
       panic!("expected the same error back");
     };
     assert_eq!(message, "x");
+  }
+
+  fn trap(message: &str) -> PluginError {
+    PluginError::Trap {
+      op: "execute tag".to_string(),
+      message: message.to_string(),
+    }
+  }
+
+  fn trap_message(out: Result<MiddlewareResult, PluginError>) -> String {
+    let Err(PluginError::Trap { message, .. }) = out else {
+      panic!("expected a trap");
+    };
+    message
+  }
+
+  const GIT_WARNING: &str =
+    "blocked from running 'git' \u{2014} add it to permissions.exec (optional permission: \"Reads the tag.\")";
+
+  #[test]
+  fn a_trap_names_the_optional_denial_that_came_before_it() {
+    let message = trap_message(apply_denials(
+      Err(trap("unreachable")),
+      &[denial(PermissionKind::Exec, "git")],
+      &optional_git(),
+    ));
+    assert_eq!(message, format!("unreachable; {GIT_WARNING}"));
+  }
+
+  #[test]
+  fn a_trap_names_the_hard_denial_first_and_then_the_optional_one() {
+    let message = trap_message(apply_denials(
+      Err(trap("unreachable")),
+      &[denial(PermissionKind::Exec, "git"), denial(PermissionKind::Exec, "curl")],
+      &optional_git(),
+    ));
+    assert_eq!(
+      message,
+      format!("unreachable; blocked from running 'curl' \u{2014} add it to permissions.exec; {GIT_WARNING}")
+    );
+  }
+
+  #[test]
+  fn a_failed_call_keeps_its_error_and_names_both_kinds_of_denial() {
+    let hard = Some("blocked from running 'curl'".to_string());
+    let soft = ["blocked from running 'git'".to_string()];
+    assert_eq!(
+      settle_call(Err::<(), _>("init failed".to_string()), hard.clone(), &soft),
+      Err("init failed; blocked from running 'curl'; blocked from running 'git'".to_string())
+    );
+    assert_eq!(
+      settle_call(Err::<(), _>("init failed".to_string()), None, &soft),
+      Err("init failed; blocked from running 'git'".to_string())
+    );
+    assert_eq!(
+      settle_call(Err::<(), _>("init failed".to_string()), hard, &[]),
+      Err("init failed; blocked from running 'curl'".to_string())
+    );
+  }
+
+  #[test]
+  fn a_successful_call_fails_only_on_a_hard_denial() {
+    let soft = ["blocked from running 'git'".to_string()];
+    assert_eq!(settle_call(Ok(7), None, &soft), Ok(7));
+    assert_eq!(
+      settle_call(Ok(7), Some("blocked from running 'curl'".to_string()), &soft),
+      Err("blocked from running 'curl'".to_string())
+    );
+  }
+
+  fn distinct_hosts(count: usize) -> Vec<Denial> {
+    (0..count)
+      .map(|i| denial(PermissionKind::Network, &format!("h{i}.example.com")))
+      .collect()
+  }
+
+  fn optional_network() -> Vec<DeclaredPermission> {
+    vec![declared(PermissionKind::Network, &["*.example.com"], "Calls the API.", true)]
+  }
+
+  #[test]
+  fn more_optional_denials_than_the_limit_end_in_a_count() {
+    let out = apply_denials(Ok(result(true, None)), &distinct_hosts(25), &optional_network()).unwrap();
+    assert_eq!(out.warnings.len(), MAX_DENIAL_WARNINGS + 1, "{:?}", out.warnings);
+    assert_eq!(out.warnings[MAX_DENIAL_WARNINGS], "and 5 more denied optional permissions");
+    assert!(out.warnings[0].contains("'h0.example.com'"), "{:?}", out.warnings);
+    assert!(out.warnings[19].contains("'h19.example.com'"), "{:?}", out.warnings);
+  }
+
+  #[test]
+  fn exactly_the_limit_of_optional_denials_has_no_count() {
+    let out = apply_denials(Ok(result(true, None)), &distinct_hosts(20), &optional_network()).unwrap();
+    assert_eq!(out.warnings.len(), 20, "{:?}", out.warnings);
+    assert!(out.warnings.iter().all(|w| !w.starts_with("and ")), "{:?}", out.warnings);
+  }
+
+  #[test]
+  fn optional_denials_are_kept_in_the_order_first_seen() {
+    let denials = [
+      denial(PermissionKind::Network, "b.example.com"),
+      denial(PermissionKind::Network, "a.example.com"),
+      denial(PermissionKind::Network, "b.example.com"),
+    ];
+    let (_, soft) = split_denials(&denials, &optional_network());
+    assert_eq!(soft, [denials[0].clone(), denials[1].clone()]);
   }
 }

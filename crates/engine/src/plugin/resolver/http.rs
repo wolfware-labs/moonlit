@@ -224,4 +224,31 @@ mod tests {
       .expect("the redirect is followed");
     assert_eq!(std::fs::read(resolved.wasm_path).unwrap(), b"wasm");
   }
+
+  #[tokio::test]
+  async fn a_chain_of_redirects_longer_than_the_limit_is_refused() {
+    use wiremock::matchers::{method, path_regex};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+      .and(path_regex(r"^/r\d+$"))
+      .respond_with(|request: &Request| {
+        let n: usize = request.url.path().trim_start_matches("/r").parse().unwrap();
+        ResponseTemplate::new(302).insert_header("location", format!("/r{}", n + 1))
+      })
+      .mount(&server)
+      .await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(SystemClock));
+    let opts = ResolveOptions::default();
+    let client = download_client(Duration::from_secs(5), Duration::from_secs(5));
+
+    let err = resolve_http_with(&client, &format!("{}/r0", server.uri()), &opts, &cache, None)
+      .await
+      .unwrap_err();
+    let ResolveError::Network(message) = err else {
+      panic!("{err:?}")
+    };
+    assert!(message.ends_with(": too many redirects"), "{message}");
+  }
 }

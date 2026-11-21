@@ -149,19 +149,24 @@ async fn denied_undeclared_exec_fails_step_even_if_plugin_succeeds() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_same_optional_denial_repeated_gives_one_warning() {
+async fn optional_denials_do_not_carry_over_to_the_next_call() {
   let eng = moonlit_engine::engine::Engine::try_default().unwrap();
   let mut p = Plugin::instantiate(&eng, FIXTURE, cfg_with_exec(vec!["ls".to_string()]), Arc::new(NullSink))
     .await
     .unwrap();
   let meta = p.describe().await.unwrap();
   p.set_declared(meta.permissions);
-  for _ in 0..2 {
+  for call in 1..=2 {
     let r = p
       .execute("try-exec", ctx("tag"), &serde_json::json!({ "program": "git" }))
       .await
       .unwrap();
-    assert_eq!(r.warnings.len(), 1, "{:?}", r.warnings);
+    assert_eq!(
+      r.warnings.len(),
+      1,
+      "call {call} carries only its own warning: {:?}",
+      r.warnings
+    );
   }
 }
 
