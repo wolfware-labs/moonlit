@@ -79,6 +79,9 @@ async fn read_plugin(bytes: &[u8]) -> anyhow::Result<(PluginMetadata, Vec<Middle
   };
   let mut plugin_instance = Plugin::instantiate(&engine, bytes, cfg, Arc::new(NullSink)).await?;
   let meta = plugin_instance.describe().await?;
+  // Nothing is granted here, so a plugin that tries an optional permission while it lists its middlewares is refused;
+  // the instance has to know the declarations for that refusal to be a warning and not a failed probe.
+  plugin_instance.set_declared(meta.permissions.clone());
   let mws = plugin_instance.list_middlewares().await?;
   Ok((meta, mws))
 }

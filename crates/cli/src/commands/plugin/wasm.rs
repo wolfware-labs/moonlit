@@ -32,7 +32,10 @@ pub async fn load_component(target: &str, bytes: &[u8]) -> Result<(PluginMetadat
   match is_component(bytes) {
     Ok(true) => {}
     Ok(false) => {
-      eprintln!("error: '{target}' is a core wasm module, not a WASI-P2 component (build with `moonlit plugin build`)");
+      eprintln!(
+        "error: '{}' is a core wasm module, not a WASI-P2 component (build with `moonlit plugin build`)",
+        display_safe(target)
+      );
       return Err(2);
     }
     Err(e) => {
