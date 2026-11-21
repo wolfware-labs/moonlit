@@ -102,16 +102,19 @@ impl PluginInstance {
       })
   }
 
-  /// The message for the denials that fail a call, and the warnings for the denials of optional permissions.
+  /// Takes the denials of the call that just ran, as [`denial_report`] words them.
   fn denied(&self) -> (Option<String>, Vec<String>) {
-    let denials = self.store.data().take_denials();
-    let declared = self.store.data().declared();
-    let (hard, soft) = split_denials(&denials, declared);
-    (
-      (!hard.is_empty()).then(|| denial_message(&hard, declared)),
-      soft_warnings(&soft, declared),
-    )
+    denial_report(&self.store.data().take_denials(), self.store.data().declared())
   }
+}
+
+/// The message for the denials that fail a call, and the warnings for the denials of optional permissions.
+fn denial_report(denials: &[Denial], declared: &[DeclaredPermission]) -> (Option<String>, Vec<String>) {
+  let (hard, soft) = split_denials(denials, declared);
+  (
+    (!hard.is_empty()).then(|| denial_message(&hard, declared)),
+    soft_warnings(&soft, declared),
+  )
 }
 
 /// Joins what a finished call returned with the denials it caused. A hard denial fails the call. Denials of optional
@@ -119,14 +122,17 @@ impl PluginInstance {
 fn settle_call<T>(result: Result<T, String>, hard: Option<String>, soft: &[String]) -> Result<T, String> {
   match result {
     Ok(value) => hard.map_or(Ok(value), Err),
-    Err(own) => Err(
-      std::iter::once(own)
-        .chain(hard)
-        .chain(soft.iter().cloned())
-        .collect::<Vec<_>>()
-        .join("; "),
-    ),
+    Err(own) => Err(failure_message(&own, hard.as_deref(), soft)),
   }
+}
+
+/// A failed call's own error, then the denials that fail it, then the warnings for denied optional permissions.
+fn failure_message(own: &str, hard: Option<&str>, soft: &[String]) -> String {
+  std::iter::once(own)
+    .chain(hard)
+    .chain(soft.iter().map(String::as_str))
+    .collect::<Vec<_>>()
+    .join("; ")
 }
 
 /// The most warnings a call reports for denied optional permissions; the rest are counted in one last entry.
@@ -169,41 +175,25 @@ fn apply_denials(
   denials: &[Denial],
   declared: &[DeclaredPermission],
 ) -> Result<MiddlewareResult, PluginError> {
-  let (hard, soft) = split_denials(denials, declared);
-  let warnings = soft_warnings(&soft, declared);
-  if hard.is_empty() {
-    return match result {
-      Ok(mut r) => {
-        r.warnings.extend(warnings);
-        Ok(r)
+  let (denied, warnings) = denial_report(denials, declared);
+  match (result, denied) {
+    (Ok(mut r), denied) => {
+      if let Some(denied) = denied {
+        r.successful = false;
+        r.error_message = Some(match r.error_message.take() {
+          Some(own) if !own.is_empty() => format!("{own}; {denied}"),
+          _ => denied,
+        });
       }
-      Err(PluginError::Trap { op, message }) if !warnings.is_empty() => Err(PluginError::Trap {
-        op,
-        message: format!("{message}; {}", warnings.join("; ")),
-      }),
-      Err(other) => Err(other),
-    };
-  }
-  let denied = denial_message(&hard, declared);
-  match result {
-    Ok(mut r) => {
-      r.successful = false;
-      r.error_message = Some(match r.error_message.take() {
-        Some(own) if !own.is_empty() => format!("{own}; {denied}"),
-        _ => denied,
-      });
       r.warnings.extend(warnings);
       Ok(r)
     }
-    Err(PluginError::Trap { op, message }) => Err(PluginError::Trap {
+    (Err(PluginError::Trap { op, message }), denied) => Err(PluginError::Trap {
       op,
-      message: std::iter::once(message)
-        .chain([denied])
-        .chain(warnings)
-        .collect::<Vec<_>>()
-        .join("; "),
+      message: failure_message(&message, denied.as_deref(), &warnings),
     }),
-    Err(other) => Ok(MiddlewareResult {
+    (Err(other), None) => Err(other),
+    (Err(other), Some(denied)) => Ok(MiddlewareResult {
       successful: false,
       error_message: Some(format!("{other}; {denied}")),
       warnings,
@@ -549,17 +539,20 @@ mod tests {
 
   #[test]
   fn more_optional_denials_than_the_limit_end_in_a_count() {
-    let out = apply_denials(Ok(result(true, None)), &distinct_hosts(25), &optional_network()).unwrap();
+    let denials = distinct_hosts(MAX_DENIAL_WARNINGS + 5);
+    let out = apply_denials(Ok(result(true, None)), &denials, &optional_network()).unwrap();
     assert_eq!(out.warnings.len(), MAX_DENIAL_WARNINGS + 1, "{:?}", out.warnings);
     assert_eq!(out.warnings[MAX_DENIAL_WARNINGS], "and 5 more denied optional permissions");
     assert!(out.warnings[0].contains("'h0.example.com'"), "{:?}", out.warnings);
-    assert!(out.warnings[19].contains("'h19.example.com'"), "{:?}", out.warnings);
+    let last = format!("'{}'", denials[MAX_DENIAL_WARNINGS - 1].target);
+    assert!(out.warnings[MAX_DENIAL_WARNINGS - 1].contains(&last), "{:?}", out.warnings);
   }
 
   #[test]
   fn exactly_the_limit_of_optional_denials_has_no_count() {
-    let out = apply_denials(Ok(result(true, None)), &distinct_hosts(20), &optional_network()).unwrap();
-    assert_eq!(out.warnings.len(), 20, "{:?}", out.warnings);
+    let denials = distinct_hosts(MAX_DENIAL_WARNINGS);
+    let out = apply_denials(Ok(result(true, None)), &denials, &optional_network()).unwrap();
+    assert_eq!(out.warnings.len(), MAX_DENIAL_WARNINGS, "{:?}", out.warnings);
     assert!(out.warnings.iter().all(|w| !w.starts_with("and ")), "{:?}", out.warnings);
   }
 

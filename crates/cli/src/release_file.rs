@@ -33,7 +33,7 @@ pub enum ReleaseFileError {
   #[diagnostic(code(moonlit::release_file::flow_style))]
   FlowStyle(String),
   /// The file as it is now cannot be checked, so no edit to it can be.
-  #[error("release.yml cannot be checked before editing: {0}")]
+  #[error("{SOURCE} cannot be checked before editing: {0}")]
   #[diagnostic(code(moonlit::release_file::unchecked))]
   Unchecked(String),
   /// The file cannot be read, or the edited file would not parse back to the requested entry.
@@ -209,8 +209,10 @@ fn validated(
       "plugin '{name}' would not read back with the requested permissions"
     )));
   }
-  let (rest_before, entry_before) = outside_entry(before, position_before)
-    .map_err(|e| ReleaseFileError::Unchecked(format!("{e}{}", unchecked_hint(&e.to_string()))))?;
+  let (rest_before, entry_before) = outside_entry(before, position_before).map_err(|e| {
+    let yaml_error = e.to_string();
+    ReleaseFileError::Unchecked(format!("{yaml_error}{}", unchecked_hint(&yaml_error)))
+  })?;
   let position_after = config.plugins.value.iter().position(|p| p.name == name);
   let (rest_after, entry_after) =
     outside_entry(&content, position_after).map_err(|e| ReleaseFileError::Invalid(e.to_string()))?;
