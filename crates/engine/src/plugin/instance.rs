@@ -400,6 +400,21 @@ mod tests {
   }
 
   #[test]
+  fn a_target_declared_both_required_and_optional_fails_the_call() {
+    let both = [
+      declared(PermissionKind::Exec, &["git"], "Reads the tag.", true),
+      declared(PermissionKind::Exec, &["git"], "Tags the release.", false),
+    ];
+    let out = apply_denials(Ok(result(true, None)), &[denial(PermissionKind::Exec, "git")], &both).unwrap();
+    assert!(!out.successful);
+    assert_eq!(
+      out.error_message.as_deref(),
+      Some("blocked from running 'git' \u{2014} add it to permissions.exec")
+    );
+    assert!(out.warnings.is_empty());
+  }
+
+  #[test]
   fn a_mixed_call_fails_on_the_hard_denial_and_warns_about_the_soft_one() {
     let out = apply_denials(
       Ok(result(true, None)),

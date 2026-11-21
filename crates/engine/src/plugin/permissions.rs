@@ -239,17 +239,22 @@ pub fn is_secret_like(pattern: &str) -> bool {
       .any(|w| upper.contains(w))
 }
 
-/// The first optional declaration of a kind whose values match the target.
+/// The first optional declaration of a kind whose values match the target. `None` when a required declaration of
+/// that kind matches it too: the plugin said it cannot run without the target, so the optional entry does not apply.
 #[must_use]
 pub fn optional_for_target<'a>(
   declared: &'a [DeclaredPermission],
   kind: PermissionKind,
   target: &str,
 ) -> Option<&'a DeclaredPermission> {
-  declared
+  let mut matching = declared
     .iter()
-    .filter(|p| p.optional && p.kind == kind)
-    .find(|p| build_globset(&p.values).is_match(target))
+    .filter(|p| p.kind == kind && build_globset(&p.values).is_match(target));
+  let optional = matching.clone().find(|p| p.optional)?;
+  if matching.any(|p| !p.optional) {
+    return None;
+  }
+  Some(optional)
 }
 
 #[cfg(test)]
@@ -489,6 +494,21 @@ mod tests {
     assert!(optional_for_target(&d, PermissionKind::Exec, "git").is_none());
     assert!(optional_for_target(&d, PermissionKind::Network, "api.example.com").is_some());
     assert!(optional_for_target(&d, PermissionKind::Env, "X").is_none());
+  }
+
+  #[test]
+  fn a_required_declaration_that_matches_takes_the_target_from_an_optional_one() {
+    let d = vec![
+      decl(PermissionKind::Exec, &["git"], true),
+      decl(PermissionKind::Exec, &["gi?"], false),
+      decl(PermissionKind::Network, &["git"], false),
+    ];
+    assert!(optional_for_target(&d, PermissionKind::Exec, "git").is_none());
+    let other_kind = vec![
+      decl(PermissionKind::Exec, &["git"], true),
+      decl(PermissionKind::Network, &["git"], false),
+    ];
+    assert!(optional_for_target(&other_kind, PermissionKind::Exec, "git").is_some());
   }
 
   #[test]
