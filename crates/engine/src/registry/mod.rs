@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
+use crate::redirect;
 use crate::scheme::strip_scheme;
 
 pub use model::{MiddlewareSummary, PackageHit, VerificationStatus, VersionDetail, VersionSummary};
@@ -57,21 +58,16 @@ const MAX_CANDIDATES: usize = 10;
 /// How long a registry request may take to connect, and in all, before it fails.
 pub const REGISTRY_TIMEOUT: Duration = Duration::from_secs(10);
 
-const MAX_REDIRECTS: usize = 10;
-
 fn plain_http_to_remote(url: &reqwest::Url) -> bool {
   url.scheme() == "http" && !url.host_str().is_some_and(is_loopback)
 }
 
 fn refused_redirect(error: &reqwest::Error) -> Option<RegistryError> {
-  let mut source = std::error::Error::source(error);
-  while let Some(cause) = source {
-    if let Some(RegistryError::Insecure(url)) = cause.downcast_ref::<RegistryError>() {
-      return Some(RegistryError::Insecure(url.clone()));
-    }
-    source = cause.source();
+  if let RegistryError::Insecure(url) = redirect::refusal::<RegistryError>(error)? {
+    Some(RegistryError::Insecure(url.clone()))
+  } else {
+    None
   }
-  None
 }
 
 fn http_client(timeout: Duration) -> reqwest::Client {
@@ -79,7 +75,7 @@ fn http_client(timeout: Duration) -> reqwest::Client {
     if plain_http_to_remote(attempt.url()) {
       let refused = RegistryError::Insecure(attempt.url().to_string());
       attempt.error(refused)
-    } else if attempt.previous().len() >= MAX_REDIRECTS {
+    } else if redirect::too_many(attempt.previous()) {
       attempt.error("too many redirects")
     } else {
       attempt.follow()

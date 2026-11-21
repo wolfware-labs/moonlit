@@ -4,6 +4,7 @@ pub mod logging;
 pub mod paths;
 pub mod pipeline;
 pub mod plugin;
+mod redirect;
 pub mod registry;
 pub mod sanitize;
 pub mod scheme;

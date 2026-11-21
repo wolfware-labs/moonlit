@@ -28,6 +28,17 @@ pub fn run_on_terminal(mut command: Command, keys: &[u8]) -> (Output, String) {
   (output, screen)
 }
 
+/// Asserts that each of `shown` is on `screen`, the terminal output of [`run_on_terminal`], before `question`.
+pub fn assert_shown_before(screen: &str, question: &str, shown: &[&str]) {
+  let asked = screen.find(question).expect("question on the terminal");
+  for text in shown {
+    let at = screen
+      .find(text)
+      .unwrap_or_else(|| panic!("{text:?} missing from the terminal: {screen:?}"));
+    assert!(at < asked, "{text:?} comes after the question: {screen:?}");
+  }
+}
+
 fn open_raw_pty() -> (OwnedFd, OwnedFd) {
   let (mut master, mut slave) = (0, 0);
   let mut size = libc::winsize {

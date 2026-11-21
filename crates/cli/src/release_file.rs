@@ -206,9 +206,10 @@ fn validated(
     )));
   }
   let (rest_before, entry_before) = outside_entry(before, position_before)
-    .map_err(|e| ReleaseFileError::Invalid(format!("{SOURCE} cannot be checked before editing: {}", invalid_reason(&e))))?;
+    .map_err(|e| ReleaseFileError::Invalid(format!("{SOURCE} cannot be checked before editing: {e}")))?;
   let position_after = config.plugins.value.iter().position(|p| p.name == name);
-  let (rest_after, entry_after) = outside_entry(&content, position_after)?;
+  let (rest_after, entry_after) =
+    outside_entry(&content, position_after).map_err(|e| ReleaseFileError::Invalid(e.to_string()))?;
   if rest_after != rest_before || entry_before.is_some_and(|entry| Some(entry) != entry_after) {
     return Err(ReleaseFileError::Invalid(format!(
       "the edit would change more than the url and permissions of plugin '{name}'"
@@ -217,15 +218,8 @@ fn validated(
   Ok(content)
 }
 
-fn invalid_reason(error: &ReleaseFileError) -> String {
-  match error {
-    ReleaseFileError::Invalid(reason) => reason.clone(),
-    other => other.to_string(),
-  }
-}
-
-fn outside_entry(content: &str, position: Option<usize>) -> Result<(Value, Option<Value>), ReleaseFileError> {
-  let mut document: Value = serde_yaml_ng::from_str(content).map_err(|e| ReleaseFileError::Invalid(e.to_string()))?;
+fn outside_entry(content: &str, position: Option<usize>) -> Result<(Value, Option<Value>), serde_yaml_ng::Error> {
+  let mut document: Value = serde_yaml_ng::from_str(content)?;
   if document.is_null() {
     document = Value::Mapping(Mapping::new());
   }

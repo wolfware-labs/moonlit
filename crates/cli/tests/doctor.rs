@@ -757,18 +757,16 @@ fn doctor_on_a_terminal_shows_the_screen_and_the_diff_on_the_terminal_before_the
 
   let stdout = String::from_utf8(output.stdout).unwrap();
   assert_eq!(output.status.code(), Some(0), "{stdout}");
-  let question = screen.find("Allow and update?").expect("question on the terminal");
-  for shown in [
-    "This plugin wants to:",
-    "Connect to the internet",
-    "api.example.com",
-    "release.yml\n  + ",
-  ] {
-    let at = screen
-      .find(shown)
-      .unwrap_or_else(|| panic!("{shown:?} missing from the terminal: {screen:?}"));
-    assert!(at < question, "{shown:?} comes after the question: {screen:?}");
-  }
+  terminal::assert_shown_before(
+    &screen,
+    "Allow and update?",
+    &[
+      "This plugin wants to:",
+      "Connect to the internet",
+      "api.example.com",
+      "release.yml\n  + ",
+    ],
+  );
   for hidden in ["wants to", "\"Calls the example API.\"", "  + "] {
     assert!(!stdout.contains(hidden), "{hidden:?} leaked to stdout: {stdout}");
   }

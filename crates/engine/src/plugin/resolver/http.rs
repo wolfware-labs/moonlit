@@ -2,9 +2,7 @@ use crate::cache::{Cache, PluginMeta, url_key};
 use std::time::Duration;
 
 use crate::plugin::resolver::{CONNECT_TIMEOUT, ProgressFn, READ_TIMEOUT, ResolveError, ResolveOptions, ResolvedPlugin};
-
-/// Redirects a download follows, as many as reqwest's own default.
-const MAX_REDIRECTS: usize = 10;
+use crate::redirect;
 
 /// Why a redirect is not followed.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
@@ -13,13 +11,14 @@ enum RedirectRefusal {
   /// which can carry a token.
   #[error("refusing to follow a redirect from https to {0}; the download must stay on https")]
   Downgrade(String),
+  /// The download went through more redirects than [`redirect::MAX_REDIRECTS`].
   #[error("too many redirects")]
   TooMany,
 }
 
 /// Decides whether to follow a redirect to `next`, given the URLs already requested (the first one, then each hop).
 fn check_redirect(previous: &[reqwest::Url], next: &reqwest::Url) -> Result<(), RedirectRefusal> {
-  if previous.len() > MAX_REDIRECTS {
+  if redirect::too_many(previous) {
     return Err(RedirectRefusal::TooMany);
   }
   if previous.last().is_some_and(|p| p.scheme() == "https") && next.scheme() != "https" {
@@ -30,18 +29,6 @@ fn check_redirect(previous: &[reqwest::Url], next: &reqwest::Url) -> Result<(), 
     )));
   }
   Ok(())
-}
-
-/// The refusal behind a failed request, when a redirect was refused.
-fn refused_redirect(error: &reqwest::Error) -> Option<&RedirectRefusal> {
-  let mut source = std::error::Error::source(error);
-  while let Some(cause) = source {
-    if let Some(refusal) = cause.downcast_ref::<RedirectRefusal>() {
-      return Some(refusal);
-    }
-    source = cause.source();
-  }
-  None
 }
 
 fn download_client(connect: Duration, read: Duration) -> reqwest::Client {
@@ -89,10 +76,14 @@ async fn resolve_http_with(
     return Err(ResolveError::OfflineMiss(url.to_string()));
   }
 
-  let mut response = client.get(url).send().await.map_err(|e| match refused_redirect(&e) {
-    Some(refusal) => ResolveError::Network(format!("GET {url}: {refusal}")),
-    None => ResolveError::Network(format!("GET {url}: {e}")),
-  })?;
+  let mut response = client
+    .get(url)
+    .send()
+    .await
+    .map_err(|e| match redirect::refusal::<RedirectRefusal>(&e) {
+      Some(refusal) => ResolveError::Network(format!("GET {url}: {refusal}")),
+      None => ResolveError::Network(format!("GET {url}: {e}")),
+    })?;
 
   let status = response.status();
   if status == reqwest::StatusCode::NOT_FOUND {
@@ -150,10 +141,7 @@ mod tests {
     let url = format!("http://{addr}/plugin.wasm");
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(SystemClock));
-    let opts = ResolveOptions {
-      offline: false,
-      tag_ttl: Duration::from_mins(15),
-    };
+    let opts = ResolveOptions::default();
     let client = download_client(Duration::from_millis(200), Duration::from_millis(200));
 
     let started = std::time::Instant::now();
@@ -201,10 +189,10 @@ mod tests {
 
   #[test]
   fn the_eleventh_redirect_stops() {
-    let hops: Vec<reqwest::Url> = (0..=MAX_REDIRECTS)
+    let hops: Vec<reqwest::Url> = (0..=redirect::MAX_REDIRECTS)
       .map(|n| url(&format!("https://h{n}.example.com/p")))
       .collect();
-    assert!(check_redirect(&hops[..MAX_REDIRECTS], &url("https://next.example.com/p")).is_ok());
+    assert!(check_redirect(&hops[..redirect::MAX_REDIRECTS], &url("https://next.example.com/p")).is_ok());
     assert_eq!(
       check_redirect(&hops, &url("https://next.example.com/p")),
       Err(RedirectRefusal::TooMany)
@@ -213,34 +201,27 @@ mod tests {
 
   #[tokio::test]
   async fn an_http_to_http_redirect_still_downloads() {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    let server = tokio::spawn(async move {
-      while let Ok((mut stream, _)) = listener.accept().await {
-        let mut buf = [0u8; 1024];
-        let n = stream.read(&mut buf).await.unwrap();
-        let request = String::from_utf8_lossy(&buf[..n]).into_owned();
-        let reply: &[u8] = if request.starts_with("GET /first ") {
-          b"HTTP/1.1 302 Found\r\nLocation: /second\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        } else {
-          b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nwasm"
-        };
-        stream.write_all(reply).await.unwrap();
-      }
-    });
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+      .and(path("/first"))
+      .respond_with(ResponseTemplate::new(302).insert_header("location", "/second"))
+      .mount(&server)
+      .await;
+    Mock::given(method("GET"))
+      .and(path("/second"))
+      .respond_with(ResponseTemplate::new(200).set_body_bytes(b"wasm".to_vec()))
+      .mount(&server)
+      .await;
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::with_root_and_clock(dir.path().to_path_buf(), Box::new(SystemClock));
-    let opts = ResolveOptions {
-      offline: false,
-      tag_ttl: Duration::from_mins(15),
-    };
+    let opts = ResolveOptions::default();
     let client = download_client(Duration::from_secs(5), Duration::from_secs(5));
 
-    let resolved = resolve_http_with(&client, &format!("http://{addr}/first"), &opts, &cache, None).await;
-    server.abort();
-
-    let resolved = resolved.expect("the redirect is followed");
+    let resolved = resolve_http_with(&client, &format!("{}/first", server.uri()), &opts, &cache, None)
+      .await
+      .expect("the redirect is followed");
     assert_eq!(std::fs::read(resolved.wasm_path).unwrap(), b"wasm");
   }
 }
