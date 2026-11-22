@@ -140,7 +140,12 @@ pub fn render_diff(before: &str, after: &str) -> String {
   }
   let mut out = Vec::new();
   let (mut i, mut j) = (0, 0);
-  while i < a.len() || j < b.len() {
+  // Every step takes a line from `a`, from `b`, or from both, so the walk needs at most this many. Counting the
+  // steps keeps a mistake in the walk from pushing lines without end.
+  for _ in 0..a.len() + b.len() {
+    if i == a.len() && j == b.len() {
+      break;
+    }
     if i < a.len() && j < b.len() && a[i] == b[j] {
       i += 1;
       j += 1;
@@ -880,6 +885,19 @@ stages:
   #[test]
   fn diff_lists_lines_removed_at_the_end() {
     assert_eq!(render_diff("a\nb\nc\n", "a\n"), "  - b\n  - c\n");
+  }
+
+  #[test]
+  fn diff_of_an_empty_side_lists_every_line_of_the_other() {
+    assert_eq!(render_diff("", "a\nb\n"), "  + a\n  + b\n");
+    assert_eq!(render_diff("a\nb\n", ""), "  - a\n  - b\n");
+    assert_eq!(render_diff("", ""), "");
+  }
+
+  #[test]
+  fn diff_of_one_line_against_several_different_ones_lists_them_all() {
+    assert_eq!(render_diff("x\n", "a\nb\nc\n"), "  - x\n  + a\n  + b\n  + c\n");
+    assert_eq!(render_diff("a\nb\nc\n", "x\n"), "  - a\n  - b\n  - c\n  + x\n");
   }
 
   #[test]
