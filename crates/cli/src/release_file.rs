@@ -140,8 +140,6 @@ pub fn render_diff(before: &str, after: &str) -> String {
   }
   let mut out = Vec::new();
   let (mut i, mut j) = (0, 0);
-  // Every step takes a line from `a`, from `b`, or from both, so the walk needs at most this many. Counting the
-  // steps keeps a mistake in the walk from pushing lines without end.
   for _ in 0..a.len() + b.len() {
     if i == a.len() && j == b.len() {
       break;
