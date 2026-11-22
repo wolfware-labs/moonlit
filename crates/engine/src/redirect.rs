@@ -8,6 +8,11 @@ pub(crate) fn too_many(previous: &[reqwest::Url]) -> bool {
   previous.len() > MAX_REDIRECTS
 }
 
+/// Whether a redirect to `next` takes a request that was on https, at its last hop in `previous`, to another scheme.
+pub(crate) fn leaves_https(previous: &[reqwest::Url], next: &reqwest::Url) -> bool {
+  previous.last().is_some_and(|p| p.scheme() == "https") && next.scheme() != "https"
+}
+
 /// The refusal of type `E` that a redirect policy raised behind a failed request, found down `error`'s sources.
 pub(crate) fn refusal<E: std::error::Error + 'static>(error: &reqwest::Error) -> Option<&E> {
   let mut source = std::error::Error::source(error);
@@ -31,5 +36,27 @@ mod tests {
       .collect();
     assert!(!too_many(&hops[..MAX_REDIRECTS]));
     assert!(too_many(&hops));
+  }
+
+  #[test]
+  fn leaves_https_looks_at_the_hop_before_the_redirect() {
+    let url = |u: &str| reqwest::Url::parse(u).unwrap();
+    assert!(leaves_https(
+      &[url("https://a.example.com/p")],
+      &url("http://b.example.com/p")
+    ));
+    assert!(leaves_https(
+      &[url("http://a.example.com/p"), url("https://b.example.com/p")],
+      &url("http://127.0.0.1/p")
+    ));
+    assert!(!leaves_https(
+      &[url("https://a.example.com/p")],
+      &url("https://b.example.com/p")
+    ));
+    assert!(!leaves_https(
+      &[url("http://a.example.com/p")],
+      &url("http://b.example.com/p")
+    ));
+    assert!(!leaves_https(&[], &url("http://b.example.com/p")));
   }
 }

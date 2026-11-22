@@ -21,7 +21,7 @@ fn check_redirect(previous: &[reqwest::Url], next: &reqwest::Url) -> Result<(), 
   if redirect::too_many(previous) {
     return Err(RedirectRefusal::TooMany);
   }
-  if previous.last().is_some_and(|p| p.scheme() == "https") && next.scheme() != "https" {
+  if redirect::leaves_https(previous, next) {
     return Err(RedirectRefusal::Downgrade(format!(
       "{}://{}",
       next.scheme(),

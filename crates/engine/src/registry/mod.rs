@@ -70,9 +70,15 @@ fn refused_redirect(error: &reqwest::Error) -> Option<RegistryError> {
   }
 }
 
+/// Whether a redirect to `next` would send the request in the clear: to plain http on a remote host, or off https
+/// to anything else. The second case covers a remote registry that redirects to a plain-http service on this machine.
+fn insecure_redirect(previous: &[reqwest::Url], next: &reqwest::Url) -> bool {
+  plain_http_to_remote(next) || redirect::leaves_https(previous, next)
+}
+
 fn http_client(timeout: Duration) -> reqwest::Client {
   let policy = reqwest::redirect::Policy::custom(|attempt| {
-    if plain_http_to_remote(attempt.url()) {
+    if insecure_redirect(attempt.previous(), attempt.url()) {
       let refused = RegistryError::Insecure(attempt.url().to_string());
       attempt.error(refused)
     } else if redirect::too_many(attempt.previous()) {
@@ -348,7 +354,31 @@ impl RegistryClient {
 
 #[cfg(test)]
 mod tests {
-  use super::{is_loopback, plain_http_to_remote};
+  use super::{insecure_redirect, is_loopback, plain_http_to_remote};
+
+  #[test]
+  fn a_redirect_is_insecure_when_it_leaves_https_or_goes_to_plain_http_on_a_remote_host() {
+    let url = |u: &str| reqwest::Url::parse(u).unwrap();
+    for (from, to, insecure) in [
+      (
+        "https://registry.moonlit.rs/graphql",
+        "https://eu.registry.moonlit.rs/graphql",
+        false,
+      ),
+      (
+        "https://registry.moonlit.rs/graphql",
+        "http://registry.moonlit.rs/graphql",
+        true,
+      ),
+      ("https://registry.moonlit.rs/graphql", "http://127.0.0.1:8080/graphql", true),
+      ("https://registry.moonlit.rs/graphql", "http://localhost/admin", true),
+      ("http://127.0.0.1:5000/graphql", "http://127.0.0.1:5001/graphql", false),
+      ("http://127.0.0.1:5000/graphql", "https://registry.moonlit.rs/graphql", false),
+      ("http://127.0.0.1:5000/graphql", "http://registry.moonlit.rs/graphql", true),
+    ] {
+      assert_eq!(insecure_redirect(&[url(from)], &url(to)), insecure, "{from} -> {to}");
+    }
+  }
 
   #[test]
   fn only_plain_http_to_a_non_loopback_host_counts_as_remote() {
