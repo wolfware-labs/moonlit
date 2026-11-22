@@ -87,10 +87,25 @@ fn addable(plugins: &[PluginDeclaration], name: &str, url: &str) -> Result<(), R
       url: p.url.value.as_str().to_string(),
     });
   }
-  if let Some(p) = plugins.iter().find(|p| p.url.value.as_str() == url) {
+  if let Some(p) = plugins.iter().find(|p| same_url(p.url.value.as_str(), url)) {
     return Err(ReleaseFileError::UrlPresent { name: p.name.clone() });
   }
   Ok(())
+}
+
+/// Whether two plugin URLs name the same location: the scheme and the host compare in any case, the rest as written.
+fn same_url(a: &str, b: &str) -> bool {
+  fn parts(url: &str) -> Option<(&str, &str, &str)> {
+    let (scheme, rest) = url.split_once("://")?;
+    let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
+    Some((scheme, host, path))
+  }
+  match (parts(a), parts(b)) {
+    (Some((scheme_a, host_a, path_a)), Some((scheme_b, host_b, path_b))) => {
+      scheme_a.eq_ignore_ascii_case(scheme_b) && host_a.eq_ignore_ascii_case(host_b) && path_a == path_b
+    }
+    _ => a == b,
+  }
 }
 
 /// Replaces the `url` of one plugin entry, and its `permissions` when given, leaving every other byte of the
@@ -494,6 +509,29 @@ stages:
       matches!(err, ReleaseFileError::UrlPresent { ref name } if name == "git"),
       "{err:?}"
     );
+  }
+
+  #[test]
+  fn add_rejects_a_url_already_present_with_its_scheme_or_host_in_another_case() {
+    let mut entry = github();
+    entry.url = "OCI://Registry.Moonlit.RS/moonlit/git:1.2.0".into();
+    let err = add_plugin(RELEASE, &entry).expect_err("url present");
+    assert!(
+      matches!(err, ReleaseFileError::UrlPresent { ref name } if name == "git"),
+      "{err:?}"
+    );
+  }
+
+  #[test]
+  fn urls_are_the_same_up_to_the_case_of_scheme_and_host() {
+    assert!(same_url("oci://h/o/n:1", "OCI://H/o/n:1"));
+    assert!(same_url("https://Example.com/p.wasm", "https://example.com/p.wasm"));
+    assert!(same_url("file:///a/P.wasm", "file:///a/P.wasm"));
+    assert!(!same_url("oci://h/o/n:1", "oci://h/O/n:1"));
+    assert!(!same_url("oci://h/o/n:1", "oci://h/o/n:2"));
+    assert!(!same_url("file:///a/P.wasm", "file:///a/p.wasm"));
+    assert!(!same_url("oci://h/o/n:1", "https://h/o/n:1"));
+    assert!(!same_url("h/o/n", "H/o/n"));
   }
 
   #[test]
