@@ -122,7 +122,7 @@ fn clash_message(e: &ReleaseFileError, url: &str) -> String {
 
 fn same_plugin(declared: &str, url: &str) -> bool {
   match (registry_ref(declared), registry_ref(url)) {
-    (Some(a), Some(b)) => a.host == b.host && a.org == b.org && a.name == b.name,
+    (Some(a), Some(b)) => a.host.eq_ignore_ascii_case(&b.host) && a.org == b.org && a.name == b.name,
     _ => declared == url,
   }
 }
@@ -196,6 +196,16 @@ mod tests {
     assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://g/o/n:1.0.0"));
     assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/p/n:1.0.0"));
     assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/o/m:1.0.0"));
+  }
+
+  #[test]
+  fn same_plugin_ignores_the_case_of_the_host_only() {
+    assert!(same_plugin(
+      "oci://registry.moonlit.rs/o/n:1.0.0",
+      "oci://REGISTRY.Moonlit.rs/o/n:2.0.0"
+    ));
+    assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/O/n:1.0.0"));
+    assert!(!same_plugin("oci://h/o/n:1.0.0", "oci://h/o/N:1.0.0"));
   }
 
   #[test]
