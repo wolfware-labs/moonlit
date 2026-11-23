@@ -178,7 +178,8 @@ impl<'t> Builder<'t, '_> {
         Ok((node, size))
       }
       NodeTok::MapStart(anchor) => {
-        // A mapping's children alternate between keys and values.
+        // A mapping's children alternate between keys and values. The parser emits an empty scalar
+        // for a key or value that is not written, so the count is even and no key is dropped.
         let (children, size, end) = self.build_children(span, enclosing)?;
         let mut children = children.into_iter();
         let mut entries = Vec::new();
