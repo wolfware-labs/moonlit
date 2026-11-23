@@ -213,10 +213,10 @@ impl<'t> Builder<'t, '_> {
         Ok((node, size))
       }
       NodeTok::SeqStart(anchor) => {
-        let (items, size, end) = self.build_children(span, enclosing)?;
+        let (items, size, span) = self.build_children(span, enclosing)?;
         let node = Rc::new(Node {
           value: NodeValue::Seq(items),
-          span: Span::new(span.start, self.collection_end(end)),
+          span,
         });
         self.register(*anchor, &node, size);
         Ok((node, size))
@@ -224,7 +224,7 @@ impl<'t> Builder<'t, '_> {
       NodeTok::MapStart(anchor) => {
         // A mapping's children alternate between keys and values. The parser emits an empty scalar
         // for a key or value that is not written, so the count is even and no key is dropped.
-        let (children, size, end) = self.build_children(span, enclosing)?;
+        let (children, size, span) = self.build_children(span, enclosing)?;
         let mut children = children.into_iter();
         let mut entries = Vec::new();
         while let (Some(key), Some(val)) = (children.next(), children.next()) {
@@ -232,7 +232,7 @@ impl<'t> Builder<'t, '_> {
         }
         let node = Rc::new(Node {
           value: NodeValue::Map(entries),
-          span: Span::new(span.start, self.collection_end(end)),
+          span,
         });
         self.register(*anchor, &node, size);
         Ok((node, size))
@@ -261,8 +261,8 @@ impl<'t> Builder<'t, '_> {
   }
 
   /// Builds the children of the collection opened at `start` under `enclosing` others, up to and
-  /// including its closing event. Returns them with the collection's expanded size and the span of
-  /// that closing event.
+  /// including its closing event. Returns them with the collection's expanded size and its span, from
+  /// `start` to the end of the closing event (see [`Self::collection_end`]).
   fn build_children(&mut self, start: Span, enclosing: usize) -> Result<(Vec<Rc<Node>>, Size, Span), ConfigDiagnostic> {
     let level = enclosing + 1; // the reader refused anything deeper than MAX_DEPTH
     let mut size = Size::empty_collection();
@@ -278,7 +278,8 @@ impl<'t> Builder<'t, '_> {
         // this collection.
         other => {
           self.pos += 1;
-          return Ok((children, size, other.map_or(start, |(_, s)| *s)));
+          let end = self.collection_end(other.map_or(start, |(_, s)| *s));
+          return Ok((children, size, Span::new(start.start, end)));
         }
       }
     }
@@ -335,28 +336,47 @@ mod tests {
     )
   }
 
-  #[test]
-  fn alias_shares_the_anchored_children() {
-    let tree = build_tree(&ConfigSource::new("a: &x [one, two]\nb: *x\n", "release.yml")).expect("valid tree");
-    // The alias node itself carries the alias site's span.
-    assert!(matches!(
-      &tree.value,
-      NodeValue::Map(entries) if share_two_children(&entries[0].1, &entries[1].1) && entries[1].1.span == Span::new(20, 22)
-    ));
+  /// The entries of the root mapping built from `yaml`.
+  fn root_entries(yaml: &str) -> Vec<(Rc<Node>, Rc<Node>)> {
+    let root = build_tree(&ConfigSource::new(yaml, "release.yml")).expect("yaml parses");
+    let NodeValue::Map(entries) = root.value else {
+      panic!("root is not a map");
+    };
+    entries
   }
 
-  #[test]
-  fn nested_anchor_chain_just_under_the_alias_limits_builds() {
-    let yaml = nested_anchor_chain();
-    let tree = build_tree(&ConfigSource::new(&yaml, "release.yml")).expect("within both alias limits");
-    assert!(matches!(&tree.value, NodeValue::Map(entries) if entries.len() == 3));
+  /// Each root key with the source text its value spans.
+  fn value_texts(yaml: &str) -> Vec<(String, String)> {
+    root_entries(yaml)
+      .into_iter()
+      .map(|(k, v)| {
+        let NodeValue::Scalar(key) = &k.value else {
+          panic!("key is not a scalar");
+        };
+        (key.clone(), yaml[v.span.start..v.span.end].to_string())
+      })
+      .collect()
   }
 
+  /// The source text the value of root key `k` spans.
   fn value_text(yaml: &str) -> String {
     value_texts(yaml)
       .into_iter()
       .find_map(|(key, value)| (key == "k").then_some(value))
       .expect("key k")
+  }
+
+  #[test]
+  fn alias_shares_the_anchored_children() {
+    let entries = root_entries("a: &x [one, two]\nb: *x\n");
+    assert!(share_two_children(&entries[0].1, &entries[1].1));
+    // The alias node itself carries the alias site's span.
+    assert_eq!(entries[1].1.span, Span::new(20, 22));
+  }
+
+  #[test]
+  fn nested_anchor_chain_just_under_the_alias_limits_builds() {
+    assert_eq!(root_entries(&nested_anchor_chain()).len(), 3);
   }
 
   #[test]
@@ -390,23 +410,6 @@ mod tests {
     assert_eq!(value_text("k: |+\n  a\n    \n\n"), "a\n    \n");
     assert_eq!(value_text("k: |+\n  a\nz: 1\n"), "a");
     assert_eq!(value_text("k: |+\n  a\n\nz: 1\n"), "a\n");
-  }
-
-  fn value_texts(yaml: &str) -> Vec<(String, String)> {
-    let src = ConfigSource::new(yaml, "test.yml");
-    let root = build_tree(&src).expect("yaml parses");
-    let NodeValue::Map(entries) = root.value else {
-      panic!("root is not a map");
-    };
-    entries
-      .into_iter()
-      .map(|(k, v)| {
-        let NodeValue::Scalar(key) = &k.value else {
-          panic!("key is not a scalar");
-        };
-        (key.clone(), yaml[v.span.start..v.span.end].to_string())
-      })
-      .collect()
   }
 
   #[test]

@@ -1104,6 +1104,18 @@ mod tests {
     assert_eq!(contents.name(), Some("release.yaml"));
   }
 
+  #[test]
+  fn plugin_span_ends_at_a_last_key_without_a_value() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let span = config.plugins.value[0].span;
+    assert!(
+      yaml[span.start..span.end].ends_with("config"),
+      "{:?}",
+      &yaml[span.start..span.end]
+    );
+  }
+
   const TOO_DEEP: &str = "YAML nesting is too deep: collections may nest at most 64 levels.";
   const TOO_MUCH_EXPANSION: &str =
     "YAML aliases expand too much: a document may expand at most 100000 nodes and 8 MiB of text through aliases.";
@@ -1113,7 +1125,7 @@ mod tests {
   fn nested_plugin_config(levels: usize) -> String {
     let maps = levels - 3;
     let value = format!("{}x{}", "{a: ".repeat(maps), "}".repeat(maps));
-    format!("plugins:\n  - name: tp\n    url: file://tp.wasm\n    config: {value}\n{STAGES}")
+    plugin_yaml(&format!("    config: {value}\n"))
   }
 
   /// `variables:` holding a scalar anchored as `l0`, then `levels` anchors that each list `width`
@@ -1264,17 +1276,5 @@ mod tests {
   fn self_referencing_anchor_is_an_unknown_alias() {
     let diagnostic = error(&with_plugins_and_stages("variables: &a [*a]\n"));
     assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
-  }
-
-  #[test]
-  fn plugin_span_ends_at_a_last_key_without_a_value() {
-    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\nstages:\n  s:\n    - run: a.go\n";
-    let config = parse(yaml);
-    let span = config.plugins.value[0].span;
-    assert!(
-      yaml[span.start..span.end].ends_with("config"),
-      "{:?}",
-      &yaml[span.start..span.end]
-    );
   }
 }
