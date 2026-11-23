@@ -144,6 +144,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+          free -m
       - name: Install cargo-mutants
         uses: taiki-e/install-action@4e14a60b36eb62630dcc25614f0be0659ab8830c # cargo-mutants
         with:
@@ -161,10 +166,11 @@ jobs:
       # --in-place builds in the checkout so the cached target directory is
       # reused; the default copies the tree and rebuilds every dependency.
       - name: Mutate only the changed lines
-        run: >-
-          cargo mutants --in-diff pr.diff --in-place --no-shuffle
-          --shard ${{ matrix.shard }}/16
-          --package moonlit-engine --package moonlit
+        run: |
+          ( while sleep 10; do echo "disk: $(df -h / | awk 'NR==2 {print $3 " used, " $4 " free"}'); mem: $(free -m | awk '/^Mem:/ {print $3 " MB used of " $2}'); top rss: $(ps -eo rss=,comm= --sort=-rss | head -3 | awk '{printf "%s %d MB; ", $2, $1/1024}')"; done ) &
+          cargo mutants --in-diff pr.diff --in-place --no-shuffle \
+            --shard ${{ matrix.shard }}/16 \
+            --package moonlit-engine --package moonlit --package moonlit-pdk-macros
       - name: Upload the mutants report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

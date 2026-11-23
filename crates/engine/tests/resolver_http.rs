@@ -115,17 +115,19 @@ async fn http_404_is_not_found() {
 }
 
 #[tokio::test]
-async fn other_http_errors_are_network_errors() {
-  let server = serve(500, b"boom").await;
-  let dir = tempfile::tempdir().unwrap();
-  let source = PluginSource::Http(format!("{}/plugin.wasm", server.uri()));
+async fn other_http_errors_are_registry_errors() {
+  for status in [500, 503, 429] {
+    let server = serve(status, b"boom").await;
+    let dir = tempfile::tempdir().unwrap();
+    let source = PluginSource::Http(format!("{}/plugin.wasm", server.uri()));
 
-  let err = resolve(&source, &online(), &cache_in(&dir), None).await.unwrap_err();
+    let err = resolve(&source, &online(), &cache_in(&dir), None).await.unwrap_err();
 
-  let ResolveError::Network(msg) = err else {
-    panic!("expected Network, got {err:?}");
-  };
-  assert!(msg.contains("500"), "{msg}");
+    let ResolveError::Registry(msg) = err else {
+      panic!("{status}: expected Registry, got {err:?}");
+    };
+    assert!(msg.contains(&status.to_string()), "{msg}");
+  }
 }
 
 #[tokio::test]

@@ -1,7 +1,9 @@
 use crate::plugin::artifact::{PluginArtifact, PluginArtifactMetadata};
 use crate::plugin::publish::error::PublishError;
 use crate::plugin::resolver::oci::auth::{is_auth_failure, resolve_auth};
-use oci_client::client::PushResponse;
+use crate::plugin::resolver::oci::client::client_config;
+use crate::plugin::resolver::{CONNECT_TIMEOUT, READ_TIMEOUT};
+use oci_client::client::{ClientConfig, ClientProtocol, PushResponse};
 use oci_client::secrets::RegistryAuth;
 use oci_client::{Client, Reference};
 use std::path::Path;
@@ -27,17 +29,23 @@ pub struct OciPushClient(Client);
 
 #[must_use]
 pub fn new_push_client() -> OciPushClient {
-  OciPushClient(Client::default())
+  OciPushClient(
+    Client::try_from(push_config(ClientProtocol::default()))
+      .expect("the OCI client builds with static timeouts and the default TLS backend"),
+  )
+}
+
+fn push_config(protocol: ClientProtocol) -> ClientConfig {
+  client_config(protocol, CONNECT_TIMEOUT, READ_TIMEOUT)
 }
 
 #[cfg(test)]
 impl OciPushClient {
   #[must_use]
   fn with_plain_http_for(registry: &str) -> Self {
-    Self(Client::new(oci_client::client::ClientConfig {
-      protocol: oci_client::client::ClientProtocol::HttpsExcept(vec![registry.to_string()]),
-      ..Default::default()
-    }))
+    Self(Client::new(push_config(ClientProtocol::HttpsExcept(vec![
+      registry.to_string(),
+    ]))))
   }
 }
 
@@ -375,5 +383,12 @@ mod tests {
   #[test]
   fn the_production_push_client_is_constructible() {
     let _client = new_push_client();
+  }
+
+  #[test]
+  fn push_clients_time_out_like_pulls() {
+    let config = push_config(ClientProtocol::default());
+    assert_eq!(config.connect_timeout, Some(CONNECT_TIMEOUT));
+    assert_eq!(config.read_timeout, Some(READ_TIMEOUT));
   }
 }

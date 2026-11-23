@@ -51,7 +51,7 @@ fn inspect_json_carries_icon_and_io_schemas() {
   let icon = v["icon"].as_str().expect("icon must be a string");
   assert!(icon.starts_with("data:image/"), "icon must be a data URI; got {icon:.32}");
 
-  // ABI 0.3.0: each middleware's input and output schemas are embedded as JSON
+  // ABI 0.4.0: each middleware's input and output schemas are embedded as JSON
   // objects (not strings).
   let echo = v["middlewares"]
     .as_array()
@@ -109,4 +109,84 @@ fn inspect_rejects_a_non_component() {
     .args(["plugin", "inspect", concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml")])
     .assert()
     .code(2);
+}
+
+const PERMISSIONS_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/tests/fixtures/test_plugin.wasm");
+const OLD_WORLD_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/tests/fixtures/test_plugin_v0_3.wasm");
+
+#[test]
+fn inspect_json_lists_permissions_and_world() {
+  let out = Command::cargo_bin("moonlit")
+    .unwrap()
+    .args(["--output", "json", "plugin", "inspect", PERMISSIONS_FIXTURE])
+    .assert()
+    .success()
+    .get_output()
+    .stdout
+    .clone();
+  let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+  assert_eq!(v["world"], "moonlit:plugin@0.4.0");
+  assert_eq!(
+    v["permissions"],
+    serde_json::json!([
+      {"kind": "network", "values": ["api.example.com"], "reason": "Calls the example API.", "optional": false},
+      {"kind": "exec", "values": ["git"], "reason": "Only for the tag middleware.", "optional": true},
+    ])
+  );
+}
+
+#[test]
+fn inspect_rejects_old_world() {
+  Command::cargo_bin("moonlit")
+    .unwrap()
+    .args(["plugin", "inspect", OLD_WORLD_FIXTURE])
+    .assert()
+    .code(2)
+    .stderr(predicates::str::contains("moonlit:plugin@0.3.0"))
+    .stderr(predicates::str::contains("moonlit:plugin@0.4.0"));
+}
+
+fn inspect_stdout(mode: &str, fixture: &str) -> String {
+  let out = Command::cargo_bin("moonlit")
+    .unwrap()
+    .args(["--output", mode, "plugin", "inspect", fixture])
+    .assert()
+    .success()
+    .get_output()
+    .stdout
+    .clone();
+  String::from_utf8(out).unwrap()
+}
+
+#[test]
+fn inspect_omits_the_permissions_header_when_there_are_none() {
+  for mode in ["plain", "pretty"] {
+    let stdout = inspect_stdout(mode, FIXTURE);
+    assert!(
+      !stdout.lines().any(|l| l.trim().eq_ignore_ascii_case("permissions:")),
+      "{mode}: {stdout}"
+    );
+    let last = stdout.lines().last().unwrap_or_default();
+    if mode == "plain" {
+      assert_eq!(last, "  read-env - read SAMPLE_ENV from the environment", "{stdout}");
+    } else {
+      assert!(last.starts_with('└'), "{mode}: last line was {last:?}");
+    }
+  }
+}
+
+#[test]
+fn inspect_lists_permissions_in_plain_and_pretty() {
+  for (mode, header) in [("plain", "permissions:"), ("pretty", "Permissions:")] {
+    let stdout = inspect_stdout(mode, PERMISSIONS_FIXTURE);
+    assert!(stdout.contains(header), "{mode}: {stdout}");
+    assert!(
+      stdout.contains("  Connect to the internet (api.example.com): Calls the example API."),
+      "{mode}: {stdout}"
+    );
+    assert!(
+      stdout.contains("  Run programs on your machine (git) [optional]: Only for the tag middleware."),
+      "{mode}: {stdout}"
+    );
+  }
 }

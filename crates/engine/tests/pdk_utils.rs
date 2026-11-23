@@ -1,20 +1,13 @@
 use std::io::Write;
 use std::sync::Arc;
 
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions};
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{NullSink, ReleaseContext};
 use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/pdk_sample.wasm");
-
-struct NullSink;
-impl HostEventSink for NullSink {
-  fn log(&self, _s: &str, _l: LogLevel, _m: &str) {}
-  fn progress(&self, _s: &str, _m: &str) {}
-}
 
 fn perms(network: Vec<&str>, exec: Vec<&str>) -> Permissions {
   Permissions {
