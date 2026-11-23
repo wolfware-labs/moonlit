@@ -100,7 +100,7 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       Event::MappingStart(anchor, _tag) => Tok::Node(NodeTok::MapStart(anchor)),
       Event::MappingEnd => Tok::MapEnd,
     };
-    match tok {
+    match &tok {
       Tok::Node(NodeTok::SeqStart(_) | NodeTok::MapStart(_)) if in_first_document => {
         check_depth(src, open, 1, span)?;
         open += 1;
