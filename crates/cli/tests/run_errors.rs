@@ -286,7 +286,7 @@ async fn same_major_suggestion_points_at_plain_doctor() {
 
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
-async fn plugins_load_when_the_real_home_cannot_be_written() {
+async fn isolated_runs_never_write_to_the_real_home() {
   use std::os::unix::fs::PermissionsExt;
   let server = registry_with_versions(&["1.1.0", "2.0.0"], &[]).await;
   let dir = tempfile::tempdir().unwrap();
