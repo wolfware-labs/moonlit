@@ -280,6 +280,32 @@ async fn same_major_suggestion_points_at_plain_doctor() {
   assert!(!stderr.contains("--major"), "{stderr}");
 }
 
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn plugins_load_when_the_real_home_cannot_be_written() {
+  use std::os::unix::fs::PermissionsExt;
+  let server = registry_with_versions(&["1.1.0", "2.0.0"], &[]).await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let home = tempfile::tempdir().unwrap();
+  std::fs::set_permissions(home.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+  let path = dir.path().to_path_buf();
+  let home_path = home.path().to_path_buf();
+  let output = tokio::task::spawn_blocking(move || {
+    moonlit_in(&path)
+      .env("HOME", &home_path)
+      .env("XDG_CACHE_HOME", &home_path)
+      .args(["run", "--output", "plain"])
+      .output()
+      .unwrap()
+  })
+  .await
+  .unwrap();
+  let stderr = String::from_utf8_lossy(&output.stderr);
+  assert!(!stderr.contains("cache I/O error"), "{stderr}");
+  assert!(stderr.contains("use 1.1.0 instead"), "{stderr}");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn non_semver_tag_goes_straight_to_the_cross_major_lookup() {
   let server = registry_with_versions(&["1.1.0", "2.0.0"], &[]).await;
