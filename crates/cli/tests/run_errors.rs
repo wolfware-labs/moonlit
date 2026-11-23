@@ -1,7 +1,8 @@
+#[path = "support/isolated.rs"]
+mod isolated;
 #[path = "support/oci_mock.rs"]
 mod oci_mock;
 
-use assert_cmd::Command;
 use predicates::str::contains;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -70,7 +71,11 @@ async fn registry_with_versions(compatible: &[&str], broken: &[&str]) -> MockSer
 }
 
 fn run_stderr(dir: &Path) -> String {
-  let output = moonlit_in(dir)
+  run_stderr_of(moonlit_in(dir))
+}
+
+fn run_stderr_of(mut command: isolated::Moonlit) -> String {
+  let output = command
     .args(["run", "--output", "plain"])
     .assert()
     .code(3)
@@ -115,8 +120,8 @@ fn write_release(path: &Path) {
   std::fs::write(path, yaml).unwrap();
 }
 
-fn moonlit_in(dir: &Path) -> Command {
-  let mut cmd = Command::cargo_bin("moonlit").unwrap();
+fn moonlit_in(dir: &Path) -> isolated::Moonlit {
+  let mut cmd = isolated::moonlit();
   cmd.current_dir(dir);
   cmd
 }
@@ -277,6 +282,28 @@ async fn same_major_suggestion_points_at_plain_doctor() {
     "{stderr}"
   );
   assert!(!stderr.contains("--major"), "{stderr}");
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn isolated_runs_never_write_to_the_real_home() {
+  use std::os::unix::fs::PermissionsExt;
+  let server = registry_with_versions(&["1.1.0", "2.0.0"], &[]).await;
+  let dir = tempfile::tempdir().unwrap();
+  oci_release(dir.path(), &server);
+  let home = tempfile::tempdir().unwrap();
+  std::fs::set_permissions(home.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+  let path = dir.path().to_path_buf();
+  let home_path = home.path().to_path_buf();
+  let stderr = tokio::task::spawn_blocking(move || {
+    let mut command = moonlit_in(&path);
+    command.env("HOME", &home_path).env("XDG_CACHE_HOME", &home_path);
+    run_stderr_of(command)
+  })
+  .await
+  .unwrap();
+  assert!(!stderr.contains("cache I/O error"), "{stderr}");
+  assert!(stderr.contains("use 1.1.0 instead"), "{stderr}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

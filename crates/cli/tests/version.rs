@@ -1,8 +1,9 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
 
 #[test]
 fn version_prints_brand_and_license() {
-  let out = Command::cargo_bin("moonlit").unwrap().arg("version").assert().success();
+  let out = isolated::moonlit().arg("version").assert().success();
   let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
   let expected = format!("Moonlit v{}", env!("CARGO_PKG_VERSION"));
   assert!(stdout.contains(&expected), "stdout: {stdout}");
@@ -12,7 +13,7 @@ fn version_prints_brand_and_license() {
 
 #[test]
 fn bare_invocation_prints_help() {
-  let out = Command::cargo_bin("moonlit").unwrap().assert().success();
+  let out = isolated::moonlit().assert().success();
   let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
   assert!(
     stdout.contains("Usage: moonlit"),
@@ -27,8 +28,7 @@ fn bare_invocation_prints_help() {
 
 #[test]
 fn truecolor_terminal_gets_the_logo_banner() {
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .env("COLORTERM", "truecolor")
     .env("CLICOLOR_FORCE", "1")
     .env("COLUMNS", "120")

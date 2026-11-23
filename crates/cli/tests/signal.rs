@@ -1,8 +1,11 @@
 #![cfg(unix)]
 
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -27,7 +30,8 @@ fn ctrl_c_cancels_a_running_pipeline() {
   )
   .unwrap();
 
-  let mut child = Command::new(env!("CARGO_BIN_EXE_moonlit"))
+  let (mut command, _dirs) = isolated::moonlit_process();
+  let mut child = command
     .args(["run", "--output", "plain", "-f"])
     .arg(&release)
     .stderr(Stdio::piped())

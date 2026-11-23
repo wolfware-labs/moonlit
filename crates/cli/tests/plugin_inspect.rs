@@ -1,11 +1,11 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
 
 const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/tests/fixtures/pdk_sample.wasm");
 
 #[test]
 fn inspect_prints_metadata_and_middlewares() {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["plugin", "inspect", FIXTURE])
     .assert()
     .success()
@@ -16,8 +16,7 @@ fn inspect_prints_metadata_and_middlewares() {
 
 #[test]
 fn inspect_json_emits_structured_output() {
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .args(["--output", "json", "plugin", "inspect", FIXTURE])
     .assert()
     .success()
@@ -37,8 +36,7 @@ fn inspect_json_emits_structured_output() {
 
 #[test]
 fn inspect_json_carries_icon_and_io_schemas() {
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .args(["--output", "json", "plugin", "inspect", FIXTURE])
     .assert()
     .success()
@@ -93,8 +91,7 @@ fn inspects_a_component_by_file_ref() {
     .canonicalize()
     .unwrap();
   let url = format!("file://{}", fixture.display());
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["plugin", "inspect", &url, "--output", "plain"])
     .assert()
     .success()
@@ -104,8 +101,7 @@ fn inspects_a_component_by_file_ref() {
 
 #[test]
 fn inspect_rejects_a_non_component() {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["plugin", "inspect", concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml")])
     .assert()
     .code(2);
@@ -116,8 +112,7 @@ const OLD_WORLD_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../engine/
 
 #[test]
 fn inspect_json_lists_permissions_and_world() {
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .args(["--output", "json", "plugin", "inspect", PERMISSIONS_FIXTURE])
     .assert()
     .success()
@@ -137,8 +132,7 @@ fn inspect_json_lists_permissions_and_world() {
 
 #[test]
 fn inspect_rejects_old_world() {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["plugin", "inspect", OLD_WORLD_FIXTURE])
     .assert()
     .code(2)
@@ -147,8 +141,7 @@ fn inspect_rejects_old_world() {
 }
 
 fn inspect_stdout(mode: &str, fixture: &str) -> String {
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .args(["--output", mode, "plugin", "inspect", fixture])
     .assert()
     .success()

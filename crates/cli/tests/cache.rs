@@ -1,11 +1,12 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::str::contains;
 
 #[test]
 fn ls_on_empty_cache_reports_empty() {
   let cache = tempfile::tempdir().unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_CACHE_DIR", cache.path())
     .args(["cache", "ls", "--output", "plain"])
     .assert()
@@ -16,8 +17,7 @@ fn ls_on_empty_cache_reports_empty() {
 #[test]
 fn clean_reports_removed_counts() {
   let cache = tempfile::tempdir().unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_CACHE_DIR", cache.path())
     .args(["cache", "clean"])
     .assert()
