@@ -1,10 +1,11 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::str::contains;
 
 /// Log in on the manual (CI) path, which stores a Basic `username`/`password` credential.
 fn login_basic(home: &std::path::Path, host: &str) {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_HOME", home)
     .args(["login", host, "--username", "alice", "--token", "pat"])
     .assert()
@@ -23,8 +24,7 @@ fn logout_removes_a_basic_credential() {
   let home = tempfile::tempdir().unwrap();
   login_basic(home.path(), "ghcr.io");
 
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_HOME", home.path())
     .args(["logout", "ghcr.io", "--local"])
     .assert()
@@ -39,8 +39,7 @@ fn logout_reports_not_logged_in_for_an_unknown_host() {
   let home = tempfile::tempdir().unwrap();
   login_basic(home.path(), "ghcr.io");
 
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_HOME", home.path())
     .args(["logout", "other.example.com", "--local"])
     .assert()
@@ -60,8 +59,7 @@ fn logout_preserves_other_hosts() {
   login_basic(home.path(), "ghcr.io");
   login_basic(home.path(), "keep.example.com");
 
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_HOME", home.path())
     .args(["logout", "ghcr.io", "--local"])
     .assert()

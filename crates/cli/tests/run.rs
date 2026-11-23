@@ -1,7 +1,9 @@
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use std::fs;
 use std::path::Path;
 
-use assert_cmd::Command;
 use tempfile::tempdir;
 
 fn fixture_wasm_url() -> String {
@@ -24,8 +26,7 @@ fn write_release(dir: &Path, middleware: &str) {
 fn successful_run_exits_zero() {
   let dir = tempdir().unwrap();
   write_release(dir.path(), "log-and-output");
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["run", "--output", "plain", "-f"])
     .arg(dir.path().join("release.yml"))
     .assert()
@@ -36,8 +37,7 @@ fn successful_run_exits_zero() {
 fn failing_step_exits_four() {
   let dir = tempdir().unwrap();
   write_release(dir.path(), "fail");
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["run", "--output", "plain", "-f"])
     .arg(dir.path().join("release.yml"))
     .assert()
@@ -48,8 +48,7 @@ fn failing_step_exits_four() {
 fn unknown_middleware_exits_two() {
   let dir = tempdir().unwrap();
   write_release(dir.path(), "does-not-exist");
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["run", "--output", "plain", "-f"])
     .arg(dir.path().join("release.yml"))
     .assert()
@@ -60,8 +59,7 @@ fn unknown_middleware_exits_two() {
 fn validate_of_good_pipeline_exits_zero() {
   let dir = tempdir().unwrap();
   write_release(dir.path(), "log-and-output");
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["validate", "-f"])
     .arg(dir.path().join("release.yml"))
     .assert()
@@ -72,8 +70,7 @@ fn validate_of_good_pipeline_exits_zero() {
 fn json_mode_emits_finished_event() {
   let dir = tempdir().unwrap();
   write_release(dir.path(), "log-and-output");
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .args(["run", "--output", "json", "-f"])
     .arg(dir.path().join("release.yml"))
     .assert()
@@ -92,8 +89,7 @@ fn json_mode_emits_finished_event() {
 fn diagnostics_name_the_file_that_was_actually_read() {
   let dir = tempdir().unwrap();
   fs::write(dir.path().join("release.yaml"), "pluigns:\n  - name: p\n").unwrap();
-  let out = Command::cargo_bin("moonlit")
-    .unwrap()
+  let out = isolated::moonlit()
     .args(["run", "--output", "plain", "-f"])
     .arg(dir.path().join("release.yaml"))
     .output()

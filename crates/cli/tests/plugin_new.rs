@@ -1,3 +1,6 @@
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use assert_cmd::Command;
 
 /// Absolute path to the in-repo PDK, so the scaffold builds without a published crate.
@@ -9,8 +12,7 @@ fn pdk_path() -> String {
 fn new_scaffolds_a_buildable_plugin() {
   let dir = tempfile::tempdir().unwrap();
   // Non-TTY (assert_cmd pipes stdin): must not prompt, must apply defaults.
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .current_dir(dir.path())
     .args(["plugin", "new", "my-plugin", "--pdk-path", &pdk_path(), "--namespace", "acme"])
     .assert()
@@ -33,8 +35,7 @@ fn new_scaffolds_a_buildable_plugin() {
 #[test]
 fn new_rejects_an_invalid_name() {
   let dir = tempfile::tempdir().unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .current_dir(dir.path())
     .args(["plugin", "new", "2bad", "--pdk-path", &pdk_path()])
     .assert()
@@ -45,8 +46,7 @@ fn new_rejects_an_invalid_name() {
 fn new_refuses_to_overwrite_existing_dir() {
   let dir = tempfile::tempdir().unwrap();
   std::fs::create_dir(dir.path().join("taken")).unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .current_dir(dir.path())
     .args(["plugin", "new", "taken", "--pdk-path", &pdk_path()])
     .assert()

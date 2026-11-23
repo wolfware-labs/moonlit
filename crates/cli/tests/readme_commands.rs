@@ -3,11 +3,12 @@
 //!
 //! Parse the command set out of `--help` and require a row for each.
 
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
 
 /// Top-level subcommand names, read from the `Commands:` block of `moonlit --help`.
 fn subcommands() -> Vec<String> {
-  let out = Command::cargo_bin("moonlit").unwrap().arg("--help").output().unwrap();
+  let out = isolated::moonlit().arg("--help").output().unwrap();
   let help = String::from_utf8(out.stdout).unwrap();
 
   help

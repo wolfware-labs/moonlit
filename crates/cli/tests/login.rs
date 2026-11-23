@@ -1,12 +1,13 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::str::contains;
 
 #[test]
 fn manual_path_without_token_errors_non_interactive() {
   // `--username` selects the manual (CI) path; without `--token` on a non-TTY it must error
   // rather than prompt. A bare `login <host>` with no flags now runs the device flow instead.
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["login", "ghcr.io", "--username", "alice"])
     .assert()
     .code(2)
@@ -16,8 +17,7 @@ fn manual_path_without_token_errors_non_interactive() {
 #[test]
 fn stores_basic_credentials_under_home() {
   let home = tempfile::tempdir().unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_HOME", home.path())
     .args(["login", "ghcr.io", "--username", "alice", "--token", "pat"])
     .assert()
