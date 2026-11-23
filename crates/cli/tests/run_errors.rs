@@ -71,7 +71,11 @@ async fn registry_with_versions(compatible: &[&str], broken: &[&str]) -> MockSer
 }
 
 fn run_stderr(dir: &Path) -> String {
-  let output = moonlit_in(dir)
+  run_stderr_of(moonlit_in(dir))
+}
+
+fn run_stderr_of(mut command: isolated::Moonlit) -> String {
+  let output = command
     .args(["run", "--output", "plain"])
     .assert()
     .code(3)
@@ -291,17 +295,13 @@ async fn plugins_load_when_the_real_home_cannot_be_written() {
   std::fs::set_permissions(home.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
   let path = dir.path().to_path_buf();
   let home_path = home.path().to_path_buf();
-  let output = tokio::task::spawn_blocking(move || {
-    moonlit_in(&path)
-      .env("HOME", &home_path)
-      .env("XDG_CACHE_HOME", &home_path)
-      .args(["run", "--output", "plain"])
-      .output()
-      .unwrap()
+  let stderr = tokio::task::spawn_blocking(move || {
+    let mut command = moonlit_in(&path);
+    command.env("HOME", &home_path).env("XDG_CACHE_HOME", &home_path);
+    run_stderr_of(command)
   })
   .await
   .unwrap();
-  let stderr = String::from_utf8_lossy(&output.stderr);
   assert!(!stderr.contains("cache I/O error"), "{stderr}");
   assert!(stderr.contains("use 1.1.0 instead"), "{stderr}");
 }
