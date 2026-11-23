@@ -2,18 +2,12 @@ use std::sync::{Arc, Mutex};
 
 use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::{FilesystemAccess, Permissions};
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{HostEventSink, NullSink, ReleaseContext};
 use moonlit_engine::plugin::{Plugin, PluginInstanceConfig};
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
-
-struct NullSink;
-impl HostEventSink for NullSink {
-  fn log(&self, _s: &str, _l: LogLevel, _m: &str) {}
-  fn progress(&self, _s: &str, _m: &str) {}
-}
 
 /// Records `(step, level, message)` triples so denial-diagnostic tests can
 /// assert on what the host logged.
@@ -127,5 +121,45 @@ async fn denied_host_is_blocked_before_the_socket() {
       .iter()
       .any(|(_, level, msg)| *level == LogLevel::Warn && msg.contains(&host) && msg.contains("permissions.network")),
     "expected a Warn event naming the denied host and permissions.network, got: {events:?}"
+  );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn denied_network_fails_step() {
+  let eng = moonlit_engine::engine::Engine::try_default().unwrap();
+  let sink = Arc::new(CapturingSink::default());
+  let mut p = Plugin::instantiate(
+    &eng,
+    FIXTURE,
+    cfg_with_network(vec!["api.github.com".to_string()]),
+    sink.clone(),
+  )
+  .await
+  .unwrap();
+  let meta = p.describe().await.unwrap();
+  p.set_declared(meta.permissions);
+  let r = p
+    .execute(
+      "try-fetch",
+      ReleaseContext {
+        working_directory: "/work".to_string(),
+        step_name: "fetch".to_string(),
+      },
+      &serde_json::json!({ "url": "http://blocked.example.org/x" }),
+    )
+    .await
+    .unwrap();
+  assert!(!r.successful, "a blocked host must fail the step: {r:?}");
+  let msg = r.error_message.unwrap();
+  assert!(msg.contains("blocked from connecting to 'blocked.example.org'"), "{msg}");
+  assert!(msg.contains("permissions.network"), "{msg}");
+  assert!(!msg.contains("optional permission"), "{msg}");
+
+  let events = sink.events.lock().unwrap();
+  assert!(
+    events
+      .iter()
+      .any(|(step, level, msg)| step == "fetch" && *level == LogLevel::Warn && msg.contains("blocked.example.org")),
+    "expected the denial logged under the step name, got: {events:?}"
   );
 }

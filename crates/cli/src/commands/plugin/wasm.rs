@@ -1,6 +1,14 @@
+use moonlit_engine::plugin::middleware::MiddlewareInfo;
+use moonlit_engine::plugin::{PluginMetadata, world};
 use wasmparser::{Encoding, Parser, Payload, Validator, WasmFeatures};
 
-#[allow(clippy::never_loop)]
+use crate::display::display_safe;
+use crate::plugin_probe::introspect;
+
+#[expect(
+  clippy::never_loop,
+  reason = "only the first payload, the version header, says what the binary is"
+)]
 pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
   for payload in Parser::new(0).parse_all(bytes) {
     match payload.map_err(|e| format!("not a valid wasm binary: {e}"))? {
@@ -11,11 +19,42 @@ pub fn is_component(bytes: &[u8]) -> Result<bool, String> {
   Err("empty or headerless wasm binary".to_string())
 }
 
-pub fn validate(bytes: &[u8]) -> Result<(), String> {
+fn validate(bytes: &[u8]) -> Result<(), String> {
   let mut v = Validator::new_with_features(WasmFeatures::all());
   v.validate_all(bytes)
     .map(|_types| ())
     .map_err(|e| format!("invalid component: {e}"))
+}
+
+/// Checks that `bytes` hold a valid component built for this CLI's plugin contract and reads its metadata and
+/// middlewares, printing why when it cannot; `Err` holds the exit code. `target` names the file in messages.
+pub async fn load_component(target: &str, bytes: &[u8]) -> Result<(PluginMetadata, Vec<MiddlewareInfo>), i32> {
+  match is_component(bytes) {
+    Ok(true) => {}
+    Ok(false) => {
+      eprintln!(
+        "error: '{}' is a core wasm module, not a WASI-P2 component (build with `moonlit plugin build`)",
+        display_safe(target)
+      );
+      return Err(2);
+    }
+    Err(e) => {
+      eprintln!("error: {e}");
+      return Err(2);
+    }
+  }
+  if let Err(e) = validate(bytes) {
+    eprintln!("error: {e}");
+    return Err(2);
+  }
+  if let Err(e) = world::check(bytes) {
+    eprintln!("error: {}", display_safe(&format!("'{target}': {e}")));
+    return Err(2);
+  }
+  introspect(bytes).await.map_err(|e| {
+    eprintln!("error: failed to instantiate component: {e}");
+    3
+  })
 }
 
 #[cfg(test)]

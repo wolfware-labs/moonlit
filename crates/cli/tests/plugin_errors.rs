@@ -83,6 +83,22 @@ fn inspect_rejects_a_core_module() {
     .stderr(contains("core wasm module"));
 }
 
+#[cfg(unix)]
+#[test]
+fn a_core_module_error_escapes_control_characters_in_the_file_name() {
+  let dir = tempfile::tempdir().unwrap();
+  let path = write(
+    dir.path(),
+    "core\u{1b}[2K.wasm",
+    &[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00],
+  );
+  let output = moonlit().args(["plugin", "inspect"]).arg(&path).output().unwrap();
+  let stderr = String::from_utf8(output.stderr).unwrap();
+  assert_eq!(output.status.code(), Some(2), "{stderr}");
+  assert!(stderr.contains("core\\x1b[2K.wasm' is a core wasm module"), "{stderr}");
+  assert!(!stderr.contains('\u{1b}'), "{stderr:?}");
+}
+
 #[test]
 fn inspect_rejects_an_invalid_component() {
   let dir = tempfile::tempdir().unwrap();
@@ -96,15 +112,17 @@ fn inspect_rejects_an_invalid_component() {
 }
 
 #[test]
-fn inspect_reports_a_component_that_is_not_a_plugin() {
+fn inspect_rejects_a_component_without_the_plugin_contract() {
   let dir = tempfile::tempdir().unwrap();
   let path = write(dir.path(), "empty.wasm", EMPTY_COMPONENT);
   moonlit()
     .args(["plugin", "inspect"])
     .arg(&path)
     .assert()
-    .code(3)
-    .stderr(contains("failed to instantiate component"));
+    .code(2)
+    .stderr(contains(
+      "built for an unknown plugin contract, this CLI supports moonlit:plugin@0.4.0",
+    ));
 }
 
 #[test]
@@ -202,15 +220,17 @@ fn publish_rejects_an_invalid_component() {
 }
 
 #[test]
-fn publish_reports_a_component_that_is_not_a_plugin() {
+fn publish_rejects_a_component_without_the_plugin_contract() {
   let dir = tempfile::tempdir().unwrap();
   let path = write(dir.path(), "empty.wasm", EMPTY_COMPONENT);
   moonlit()
     .args(["plugin", "publish", "reg.example.com/w/x:1", "--file"])
     .arg(&path)
     .assert()
-    .code(3)
-    .stderr(contains("failed to instantiate component"));
+    .code(2)
+    .stderr(contains(
+      "built for an unknown plugin contract, this CLI supports moonlit:plugin@0.4.0",
+    ));
 }
 
 #[test]

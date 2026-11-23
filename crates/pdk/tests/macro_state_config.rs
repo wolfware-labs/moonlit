@@ -71,22 +71,20 @@ fn state_and_config_flow_through_generated_code() {
   // `Err` (engine exit 3). The `__MOONLIT_PLUGIN_CONFIG.set` is never reached.
   #[allow(clippy::single_match)]
   match <MoonlitComponent as Guest>::init("\"not-an-object\"".to_string()) {
-    Ok(_) => panic!("expected Err for non-object plugin config"),
+    Ok(()) => panic!("expected Err for non-object plugin config"),
     Err(_) => (),
   }
 
   // Blank token: parses, then `validate()` fails — verbatim message, no `.set`.
   match <MoonlitComponent as Guest>::init(r#"{"token":""}"#.to_string()) {
-    Ok(_) => panic!("blank token must fail init"),
+    Ok(()) => panic!("blank token must fail init"),
     Err(e) => assert_eq!(e, "token is required."),
   }
 
   // Valid plugin-config: init succeeds and stores it (the earlier failed
   // attempts returned before calling `.set`, so this `.set` is the first and
   // only successful one for the process-global OnceLock).
-  let meta =
-    <MoonlitComponent as Guest>::init(r#"{"token":"abc"}"#.to_string()).expect("valid plugin config must init successfully");
-  assert_eq!(meta.name, "stateful");
+  <MoonlitComponent as Guest>::init(r#"{"token":"abc"}"#.to_string()).expect("valid plugin config must init successfully");
 
   // Execute the sole middleware: `state` lazily default-inits `Counter` and
   // increments it; `plugin_config` reads the value stored above.

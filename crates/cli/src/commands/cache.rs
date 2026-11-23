@@ -36,7 +36,10 @@ fn ls(output: Option<OutputMode>, cache: &Cache) -> i32 {
           })
         })
         .collect();
-      println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+      println!(
+        "{}",
+        serde_json::to_string_pretty(&arr).expect("JSON values always serialize")
+      );
     }
     OutputMode::Plain => {
       if items.is_empty() {

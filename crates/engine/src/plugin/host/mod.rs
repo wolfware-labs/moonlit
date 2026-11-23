@@ -7,7 +7,7 @@ pub mod state;
 use crate::logging::LogLevel;
 use crate::plugin::host::state::HostState;
 use crate::plugin::wit;
-pub use auth::{build_wasi_ctx, exec_globset};
+pub use auth::{build_globset, build_wasi_ctx};
 pub use child_process::ChildProcess;
 pub use net::AllowlistHooks;
 use wasmtime::component::{HasSelf, Linker};
@@ -23,6 +23,14 @@ pub(crate) fn link(linker: &mut Linker<HostState>) -> wasmtime::Result<()> {
 pub trait HostEventSink: Send + Sync {
   fn log(&self, step: &str, level: LogLevel, message: &str);
   fn progress(&self, step: &str, message: &str);
+}
+
+/// A sink that drops every log line and progress message.
+pub struct NullSink;
+
+impl HostEventSink for NullSink {
+  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
+  fn progress(&self, _step: &str, _message: &str) {}
 }
 
 #[derive(Clone, Debug, PartialEq)]

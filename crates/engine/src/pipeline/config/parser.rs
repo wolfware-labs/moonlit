@@ -1,4 +1,4 @@
-use crate::pipeline::config::model::{ConfigValue, Plugin, PluginUrl, Run, Stage, Step};
+use crate::pipeline::config::model::{ConfigValue, PluginDeclaration, PluginUrl, Run, Stage, Step};
 use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::{Span, Spanned};
 use crate::pipeline::config::tree::{Node, NodeValue};
@@ -7,12 +7,17 @@ use indexmap::IndexMap;
 use std::rc::Rc;
 
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
+  let config = parse_config_unvalidated(yaml, source_name)?;
+  validate(&config, &ConfigSource::new(yaml, source_name))?;
+  Ok(config)
+}
+
+/// Parses a release file without the checks that need the whole file, such as every stage
+/// referring to a declared plugin.
+pub fn parse_config_unvalidated(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
   let src = ConfigSource::new(yaml, source_name);
   let tree = tree::build_tree(&src)?;
-  let config = convert(&tree, &src)?;
-  let config = cleanup(config);
-  validate(&config, &src)?;
-  Ok(config)
+  Ok(cleanup(convert(&tree, &src)?))
 }
 
 fn convert(root: &Node, src: &ConfigSource) -> Result<PipelineConfig, ConfigDiagnostic> {
@@ -74,7 +79,7 @@ fn convert_root(
   let mut name: Option<String> = None;
   let mut arguments: Option<IndexMap<String, String>> = None;
   let mut variables: Option<IndexMap<String, String>> = None;
-  let mut plugins: Option<Spanned<Vec<Plugin>>> = None;
+  let mut plugins: Option<Spanned<Vec<PluginDeclaration>>> = None;
   let mut stages: Option<Spanned<Vec<Stage>>> = None;
 
   let mut seen: Vec<&str> = Vec::new();
@@ -177,7 +182,7 @@ fn string_map(node: &Node, context: &str, src: &ConfigSource) -> Result<IndexMap
   Ok(out)
 }
 
-fn convert_plugins(node: &Node, src: &ConfigSource) -> Result<Spanned<Vec<Plugin>>, ConfigDiagnostic> {
+fn convert_plugins(node: &Node, src: &ConfigSource) -> Result<Spanned<Vec<PluginDeclaration>>, ConfigDiagnostic> {
   let mut plugins = Vec::new();
   if let NodeValue::Seq(items) = &node.value {
     for item in items {
@@ -187,7 +192,7 @@ fn convert_plugins(node: &Node, src: &ConfigSource) -> Result<Spanned<Vec<Plugin
   Ok(Spanned::new(plugins, node.span))
 }
 
-fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagnostic> {
+fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<PluginDeclaration, ConfigDiagnostic> {
   let NodeValue::Map(entries) = &node.value else {
     return Err(ConfigDiagnostic::expected_mapping(src, "a plugin", node.span));
   };
@@ -195,6 +200,7 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
   let mut url: Option<Spanned<PluginUrl>> = None;
   let mut config: Option<ConfigMap> = None;
   let mut permissions: Option<Permissions> = None;
+  let mut permissions_span: Option<Span> = None;
 
   let mut seen: Vec<&str> = Vec::new();
   for (key, value) in entries {
@@ -213,7 +219,10 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
         url = Some(convert_url(value, src)?);
       }
       Some("config") => config = Some(config_map(value)),
-      Some("permissions") => permissions = Some(convert_permissions(value, src)?),
+      Some("permissions") => {
+        permissions = Some(convert_permissions(value, src)?);
+        permissions_span = Some(Span::new(key.span.start, content_end(value, src.yaml)));
+      }
       other => {
         return Err(ConfigDiagnostic::unknown_key(
           src,
@@ -229,12 +238,50 @@ fn convert_plugin(node: &Node, src: &ConfigSource) -> Result<Plugin, ConfigDiagn
   let Some(url) = url else {
     return Err(ConfigDiagnostic::missing_url(src, &name, node.span));
   };
-  Ok(Plugin {
+  Ok(PluginDeclaration {
     name,
     url,
     config: config.unwrap_or_default(),
     permissions,
+    span: Span::new(item_start(node.span.start, src.yaml), content_end(node, src.yaml)),
+    permissions_span,
   })
+}
+
+#[must_use]
+fn item_start(start: usize, yaml: &str) -> usize {
+  let mut end = start;
+  for line in yaml[..start].rsplit('\n') {
+    let line_start = end - line.len();
+    let code = line.find(" #").map_or(line, |i| &line[..i]);
+    let code = if code.trim_start().starts_with('#') { "" } else { code }.trim_end();
+    if code.ends_with('-') {
+      return line_start + code.len() - 1;
+    }
+    if !code.trim_start().is_empty() {
+      return start;
+    }
+    end = line_start.saturating_sub(1);
+  }
+  start
+}
+
+#[must_use]
+fn content_end(node: &Node, yaml: &str) -> usize {
+  let text = &yaml[node.span.start..node.span.end];
+  let block = !text.starts_with(['[', '{', '*']);
+  match &node.value {
+    NodeValue::Seq(items) if block => items.last().map_or(node.span.start, |item| content_end(item, yaml)),
+    NodeValue::Map(entries) if block => entries.last().map_or(node.span.start, |(key, value)| {
+      if matches!(value.value, NodeValue::Null) {
+        content_end(key, yaml)
+      } else {
+        content_end(value, yaml)
+      }
+    }),
+    NodeValue::Scalar(_) => node.span.start + text.trim_end_matches([' ', '\t', '\r']).len(),
+    _ => node.span.start + text.trim_end().len(),
+  }
 }
 
 fn convert_url(node: &Node, src: &ConfigSource) -> Result<Spanned<PluginUrl>, ConfigDiagnostic> {
@@ -559,6 +606,79 @@ mod tests {
   fn plugin_without_permissions_leaves_them_unset() {
     let config = parse(&with_plugins_and_stages(""));
     assert_eq!(config.plugins.value[0].permissions, None);
+  }
+
+  #[test]
+  fn plugin_spans_cover_the_item_and_its_permissions() {
+    let yaml = "plugins:\n  # first\n  - name: a\n    url: 'file://a.wasm'  # pinned\n    permissions:\n      exec:\n        - git\n      network: [x]  # note\n\n  # second\n  - name: b\n    url: \"file://b.wasm\"\n    config:\n      deep:\n        level: 1\n# end\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let [a, b] = &config.plugins.value[..] else {
+      panic!("two plugins")
+    };
+    let text = |span: Span| &yaml[span.start..span.end];
+
+    assert_eq!(
+      text(a.span),
+      "- name: a\n    url: 'file://a.wasm'  # pinned\n    permissions:\n      exec:\n        - git\n      network: [x]"
+    );
+    assert_eq!(
+      a.permissions_span.map(text),
+      Some("permissions:\n      exec:\n        - git\n      network: [x]")
+    );
+    assert_eq!(text(a.url.span), "'file://a.wasm'");
+    assert_eq!(
+      text(b.span),
+      "- name: b\n    url: \"file://b.wasm\"\n    config:\n      deep:\n        level: 1"
+    );
+    assert_eq!(b.permissions_span, None);
+    assert_eq!(text(b.url.span), "\"file://b.wasm\"");
+  }
+
+  #[test]
+  fn plugin_span_starts_at_a_dash_on_an_earlier_line() {
+    for item in [
+      "  -\n    name: a\n",
+      "  - # note\n    name: a\n",
+      "  -   # note\n\n    # more\n    name: a\n",
+    ] {
+      let yaml = format!("plugins:\n{item}    url: file://a.wasm\nstages:\n  s:\n    - run: a.go\n");
+      let config = parse(&yaml);
+      let span = config.plugins.value[0].span;
+      assert_eq!(span.start, "plugins:\n  ".len(), "{item:?}");
+      assert!(yaml[span.start..span.end].ends_with("url: file://a.wasm"), "{item:?}");
+    }
+  }
+
+  #[test]
+  fn plugin_span_ends_where_its_last_value_ends() {
+    let stages = "stages:\n  s:\n    - run: a.go\n";
+    for (body, end) in [
+      ("    permissions:\n      exec:\n        - git\n  # trailing\n", "- git"),
+      ("    config: {x: 1}  # c\n", "{x: 1}"),
+      ("    config:\n      note: |+\n        a\n\n\n", "a\n\n"),
+    ] {
+      let yaml = format!("plugins:\n  - name: a\n    url: file://a.wasm\n{body}{stages}");
+      let config = parse(&yaml);
+      let span = config.plugins.value[0].span;
+      assert!(yaml[span.start..span.end].ends_with(end), "{:?}", &yaml[span.start..span.end]);
+    }
+  }
+
+  #[test]
+  fn flow_plugin_span_starts_at_its_brace() {
+    let yaml = "name: a-\nplugins: [{name: a, url: file://a.wasm}]\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let span = config.plugins.value[0].span;
+    assert!(yaml[span.start..].starts_with("{name: a"), "{:?}", &yaml[span.start..]);
+  }
+
+  #[test]
+  fn unvalidated_parse_accepts_a_stage_running_an_undeclared_plugin() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\nstages:\n  s:\n    - run: b.go\n";
+    assert!(parse_config(yaml, "release.yml").is_err());
+    let config = parse_config_unvalidated(yaml, "release.yml").expect("structure");
+    assert_eq!(config.plugins.value[0].name, "a");
+    assert!(parse_config_unvalidated("plugins: [\n", "release.yml").is_err());
   }
 
   #[test]
@@ -1127,7 +1247,7 @@ mod tests {
     let config = parse(yaml);
     let plugins = &config.plugins.value;
     assert_eq!(plugins[0].config.len(), 3);
-    let values = |plugin: &Plugin| plugin.config.values().map(|v| v.value.clone()).collect::<Vec<_>>();
+    let values = |plugin: &PluginDeclaration| plugin.config.values().map(|v| v.value.clone()).collect::<Vec<_>>();
     assert_eq!(values(&plugins[0]), values(&plugins[1]));
     assert_eq!(config.stages.value[1].steps.len(), 2);
   }
@@ -1144,5 +1264,17 @@ mod tests {
   fn self_referencing_anchor_is_an_unknown_alias() {
     let diagnostic = error(&with_plugins_and_stages("variables: &a [*a]\n"));
     assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
+  }
+
+  #[test]
+  fn plugin_span_ends_at_a_last_key_without_a_value() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config:\nstages:\n  s:\n    - run: a.go\n";
+    let config = parse(yaml);
+    let span = config.plugins.value[0].span;
+    assert!(
+      yaml[span.start..span.end].ends_with("config"),
+      "{:?}",
+      &yaml[span.start..span.end]
+    );
   }
 }

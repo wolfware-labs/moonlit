@@ -1,0 +1,111 @@
+name: acme-service
+
+arguments:
+  version: "1.4.0"
+  channel: stable
+
+variables:
+  registry: ghcr.io/acme
+  region: eu-west-1
+
+plugins:
+  - name: git
+    url: oci://registry.moonlit.rs/wolfware/git:1.3.0
+    permissions:
+      exec: ["git"]
+      env: ["GIT_*"]
+      filesystem: read-write
+  - name: changelog
+    url: oci://registry.moonlit.rs/wolfware/changelog:2.1.0
+    config:
+      format: keep-a-changelog
+      sections: [added, changed, fixed, removed]
+    permissions:
+      filesystem: read-write
+  - name: cargo
+    url: oci://registry.moonlit.rs/wolfware/cargo:1.0.4
+    permissions:
+      exec: ["cargo", "rustc"]
+      env: ["CARGO_*", "RUST*"]
+      filesystem: read-write
+  - name: docker
+    url: oci://registry.moonlit.rs/wolfware/docker:3.2.0
+    config:
+      registry: $(vars:registry)
+      platforms: [linux/amd64, linux/arm64]
+    permissions:
+      network: ["ghcr.io"]
+      exec: ["docker"]
+      env: ["DOCKER_*"]
+      filesystem: read-only
+  - name: github
+    url: oci://registry.moonlit.rs/wolfware/github:2.0.0
+    config:
+      owner: acme
+      repo: service
+    permissions:
+      network: ["api.github.com", "uploads.github.com"]
+      env: ["GITHUB_*"]
+      filesystem: read-only
+
+stages:
+  prepare:
+    - name: tags
+      run: git.list-tags
+      config:
+        pattern: "v*"
+    - name: commits
+      run: git.commits-since
+      config:
+        since: $(output:tags)
+    - name: bump
+      run: changelog.next-version
+      config:
+        current: $(args:version)
+        commits: $(output:commits)
+  build:
+    - name: compile
+      run: cargo.build
+      config:
+        profile: release
+        features: [tls, metrics]
+        locked: true
+    - name: test
+      run: cargo.test
+      continueOnError: false
+      config:
+        workspace: true
+    - name: image
+      run: docker.build
+      condition: "args.channel == 'stable'"
+      config:
+        tag: $(vars:registry)/service:v$(output:bump)
+        context: .
+        labels:
+          org.opencontainers.image.version: $(output:bump)
+          org.opencontainers.image.source: https://github.com/acme/service
+  release:
+    - name: notes
+      run: changelog.render
+      config:
+        version: $(output:bump)
+        commits: $(output:commits)
+    - name: tag
+      run: git.create-tag
+      haltIf: "output.bump == ''"
+      config:
+        name: v$(output:bump)
+        message: Release v$(output:bump)
+    - name: push-image
+      run: docker.push
+      continueOnError: true
+      config:
+        image: $(output:image)
+    - name: publish
+      run: github.create-release
+      config:
+        tag: v$(output:bump)
+        name: v$(output:bump)
+        body: $(output:notes)
+        draft: false
+        assets: [target/release/service]

@@ -1,17 +1,10 @@
 use std::sync::Arc;
 
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
-use moonlit_engine::plugin::host::HostEventSink;
+use moonlit_engine::plugin::host::NullSink;
 use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/test_plugin.wasm");
-
-struct NullSink;
-impl HostEventSink for NullSink {
-  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-  fn progress(&self, _step: &str, _message: &str) {}
-}
 
 fn full_trust_config() -> PluginInstanceConfig {
   PluginInstanceConfig {
@@ -36,8 +29,7 @@ async fn instance() -> PluginInstance {
 #[tokio::test]
 async fn init_ok_and_failinit_err() {
   let mut p = instance().await;
-  let meta = p.init(&serde_json::json!({})).await.expect("init Ok");
-  assert_eq!(meta.name, "test-plugin");
+  assert_eq!(p.init(&serde_json::json!({})).await, Ok(()));
 
   let mut p2 = instance().await;
   let err = p2.init(&serde_json::json!({ "failInit": true })).await;
@@ -48,7 +40,7 @@ async fn init_ok_and_failinit_err() {
 async fn describe_and_list_carry_icon_and_io_schema() {
   let mut p = instance().await;
 
-  // ABI 0.3.0: describe() carries the plugin icon as a data URI.
+  // ABI 0.4.0: describe() carries the plugin icon as a data URI.
   let meta = p.describe().await.expect("describe Ok");
   let icon = meta.icon.expect("test fixture must carry an icon");
   assert!(

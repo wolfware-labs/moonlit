@@ -14,7 +14,7 @@ fn fixture_wasm_url() -> String {
 
 fn write_release(dir: &Path, middleware: &str) {
   let yaml = format!(
-    "name: demo\nplugins:\n  - name: tp\n    url: {}\nstages:\n  build:\n    - name: s1\n      run: tp.{middleware}\n",
+    "name: demo\nplugins:\n  - name: tp\n    url: {}\n    permissions:\n      network: [api.example.com]\nstages:\n  build:\n    - name: s1\n      run: tp.{middleware}\n",
     fixture_wasm_url()
   );
   fs::write(dir.join("release.yml"), yaml).unwrap();

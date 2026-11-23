@@ -1,17 +1,10 @@
 use std::sync::Arc;
 
-use moonlit_engine::logging::LogLevel;
 use moonlit_engine::pipeline::config::Permissions;
-use moonlit_engine::plugin::host::{HostEventSink, ReleaseContext};
+use moonlit_engine::plugin::host::{NullSink, ReleaseContext};
 use moonlit_engine::plugin::{Plugin, PluginInstance, PluginInstanceConfig};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/pdk_sample.wasm");
-
-struct NullSink;
-impl HostEventSink for NullSink {
-  fn log(&self, _step: &str, _level: LogLevel, _message: &str) {}
-  fn progress(&self, _step: &str, _message: &str) {}
-}
 
 fn cfg() -> PluginInstanceConfig {
   PluginInstanceConfig {
@@ -37,11 +30,12 @@ async fn instance() -> PluginInstance {
 }
 
 #[tokio::test]
-async fn init_reports_sdk_metadata() {
+async fn describe_reports_sdk_metadata_and_init_succeeds() {
   let mut p = instance().await;
-  let meta = p.init(&serde_json::json!({})).await.expect("init Ok");
+  let meta = p.describe().await.expect("describe Ok");
   assert_eq!(meta.name, "pdk-sample");
   assert_eq!(meta.version, "0.1.0");
+  assert_eq!(p.init(&serde_json::json!({})).await, Ok(()));
 }
 
 #[tokio::test]
