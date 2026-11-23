@@ -10,7 +10,7 @@ mod model;
 mod runner;
 
 pub(crate) use crate::pipeline::data::PipelineData;
-pub use crate::pipeline::error::PipelineError;
+pub use crate::pipeline::error::{IncompatiblePlugin, PipelineError};
 use crate::pipeline::model::FlatStep;
 pub use crate::pipeline::model::{PipelineEvent, PipelineOptions, PipelineSummary, StepResult};
 use crate::plugin::PluginInstance;
