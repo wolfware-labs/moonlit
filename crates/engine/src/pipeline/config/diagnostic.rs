@@ -33,6 +33,31 @@ impl ConfigDiagnostic {
   }
 
   #[must_use]
+  pub fn nesting_too_deep(source: &ConfigSource, max_depth: usize, span: Span) -> ConfigDiagnostic {
+    Self::make(
+      source.name,
+      source.yaml,
+      format!("YAML nesting is too deep: collections may nest at most {max_depth} levels."),
+      Some(span),
+      "nested too deeply",
+    )
+  }
+
+  #[must_use]
+  pub fn alias_expansion_too_large(source: &ConfigSource, max_nodes: usize, max_bytes: usize, span: Span) -> ConfigDiagnostic {
+    let mib = max_bytes >> 20;
+    Self::make(
+      source.name,
+      source.yaml,
+      format!(
+        "YAML aliases expand too much: a document may expand at most {max_nodes} nodes and {mib} MiB of text through aliases."
+      ),
+      Some(span),
+      "alias expands past the limit",
+    )
+  }
+
+  #[must_use]
   pub fn expected_mapping(source: &ConfigSource, context: &str, span: Span) -> ConfigDiagnostic {
     Self::make(
       source.name,

@@ -977,4 +977,129 @@ mod tests {
     let contents = source.read_span(&(0, 1).into(), 0, 0).expect("readable source");
     assert_eq!(contents.name(), Some("release.yaml"));
   }
+
+  const TOO_DEEP: &str = "YAML nesting is too deep: collections may nest at most 64 levels.";
+  const TOO_MUCH_EXPANSION: &str =
+    "YAML aliases expand too much: a document may expand at most 100000 nodes and 8 MiB of text through aliases.";
+
+  /// A valid file whose first plugin's config nests `levels` collections deep, counting from the root
+  /// mapping (the root, `plugins`, the plugin and its `config` take the first four).
+  fn nested_plugin_config(levels: usize) -> String {
+    let maps = levels - 3;
+    let value = format!("{}x{}", "{a: ".repeat(maps), "}".repeat(maps));
+    format!("plugins:\n  - name: tp\n    url: file://tp.wasm\n    config: {value}\n{STAGES}")
+  }
+
+  /// `variables:` holding a scalar anchored as `l0`, then `levels` anchors that each list `width`
+  /// aliases of the one before.
+  fn nested_aliases(first: &str, levels: usize, width: usize) -> String {
+    let lines: Vec<String> = (1..=levels)
+      .map(|level| {
+        let items = vec![format!("*l{}", level - 1); width].join(", ");
+        format!("  l{level}: &l{level} [{items}]\n")
+      })
+      .collect();
+    with_plugins_and_stages(&format!("variables:\n  l0: &l0 \"{first}\"\n{}", lines.concat()))
+  }
+
+  fn config_depth(value: &ConfigValue) -> usize {
+    match value {
+      ConfigValue::List(items) => 1 + items.iter().map(|item| config_depth(&item.value)).max().unwrap_or(0),
+      ConfigValue::Map(entries) => 1 + entries.values().map(|entry| config_depth(&entry.value)).max().unwrap_or(0),
+      _ => 0,
+    }
+  }
+
+  #[test]
+  fn deep_block_nesting_is_refused() {
+    let yaml = format!("{}x\n", "- ".repeat(10_000));
+    let message = std::thread::Builder::new()
+      .stack_size(2 << 20)
+      .spawn(move || error(&yaml).message().to_string())
+      .expect("spawn the parser thread")
+      .join()
+      .expect("the parser thread does not crash");
+    assert_eq!(message, TOO_DEEP);
+  }
+
+  #[test]
+  fn nesting_at_the_limit_parses() {
+    let config = parse(&nested_plugin_config(64));
+    let plugin_config = ConfigValue::Map(config.plugins.value[0].config.clone());
+    assert_eq!(config_depth(&plugin_config), 61);
+  }
+
+  #[test]
+  fn nesting_one_past_the_limit_is_refused() {
+    let yaml = nested_plugin_config(65);
+    let diagnostic = error(&yaml);
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+    // The collection is refused at its opening bracket, before anything inside it is read.
+    let span = diagnostic.span().expect("span");
+    assert_eq!(span.offset(), yaml.find("{a: x}").expect("innermost mapping"));
+    assert_eq!(label(&diagnostic), "nested too deeply");
+  }
+
+  #[test]
+  fn aliased_nesting_counts_toward_the_depth_limit() {
+    let deep = format!("{}x{}", "[".repeat(40), "]".repeat(40));
+    let site = format!("{}*deep{}", "[".repeat(24), "]".repeat(24));
+    let yaml = with_plugins_and_stages(&format!("variables:\n  a: &deep {deep}\n  b: {site}\n"));
+    let diagnostic = error(&yaml);
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+    assert_eq!(underlined(&yaml, &diagnostic), "*deep");
+  }
+
+  #[test]
+  fn nested_aliases_are_refused() {
+    let yaml = nested_aliases("lol", 8, 10);
+    let started = std::time::Instant::now();
+    let diagnostic = error(&yaml);
+    assert!(
+      started.elapsed() < std::time::Duration::from_secs(1),
+      "{:?}",
+      started.elapsed()
+    );
+    assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+    assert!(underlined(&yaml, &diagnostic).starts_with("*l"));
+    assert_eq!(label(&diagnostic), "alias expands past the limit");
+  }
+
+  #[test]
+  fn large_aliased_scalar_is_refused() {
+    let yaml = nested_aliases(&"x".repeat(100 << 10), 5, 10);
+    let started = std::time::Instant::now();
+    let diagnostic = error(&yaml);
+    assert!(
+      started.elapsed() < std::time::Duration::from_secs(1),
+      "{:?}",
+      started.elapsed()
+    );
+    assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+  }
+
+  #[test]
+  fn aliases_within_budget_still_parse() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config: &shared\n      token: abc\n      retries: '3'\n      hosts: [one, two]\n  - name: b\n    url: file://b.wasm\n    config: *shared\nstages:\n  build: &steps\n    - run: a.go\n    - run: b.go\n  again: *steps\n";
+    let config = parse(yaml);
+    let plugins = &config.plugins.value;
+    assert_eq!(plugins[0].config.len(), 3);
+    let values = |plugin: &Plugin| plugin.config.values().map(|v| v.value.clone()).collect::<Vec<_>>();
+    assert_eq!(values(&plugins[0]), values(&plugins[1]));
+    assert_eq!(config.stages.value[1].steps.len(), 2);
+  }
+
+  #[test]
+  fn many_small_aliases_within_budget_still_parse() {
+    // Four levels of ten aliases expand to about 12,000 nodes, well inside the budget: the tree builds,
+    // and only the schema refuses a list where `variables` expects a string.
+    let diagnostic = error(&nested_aliases("v", 4, 10));
+    assert_eq!(diagnostic.message(), "Expected a string value in variables.");
+  }
+
+  #[test]
+  fn self_referencing_anchor_is_an_unknown_alias() {
+    let diagnostic = error(&with_plugins_and_stages("variables: &a [*a]\n"));
+    assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
+  }
 }
