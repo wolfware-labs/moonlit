@@ -33,6 +33,7 @@ fn build_produces_and_validates_a_component() {
   let root = dir.path().join("buildme");
   isolated::moonlit()
     .current_dir(&root)
+    .env_remove("CARGO_TARGET_DIR")
     .args(["plugin", "build", "--release"])
     .assert()
     .success();
