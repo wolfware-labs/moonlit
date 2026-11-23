@@ -1,11 +1,12 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 
 #[test]
 fn missing_file_errors_with_hint() {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args([
       "plugin",
       "publish",
@@ -24,8 +25,7 @@ fn core_module_is_rejected() {
   let tmp = tempfile::tempdir().unwrap();
   let path = tmp.path().join("core.wasm");
   std::fs::write(&path, [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]).unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["plugin", "publish", "oci://reg.example.com/w/x:1", "--file"])
     .arg(&path)
     .assert()
@@ -40,8 +40,7 @@ async fn component_for_another_contract_is_rejected_before_pushing() {
   let reference = format!("oci://{}/acme/old:1.0.0", server.address());
   let home = tempfile::tempdir().unwrap();
   let assert = tokio::task::spawn_blocking(move || {
-    Command::cargo_bin("moonlit")
-      .unwrap()
+    isolated::moonlit()
       .env("MOONLIT_HOME", home.path())
       .args(["plugin", "publish", &reference, "--file", fixture])
       .assert()

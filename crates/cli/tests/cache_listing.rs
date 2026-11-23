@@ -1,10 +1,12 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use moonlit_engine::cache::{Cache, PluginMeta, SystemClock};
 use predicates::str::contains;
 use std::path::Path;
 
-fn moonlit(cache: &Path) -> Command {
-  let mut cmd = Command::cargo_bin("moonlit").unwrap();
+fn moonlit(cache: &Path) -> isolated::Moonlit {
+  let mut cmd = isolated::moonlit();
   cmd.env("MOONLIT_CACHE_DIR", cache);
   cmd
 }

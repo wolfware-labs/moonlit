@@ -1,11 +1,13 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::str::contains;
 use std::path::Path;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn moonlit(home: &Path) -> Command {
-  let mut cmd = Command::cargo_bin("moonlit").unwrap();
+fn moonlit(home: &Path) -> isolated::Moonlit {
+  let mut cmd = isolated::moonlit();
   cmd.env("MOONLIT_HOME", home);
   cmd
 }

@@ -1,4 +1,6 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 use serde_json::{Value, json};
@@ -40,8 +42,7 @@ async fn registry_with_github() -> MockServer {
 }
 
 fn search(server: &MockServer, query: &str, output: &str) -> assert_cmd::assert::Assert {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["search", query, "--registry", &server.uri(), "--output", output])
     .assert()
 }
@@ -294,8 +295,7 @@ async fn search_escapes_control_characters_from_the_registry() {
 
 #[test]
 fn search_refuses_plain_http_to_a_remote_registry() {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args([
       "search",
       "github",
@@ -327,8 +327,7 @@ async fn search_colors_badges_by_status_only_in_pretty_output() {
   )
   .await;
   let colored = |output: &str| {
-    let assert = Command::cargo_bin("moonlit")
-      .unwrap()
+    let assert = isolated::moonlit()
       .env("CLICOLOR_FORCE", "1")
       .env_remove("NO_COLOR")
       .args(["search", "x", "--registry", &server.uri(), "--output", output])

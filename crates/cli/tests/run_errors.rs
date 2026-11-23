@@ -1,7 +1,8 @@
+#[path = "support/isolated.rs"]
+mod isolated;
 #[path = "support/oci_mock.rs"]
 mod oci_mock;
 
-use assert_cmd::Command;
 use predicates::str::contains;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -115,8 +116,8 @@ fn write_release(path: &Path) {
   std::fs::write(path, yaml).unwrap();
 }
 
-fn moonlit_in(dir: &Path) -> Command {
-  let mut cmd = Command::cargo_bin("moonlit").unwrap();
+fn moonlit_in(dir: &Path) -> isolated::Moonlit {
+  let mut cmd = isolated::moonlit();
   cmd.current_dir(dir);
   cmd
 }

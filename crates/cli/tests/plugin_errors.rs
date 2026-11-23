@@ -1,4 +1,6 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::str::contains;
 use std::path::{Path, PathBuf};
 
@@ -20,8 +22,8 @@ fn write(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
   path
 }
 
-fn moonlit() -> Command {
-  Command::cargo_bin("moonlit").unwrap()
+fn moonlit() -> isolated::Moonlit {
+  isolated::moonlit()
 }
 
 fn plugin_crate(dir: &Path, lib_rs: Option<&str>) -> PathBuf {

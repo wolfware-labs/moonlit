@@ -1,3 +1,5 @@
+#[path = "support/isolated.rs"]
+mod isolated;
 #[path = "support/oci_mock.rs"]
 mod oci_mock;
 #[cfg(unix)]
@@ -7,7 +9,6 @@ mod terminal;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use assert_cmd::Command;
 use predicates::str::contains;
 use serde_json::{Value, json};
 use tempfile::TempDir;
@@ -90,8 +91,7 @@ impl Project {
   }
 
   fn update(&self, args: &[&str]) -> assert_cmd::assert::Assert {
-    Command::cargo_bin("moonlit")
-      .unwrap()
+    isolated::moonlit()
       .current_dir(self.dir.path())
       .env("MOONLIT_HOME", self.home.path())
       .env("MOONLIT_CACHE_DIR", self.cache.path())
@@ -102,7 +102,7 @@ impl Project {
 
   #[cfg(unix)]
   fn update_on_terminal(&self, args: &[&str], keys: &[u8]) -> (std::process::Output, String) {
-    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_moonlit"));
+    let (mut command, _dirs) = isolated::moonlit_process();
     command
       .current_dir(self.dir.path())
       .env("MOONLIT_HOME", self.home.path())

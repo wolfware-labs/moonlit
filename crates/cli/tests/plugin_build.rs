@@ -1,4 +1,5 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
 
 fn pdk_path() -> String {
   concat!(env!("CARGO_MANIFEST_DIR"), "/../pdk").to_string()
@@ -23,16 +24,14 @@ fn build_produces_and_validates_a_component() {
   }
   let dir = tempfile::tempdir().unwrap();
   // Scaffold, then build it — the end-to-end author loop.
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .current_dir(dir.path())
     .args(["plugin", "new", "buildme", "--pdk-path", &pdk_path()])
     .assert()
     .success();
 
   let root = dir.path().join("buildme");
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .current_dir(&root)
     .args(["plugin", "build", "--release"])
     .assert()
@@ -42,8 +41,7 @@ fn build_produces_and_validates_a_component() {
   assert!(artifact.is_file(), "component artifact should exist");
 
   // And it inspects cleanly (full author loop: new -> build -> inspect).
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .args(["plugin", "inspect", artifact.to_str().unwrap()])
     .assert()
     .success()
@@ -54,8 +52,7 @@ fn build_produces_and_validates_a_component() {
 fn build_rejects_a_non_plugin_directory() {
   let dir = tempfile::tempdir().unwrap();
   std::fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .current_dir(dir.path())
     .args(["plugin", "build"])
     .assert()

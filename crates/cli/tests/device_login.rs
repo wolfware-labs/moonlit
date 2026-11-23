@@ -1,4 +1,6 @@
-use assert_cmd::Command;
+#[path = "support/isolated.rs"]
+mod isolated;
+
 use predicates::str::contains;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -39,8 +41,7 @@ fn host(server: &MockServer) -> String {
 }
 
 fn login(server: &MockServer, home: &std::path::Path) -> assert_cmd::assert::Assert {
-  Command::cargo_bin("moonlit")
-    .unwrap()
+  isolated::moonlit()
     .env("MOONLIT_HOME", home)
     .args(["login", &host(server)])
     .assert()
