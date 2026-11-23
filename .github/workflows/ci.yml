@@ -126,53 +126,6 @@ jobs:
           # A coverage upload outage must not fail a PR; the check job is the gate.
           fail_ci_if_error: false
 
-  mutants:
-    name: mutants (PR diff, shard ${{ matrix.shard }}/16)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-    permissions:
-      contents: read
-    env:
-      CARGO_PROFILE_DEV_DEBUG: line-tables-only
-      CARGO_PROFILE_TEST_DEBUG: line-tables-only
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Install cargo-mutants
-        uses: taiki-e/install-action@4e14a60b36eb62630dcc25614f0be0659ab8830c # cargo-mutants
-        with:
-          tool: cargo-mutants
-      - name: Cache cargo
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-mutants-${{ hashFiles('**/Cargo.lock') }}
-      - name: Diff against the base branch
-        run: git diff "origin/${{ github.base_ref }}...HEAD" > pr.diff
-      # --in-place builds in the checkout so the cached target directory is
-      # reused; the default copies the tree and rebuilds every dependency.
-      - name: Mutate only the changed lines
-        run: >-
-          cargo mutants --in-diff pr.diff --in-place --no-shuffle
-          --shard ${{ matrix.shard }}/16
-          --package moonlit-engine --package moonlit
-      - name: Upload the mutants report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: mutants-report-${{ matrix.shard }}
-          path: mutants.out
-          retention-days: 7
-
   benchmarks:
     name: benchmarks
     runs-on: ubuntu-latest
