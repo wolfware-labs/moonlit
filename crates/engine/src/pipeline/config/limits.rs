@@ -1,7 +1,7 @@
 //! Bounds on the YAML tree built from a release file.
 //!
 //! The tree builder checks these before it descends into a collection or copies an anchored node at
-//! an alias, so a file that passes a limit is refused before the work it asks for is done.
+//! an alias, so a file that goes past a limit is refused before the work it asks for is done.
 
 /// Deepest nesting of collections (sequences and mappings) a release file may use. The root
 /// mapping is level 1. Every later stage walks the tree recursively, so this also bounds their

@@ -114,11 +114,15 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
 }
 
 struct Builder<'t, 'a> {
+  /// The document's events, with their byte spans.
   toks: &'t [(Tok, Span)],
+  /// Index of the next token to read.
   pos: usize,
   /// Each anchored node with its expanded size, which every alias to it is charged.
   anchors: HashMap<usize, (Node, Size)>,
+  /// What the aliases read so far have copied into the document.
   aliases: AliasBudget,
+  /// The release file, for diagnostics.
   src: &'t ConfigSource<'a>,
 }
 
@@ -220,9 +224,7 @@ impl Builder<'_, '_> {
       }
       Tok::Alias(id) => match self.anchors.get(&id) {
         Some((anchored, size)) => {
-          if limits::too_deep(enclosing, size.height) {
-            return Err(ConfigDiagnostic::nesting_too_deep(self.src, MAX_DEPTH, span));
-          }
+          self.check_depth(enclosing, size.height, span)?;
           if !self.aliases.charge(*size) {
             return Err(ConfigDiagnostic::alias_expansion_too_large(
               self.src,
@@ -245,12 +247,19 @@ impl Builder<'_, '_> {
   }
 
   /// Opens a collection under `enclosing` others and returns its own level, or refuses it when that
-  /// level passes [`MAX_DEPTH`].
+  /// level goes past [`MAX_DEPTH`].
   fn enter(&self, enclosing: usize, span: Span) -> Result<usize, ConfigDiagnostic> {
-    if limits::too_deep(enclosing, 1) {
+    self.check_depth(enclosing, 1, span)?;
+    Ok(enclosing + 1)
+  }
+
+  /// Refuses a subtree of `height` levels placed under `enclosing` collections when it nests past
+  /// [`MAX_DEPTH`], with the diagnostic at `span`.
+  fn check_depth(&self, enclosing: usize, height: usize, span: Span) -> Result<(), ConfigDiagnostic> {
+    if limits::too_deep(enclosing, height) {
       return Err(ConfigDiagnostic::nesting_too_deep(self.src, MAX_DEPTH, span));
     }
-    Ok(enclosing + 1)
+    Ok(())
   }
 
   fn register(&mut self, anchor: usize, node: &Node, size: Size) {

@@ -451,6 +451,7 @@ fn parse_bool(node: &Node, src: &ConfigSource) -> Result<bool, ConfigDiagnostic>
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::pipeline::config::limits::MAX_DEPTH;
   use miette::Diagnostic;
 
   const PLUGINS: &str = "plugins:\n  - name: tp\n    url: file://tp.wasm\n";
@@ -1024,14 +1025,14 @@ mod tests {
 
   #[test]
   fn nesting_at_the_limit_parses() {
-    let config = parse(&nested_plugin_config(64));
+    let config = parse(&nested_plugin_config(MAX_DEPTH));
     let plugin_config = ConfigValue::Map(config.plugins.value[0].config.clone());
-    assert_eq!(config_depth(&plugin_config), 61);
+    assert_eq!(config_depth(&plugin_config), MAX_DEPTH - 3);
   }
 
   #[test]
   fn nesting_one_past_the_limit_is_refused() {
-    let yaml = nested_plugin_config(65);
+    let yaml = nested_plugin_config(MAX_DEPTH + 1);
     let diagnostic = error(&yaml);
     assert_eq!(diagnostic.message(), TOO_DEEP);
     // The collection is refused at its opening bracket, before anything inside it is read.
