@@ -4,6 +4,7 @@ use crate::pipeline::config::span::{Span, Spanned};
 use crate::pipeline::config::tree::{Node, NodeValue};
 use crate::pipeline::config::{ConfigDiagnostic, ConfigMap, FilesystemAccess, Permissions, PipelineConfig, tree};
 use indexmap::IndexMap;
+use std::rc::Rc;
 
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
   let src = ConfigSource::new(yaml, source_name);
@@ -65,7 +66,11 @@ fn create_empty(span: Span) -> PipelineConfig {
   }
 }
 
-fn convert_root(entries: &[(Node, Node)], root_span: Span, src: &ConfigSource) -> Result<PipelineConfig, ConfigDiagnostic> {
+fn convert_root(
+  entries: &[(Rc<Node>, Rc<Node>)],
+  root_span: Span,
+  src: &ConfigSource,
+) -> Result<PipelineConfig, ConfigDiagnostic> {
   let mut name: Option<String> = None;
   let mut arguments: Option<IndexMap<String, String>> = None;
   let mut variables: Option<IndexMap<String, String>> = None;
@@ -258,7 +263,7 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
   let value = match &node.value {
     NodeValue::Null => ConfigValue::Null,
     NodeValue::Scalar(raw) => ConfigValue::String(raw.clone()),
-    NodeValue::Seq(items) => ConfigValue::List(items.iter().map(to_config_value).collect()),
+    NodeValue::Seq(items) => ConfigValue::List(items.iter().map(|item| to_config_value(item)).collect()),
     NodeValue::Map(entries) => {
       let mut m = ConfigMap::new();
       for (key, val) in entries {
@@ -312,7 +317,7 @@ fn convert_permissions(node: &Node, src: &ConfigSource) -> Result<Permissions, C
 #[must_use]
 fn string_list(node: &Node) -> Vec<String> {
   match &node.value {
-    NodeValue::Seq(items) => items.iter().filter_map(scalar_string).collect(),
+    NodeValue::Seq(items) => items.iter().filter_map(|item| scalar_string(item)).collect(),
     NodeValue::Scalar(raw) => vec![raw.clone()],
     _ => Vec::new(),
   }
@@ -1077,6 +1082,28 @@ mod tests {
       started.elapsed()
     );
     assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+  }
+
+  #[test]
+  fn aliased_bytes_alone_are_refused() {
+    // Two levels of ten aliases over a 100 KiB scalar copy about 10 MiB but only about 120 nodes,
+    // so only the byte limit can refuse it.
+    let diagnostic = error(&nested_aliases(&"x".repeat(100 << 10), 2, 10));
+    assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+  }
+
+  #[test]
+  fn deep_nesting_stops_reading_early() {
+    // The stray `]` at the end is a syntax error that only a reader that went that far would see.
+    let yaml = format!(
+      "{}x
+]
+",
+      "- ".repeat(1_000_000)
+    );
+    let diagnostic = error(&yaml);
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+    assert_eq!(diagnostic.span().expect("span").offset(), 2 * 64);
   }
 
   #[test]

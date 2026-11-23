@@ -4,6 +4,7 @@ use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::Span;
 use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node {
@@ -11,12 +12,14 @@ pub struct Node {
   pub span: Span,
 }
 
+/// A node's value. Children are shared, so an anchored node is stored once however many aliases
+/// name it: an alias copies only the node it names, not the subtree below it.
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeValue {
   Null,
   Scalar(String),
-  Seq(Vec<Node>),
-  Map(Vec<(Node, Node)>),
+  Seq(Vec<Rc<Node>>),
+  Map(Vec<(Rc<Node>, Rc<Node>)>),
 }
 
 impl Node {
@@ -76,6 +79,9 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
   };
 
   let mut toks: Vec<(Tok, Span)> = Vec::new();
+  // Collections open at the current event. Counting them here stops reading a file that nests past
+  // the limit as soon as it does, instead of after the whole event stream is in memory.
+  let mut open: usize = 0;
   for item in Parser::new_from_str(src.yaml) {
     let (ev, pspan) = item.map_err(|e| {
       let len = src.yaml.len();
@@ -100,6 +106,16 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       Event::MappingStart(anchor, _tag) => Tok::MapStart(anchor),
       Event::MappingEnd => Tok::MapEnd,
     };
+    match tok {
+      Tok::SeqStart(_) | Tok::MapStart(_) => {
+        if limits::too_deep(open, 1) {
+          return Err(ConfigDiagnostic::nesting_too_deep(src, MAX_DEPTH, span));
+        }
+        open += 1;
+      }
+      Tok::SeqEnd | Tok::MapEnd => open = open.saturating_sub(1),
+      _ => {}
+    }
     toks.push((tok, span));
   }
 
@@ -118,8 +134,9 @@ struct Builder<'t, 'a> {
   toks: &'t [(Tok, Span)],
   /// Index of the next token to read.
   pos: usize,
-  /// Each anchored node with its expanded size, which every alias to it is charged.
-  anchors: HashMap<usize, (Node, Size)>,
+  /// Each anchored node, shared with the tree, and its expanded size, which every alias to it is
+  /// charged.
+  anchors: HashMap<usize, (Rc<Node>, Size)>,
   /// What the aliases read so far have copied into the document.
   aliases: AliasBudget,
   /// The release file, for diagnostics.
@@ -142,21 +159,22 @@ impl Builder<'_, '_> {
       match self.toks.get(self.pos) {
         Some((Tok::StreamStart | Tok::DocStart, _)) => self.pos += 1,
         Some((Tok::StreamEnd | Tok::DocEnd, s)) => return Ok(Node::null(*s)),
-        Some(_) => return self.build_node(0).map(|(node, _)| node),
+        // An anchored root is still shared with `anchors`; copying it then is shallow.
+        Some(_) => return self.build_node(0).map(|(root, _)| Rc::unwrap_or_clone(root)),
         None => return Ok(Node::null(Span::point(0))),
       }
     }
   }
 
   /// Builds the node at the cursor, which sits under `enclosing` collections, and returns it with
-  /// its expanded size. Refuses a collection past [`MAX_DEPTH`] before descending into it, and an
-  /// alias past either limit before copying its anchor.
-  fn build_node(&mut self, enclosing: usize) -> Result<(Node, Size), ConfigDiagnostic> {
+  /// its expanded size. Refuses an alias that would nest past [`MAX_DEPTH`] or take the document
+  /// past either alias limit; [`build_tree`] has already refused input nested past [`MAX_DEPTH`].
+  fn build_node(&mut self, enclosing: usize) -> Result<(Rc<Node>, Size), ConfigDiagnostic> {
     let idx = self.pos;
     self.pos += 1;
     let (tok, span) = match self.toks.get(idx) {
       Some((t, s)) => (t.clone(), *s),
-      None => return Ok((Node::null(Span::point(0)), Size::scalar(0))),
+      None => return Ok((Rc::new(Node::null(Span::point(0))), Size::scalar(0))),
     };
     match tok {
       Tok::Scalar { raw, plain, anchor } => {
@@ -166,12 +184,12 @@ impl Builder<'_, '_> {
         } else {
           NodeValue::Scalar(raw)
         };
-        let node = Node { value, span };
+        let node = Rc::new(Node { value, span });
         self.register(anchor, &node, size);
         Ok((node, size))
       }
       Tok::SeqStart(anchor) => {
-        let level = self.enter(enclosing, span)?;
+        let level = enclosing + 1; // the reader refused anything deeper than MAX_DEPTH
         let mut size = Size::empty_collection();
         let mut items = Vec::new();
         let end = loop {
@@ -188,15 +206,15 @@ impl Builder<'_, '_> {
             Peek::Eof => break span,
           }
         };
-        let node = Node {
+        let node = Rc::new(Node {
           value: NodeValue::Seq(items),
           span: Span::new(span.start, end.end),
-        };
+        });
         self.register(anchor, &node, size);
         Ok((node, size))
       }
       Tok::MapStart(anchor) => {
-        let level = self.enter(enclosing, span)?;
+        let level = enclosing + 1; // the reader refused anything deeper than MAX_DEPTH
         let mut size = Size::empty_collection();
         let mut entries = Vec::new();
         let end = loop {
@@ -215,10 +233,10 @@ impl Builder<'_, '_> {
             Peek::Eof => break span,
           }
         };
-        let node = Node {
+        let node = Rc::new(Node {
           value: NodeValue::Map(entries),
           span: Span::new(span.start, end.end),
-        };
+        });
         self.register(anchor, &node, size);
         Ok((node, size))
       }
@@ -233,24 +251,20 @@ impl Builder<'_, '_> {
               span,
             ));
           }
-          let mut node = anchored.clone();
-          node.span = span; // carry the alias site's span, not the anchor's
-          Ok((node, *size))
+          // Copy the named node only, to carry the alias site's span; its children stay shared.
+          let node = Node {
+            value: anchored.value.clone(),
+            span,
+          };
+          Ok((Rc::new(node), *size))
         }
         None => Err(ConfigDiagnostic::unknown_alias(self.src, span)),
       },
       // Framing tokens shouldn't reach here; treat defensively as empty.
       Tok::StreamStart | Tok::StreamEnd | Tok::DocStart | Tok::DocEnd | Tok::SeqEnd | Tok::MapEnd => {
-        Ok((Node::null(span), Size::scalar(0)))
+        Ok((Rc::new(Node::null(span)), Size::scalar(0)))
       }
     }
-  }
-
-  /// Opens a collection under `enclosing` others and returns its own level, or refuses it when that
-  /// level goes past [`MAX_DEPTH`].
-  fn enter(&self, enclosing: usize, span: Span) -> Result<usize, ConfigDiagnostic> {
-    self.check_depth(enclosing, 1, span)?;
-    Ok(enclosing + 1)
   }
 
   /// Refuses a subtree of `height` levels placed under `enclosing` collections when it nests past
@@ -262,9 +276,52 @@ impl Builder<'_, '_> {
     Ok(())
   }
 
-  fn register(&mut self, anchor: usize, node: &Node, size: Size) {
+  fn register(&mut self, anchor: usize, node: &Rc<Node>, size: Size) {
     if anchor != 0 {
-      self.anchors.insert(anchor, (node.clone(), size));
+      self.anchors.insert(anchor, (Rc::clone(node), size));
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// One 128 KiB scalar and a 1000-item list, then 62 anchored sequences nested in one another,
+  /// the innermost listing 62 aliases of the scalar and 99 of the list: just under both alias
+  /// limits, with every level anchored.
+  fn nested_anchor_chain() -> String {
+    let aliases = [vec!["*s"; 62], vec!["*n"; 99]].concat().join(", ");
+    let open = (0..62).map(|i| format!("&a{i} [")).collect::<Vec<_>>().concat();
+    format!(
+      "s: &s \"{}\"\nn: &n [{}]\nc: {open}{aliases}{}\n",
+      "x".repeat(128 << 10),
+      vec!["x"; 1000].join(", "),
+      "]".repeat(62)
+    )
+  }
+
+  #[test]
+  fn alias_shares_the_anchored_children() {
+    let tree = build_tree(&ConfigSource::new("a: &x [one, two]\nb: *x\n", "release.yml")).expect("valid tree");
+    let NodeValue::Map(entries) = &tree.value else {
+      panic!("root is a mapping")
+    };
+    let (NodeValue::Seq(anchored), NodeValue::Seq(aliased)) = (&entries[0].1.value, &entries[1].1.value) else {
+      panic!("both values are sequences")
+    };
+    assert!(anchored.iter().zip(aliased).all(|(a, b)| Rc::ptr_eq(a, b)));
+    // The alias node itself carries the alias site's span.
+    assert_eq!(entries[1].1.span, Span::new(20, 22));
+  }
+
+  #[test]
+  fn nested_anchor_chain_stays_within_budget_memory() {
+    let yaml = nested_anchor_chain();
+    let tree = build_tree(&ConfigSource::new(&yaml, "release.yml")).expect("within both alias limits");
+    let NodeValue::Map(entries) = &tree.value else {
+      panic!("root is a mapping")
+    };
+    assert_eq!(entries.len(), 3);
   }
 }
