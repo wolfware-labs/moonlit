@@ -2,7 +2,7 @@ use crate::pipeline::config::diagnostic::ConfigDiagnostic;
 use crate::pipeline::config::limits::{self, AliasBudget, MAX_ALIAS_BYTES, MAX_ALIAS_NODES, MAX_DEPTH, Size};
 use crate::pipeline::config::source::ConfigSource;
 use crate::pipeline::config::span::Span;
-use saphyr_parser::{Event, Parser, ScalarStyle, Span as PSpan};
+use saphyr_parser::{Event, Parser, ScalarStyle};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -96,32 +96,37 @@ fn block_end(yaml: &str, span: Span, raw: &str) -> usize {
 }
 
 pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
-  let char_to_byte: Vec<usize> = {
-    let mut v: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
-    v.push(src.yaml.len());
-    v
-  };
-  let to_span = |p: PSpan| {
-    let len = src.yaml.len();
-    Span::new(
-      char_to_byte.get(p.start.index()).copied().unwrap_or(len),
-      char_to_byte.get(p.end.index()).copied().unwrap_or(len),
-    )
-  };
+  let toks = read_first_document(src)?;
+  Builder {
+    toks: &toks,
+    pos: 0,
+    anchors: HashMap::new(),
+    aliases: AliasBudget::default(),
+    src,
+  }
+  .build_document()
+}
+
+/// Reads the events of the first document of `src`, the only one the builder uses, with their byte
+/// spans. Later documents are read through for syntax errors but none of their events is kept, so
+/// their size costs no memory. A collection nested past [`MAX_DEPTH`] is refused at its opening
+/// event, before the rest of the file is read.
+fn read_first_document(src: &ConfigSource) -> Result<Vec<(Tok, Span)>, ConfigDiagnostic> {
+  let char_to_byte: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
+  // The parser counts characters; a position past the last one is the end of the text.
+  let byte_at = |index: usize| char_to_byte.get(index).copied().unwrap_or(src.yaml.len());
 
   let mut toks: Vec<(Tok, Span)> = Vec::new();
-  // Collections open at the current event. Counting them here stops reading a file that nests past
-  // the limit as soon as it does, instead of after the whole event stream is in memory. Only the
-  // first document is built, so later ones are read for syntax errors but not checked for depth.
+  // Collections open at the current event.
   let mut open: usize = 0;
-  let mut in_first_document = true;
+  let mut first_document_read = false;
   for item in Parser::new_from_str(src.yaml) {
-    let (ev, pspan) = item.map_err(|e| {
-      let len = src.yaml.len();
-      let byte = char_to_byte.get(e.marker().index()).copied().unwrap_or(len);
-      ConfigDiagnostic::invalid_syntax(src, e.info(), Span::point(byte))
-    })?;
-    let mut span = to_span(pspan);
+    let (ev, pspan) =
+      item.map_err(|e| ConfigDiagnostic::invalid_syntax(src, e.info(), Span::point(byte_at(e.marker().index()))))?;
+    if first_document_read {
+      continue;
+    }
+    let mut span = Span::new(byte_at(pspan.start.index()), byte_at(pspan.end.index()));
     match &ev {
       Event::Scalar(_, ScalarStyle::SingleQuoted | ScalarStyle::DoubleQuoted, ..) => span.end = quoted_end(src.yaml, span),
       Event::Scalar(raw, ScalarStyle::Literal | ScalarStyle::Folded, ..) => span.end = block_end(src.yaml, span, raw),
@@ -145,25 +150,17 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       Event::MappingEnd => Tok::MapEnd,
     };
     match &tok {
-      Tok::Node(NodeTok::SeqStart(_) | NodeTok::MapStart(_)) if in_first_document => {
+      Tok::Node(NodeTok::SeqStart(_) | NodeTok::MapStart(_)) => {
         check_depth(src, open, 1, span)?;
         open += 1;
       }
       Tok::SeqEnd | Tok::MapEnd => open = open.saturating_sub(1),
-      Tok::DocEnd => in_first_document = false,
+      Tok::DocEnd => first_document_read = true,
       _ => {}
     }
     toks.push((tok, span));
   }
-
-  Builder {
-    toks: &toks,
-    pos: 0,
-    anchors: HashMap::new(),
-    aliases: AliasBudget::default(),
-    src,
-  }
-  .build_document()
+  Ok(toks)
 }
 
 struct Builder<'t, 'a> {
@@ -377,6 +374,22 @@ mod tests {
   #[test]
   fn nested_anchor_chain_just_under_the_alias_limits_builds() {
     assert_eq!(root_entries(&nested_anchor_chain()).len(), 3);
+  }
+
+  #[test]
+  fn events_of_later_documents_are_not_kept() {
+    let kept = |yaml: &str| {
+      read_first_document(&ConfigSource::new(yaml, "release.yml"))
+        .expect("valid yaml")
+        .len()
+    };
+    let large = format!("a: b\n---\n{}", "- x\n".repeat(10_000));
+    assert_eq!(kept(&large), kept("a: b\n---\n"));
+  }
+
+  #[test]
+  fn a_later_document_is_still_read_for_syntax_errors() {
+    assert!(read_first_document(&ConfigSource::new("a: b\n---\n[x\n", "release.yml")).is_err());
   }
 
   #[test]
