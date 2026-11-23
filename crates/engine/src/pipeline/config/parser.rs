@@ -1102,6 +1102,32 @@ mod tests {
   }
 
   #[test]
+  fn deep_later_document_is_ignored() {
+    // Only the first document is the release file; nesting in a later one is not checked.
+    let config = parse(&format!("{PLUGINS}{STAGES}---\n{}x\n", "- ".repeat(100)));
+    assert_eq!(config.plugins.value[0].name, "tp");
+  }
+
+  #[test]
+  fn deep_first_document_is_refused_before_a_later_one() {
+    let diagnostic = error(&format!("{}x\n---\na: b\n", "- ".repeat(100)));
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+  }
+
+  #[test]
+  fn depth_error_wins_over_alias_budget() {
+    // The aliases pass the byte limit before the nesting starts, but nesting is checked while the
+    // file is read, before any alias is charged.
+    let aliases = ["*s"; 9].join(", ");
+    let deep = format!("{}x{}", "[".repeat(70), "]".repeat(70));
+    let yaml = with_plugins_and_stages(&format!(
+      "variables:\n  s: &s \"{}\"\n  t: [{aliases}]\n  u: {deep}\n",
+      "x".repeat(1 << 20)
+    ));
+    assert_eq!(error(&yaml).message(), TOO_DEEP);
+  }
+
+  #[test]
   fn aliases_within_budget_still_parse() {
     let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config: &shared\n      token: abc\n      retries: '3'\n      hosts: [one, two]\n  - name: b\n    url: file://b.wasm\n    config: *shared\nstages:\n  build: &steps\n    - run: a.go\n    - run: b.go\n  again: *steps\n";
     let config = parse(yaml);

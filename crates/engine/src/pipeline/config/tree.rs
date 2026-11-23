@@ -80,8 +80,10 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
 
   let mut toks: Vec<(Tok, Span)> = Vec::new();
   // Collections open at the current event. Counting them here stops reading a file that nests past
-  // the limit as soon as it does, instead of after the whole event stream is in memory.
+  // the limit as soon as it does, instead of after the whole event stream is in memory. Only the
+  // first document is built, so later ones are read for syntax errors but not checked for depth.
   let mut open: usize = 0;
+  let mut in_first_document = true;
   for item in Parser::new_from_str(src.yaml) {
     let (ev, pspan) = item.map_err(|e| {
       let len = src.yaml.len();
@@ -107,11 +109,12 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       Event::MappingEnd => Tok::MapEnd,
     };
     match tok {
-      Tok::SeqStart(_) | Tok::MapStart(_) => {
+      Tok::SeqStart(_) | Tok::MapStart(_) if in_first_document => {
         check_depth(src, open, 1, span)?;
         open += 1;
       }
       Tok::SeqEnd | Tok::MapEnd => open = open.saturating_sub(1),
+      Tok::DocEnd => in_first_document = false,
       _ => {}
     }
     toks.push((tok, span));

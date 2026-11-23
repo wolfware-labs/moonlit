@@ -2,7 +2,8 @@
 //!
 //! The reader refuses a collection nested past [`MAX_DEPTH`] at its opening event, before it reads
 //! on, and the tree builder charges each alias before it creates the alias node, so a file that goes
-//! past a limit is refused before the work it asks for is done.
+//! past a limit is refused before the work it asks for is done. Because the reader runs first,
+//! nesting past the depth limit is reported before alias-budget errors, wherever each occurs.
 
 /// Deepest nesting of collections (sequences and mappings) a release file may use. The root
 /// mapping is level 1. Every later stage walks the tree recursively, so this also bounds their
