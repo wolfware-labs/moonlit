@@ -1008,9 +1008,9 @@ mod tests {
     with_plugins_and_stages(&format!("variables:\n  l0: &l0 \"{first}\"\n{}", lines.concat()))
   }
 
+  /// Levels of mappings in `value`, which is all that `nested_plugin_config` nests.
   fn config_depth(value: &ConfigValue) -> usize {
     match value {
-      ConfigValue::List(items) => 1 + items.iter().map(|item| config_depth(&item.value)).max().unwrap_or(0),
       ConfigValue::Map(entries) => 1 + entries.values().map(|entry| config_depth(&entry.value)).max().unwrap_or(0),
       _ => 0,
     }
@@ -1061,11 +1061,8 @@ mod tests {
     let yaml = nested_aliases("lol", 8, 10);
     let started = std::time::Instant::now();
     let diagnostic = error(&yaml);
-    assert!(
-      started.elapsed() < std::time::Duration::from_secs(1),
-      "{:?}",
-      started.elapsed()
-    );
+    let elapsed = started.elapsed();
+    assert!(elapsed < std::time::Duration::from_secs(1), "{elapsed:?}");
     assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
     assert!(underlined(&yaml, &diagnostic).starts_with("*l"));
     assert_eq!(label(&diagnostic), "alias expands past the limit");
@@ -1076,11 +1073,8 @@ mod tests {
     let yaml = nested_aliases(&"x".repeat(100 << 10), 5, 10);
     let started = std::time::Instant::now();
     let diagnostic = error(&yaml);
-    assert!(
-      started.elapsed() < std::time::Duration::from_secs(1),
-      "{:?}",
-      started.elapsed()
-    );
+    let elapsed = started.elapsed();
+    assert!(elapsed < std::time::Duration::from_secs(1), "{elapsed:?}");
     assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
   }
 

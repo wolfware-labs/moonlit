@@ -32,31 +32,23 @@ impl Node {
   }
 }
 
-#[derive(Clone)]
+/// One parser event: a node, or the framing around nodes.
 enum Tok {
   StreamStart,
   StreamEnd,
   DocStart,
   DocEnd,
+  SeqEnd,
+  MapEnd,
+  Node(NodeTok),
+}
+
+/// An event that starts a node.
+enum NodeTok {
   Scalar { raw: String, plain: bool, anchor: usize },
   SeqStart(usize),
-  SeqEnd,
   MapStart(usize),
-  MapEnd,
   Alias(usize),
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum EndKind {
-  Seq,
-  Map,
-}
-
-#[derive(Clone, Copy)]
-enum Peek {
-  Item,
-  End(Span),
-  Eof,
 }
 
 #[must_use]
@@ -97,19 +89,19 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
       Event::StreamEnd => Tok::StreamEnd,
       Event::DocumentStart(_) => Tok::DocStart,
       Event::DocumentEnd => Tok::DocEnd,
-      Event::Alias(id) => Tok::Alias(id),
-      Event::Scalar(raw, style, anchor, _tag) => Tok::Scalar {
+      Event::Alias(id) => Tok::Node(NodeTok::Alias(id)),
+      Event::Scalar(raw, style, anchor, _tag) => Tok::Node(NodeTok::Scalar {
         raw: raw.into_owned(),
         plain: matches!(style, ScalarStyle::Plain),
         anchor,
-      },
-      Event::SequenceStart(anchor, _tag) => Tok::SeqStart(anchor),
+      }),
+      Event::SequenceStart(anchor, _tag) => Tok::Node(NodeTok::SeqStart(anchor)),
       Event::SequenceEnd => Tok::SeqEnd,
-      Event::MappingStart(anchor, _tag) => Tok::MapStart(anchor),
+      Event::MappingStart(anchor, _tag) => Tok::Node(NodeTok::MapStart(anchor)),
       Event::MappingEnd => Tok::MapEnd,
     };
     match tok {
-      Tok::SeqStart(_) | Tok::MapStart(_) if in_first_document => {
+      Tok::Node(NodeTok::SeqStart(_) | NodeTok::MapStart(_)) if in_first_document => {
         check_depth(src, open, 1, span)?;
         open += 1;
       }
@@ -144,104 +136,63 @@ struct Builder<'t, 'a> {
   src: &'t ConfigSource<'a>,
 }
 
-impl Builder<'_, '_> {
-  #[must_use]
-  fn peek(&self, want: EndKind) -> Peek {
-    match self.toks.get(self.pos) {
-      None => Peek::Eof,
-      Some((Tok::SeqEnd, s)) if want == EndKind::Seq => Peek::End(*s),
-      Some((Tok::MapEnd, s)) if want == EndKind::Map => Peek::End(*s),
-      Some(_) => Peek::Item,
-    }
-  }
-
+impl<'t> Builder<'t, '_> {
   fn build_document(&mut self) -> Result<Node, ConfigDiagnostic> {
     loop {
       match self.toks.get(self.pos) {
         Some((Tok::StreamStart | Tok::DocStart, _)) => self.pos += 1,
-        Some((Tok::StreamEnd | Tok::DocEnd, s)) => return Ok(Node::null(*s)),
         // An anchored root is still shared with `anchors`; copying it then is shallow.
-        Some(_) => return self.build_node(0).map(|(root, _)| Rc::unwrap_or_clone(root)),
+        Some((Tok::Node(tok), span)) => return self.build_node(tok, *span, 0).map(|(root, _)| Rc::unwrap_or_clone(root)),
+        // The document or the stream ends before any node: an empty document.
+        Some((_, s)) => return Ok(Node::null(*s)),
         None => return Ok(Node::null(Span::point(0))),
       }
     }
   }
 
-  /// Builds the node at the cursor, which sits under `enclosing` collections, and returns it with
-  /// its expanded size. Refuses an alias that would nest past [`MAX_DEPTH`] or take the document
-  /// past either alias limit; [`build_tree`] has already refused input nested past [`MAX_DEPTH`].
-  fn build_node(&mut self, enclosing: usize) -> Result<(Rc<Node>, Size), ConfigDiagnostic> {
-    let idx = self.pos;
+  /// Builds the node that `tok` starts at the cursor, which sits under `enclosing` collections, and
+  /// returns it with its expanded size. Refuses an alias that would nest past [`MAX_DEPTH`] or take
+  /// the document past either alias limit; [`build_tree`] has already refused input nested past
+  /// [`MAX_DEPTH`].
+  fn build_node(&mut self, tok: &'t NodeTok, span: Span, enclosing: usize) -> Result<(Rc<Node>, Size), ConfigDiagnostic> {
     self.pos += 1;
-    let (tok, span) = match self.toks.get(idx) {
-      Some((t, s)) => (t.clone(), *s),
-      None => return Ok((Rc::new(Node::null(Span::point(0))), Size::scalar(0))),
-    };
     match tok {
-      Tok::Scalar { raw, plain, anchor } => {
+      NodeTok::Scalar { raw, plain, anchor } => {
         let size = Size::scalar(raw.len());
-        let value = if plain && is_yaml_null(&raw) {
+        let value = if *plain && is_yaml_null(raw) {
           NodeValue::Null
         } else {
-          NodeValue::Scalar(raw)
+          NodeValue::Scalar(raw.clone())
         };
         let node = Rc::new(Node { value, span });
-        self.register(anchor, &node, size);
+        self.register(*anchor, &node, size);
         Ok((node, size))
       }
-      Tok::SeqStart(anchor) => {
-        let level = enclosing + 1; // the reader refused anything deeper than MAX_DEPTH
-        let mut size = Size::empty_collection();
-        let mut items = Vec::new();
-        let end = loop {
-          match self.peek(EndKind::Seq) {
-            Peek::End(s) => {
-              self.pos += 1;
-              break s;
-            }
-            Peek::Item => {
-              let (item, item_size) = self.build_node(level)?;
-              size.add_child(item_size);
-              items.push(item);
-            }
-            Peek::Eof => break span,
-          }
-        };
+      NodeTok::SeqStart(anchor) => {
+        let (items, size, end) = self.build_children(span, enclosing)?;
         let node = Rc::new(Node {
           value: NodeValue::Seq(items),
           span: Span::new(span.start, end.end),
         });
-        self.register(anchor, &node, size);
+        self.register(*anchor, &node, size);
         Ok((node, size))
       }
-      Tok::MapStart(anchor) => {
-        let level = enclosing + 1; // the reader refused anything deeper than MAX_DEPTH
-        let mut size = Size::empty_collection();
+      NodeTok::MapStart(anchor) => {
+        // A mapping's children alternate between keys and values.
+        let (children, size, end) = self.build_children(span, enclosing)?;
+        let mut children = children.into_iter();
         let mut entries = Vec::new();
-        let end = loop {
-          match self.peek(EndKind::Map) {
-            Peek::End(s) => {
-              self.pos += 1;
-              break s;
-            }
-            Peek::Item => {
-              let (key, key_size) = self.build_node(level)?;
-              let (val, val_size) = self.build_node(level)?;
-              size.add_child(key_size);
-              size.add_child(val_size);
-              entries.push((key, val));
-            }
-            Peek::Eof => break span,
-          }
-        };
+        while let (Some(key), Some(val)) = (children.next(), children.next()) {
+          entries.push((key, val));
+        }
         let node = Rc::new(Node {
           value: NodeValue::Map(entries),
           span: Span::new(span.start, end.end),
         });
-        self.register(anchor, &node, size);
+        self.register(*anchor, &node, size);
         Ok((node, size))
       }
-      Tok::Alias(id) => match self.anchors.get(&id) {
+      NodeTok::Alias(id) => match self.anchors.get(id) {
         Some((anchored, size)) => {
           check_depth(self.src, enclosing, size.height, span)?;
           if !self.aliases.charge(*size) {
@@ -261,9 +212,29 @@ impl Builder<'_, '_> {
         }
         None => Err(ConfigDiagnostic::unknown_alias(self.src, span)),
       },
-      // Framing tokens shouldn't reach here; treat defensively as empty.
-      Tok::StreamStart | Tok::StreamEnd | Tok::DocStart | Tok::DocEnd | Tok::SeqEnd | Tok::MapEnd => {
-        Ok((Rc::new(Node::null(span)), Size::scalar(0)))
+    }
+  }
+
+  /// Builds the children of the collection opened at `start` under `enclosing` others, up to and
+  /// including its closing event. Returns them with the collection's expanded size and the span of
+  /// that closing event.
+  fn build_children(&mut self, start: Span, enclosing: usize) -> Result<(Vec<Rc<Node>>, Size, Span), ConfigDiagnostic> {
+    let level = enclosing + 1; // the reader refused anything deeper than MAX_DEPTH
+    let mut size = Size::empty_collection();
+    let mut children = Vec::new();
+    loop {
+      match self.toks.get(self.pos) {
+        Some((Tok::Node(tok), span)) => {
+          let (child, child_size) = self.build_node(tok, *span, level)?;
+          size.add_child(child_size);
+          children.push(child);
+        }
+        // The parser's events are balanced, so the first event that does not start a node closes
+        // this collection.
+        other => {
+          self.pos += 1;
+          return Ok((children, size, other.map_or(start, |(_, s)| *s)));
+        }
       }
     }
   }
@@ -302,27 +273,28 @@ mod tests {
     )
   }
 
+  /// Whether `a` and `b` are sequences of two items holding the very same child nodes.
+  fn share_two_children(a: &Node, b: &Node) -> bool {
+    matches!(
+      (&a.value, &b.value),
+      (NodeValue::Seq(x), NodeValue::Seq(y)) if x.len() == 2 && x.iter().zip(y).all(|(p, q)| Rc::ptr_eq(p, q))
+    )
+  }
+
   #[test]
   fn alias_shares_the_anchored_children() {
     let tree = build_tree(&ConfigSource::new("a: &x [one, two]\nb: *x\n", "release.yml")).expect("valid tree");
-    let NodeValue::Map(entries) = &tree.value else {
-      panic!("root is a mapping")
-    };
-    let (NodeValue::Seq(anchored), NodeValue::Seq(aliased)) = (&entries[0].1.value, &entries[1].1.value) else {
-      panic!("both values are sequences")
-    };
-    assert!(anchored.iter().zip(aliased).all(|(a, b)| Rc::ptr_eq(a, b)));
     // The alias node itself carries the alias site's span.
-    assert_eq!(entries[1].1.span, Span::new(20, 22));
+    assert!(matches!(
+      &tree.value,
+      NodeValue::Map(entries) if share_two_children(&entries[0].1, &entries[1].1) && entries[1].1.span == Span::new(20, 22)
+    ));
   }
 
   #[test]
   fn nested_anchor_chain_just_under_the_alias_limits_builds() {
     let yaml = nested_anchor_chain();
     let tree = build_tree(&ConfigSource::new(&yaml, "release.yml")).expect("within both alias limits");
-    let NodeValue::Map(entries) = &tree.value else {
-      panic!("root is a mapping")
-    };
-    assert_eq!(entries.len(), 3);
+    assert!(matches!(&tree.value, NodeValue::Map(entries) if entries.len() == 3));
   }
 }
