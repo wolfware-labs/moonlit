@@ -108,9 +108,9 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
 }
 
 /// Reads the events of the first document of `src`, the only one the builder uses, with their byte
-/// spans. Later documents are read through for syntax errors but none of their events is kept, so
-/// their size costs no memory. A collection nested past [`MAX_DEPTH`] is refused at its opening
-/// event, before the rest of the file is read.
+/// spans, up to and including the end of that document. Later documents are read through for syntax
+/// errors but none of their events is kept. A collection nested past [`MAX_DEPTH`] in the first
+/// document is refused at its opening event, before the rest of the file is read.
 fn read_first_document(src: &ConfigSource) -> Result<Vec<(Tok, Span)>, ConfigDiagnostic> {
   let char_to_byte: Vec<usize> = src.yaml.char_indices().map(|(b, _)| b).collect();
   // The parser counts characters; a position past the last one is the end of the text.
@@ -164,7 +164,7 @@ fn read_first_document(src: &ConfigSource) -> Result<Vec<(Tok, Span)>, ConfigDia
 }
 
 struct Builder<'t, 'a> {
-  /// The document's events, with their byte spans.
+  /// The first document's events, with their byte spans (see [`read_first_document`]).
   toks: &'t [(Tok, Span)],
   /// Index of the next token to read.
   pos: usize,
@@ -193,8 +193,8 @@ impl<'t> Builder<'t, '_> {
 
   /// Builds the node that `tok` starts at the cursor, which sits under `enclosing` collections, and
   /// returns it with its expanded size. Refuses an alias that would nest past [`MAX_DEPTH`] or take
-  /// the document past either alias limit; [`build_tree`] has already refused input nested past
-  /// [`MAX_DEPTH`].
+  /// the document past either alias limit; [`read_first_document`] has already refused input nested
+  /// past [`MAX_DEPTH`].
   fn build_node(&mut self, tok: &'t NodeTok, span: Span, enclosing: usize) -> Result<(Rc<Node>, Size), ConfigDiagnostic> {
     self.pos += 1;
     match tok {
@@ -389,7 +389,16 @@ mod tests {
 
   #[test]
   fn a_later_document_is_still_read_for_syntax_errors() {
-    assert!(read_first_document(&ConfigSource::new("a: b\n---\n[x\n", "release.yml")).is_err());
+    let yaml = "a: b\n---\n[x\n";
+    let Err(diagnostic) = read_first_document(&ConfigSource::new(yaml, "release.yml")) else {
+      panic!("the unclosed sequence in the second document is not reported");
+    };
+    assert_eq!(
+      diagnostic.message(),
+      "Invalid YAML: while parsing a flow sequence, expected ',' or ']'"
+    );
+    // The parser reports the unclosed sequence at the end of the text, inside the second document.
+    assert_eq!(diagnostic.span().expect("span").offset(), yaml.len());
   }
 
   #[test]

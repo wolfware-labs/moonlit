@@ -4,6 +4,10 @@
 //! on, and the tree builder charges each alias before it creates the alias node, so a file that goes
 //! past a limit is refused before the work it asks for is done. Because the reader runs first,
 //! nesting past the depth limit is reported before alias-budget errors, wherever each occurs.
+//!
+//! Only the first document of the file is the release file. The reader keeps that document's events
+//! and reads the documents after it for syntax errors alone: it keeps none of their events and checks
+//! neither limit in them.
 
 /// Deepest nesting of collections (sequences and mappings) a release file may use. The root
 /// mapping is level 1. Every later stage walks the tree recursively, so this also bounds their
