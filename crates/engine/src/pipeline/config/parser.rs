@@ -1095,15 +1095,10 @@ mod tests {
   #[test]
   fn deep_nesting_stops_reading_early() {
     // The stray `]` at the end is a syntax error that only a reader that went that far would see.
-    let yaml = format!(
-      "{}x
-]
-",
-      "- ".repeat(1_000_000)
-    );
+    let yaml = format!("{}x\n]\n", "- ".repeat(1_000_000));
     let diagnostic = error(&yaml);
     assert_eq!(diagnostic.message(), TOO_DEEP);
-    assert_eq!(diagnostic.span().expect("span").offset(), 2 * 64);
+    assert_eq!(diagnostic.span().expect("span").offset(), 2 * MAX_DEPTH);
   }
 
   #[test]

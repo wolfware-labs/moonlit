@@ -1,17 +1,18 @@
 //! Bounds on the YAML tree built from a release file.
 //!
-//! The tree builder checks these before it descends into a collection or copies an anchored node at
-//! an alias, so a file that goes past a limit is refused before the work it asks for is done.
+//! The reader refuses a collection nested past [`MAX_DEPTH`] at its opening event, before it reads
+//! on, and the tree builder charges each alias before it creates the alias node, so a file that goes
+//! past a limit is refused before the work it asks for is done.
 
 /// Deepest nesting of collections (sequences and mappings) a release file may use. The root
 /// mapping is level 1. Every later stage walks the tree recursively, so this also bounds their
 /// stack use.
 pub(super) const MAX_DEPTH: usize = 64;
 
-/// Most nodes that aliases may copy into one document, summed over every alias in it.
+/// Most nodes that aliases may expand to in one document, summed over every alias in it.
 pub(super) const MAX_ALIAS_NODES: usize = 100_000;
 
-/// Most scalar bytes (as stored, `str::len`) that aliases may copy into one document, summed over
+/// Most scalar bytes (as stored, `str::len`) that aliases may expand to in one document, summed over
 /// every alias in it.
 pub(super) const MAX_ALIAS_BYTES: usize = 8 << 20;
 
@@ -60,7 +61,7 @@ pub(super) fn too_deep(enclosing: usize, height: usize) -> bool {
   enclosing.saturating_add(height) > MAX_DEPTH
 }
 
-/// The running total of what aliases have copied into the document so far.
+/// The running total of what aliases have expanded to in the document so far.
 #[derive(Debug, Default)]
 pub(super) struct AliasBudget {
   nodes: usize,

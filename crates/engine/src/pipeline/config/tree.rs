@@ -108,9 +108,7 @@ pub fn build_tree(src: &ConfigSource) -> Result<Node, ConfigDiagnostic> {
     };
     match tok {
       Tok::SeqStart(_) | Tok::MapStart(_) => {
-        if limits::too_deep(open, 1) {
-          return Err(ConfigDiagnostic::nesting_too_deep(src, MAX_DEPTH, span));
-        }
+        check_depth(src, open, 1, span)?;
         open += 1;
       }
       Tok::SeqEnd | Tok::MapEnd => open = open.saturating_sub(1),
@@ -137,7 +135,7 @@ struct Builder<'t, 'a> {
   /// Each anchored node, shared with the tree, and its expanded size, which every alias to it is
   /// charged.
   anchors: HashMap<usize, (Rc<Node>, Size)>,
-  /// What the aliases read so far have copied into the document.
+  /// What the aliases read so far expand to in the document.
   aliases: AliasBudget,
   /// The release file, for diagnostics.
   src: &'t ConfigSource<'a>,
@@ -242,7 +240,7 @@ impl Builder<'_, '_> {
       }
       Tok::Alias(id) => match self.anchors.get(&id) {
         Some((anchored, size)) => {
-          self.check_depth(enclosing, size.height, span)?;
+          check_depth(self.src, enclosing, size.height, span)?;
           if !self.aliases.charge(*size) {
             return Err(ConfigDiagnostic::alias_expansion_too_large(
               self.src,
@@ -267,20 +265,20 @@ impl Builder<'_, '_> {
     }
   }
 
-  /// Refuses a subtree of `height` levels placed under `enclosing` collections when it nests past
-  /// [`MAX_DEPTH`], with the diagnostic at `span`.
-  fn check_depth(&self, enclosing: usize, height: usize, span: Span) -> Result<(), ConfigDiagnostic> {
-    if limits::too_deep(enclosing, height) {
-      return Err(ConfigDiagnostic::nesting_too_deep(self.src, MAX_DEPTH, span));
-    }
-    Ok(())
-  }
-
   fn register(&mut self, anchor: usize, node: &Rc<Node>, size: Size) {
     if anchor != 0 {
       self.anchors.insert(anchor, (Rc::clone(node), size));
     }
   }
+}
+
+/// Refuses a subtree of `height` levels placed under `enclosing` collections when it nests past
+/// [`MAX_DEPTH`], with the diagnostic at `span`.
+fn check_depth(src: &ConfigSource, enclosing: usize, height: usize, span: Span) -> Result<(), ConfigDiagnostic> {
+  if limits::too_deep(enclosing, height) {
+    return Err(ConfigDiagnostic::nesting_too_deep(src, MAX_DEPTH, span));
+  }
+  Ok(())
 }
 
 #[cfg(test)]
@@ -316,7 +314,7 @@ mod tests {
   }
 
   #[test]
-  fn nested_anchor_chain_stays_within_budget_memory() {
+  fn nested_anchor_chain_just_under_the_alias_limits_builds() {
     let yaml = nested_anchor_chain();
     let tree = build_tree(&ConfigSource::new(&yaml, "release.yml")).expect("within both alias limits");
     let NodeValue::Map(entries) = &tree.value else {
