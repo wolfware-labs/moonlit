@@ -4,6 +4,7 @@ use crate::pipeline::config::span::{Span, Spanned};
 use crate::pipeline::config::tree::{Node, NodeValue};
 use crate::pipeline::config::{ConfigDiagnostic, ConfigMap, FilesystemAccess, Permissions, PipelineConfig, tree};
 use indexmap::IndexMap;
+use std::rc::Rc;
 
 pub fn parse_config(yaml: &str, source_name: &str) -> Result<PipelineConfig, ConfigDiagnostic> {
   let config = parse_config_unvalidated(yaml, source_name)?;
@@ -70,7 +71,11 @@ fn create_empty(span: Span) -> PipelineConfig {
   }
 }
 
-fn convert_root(entries: &[(Node, Node)], root_span: Span, src: &ConfigSource) -> Result<PipelineConfig, ConfigDiagnostic> {
+fn convert_root(
+  entries: &[(Rc<Node>, Rc<Node>)],
+  root_span: Span,
+  src: &ConfigSource,
+) -> Result<PipelineConfig, ConfigDiagnostic> {
   let mut name: Option<String> = None;
   let mut arguments: Option<IndexMap<String, String>> = None;
   let mut variables: Option<IndexMap<String, String>> = None;
@@ -305,7 +310,7 @@ fn to_config_value(node: &Node) -> Spanned<ConfigValue> {
   let value = match &node.value {
     NodeValue::Null => ConfigValue::Null,
     NodeValue::Scalar(raw) => ConfigValue::String(raw.clone()),
-    NodeValue::Seq(items) => ConfigValue::List(items.iter().map(to_config_value).collect()),
+    NodeValue::Seq(items) => ConfigValue::List(items.iter().map(|item| to_config_value(item)).collect()),
     NodeValue::Map(entries) => {
       let mut m = ConfigMap::new();
       for (key, val) in entries {
@@ -359,7 +364,7 @@ fn convert_permissions(node: &Node, src: &ConfigSource) -> Result<Permissions, C
 #[must_use]
 fn string_list(node: &Node) -> Vec<String> {
   match &node.value {
-    NodeValue::Seq(items) => items.iter().filter_map(scalar_string).collect(),
+    NodeValue::Seq(items) => items.iter().filter_map(|item| scalar_string(item)).collect(),
     NodeValue::Scalar(raw) => vec![raw.clone()],
     _ => Vec::new(),
   }
@@ -498,6 +503,7 @@ fn parse_bool(node: &Node, src: &ConfigSource) -> Result<bool, ConfigDiagnostic>
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::pipeline::config::limits::MAX_DEPTH;
   use miette::Diagnostic;
 
   const PLUGINS: &str = "plugins:\n  - name: tp\n    url: file://tp.wasm\n";
@@ -1108,5 +1114,167 @@ mod tests {
       "{:?}",
       &yaml[span.start..span.end]
     );
+  }
+
+  const TOO_DEEP: &str = "YAML nesting is too deep: collections may nest at most 64 levels.";
+  const TOO_MUCH_EXPANSION: &str =
+    "YAML aliases expand too much: a document may expand at most 100000 nodes and 8 MiB of text through aliases.";
+
+  /// A valid file whose first plugin's config nests `levels` collections deep, counting from the root
+  /// mapping (the root, `plugins`, the plugin and its `config` take the first four).
+  fn nested_plugin_config(levels: usize) -> String {
+    let maps = levels - 3;
+    let value = format!("{}x{}", "{a: ".repeat(maps), "}".repeat(maps));
+    plugin_yaml(&format!("    config: {value}\n"))
+  }
+
+  /// `variables:` holding a scalar anchored as `l0`, then `levels` anchors that each list `width`
+  /// aliases of the one before.
+  fn nested_aliases(first: &str, levels: usize, width: usize) -> String {
+    let lines: Vec<String> = (1..=levels)
+      .map(|level| {
+        let items = vec![format!("*l{}", level - 1); width].join(", ");
+        format!("  l{level}: &l{level} [{items}]\n")
+      })
+      .collect();
+    with_plugins_and_stages(&format!("variables:\n  l0: &l0 \"{first}\"\n{}", lines.concat()))
+  }
+
+  /// Levels of mappings in `value`, which is all that `nested_plugin_config` nests.
+  fn config_depth(value: &ConfigValue) -> usize {
+    match value {
+      ConfigValue::Map(entries) => 1 + entries.values().map(|entry| config_depth(&entry.value)).max().unwrap_or(0),
+      _ => 0,
+    }
+  }
+
+  #[test]
+  fn deep_block_nesting_is_refused() {
+    let yaml = format!("{}x\n", "- ".repeat(10_000));
+    let message = std::thread::Builder::new()
+      .stack_size(2 << 20)
+      .spawn(move || error(&yaml).message().to_string())
+      .expect("spawn the parser thread")
+      .join()
+      .expect("the parser thread does not crash");
+    assert_eq!(message, TOO_DEEP);
+  }
+
+  #[test]
+  fn nesting_at_the_limit_parses() {
+    let config = parse(&nested_plugin_config(MAX_DEPTH));
+    let plugin_config = ConfigValue::Map(config.plugins.value[0].config.clone());
+    assert_eq!(config_depth(&plugin_config), MAX_DEPTH - 3);
+  }
+
+  #[test]
+  fn nesting_one_past_the_limit_is_refused() {
+    let yaml = nested_plugin_config(MAX_DEPTH + 1);
+    let diagnostic = error(&yaml);
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+    // The collection is refused at its opening bracket, before anything inside it is read.
+    let span = diagnostic.span().expect("span");
+    assert_eq!(span.offset(), yaml.find("{a: x}").expect("innermost mapping"));
+    assert_eq!(label(&diagnostic), "nested too deeply");
+  }
+
+  #[test]
+  fn aliased_nesting_counts_toward_the_depth_limit() {
+    let deep = format!("{}x{}", "[".repeat(40), "]".repeat(40));
+    let site = format!("{}*deep{}", "[".repeat(24), "]".repeat(24));
+    let yaml = with_plugins_and_stages(&format!("variables:\n  a: &deep {deep}\n  b: {site}\n"));
+    let diagnostic = error(&yaml);
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+    assert_eq!(underlined(&yaml, &diagnostic), "*deep");
+  }
+
+  #[test]
+  fn nested_aliases_are_refused() {
+    let yaml = nested_aliases("lol", 8, 10);
+    let started = std::time::Instant::now();
+    let diagnostic = error(&yaml);
+    let elapsed = started.elapsed();
+    assert!(elapsed < std::time::Duration::from_secs(1), "{elapsed:?}");
+    assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+    assert!(underlined(&yaml, &diagnostic).starts_with("*l"));
+    assert_eq!(label(&diagnostic), "alias expands past the limit");
+  }
+
+  #[test]
+  fn large_aliased_scalar_is_refused() {
+    let yaml = nested_aliases(&"x".repeat(100 << 10), 5, 10);
+    let started = std::time::Instant::now();
+    let diagnostic = error(&yaml);
+    let elapsed = started.elapsed();
+    assert!(elapsed < std::time::Duration::from_secs(1), "{elapsed:?}");
+    assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+  }
+
+  #[test]
+  fn aliased_bytes_alone_are_refused() {
+    // Two levels of ten aliases over a 100 KiB scalar copy about 10 MiB but only about 120 nodes,
+    // so only the byte limit can refuse it.
+    let diagnostic = error(&nested_aliases(&"x".repeat(100 << 10), 2, 10));
+    assert_eq!(diagnostic.message(), TOO_MUCH_EXPANSION);
+  }
+
+  #[test]
+  fn deep_nesting_stops_reading_early() {
+    // The stray `]` at the end is a syntax error that only a reader that went that far would see.
+    let yaml = format!("{}x\n]\n", "- ".repeat(1_000_000));
+    let diagnostic = error(&yaml);
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+    assert_eq!(diagnostic.span().expect("span").offset(), 2 * MAX_DEPTH);
+  }
+
+  #[test]
+  fn deep_later_document_is_ignored() {
+    // Only the first document is the release file; nesting in a later one is not checked.
+    let config = parse(&format!("{PLUGINS}{STAGES}---\n{}x\n", "- ".repeat(100)));
+    assert_eq!(config.plugins.value[0].name, "tp");
+  }
+
+  #[test]
+  fn deep_first_document_is_refused_before_a_later_one() {
+    let diagnostic = error(&format!("{}x\n---\na: b\n", "- ".repeat(100)));
+    assert_eq!(diagnostic.message(), TOO_DEEP);
+  }
+
+  #[test]
+  fn depth_error_wins_over_alias_budget() {
+    // The aliases pass the byte limit before the nesting starts, but nesting is checked while the
+    // file is read, before any alias is charged.
+    let aliases = ["*s"; 9].join(", ");
+    let deep = format!("{}x{}", "[".repeat(70), "]".repeat(70));
+    let yaml = with_plugins_and_stages(&format!(
+      "variables:\n  s: &s \"{}\"\n  t: [{aliases}]\n  u: {deep}\n",
+      "x".repeat(1 << 20)
+    ));
+    assert_eq!(error(&yaml).message(), TOO_DEEP);
+  }
+
+  #[test]
+  fn aliases_within_budget_still_parse() {
+    let yaml = "plugins:\n  - name: a\n    url: file://a.wasm\n    config: &shared\n      token: abc\n      retries: '3'\n      hosts: [one, two]\n  - name: b\n    url: file://b.wasm\n    config: *shared\nstages:\n  build: &steps\n    - run: a.go\n    - run: b.go\n  again: *steps\n";
+    let config = parse(yaml);
+    let plugins = &config.plugins.value;
+    assert_eq!(plugins[0].config.len(), 3);
+    let values = |plugin: &PluginDeclaration| plugin.config.values().map(|v| v.value.clone()).collect::<Vec<_>>();
+    assert_eq!(values(&plugins[0]), values(&plugins[1]));
+    assert_eq!(config.stages.value[1].steps.len(), 2);
+  }
+
+  #[test]
+  fn many_small_aliases_within_budget_still_parse() {
+    // Four levels of ten aliases expand to about 12,000 nodes, well inside the budget: the tree builds,
+    // and only the schema refuses a list where `variables` expects a string.
+    let diagnostic = error(&nested_aliases("v", 4, 10));
+    assert_eq!(diagnostic.message(), "Expected a string value in variables.");
+  }
+
+  #[test]
+  fn self_referencing_anchor_is_an_unknown_alias() {
+    let diagnostic = error(&with_plugins_and_stages("variables: &a [*a]\n"));
+    assert_eq!(diagnostic.message(), "Unknown YAML alias: no matching anchor was defined.");
   }
 }
