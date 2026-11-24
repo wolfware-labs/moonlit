@@ -2,6 +2,12 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [4.0.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-v4.0.0...moonlit-v4.0.1) (2026-11-24)
+
+### Bug Fixes
+
+* **config:** bound nesting depth and alias expansion in release files ([#63](https://github.com/wolfware-labs/moonlit/issues/63)) ([de0af03](https://github.com/wolfware-labs/moonlit/commit/de0af0347b5755740bcaf6dd7bdfc6ef922d6163))
+
 ## [4.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v3.0.3...moonlit-v4.0.0) (2026-11-23)
 
 ### ⚠ BREAKING CHANGES
