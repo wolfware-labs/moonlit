@@ -297,21 +297,29 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn a_child_sees_the_baseline_and_granted_variables_and_no_other_host_variable() {
+  async fn a_child_sees_granted_variables_and_no_other_host_variable() {
     let dir = tempfile::tempdir().unwrap();
-    let host = host_env(&[
-      ("HOME", "/home/someone"),
-      ("LC_ALL", "C"),
-      ("GRANTED_TOKEN", "granted"),
-      ("OTHER_SECRET", "secret"),
-    ]);
+    let host = host_env(&[("GRANTED_TOKEN", "granted"), ("OTHER_SECRET", "secret")]);
     let sandbox = ChildSandbox::new(dir.path(), &["GRANTED_*".to_string()], &host);
 
-    let script = "echo \"$HOME|$LC_ALL|$GRANTED_TOKEN|${OTHER_SECRET:-unset}\"";
+    let script = "echo \"$GRANTED_TOKEN|${OTHER_SECRET:-unset}\"";
     let (chunks, code) = collect(ChildProcess::start(&sh(script), &sandbox).unwrap()).await;
 
     assert_eq!(code, 0);
-    assert_eq!(lines(&chunks, StdioStream::Stdout), ["/home/someone|C|granted|unset"]);
+    assert_eq!(lines(&chunks, StdioStream::Stdout), ["granted|unset"]);
+  }
+
+  #[cfg(unix)]
+  #[tokio::test]
+  async fn a_child_sees_the_unix_baseline_of_the_host() {
+    let dir = tempfile::tempdir().unwrap();
+    let host = host_env(&[("HOME", "/home/someone"), ("LC_ALL", "C")]);
+    let sandbox = ChildSandbox::new(dir.path(), &[], &host);
+
+    let (chunks, code) = collect(ChildProcess::start(&sh("echo \"$HOME|$LC_ALL\""), &sandbox).unwrap()).await;
+
+    assert_eq!(code, 0);
+    assert_eq!(lines(&chunks, StdioStream::Stdout), ["/home/someone|C"]);
   }
 
   #[tokio::test]
