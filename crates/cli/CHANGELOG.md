@@ -2,6 +2,100 @@
 
 All notable changes to the Moonlit CLI are documented here.
 
+## [5.0.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-v4.0.1...moonlit-v5.0.0) (2026-11-24)
+
+### ⚠ BREAKING CHANGES
+
+* a program run by a plugin no longer sees host
+environment variables other than the fixed set and the ones granted
+under permissions.env, runs only inside the working directory, and is
+refused when the plugin sets PATH, LD_* or DYLD_*. An exec grant with
+a wildcard no longer covers programs given by path: `*` matches a
+program name, `/usr/bin/*` the programs in that folder.
+
+* refactor(engine): align grant coverage with the runtime matcher
+
+Coverage of a declared glob by a grant let a wildcard stand for a path
+separator while the runtime matcher no longer does, so a grant of `*`
+passed the load check for a declared `/usr/bin/*` and the step was then
+refused. Both now stop at separators.
+
+Also: the exec-only rules are named ExecRule, the child's exit code is
+awaited in one place, and the sandbox, which holds granted variables, is
+no longer Debug.
+
+* fix(engine): resolve a child's folder without the verbatim prefix
+
+On Windows, canonicalize returns a \\?\ path, which cmd.exe refuses
+as a current directory, so a program started through it ran in the
+wrong folder. dunce resolves the same path in its plain form. It was
+already in the lockfile through another crate.
+
+The denial log keeps each refusal once now, so the second dedup of
+optional denials after it could not fire and is removed.
+
+* fix(engine): let a plugin set only granted variables for a child
+
+Refusing PATH, LD_* and DYLD_* left the variables that make a granted
+program run something else: GIT_SSH_COMMAND for git, BASH_ENV for sh,
+NODE_OPTIONS for node. No list of those can be complete.
+
+A plugin may now set a variable for a program it runs only when
+permissions.env covers the name, and the refusal is the usual env
+denial, so the pipeline author sees which name to grant. PATH, LD_* and
+DYLD_* stay refused whatever is granted: a grant to read PATH, or a
+grant of `*`, must not let a plugin choose which program runs.
+
+* fix(engine): close the gaps left in the child process rules
+
+A variable name with an equals sign passed every check: `PATH=x` is
+neither PATH nor a loader variable, a grant of `*` covers it, and a
+shell reads the resulting entry as PATH. Names that are empty or hold
+`=` are refused whatever is granted.
+
+Past 100 refusals the denial log dropped the rest, so a plugin could
+fill it with denials of optional permissions and then have a refusal
+that fails the call go unrecorded. Entry 101 now stands for the rest
+and fails the call.
+
+A command with several refused variables named only the first, one
+per run. All of them are named and recorded.
+
+`**` crossed path separators in the runtime matcher while the load
+check and the docs said no wildcard does; it now means what `*` does.
+GCONV_PATH and LOCPATH join the variables no plugin may set, and a
+refused program given by path says that wildcards stop at separators.
+
+* docs(engine): say all of what the child process rules refuse
+
+The command builder's doc listed three of the variables no plugin may
+set, the denial cap's doc predated the entry that stands for the rest,
+and the variable-name docs left out NUL.
+
+* fix(engine): log the refusal that crosses the denial limit
+
+Entry 101 of a call's denial log is the marker for the rest, so the
+refusal that reached the limit was named nowhere, though it may be the
+one that should fail the call. It is logged before the marker.
+
+The SDK README now says that a malformed variable name is refused and
+that more than 100 distinct refusals fail a call.
+
+* test(engine): pin the exit code of a child stopped by a signal
+
+The -1 that stands for a child with no exit code was written three
+times, and no test said what it is: a mutation that dropped the sign
+in wait_code survived. It is a named constant now, waited for in one
+place, and the kill test checks it on unix, where a signal leaves the
+child without a code.
+
+* test(engine): compare the unknown exit code with its value
+
+The kill test compared the code with the constant itself, so a change
+to the constant passed it. It now checks -1, the value plugins see.
+
+* Merge commit from fork ([fe93c6d](https://github.com/wolfware-labs/moonlit/commit/fe93c6d0a54df9c30ad75d850eb68b27417c23ea))
+
 ## [4.0.1](https://github.com/wolfware-labs/moonlit/compare/moonlit-v4.0.0...moonlit-v4.0.1) (2026-11-24)
 
 ### Bug Fixes
