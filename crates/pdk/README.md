@@ -94,6 +94,17 @@ moonlit_plugin! {
 - `network([...])`, `exec([...])` and `env([...])` take a non-empty list of strings: hosts,
   program names, and environment variable names or globs.
   Values are literal or use the `*` and `?` wildcards; `[`, `]`, `{`, `}` and `\` do not compile.
+  A wildcard never matches `/` (`**` means what `*` does), so `exec(["git*"])` covers `git` and `git-lfs`
+  but no program given by path; grant a path by spelling its folders out (`/usr/bin/*`). A program path
+  that contains `..` is always refused.
+- A program the plugin runs starts in the working directory, or in a folder inside it when the plugin names
+  one. It sees a fixed set of host variables (`PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_*`, `TZ`, `USER`,
+  `LOGNAME`, or their Windows counterparts), the variables granted under `env`, and the ones the plugin sets
+  on the command. The plugin may set only names granted under `env`, so declare the ones it passes on
+  (`env(["GIT_AUTHOR_*"])`), and never `PATH`, `LD_*`, `DYLD_*`, `GCONV_PATH` or `LOCPATH` (on Windows
+  also `PATHEXT` and `COMSPEC`), nor a name that is empty or holds `=`.
+- Refusals are counted per call: past 100 distinct ones the call fails, even when optional permissions cover
+  them all.
 - `filesystem(read_only)` or `filesystem(read_write)` takes no list.
 - Every entry needs `=> "reason"`, a non-empty string shown to the user. A permission
   without one does not compile.

@@ -136,6 +136,8 @@ enum Symbol {
   Any,
 }
 
+const SEPARATOR: Symbol = Symbol::Char('/');
+
 struct Pattern(Vec<Symbol>);
 
 impl Pattern {
@@ -162,6 +164,8 @@ impl Pattern {
     self.0.iter().all(|s| matches!(s, Symbol::Char(_)))
   }
 
+  /// Whether every value `other` matches is matched by `self`. A wildcard never stands for a path separator, as in
+  /// [`build_globset`].
   fn includes(&self, other: &Self) -> bool {
     let (g, d) = (&self.0, &other.0);
     let mut row = vec![false; d.len() + 1];
@@ -170,8 +174,8 @@ impl Pattern {
       let mut next = vec![false; d.len() + 1];
       for j in (0..=d.len()).rev() {
         next[j] = match g[i] {
-          Symbol::Any => row[j] || (j < d.len() && next[j + 1]),
-          Symbol::One => j < d.len() && d[j] != Symbol::Any && row[j + 1],
+          Symbol::Any => row[j] || (j < d.len() && d[j] != SEPARATOR && next[j + 1]),
+          Symbol::One => j < d.len() && !matches!(d[j], Symbol::Any | SEPARATOR) && row[j + 1],
           Symbol::Char(c) => j < d.len() && d[j] == Symbol::Char(c) && row[j + 1],
         };
       }
@@ -384,6 +388,16 @@ mod tests {
     assert!(exec_covered("x*?", &["x?*"]));
     assert!(exec_covered("x?*", &["x*?"]));
     assert!(exec_covered("a*c", &["b*", "a*c*"]));
+  }
+
+  #[test]
+  fn a_wildcard_in_a_grant_covers_no_path_separator_of_a_declared_glob() {
+    assert!(!exec_covered("/usr/bin/*", &["*"]));
+    assert!(!exec_covered("bin/g*", &["bin?g*"]));
+    assert!(!exec_covered("/opt/*/bin/tool", &["/opt/*"]));
+    assert!(exec_covered("/usr/bin/g*", &["/usr/bin/*"]));
+    assert!(exec_covered("/opt/*/bin/t?ol", &["/opt/*/bin/*"]));
+    assert!(exec_covered("git*", &["*"]));
   }
 
   #[test]

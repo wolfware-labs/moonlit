@@ -6,7 +6,6 @@ use crate::plugin::middleware::{MiddlewareInfo, MiddlewareResult};
 use crate::plugin::permissions::{DeclaredPermission, invalid_declaration, optional_for_target};
 use crate::plugin::wit::PluginHost;
 use crate::plugin::{PluginError, PluginMetadata};
-use std::collections::HashSet;
 use std::path::PathBuf;
 use wasmtime::Store;
 
@@ -155,15 +154,14 @@ fn soft_warnings(soft: &[Denial], declared: &[DeclaredPermission]) -> Vec<String
 }
 
 /// Splits denials into those that fail the call and those of permissions the plugin declared `optional`, which only
-/// warn. The soft ones come back once per kind and target.
+/// warn. The denial log already keeps each one once.
 fn split_denials(denials: &[Denial], declared: &[DeclaredPermission]) -> (Vec<Denial>, Vec<Denial>) {
   let mut hard = Vec::new();
   let mut soft: Vec<Denial> = Vec::new();
-  let mut seen = HashSet::new();
   for d in denials {
-    if optional_for_target(declared, d.kind, &d.target).is_none() {
+    if d.rule.is_some() || optional_for_target(declared, d.kind, &d.target).is_none() {
       hard.push(d.clone());
-    } else if seen.insert((d.kind, d.target.as_str())) {
+    } else {
       soft.push(d.clone());
     }
   }
@@ -206,8 +204,8 @@ fn denial_message(denials: &[Denial], declared: &[DeclaredPermission]) -> String
   denials
     .iter()
     .map(|d| match optional_for_target(declared, d.kind, &d.target) {
-      Some(p) => format!("{d} (optional permission: \"{}\")", p.reason),
-      None => d.to_string(),
+      Some(p) if d.rule.is_none() => format!("{d} (optional permission: \"{}\")", p.reason),
+      _ => d.to_string(),
     })
     .collect::<Vec<_>>()
     .join("; ")
@@ -219,10 +217,46 @@ mod tests {
   use crate::plugin::permissions::PermissionKind;
 
   fn denial(kind: PermissionKind, target: &str) -> Denial {
-    Denial {
-      kind,
-      target: target.to_string(),
+    Denial::ungranted(kind, target)
+  }
+
+  #[test]
+  fn a_denial_under_a_rule_fails_the_call_even_when_an_optional_permission_covers_its_target() {
+    use crate::plugin::host::state::Rule;
+    let optional = [declared(PermissionKind::Exec, &["*"], "nice to have", true)];
+    let denials = [
+      Denial::against(Rule::LoaderVariable, "PATH"),
+      denial(PermissionKind::Exec, "cargo"),
+    ];
+
+    let (hard, soft) = denial_report(&denials, &optional);
+
+    assert_eq!(
+      hard.as_deref(),
+      Some("blocked from setting 'PATH' for a program it runs \u{2014} no plugin may set it")
+    );
+    assert_eq!(soft.len(), 1, "{soft:?}");
+    assert!(soft[0].contains("'cargo'"), "{soft:?}");
+  }
+
+  #[test]
+  fn a_full_denial_log_fails_the_call_even_when_every_kept_denial_is_optional() {
+    use crate::plugin::host::NullSink;
+    use crate::plugin::host::state::{DenialLog, MAX_DENIALS};
+    let log = DenialLog::default();
+    for n in 0..MAX_DENIALS {
+      let host = format!("h{n}.example.com");
+      log.record(&NullSink, "step", denial(PermissionKind::Network, &host));
     }
+    log.record(&NullSink, "step", denial(PermissionKind::Exec, "sh"));
+
+    let (hard, soft) = denial_report(&log.take(), &optional_network());
+
+    assert_eq!(
+      hard.as_deref(),
+      Some("blocked more than 100 times in one call \u{2014} the refusals after that are not listed")
+    );
+    assert_eq!(soft.len(), MAX_DENIAL_WARNINGS + 1, "{soft:?}");
   }
 
   fn declared(kind: PermissionKind, values: &[&str], reason: &str, optional: bool) -> DeclaredPermission {
@@ -382,13 +416,6 @@ mod tests {
       out.warnings,
       ["blocked from running 'git' \u{2014} add it to permissions.exec (optional permission: \"Reads the tag.\")"]
     );
-  }
-
-  #[test]
-  fn an_optional_denial_repeated_gives_one_warning() {
-    let git = denial(PermissionKind::Exec, "git");
-    let out = apply_denials(Ok(result(true, None)), &[git.clone(), git], &optional_git()).unwrap();
-    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
   }
 
   #[test]
@@ -572,13 +599,13 @@ mod tests {
   }
 
   #[test]
-  fn optional_denials_are_kept_in_the_order_first_seen() {
+  fn optional_denials_keep_their_order() {
     let denials = [
       denial(PermissionKind::Network, "b.example.com"),
       denial(PermissionKind::Network, "a.example.com"),
-      denial(PermissionKind::Network, "b.example.com"),
     ];
-    let (_, soft) = split_denials(&denials, &optional_network());
-    assert_eq!(soft, [denials[0].clone(), denials[1].clone()]);
+    let (hard, soft) = split_denials(&denials, &optional_network());
+    assert!(hard.is_empty());
+    assert_eq!(soft, denials);
   }
 }

@@ -50,10 +50,7 @@ impl WasiHttpHooks for AllowlistHooks {
       self.denials.record(
         self.events.as_ref(),
         &self.step,
-        Denial {
-          kind: PermissionKind::Network,
-          target: host,
-        },
+        Denial::ungranted(PermissionKind::Network, &host),
       );
       return Box::new(async move { Err(Error::HttpRequestDenied) });
     }

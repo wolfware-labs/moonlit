@@ -52,6 +52,7 @@ anyhow = "1"
 hyper = "1"
 http-body-util = "0.1"
 globset = "0.4"
+dunce = "1.0.5"
 clap = { version = "4", features = ["derive"] }
 indicatif = "0.18"
 comfy-table = "8"

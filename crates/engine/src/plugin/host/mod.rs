@@ -8,7 +8,7 @@ use crate::logging::LogLevel;
 use crate::plugin::host::state::HostState;
 use crate::plugin::wit;
 pub use auth::{build_globset, build_wasi_ctx};
-pub use child_process::ChildProcess;
+pub use child_process::{ChildProcess, ChildSandbox};
 pub use net::AllowlistHooks;
 use wasmtime::component::{HasSelf, Linker};
 

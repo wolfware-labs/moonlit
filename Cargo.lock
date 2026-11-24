@@ -2317,6 +2317,7 @@ dependencies = [
  "codspeed-criterion-compat",
  "dirs",
  "dotenvy",
+ "dunce",
  "flate2",
  "globset",
  "hex",

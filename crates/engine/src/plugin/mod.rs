@@ -13,7 +13,7 @@ pub mod world;
 use crate::engine::Engine;
 use crate::logging::LogLevel;
 pub use crate::plugin::error::PluginError;
-use crate::plugin::host::{AllowlistHooks, build_globset, build_wasi_ctx};
+use crate::plugin::host::{AllowlistHooks, ChildSandbox, build_globset, build_wasi_ctx};
 pub use crate::plugin::instance::{PluginInstance, PluginInstanceConfig};
 use crate::plugin::wit::PluginHost;
 use host::HostEventSink;
@@ -55,6 +55,7 @@ impl Plugin {
       events,
       cfg.config_view,
       build_globset(&cfg.permissions.exec),
+      ChildSandbox::new(&cfg.working_directory, &cfg.permissions.env, &cfg.env_snapshot),
       denials,
     ));
 

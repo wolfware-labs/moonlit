@@ -160,14 +160,20 @@ impl<'a> Command<'a> {
     self.cmd.args.extend(args.into_iter().map(Into::into));
     self
   }
+  /// Runs the program in `dir`: the working directory or a folder inside it, given absolute or relative to the
+  /// working directory. The host refuses any other folder. Without it the program runs in the working directory.
   pub fn cwd(mut self, dir: impl Into<String>) -> Self {
     self.cmd.cwd = Some(dir.into());
     self
   }
+  /// Sets a variable for the program, on top of the host's fixed set and the variables granted under `env`.
+  /// The host refuses a command that sets a name the `env` permission does not cover, or `PATH`, `LD_*`,
+  /// `DYLD_*`, `GCONV_PATH` or `LOCPATH` (on Windows also `PATHEXT` and `COMSPEC`) whatever is granted.
   pub fn env(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
     self.cmd.env.push((k.into(), v.into()));
     self
   }
+  /// Sets each variable as [`Command::env`] does.
   pub fn envs<I, K, V>(mut self, vars: I) -> Self
   where
     I: IntoIterator<Item = (K, V)>,
