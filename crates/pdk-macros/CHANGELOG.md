@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-macros-v0.2.0...moonlit-pdk-macros-v0.3.0) - 2026-11-25
+
+### Added
+
+- [**breaking**] let plugins declare permissions and add search/add/update/doctor ([#52](https://github.com/wolfware-labs/moonlit/pull/52))
+
+### Other
+
+- *(pdk)* move pre-rename release notes out of the changelogs ([#30](https://github.com/wolfware-labs/moonlit/pull/30))
+
 ## [0.2.0](https://github.com/wolfware-labs/moonlit/compare/moonlit-pdk-macros-v0.1.0...moonlit-pdk-macros-v0.2.0) - 2026-09-28
 
 ### Other
